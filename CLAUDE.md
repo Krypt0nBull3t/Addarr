@@ -32,7 +32,35 @@ pip install -r requirements.txt
 
 # Lint
 flake8 .
+
+# Run tests
+pytest                                      # All tests
+pytest --tb=short -q                        # Quick summary
+pytest --cov=src --cov-report=term-missing  # With coverage
+pytest -k "test_name"                       # Specific test
+pytest -x                                   # Stop on first failure
+
+# Run tests by domain (scoped coverage)
+python scripts/test_runner.py api --coverage        # API clients
+python scripts/test_runner.py services --coverage   # Service layer
+python scripts/test_runner.py handlers --coverage   # Bot handlers
+python scripts/test_runner.py models --coverage     # Data models
+python scripts/test_runner.py bot --coverage        # Bot structure
+python scripts/test_runner.py utils --coverage      # Utilities
+python scripts/test_runner.py config --coverage     # Configuration
+python scripts/test_runner.py all --coverage        # Full suite
+# Extra pytest args pass through: python scripts/test_runner.py api -v -x
 ```
+
+## Testing
+
+Tests live in `tests/` mirroring `src/` structure. Key patterns:
+
+- **Config mock**: `tests/conftest.py` injects a `MockConfig` into `sys.modules["src.config.settings"]` before any `src` imports, bypassing the real `Config()` which reads from disk at import time.
+- **Singleton reset**: An `autouse=True` fixture resets `_instance = None` on all singleton services between tests.
+- **Telegram factories**: Factory fixtures (`make_user`, `make_message`, `make_update`, `make_context`) return callables for per-test customization.
+- **API mocking**: `aioresponses` for async HTTP clients (Radarr, Sonarr, Lidarr, SABnzbd). `unittest.mock.patch("requests.post")` for Transmission (uses sync `requests`).
+- **Translation mock**: `autouse=True` fixture patches `TranslationService._load_translations` so tests don't need YAML files.
 
 ## Lint Configuration
 
@@ -74,6 +102,25 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 Handlers are registered in `AddarrBot._add_handlers()` in this order: Start, Auth, Media, Transmission (if enabled), SABnzbd (if enabled), Help, Status. Order matters because `python-telegram-bot` matches the first matching handler.
 
+## CI/CD
+
+GitHub Actions workflows in `.github/workflows/`:
+
+- **`ci.yml`** — Runs on PRs to `main`/`development`. Jobs: flake8 lint, pytest with coverage, translation validation (`--validate-i18n`), Docker build test.
+- **`auto-approve.yml`** — Triggered after CI succeeds. Performs AI-powered PR review via Groq (Qwen3-32B) plus rule-based checks (TODOs, print statements, large files, hardcoded secrets, bare excepts). Posts review comment and auto-approves. Requires `GROQ_API_KEY` and `REVIEWER_BOT_TOKEN` secrets.
+- **`codeql-analysis.yml`** — CodeQL security scanning on push/PR.
+- **`docker-hub-push.yml`** — Publishes Docker image to Docker Hub.
+
+## Helm / Kubernetes
+
+Helm chart in `helm/` for Kubernetes deployment:
+
+```bash
+helm install addarr ./helm -f helm/values.yaml
+```
+
+Templates include ConfigMap, Deployment, and PersistentVolumeClaim. See `helm/README.md` for configuration details.
+
 ## Known Future Work
 
 Imports were cleaned up during a lint pass. If implementing the following, re-add the corresponding imports:
@@ -90,4 +137,4 @@ docker-compose up -d
 docker build -t addarr . && docker run -d -v $(pwd)/config.yaml:/app/config.yaml addarr
 ```
 
-Base image: `python:3.11.5-alpine3.18`. Uses host networking. Persistent files to mount: `config.yaml`, `logs/`, `chatid.txt`, `admin.txt`, `allowlist.txt`.
+Base image: `python:3.11.5-alpine3.18`. Uses host networking. Persistent files to mount: `config.yaml`, `logs/`, `chatid.txt`, `admin.txt`, `allowlist.txt`. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.

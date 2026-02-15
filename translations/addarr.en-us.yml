@@ -41,8 +41,7 @@ en-us:
   What is this?: "❓ What are you looking for?"
   NotAuthorized: "🔒 You need to authenticate first.\nUse /start to begin authentication."
   mainMenu: "🏠 Main Menu - Choose an action."
-  Canceled: "🚫 Operation canceled. Type /start to see the main menu"
-  
+
   messages:
     CancelHint: "(Use /cancel to cancel)"
     Add: "✅ Yes, add this %{subject}"
@@ -55,6 +54,9 @@ en-us:
     Exist: "ℹ️ %{subjectWithArticle} already exists 😉"
     NoExist: "❌ %{subjectWithArticle} does not exist"
     DeletePrompt: "🗑️ Select what you want to delete"
+    CancelConfirm: "Are you sure you want to cancel?"
+    CancelSuccess: "✅ Operation successfully canceled"
+    Canceled: "🚫 Operation canceled. Type /start to see the main menu"
   
   # Search results
   searchresults:

@@ -41,8 +41,7 @@ de-de:
   What is this?: "❓ Wonach möchtest du suchen?"
   NotAuthorized: "🔒 Du musst dich zuerst authentifizieren.\nBenutze /auth um die Authentifizierung zu starten."
   mainMenu: "🏠 Hauptmenü - Wähle eine Aktion aus."
-  Canceled: "🚫 Aktion abgebrochen. Tippe /start um das Hauptmenü zu sehen"
-  
+
   messages:
     CancelHint: "(Benutze /cancel zum Abbrechen)"
     Add: "✅ Ja, %{subject} hinzufügen"
@@ -55,6 +54,9 @@ de-de:
     Exist: "ℹ️ %{subjectWithArticle} existiert bereits 😉"
     NoExist: "❌ %{subjectWithArticle} existiert nicht"
     DeletePrompt: "🗑️ Wähle aus, was du löschen möchtest"
+    CancelConfirm: "Bist du sicher, dass du abbrechen möchtest?"
+    CancelSuccess: "✅ Aktion erfolgreich abgebrochen"
+    Canceled: "🚫 Aktion abgebrochen. Tippe /start um das Hauptmenü zu sehen"
   
   # Search results
   searchresults:

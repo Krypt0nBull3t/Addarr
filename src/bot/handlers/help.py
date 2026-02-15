@@ -33,7 +33,7 @@ class HelpHandler:
     @require_auth
     async def show_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show help message with available commands"""
-        if not update.effective_user:
+        if not update.effective_user:  # pragma: no cover
             return
 
         user = update.effective_user
