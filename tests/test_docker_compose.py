@@ -30,11 +30,11 @@ class TestDockerCompose:
         deploy = service.get("deploy", {})
         resources = deploy.get("resources", {})
         limits = resources.get("limits", {})
-        assert "memory" in limits, "Service must define memory limit"
+        assert limits.get("memory") == "256M", "Service must define memory limit of 256M"
 
     def test_has_backup_volume(self, compose_config):
         """Service should mount backup directory for persistence."""
         service = compose_config["services"]["addarr"]
         volumes = service.get("volumes", [])
-        backup_mounts = [v for v in volumes if "backup" in v]
-        assert len(backup_mounts) > 0, "Service must mount backup/ volume"
+        backup_mounts = [v for v in volumes if v.startswith("./backup:")]
+        assert len(backup_mounts) > 0, "Service must mount ./backup volume"
