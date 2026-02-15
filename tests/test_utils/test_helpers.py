@@ -140,6 +140,13 @@ class TestIsAllowed:
         ):
             assert is_allowed(100) is False
 
+    def test_is_allowed_missing_security_section_defaults_false(self):
+        """Returns True (allowlist disabled) when security section is absent."""
+        mock_cfg = MagicMock()
+        mock_cfg.get.return_value = {}  # No security section
+        with patch("src.utils.helpers.config", mock_cfg):
+            assert is_allowed(999) is True
+
     def test_is_allowed_reads_nested_security_config(self, tmp_path):
         """is_allowed reads enableAllowlist from security section, not root."""
         allow_file = tmp_path / "allowlist.txt"
