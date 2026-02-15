@@ -1778,8 +1778,7 @@ async def test_get_status_text_transmission_exception_shows_unavailable(media_ha
 
     text = await media_handler._get_status_text()
 
-    assert "Transmission" in text
-    assert "Unavailable" in text
+    assert "📥 Transmission: ⚠️ Unavailable" in text
 
 
 @pytest.mark.asyncio
@@ -1794,8 +1793,7 @@ async def test_get_status_text_sabnzbd_exception_shows_unavailable(media_handler
 
     text = await media_handler._get_status_text()
 
-    assert "SABnzbd" in text
-    assert "Unavailable" in text
+    assert "📥 SABnzbd: ⚠️ Unavailable" in text
 
 
 @pytest.mark.asyncio
