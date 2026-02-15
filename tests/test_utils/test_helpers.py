@@ -84,10 +84,22 @@ class TestIsAdmin:
 class TestIsAllowed:
     """Tests for is_allowed -- patches ALLOWLIST_PATH and config."""
 
+    def _make_config(self, allowlist_enabled):
+        """Build a mock config with enableAllowlist under security section."""
+        mock_cfg = MagicMock()
+
+        def get_side_effect(key, default=None):
+            config_data = {
+                "security": {"enableAllowlist": allowlist_enabled},
+            }
+            return config_data.get(key, default)
+
+        mock_cfg.get.side_effect = get_side_effect
+        return mock_cfg
+
     def test_is_allowed_allowlist_disabled(self):
         """Returns True when enableAllowlist is False in config."""
-        mock_cfg = MagicMock()
-        mock_cfg.get.return_value = False
+        mock_cfg = self._make_config(allowlist_enabled=False)
         with patch("src.utils.helpers.config", mock_cfg):
             assert is_allowed(999) is True
 
@@ -96,8 +108,7 @@ class TestIsAllowed:
         allow_file = tmp_path / "allowlist.txt"
         allow_file.write_text("100\n200\n300\n")
 
-        mock_cfg = MagicMock()
-        mock_cfg.get.return_value = True
+        mock_cfg = self._make_config(allowlist_enabled=True)
 
         with (
             patch("src.utils.helpers.config", mock_cfg),
@@ -110,8 +121,7 @@ class TestIsAllowed:
         allow_file = tmp_path / "allowlist.txt"
         allow_file.write_text("100\n200\n300\n")
 
-        mock_cfg = MagicMock()
-        mock_cfg.get.return_value = True
+        mock_cfg = self._make_config(allowlist_enabled=True)
 
         with (
             patch("src.utils.helpers.config", mock_cfg),
@@ -121,8 +131,7 @@ class TestIsAllowed:
 
     def test_is_allowed_no_file(self, tmp_path):
         """Returns False when allowlist is enabled but file is missing."""
-        mock_cfg = MagicMock()
-        mock_cfg.get.return_value = True
+        mock_cfg = self._make_config(allowlist_enabled=True)
         missing = str(tmp_path / "nonexistent_allowlist.txt")
 
         with (
@@ -130,6 +139,28 @@ class TestIsAllowed:
             patch("src.utils.helpers.ALLOWLIST_PATH", missing),
         ):
             assert is_allowed(100) is False
+
+    def test_is_allowed_reads_nested_security_config(self, tmp_path):
+        """is_allowed reads enableAllowlist from security section, not root."""
+        allow_file = tmp_path / "allowlist.txt"
+        allow_file.write_text("100\n200\n")
+
+        mock_cfg = MagicMock()
+
+        def get_side_effect(key, default=None):
+            config_data = {
+                "security": {"enableAllowlist": True},
+            }
+            return config_data.get(key, default)
+
+        mock_cfg.get.side_effect = get_side_effect
+
+        with (
+            patch("src.utils.helpers.config", mock_cfg),
+            patch("src.utils.helpers.ALLOWLIST_PATH", str(allow_file)),
+        ):
+            # User 999 NOT in allowlist — should be denied
+            assert is_allowed(999) is False
 
 
 # ---- save_chat_id ----
