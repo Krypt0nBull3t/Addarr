@@ -6,6 +6,7 @@ NOTE: Lidarr uses /api/v1/ (not v3).
 
 import pytest
 import aiohttp
+from aioresponses import CallbackResult
 from unittest.mock import patch
 
 from tests.fixtures.sample_data import (
@@ -402,6 +403,40 @@ class TestLidarrAddArtist:
             ARTIST_ID, root_folder="/music", quality_profile_id=1
         )
         assert success is False
+
+    @pytest.mark.asyncio
+    async def test_add_artist_uses_config_metadata_profile_id(self, aio_mock):
+        """metadataProfileId should come from config, not be hardcoded to 1."""
+        from src.config.settings import config
+        original = config._config["lidarr"]["metadataProfileId"]
+        config._config["lidarr"]["metadataProfileId"] = 2
+        try:
+            from src.api.lidarr import LidarrClient
+            client = LidarrClient()
+
+            aio_mock.get(
+                f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+                payload=LIDARR_SEARCH_RESULTS[:1],
+                status=200,
+            )
+
+            posted_data = {}
+
+            def capture(url, **kwargs):
+                posted_data.update(kwargs.get('json', {}))
+                return CallbackResult(
+                    payload={"id": 1, "artistName": "Linkin Park"},
+                    status=200,
+                )
+
+            aio_mock.post(f"{BASE}/artist", callback=capture)
+
+            success, _ = await client.add_artist(ARTIST_ID, "/music", 1)
+
+            assert success is True
+            assert posted_data["metadataProfileId"] == 2
+        finally:
+            config._config["lidarr"]["metadataProfileId"] = original
 
     @pytest.mark.asyncio
     async def test_add_artist_outer_exception(self, lidarr_client):
