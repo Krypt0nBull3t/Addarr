@@ -74,6 +74,14 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 Handlers are registered in `AddarrBot._add_handlers()` in this order: Start, Auth, Media, Transmission (if enabled), SABnzbd (if enabled), Help, Status. Order matters because `python-telegram-bot` matches the first matching handler.
 
+## Known Future Work
+
+Imports were cleaned up during a lint pass. If implementing the following, re-add the corresponding imports:
+
+- **Colored handler logging**: `delete.py`, `help.py`, `sabnzbd.py`, `start.py`, `system.py` handlers currently log without color. Other handlers (auth, media) use `from colorama import Fore` for colored log messages. Re-add if adding colored logging to these files.
+- **Exception-based service checks**: `src/bot/handlers/transmission.py` checks `is_enabled()` and sends a reply directly. `ServiceNotEnabledError` from `src/utils/error_handler` was removed but may be needed if refactoring to exception-based handling.
+- **Scheduler enhancements**: `src/services/scheduler.py` uses `aiocron` for scheduling. `asyncio`, `datetime`/`timedelta`, and `typing.Optional`/`Any` were removed but may be needed for time-based scheduling features beyond cron expressions.
+
 ## Docker
 
 ```bash
