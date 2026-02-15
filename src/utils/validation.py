@@ -176,13 +176,42 @@ def _check_security_settings():
 
 
 def parse_requirements(filename: str = "requirements.txt") -> List[str]:
-    """Parse requirements.txt file"""
-    # ... (keep existing implementation)
+    """Parse requirements.txt and return list of package names."""
+    try:
+        with open(filename, 'r') as f:
+            packages = []
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or line.startswith('-'):
+                    continue
+                # Strip version specifiers (>=, ==, ~=, etc.)
+                for sep in ['>=', '==', '<=', '~=', '!=', '>', '<']:
+                    if sep in line:
+                        line = line[:line.index(sep)]
+                        break
+                # Strip extras (e.g., package[extra])
+                if '[' in line:
+                    line = line[:line.index('[')]
+                packages.append(line.strip())
+            return packages
+    except FileNotFoundError:
+        return []
 
 
 def get_installed_packages() -> Set[str]:
-    """Get list of installed packages using pip list"""
-    # ... (keep existing implementation)
+    """Get set of installed package names using pip list."""
+    try:
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'list', '--format=freeze'],
+            capture_output=True, text=True, timeout=30
+        )
+        packages = set()
+        for line in result.stdout.strip().split('\n'):
+            if '==' in line:
+                packages.add(line.split('==')[0].strip().lower())
+        return packages
+    except Exception:
+        return set()
 
 
 class Validator:
