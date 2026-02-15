@@ -74,6 +74,25 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 Handlers are registered in `AddarrBot._add_handlers()` in this order: Start, Auth, Media, Transmission (if enabled), SABnzbd (if enabled), Help, Status. Order matters because `python-telegram-bot` matches the first matching handler.
 
+## CI/CD
+
+GitHub Actions workflows in `.github/workflows/`:
+
+- **`ci.yml`** — Runs on PRs to `main`/`development`. Jobs: flake8 lint, translation validation (`--validate-i18n`), Docker build test.
+- **`auto-approve.yml`** — Triggered after CI succeeds. Performs AI-powered PR review via Groq (Qwen3-32B) plus rule-based checks (TODOs, print statements, large files, hardcoded secrets, bare excepts). Posts review comment and auto-approves. Requires `GROQ_API_KEY` and `REVIEWER_BOT_TOKEN` secrets.
+- **`codeql-analysis.yml`** — CodeQL security scanning on push/PR.
+- **`docker-hub-push.yml`** — Publishes Docker image to Docker Hub.
+
+## Helm / Kubernetes
+
+Helm chart in `helm/` for Kubernetes deployment:
+
+```bash
+helm install addarr ./helm -f helm/values.yaml
+```
+
+Templates include ConfigMap, Deployment, and PersistentVolumeClaim. See `helm/README.md` for configuration details.
+
 ## Known Future Work
 
 Imports were cleaned up during a lint pass. If implementing the following, re-add the corresponding imports:
@@ -90,4 +109,4 @@ docker-compose up -d
 docker build -t addarr . && docker run -d -v $(pwd)/config.yaml:/app/config.yaml addarr
 ```
 
-Base image: `python:3.11.5-alpine3.18`. Uses host networking. Persistent files to mount: `config.yaml`, `logs/`, `chatid.txt`, `admin.txt`, `allowlist.txt`.
+Base image: `python:3.11.5-alpine3.18`. Uses host networking. Persistent files to mount: `config.yaml`, `logs/`, `chatid.txt`, `admin.txt`, `allowlist.txt`. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.
