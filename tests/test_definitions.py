@@ -8,6 +8,13 @@ import pytest
 import yaml
 
 
+class TestModuleDoesNotExportDeadCode:
+    def test_no_default_settings(self):
+        """DEFAULT_SETTINGS was unused dead code and should be removed."""
+        from src import definitions
+        assert not hasattr(definitions, "DEFAULT_SETTINGS")
+
+
 class TestLoadConfig:
     def test_load_config_success(self, tmp_path, monkeypatch):
         config_data = {"admins": [111], "language": "en-us"}
