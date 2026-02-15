@@ -41,7 +41,6 @@ it-it:
   What is this?: "❓ Cosa stai cercando?"
   NotAuthorized: "🔒 Devi prima autenticarti.\nUsa /start per iniziare l'autenticazione."
   mainMenu: "🏠 Menu principale - Scegli un'azione."
-  Canceled: "🚫 Operazione annullata. Scrivi /start per vedere il menu principale"
 
   messages:
     CancelHint: "(Usa /cancel per annullare)"
@@ -55,6 +54,9 @@ it-it:
     Exist: "ℹ️ %{subjectWithArticle} esiste già 😉"
     NoExist: "❌ %{subjectWithArticle} non esiste"
     DeletePrompt: "🗑️ Seleziona cosa vuoi eliminare"
+    CancelConfirm: "Sei sicuro di voler annullare?"
+    CancelSuccess: "✅ Operazione annullata con successo"
+    Canceled: "🚫 Operazione annullata. Scrivi /start per vedere il menu principale"
   
   # Search results
   searchresults:

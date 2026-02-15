@@ -41,7 +41,6 @@ fr-fr:
   What is this?: "❓ Que recherchez-vous ?"
   NotAuthorized: "🔒 Vous devez d'abord vous authentifier.\nUtilisez /start pour commencer l'authentification."
   mainMenu: "🏠 Menu principal - Choisissez une action."
-  Canceled: "🚫 Opération annulée. Tapez /start pour voir le menu principal"
 
   messages:
     CancelHint: "(Utilisez /cancel pour annuler)"
@@ -55,6 +54,9 @@ fr-fr:
     Exist: "ℹ️ %{subjectWithArticle} existe déjà 😉"
     NoExist: "❌ %{subjectWithArticle} n'existe pas"
     DeletePrompt: "🗑️ Sélectionnez ce que vous voulez supprimer"
+    CancelConfirm: "Êtes-vous sûr de vouloir annuler ?"
+    CancelSuccess: "✅ Opération annulée avec succès"
+    Canceled: "🚫 Opération annulée. Tapez /start pour voir le menu principal"
   
   # Search results
   searchresults:

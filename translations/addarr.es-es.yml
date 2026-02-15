@@ -54,6 +54,8 @@ es-es:
     Exist: "ℹ️ %{subjectWithArticle} ya existe 😉"
     NoExist: "❌ %{subjectWithArticle} no existe"
     DeletePrompt: "🗑️ Selecciona lo que quieres eliminar"
+    CancelConfirm: "¿Estás seguro de que quieres cancelar?"
+    CancelSuccess: "✅ Operación cancelada exitosamente"
     Canceled: "🚫 Operación cancelada. Escribe /start para ver el menú principal"
   
   # Search results
