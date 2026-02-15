@@ -161,12 +161,14 @@ jobs:
             -H "Content-Type: application/json" \
             -d @request.json)
 
-          # Extract the review text
+          # Extract the review text and strip <think> blocks from Qwen
           REVIEW=$(echo "$RESPONSE" | python3 -c "
-          import sys, json
+          import sys, json, re
           try:
               data = json.load(sys.stdin)
-              print(data['choices'][0]['message']['content'])
+              content = data['choices'][0]['message']['content']
+              content = re.sub(r'<think>.*?</think>\s*', '', content, flags=re.DOTALL)
+              print(content.strip())
           except (KeyError, IndexError, json.JSONDecodeError) as e:
               print(f'AI review unavailable: {e}')
           ")
