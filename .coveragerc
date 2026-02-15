@@ -1,12 +1,16 @@
 [run]
 source = src
 omit =
+    # Root — entry points, no unit tests
+    src/__init__.py
     src/main.py
     src/setup.py
-    src/utils/splash.py
+    # Config — reads from disk at import time
     src/config/settings.py
+    # Utils — interactive/display, no unit tests
     src/utils/config_handler.py
     src/utils/prerun.py
+    src/utils/splash.py
 
 [report]
 exclude_lines =
