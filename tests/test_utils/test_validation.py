@@ -191,6 +191,12 @@ class TestGetInstalledPackages:
         # pytest itself should be installed
         assert "pytest" in result
 
+    def test_get_installed_packages_returns_empty_on_error(self):
+        """get_installed_packages returns empty set when subprocess fails."""
+        with patch("subprocess.run", side_effect=OSError("pip not found")):
+            result = get_installed_packages()
+        assert result == set()
+
 
 # ---- check_dependencies ----
 
