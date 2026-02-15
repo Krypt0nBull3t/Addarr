@@ -112,7 +112,55 @@ class Config:
                 f"Invalid language. Must be one of: {', '.join(valid_languages)}"
             )
 
-        # Add other validation as needed...
+        # Validate Telegram token is not empty
+        telegram = self._config.get("telegram", {})
+        if not telegram.get("token"):
+            raise ConfigurationError(
+                "Telegram bot token is required. Get one from @BotFather."
+            )
+
+        # Validate service ports and API keys
+        for service in ["radarr", "sonarr", "lidarr"]:
+            svc = self._config.get(service, {})
+            if not svc.get("enable"):
+                continue
+            self._validate_port(
+                svc.get("server", {}).get("port"),
+                f"{service}.server.port"
+            )
+            apikey = svc.get("auth", {}).get("apikey")
+            if not apikey:
+                raise ConfigurationError(
+                    f"{service.title()} is enabled but API key is missing."
+                )
+
+        # Validate SABnzbd port and API key
+        sabnzbd = self._config.get("sabnzbd", {})
+        if sabnzbd.get("enable"):
+            self._validate_port(
+                sabnzbd.get("server", {}).get("port"),
+                "sabnzbd.server.port"
+            )
+            if not sabnzbd.get("auth", {}).get("apikey"):
+                raise ConfigurationError(
+                    "SABnzbd is enabled but API key is missing."
+                )
+
+    @staticmethod
+    def _validate_port(port, field_name: str):
+        """Validate a port number is in valid range."""
+        if port is None:
+            return
+        try:
+            port_int = int(port)
+        except (TypeError, ValueError):
+            raise ConfigurationError(
+                f"{field_name} must be a number, got: {port}"
+            )
+        if not (1 <= port_int <= 65535):
+            raise ConfigurationError(
+                f"{field_name} must be between 1 and 65535, got: {port_int}"
+            )
 
     def _get_missing_keys(self, example: Dict, config: Dict, prefix="") -> List[str]:
         """Recursively find missing configuration keys"""
