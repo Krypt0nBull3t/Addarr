@@ -3,7 +3,6 @@ Tests for src/services/media.py -- MediaService singleton.
 """
 
 import pytest
-from unittest.mock import AsyncMock
 
 from src.services.media import MediaService
 

@@ -2,7 +2,6 @@
 Tests for src/api/sonarr.py -- SonarrClient.
 """
 
-import json
 import pytest
 import aiohttp
 

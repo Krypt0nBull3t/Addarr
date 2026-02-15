@@ -7,7 +7,7 @@ handle_delete_selection processes callback queries for deletion flow.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 
 
 # ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@ _handle_status reads bot_instance from context.application for health checks.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock
 
 
 # ---------------------------------------------------------------------------

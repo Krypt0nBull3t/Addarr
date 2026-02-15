@@ -1,7 +1,5 @@
 """Tests for src/utils/validate_translations.py -- pure functions."""
 
-import pytest
-
 from src.utils.validate_translations import (
     load_yaml,
     get_all_keys,

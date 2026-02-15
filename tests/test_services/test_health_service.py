@@ -132,7 +132,7 @@ class TestRunHealthChecks:
             "check_service_health",
             new_callable=AsyncMock,
             return_value=(True, "Online (v4.7.0)"),
-        ) as mock_check:
+        ):
             results = await service.run_health_checks()
 
         assert "media_services" in results

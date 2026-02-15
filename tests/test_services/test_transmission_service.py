@@ -6,7 +6,7 @@ We mock TransmissionAPI at the import site to avoid that side effect.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from tests.conftest import _mock_config
 

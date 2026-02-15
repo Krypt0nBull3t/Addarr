@@ -7,7 +7,7 @@ is set to None. get_handler returns [] when service is None.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 
 
 # ---------------------------------------------------------------------------

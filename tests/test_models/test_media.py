@@ -2,8 +2,6 @@
 Tests for src.models.media dataclasses.
 """
 
-import pytest
-
 from src.models.media import (
     Artist,
     MediaItem,

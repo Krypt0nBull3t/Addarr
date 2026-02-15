@@ -14,7 +14,6 @@ All methods under test are synchronous (using ``requests.post``).
 
 from unittest.mock import patch, MagicMock
 
-import pytest
 import requests
 
 from src.api.base import BaseApiClient

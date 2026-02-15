@@ -5,8 +5,6 @@ Note: The autouse mock_translation fixture in root conftest patches
 _load_translations, so we set _translations manually in tests.
 """
 
-import pytest
-
 from src.services.translation import TranslationService
 
 

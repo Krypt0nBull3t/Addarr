@@ -2,8 +2,6 @@
 Tests for src/api/radarr.py -- RadarrClient.
 """
 
-import re
-import json
 import pytest
 import aiohttp
 

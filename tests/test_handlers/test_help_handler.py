@@ -7,7 +7,7 @@ handle_back returns to the main menu (decorated with @require_auth).
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 
 
 # ---------------------------------------------------------------------------

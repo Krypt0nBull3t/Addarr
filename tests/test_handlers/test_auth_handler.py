@@ -6,7 +6,7 @@ guards handler methods by checking AuthHandler.is_authenticated(user_id).
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 from telegram.ext import ConversationHandler
 
 

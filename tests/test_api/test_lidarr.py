@@ -4,7 +4,6 @@ Tests for src/api/lidarr.py -- LidarrClient.
 NOTE: Lidarr uses /api/v1/ (not v3).
 """
 
-import json
 import pytest
 import aiohttp
 

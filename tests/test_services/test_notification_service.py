@@ -3,7 +3,7 @@ Tests for src/services/notification.py -- NotificationService singleton.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from src.services.notification import NotificationService
 

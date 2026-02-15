@@ -4,7 +4,6 @@ Tests for src/services/scheduler.py -- JobScheduler.
 aiocron.crontab is mocked to avoid real cron scheduling in tests.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 

@@ -2,8 +2,6 @@
 Tests for src.models.notification dataclasses and enums.
 """
 
-import pytest
-
 from src.models.notification import Notification, NotificationType
 from telegram.constants import ParseMode
 
