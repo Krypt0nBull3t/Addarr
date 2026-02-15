@@ -14,7 +14,20 @@ RUN apk add --no-cache \
 # Copy files to container
 COPY . /app
 
-# Install ans build Addarr Refresh requirements, make symlink to redirect logs to stdout
+# Install and build Addarr Refresh requirements
 RUN	pip install --no-cache-dir -r requirements.txt --upgrade
 
-ENTRYPOINT ["python", "/run.py"]
+# Create non-root user and set ownership
+RUN addgroup -S addarr && adduser -S addarr -G addarr \
+    && chown -R addarr:addarr /app
+
+USER addarr
+
+# Graceful shutdown signal
+STOPSIGNAL SIGINT
+
+# Health check - verify the process is running
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD pgrep -f "python.*run.py" || exit 1
+
+ENTRYPOINT ["python", "/app/run.py"]
