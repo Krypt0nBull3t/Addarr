@@ -26,5 +26,8 @@ class States:
     # Auth states
     PASSWORD = 0
 
+    # Music states
+    ARTIST_SELECT = 5
+
     # General states
     END = "end"
