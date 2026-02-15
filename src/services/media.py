@@ -7,10 +7,12 @@ Description: Media service module.
 This module handles interactions with media services (Radarr, Sonarr, Lidarr).
 """
 
+import os
 from typing import List, Dict
 
 from src.utils.logger import get_logger
 from src.config.settings import config
+from src.utils.helpers import is_admin
 from src.api.radarr import RadarrClient
 from src.api.sonarr import SonarrClient
 from src.api.lidarr import LidarrClient
@@ -95,6 +97,37 @@ class MediaService:
     @property
     def lidarr(self):
         return self._lidarr
+
+    @staticmethod
+    def _narrow_folder_name(path: str) -> str:
+        """Return just the last component of a folder path."""
+        return os.path.basename(path.rstrip("/\\")) or path
+
+    def get_root_folder_display(self, service: str, folders: List[str]) -> List[Dict]:
+        """Return root folders with display names, respecting narrowRootFolderNames config.
+
+        Returns list of dicts with 'path' (full path) and 'name' (display name).
+        """
+        service_config = config.get(service, {})
+        narrow = service_config.get("paths", {}).get("narrowRootFolderNames", True)
+        return [
+            {
+                "path": folder,
+                "name": self._narrow_folder_name(folder) if narrow else folder
+            }
+            for folder in folders
+        ]
+
+    def check_admin_restriction(self, service: str, user_id: int) -> bool:
+        """Check if a service has admin restrictions and if the user is allowed.
+
+        Returns True if the user is allowed, False if blocked.
+        """
+        service_config = config.get(service, {})
+        if service_config.get("adminRestrictions", False):
+            if not is_admin(user_id):
+                return False
+        return True
 
     async def search_movies(self, query: str) -> List[Dict]:
         """Search for movies using Radarr"""

@@ -42,6 +42,10 @@ class LidarrClient:
             logger.error(Fore.RED + "❌ Lidarr API key not configured")
             raise ValueError("Lidarr API key not configured")
 
+        features_config = lidarr_config.get("features", {})
+        self.metadata_profile_id = lidarr_config.get("metadataProfileId", 1)
+        self.album_folder = features_config.get("albumFolder", True)
+        self.monitor_option = features_config.get("monitorOption", "all")
         self.headers = {
             "X-Api-Key": self.api_key,
             "Content-Type": "application/json"
@@ -151,11 +155,13 @@ class LidarrClient:
             data = {
                 "foreignArtistId": artist["foreignArtistId"],
                 "artistName": artist["artistName"],
-                "qualityProfileId": quality_profile_id or 1,  # Default profile if not specified
-                "metadataProfileId": 1,  # Default metadata profile
-                "rootFolderPath": root_folder or "/music",  # Default path if not specified
+                "qualityProfileId": quality_profile_id or 1,
+                "metadataProfileId": self.metadata_profile_id,
+                "rootFolderPath": root_folder or "/music",
+                "albumFolder": self.album_folder,
                 "monitored": True,
                 "addOptions": {
+                    "monitor": self.monitor_option,
                     "searchForMissingAlbums": True
                 }
             }

@@ -155,6 +155,10 @@ class MediaHandler:
 
         log_user_interaction(logger, update.effective_user, "/movie")
 
+        if not self.media_service.check_admin_restriction("radarr", update.effective_user.id):
+            await update.message.reply_text("⛔ This service is restricted to admins only.")
+            return ConversationHandler.END
+
         context.user_data["search_type"] = "movie"
         prompt = self.translation.get_text("Title")
 
@@ -181,6 +185,10 @@ class MediaHandler:
 
         log_user_interaction(logger, update.effective_user, "/series")
 
+        if not self.media_service.check_admin_restriction("sonarr", update.effective_user.id):
+            await update.message.reply_text("⛔ This service is restricted to admins only.")
+            return ConversationHandler.END
+
         context.user_data["search_type"] = "series"
         prompt = self.translation.get_text("Title")
 
@@ -206,6 +214,10 @@ class MediaHandler:
             return ConversationHandler.END
 
         log_user_interaction(logger, update.effective_user, "/music")
+
+        if not self.media_service.check_admin_restriction("lidarr", update.effective_user.id):
+            await update.message.reply_text("⛔ This service is restricted to admins only.")
+            return ConversationHandler.END
 
         context.user_data["search_type"] = "music"
         prompt = self.translation.get_text("Title")

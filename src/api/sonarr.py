@@ -42,6 +42,8 @@ class SonarrClient:
             logger.error(Fore.RED + "❌ Sonarr API key not configured")
             raise ValueError("Sonarr API key not configured")
 
+        features_config = sonarr_config.get("features", {})
+        self.season_folder = features_config.get("seasonFolder", True)
         self.headers = {
             "X-Api-Key": self.api_key,
             "Content-Type": "application/json"
@@ -146,6 +148,7 @@ class SonarrClient:
                 "title": series["title"],
                 "qualityProfileId": quality_profile_id,
                 "rootFolderPath": root_folder,
+                "seasonFolder": self.season_folder,
                 "monitored": True,
                 "addOptions": {
                     "searchForMissingEpisodes": True
