@@ -103,7 +103,7 @@ def is_admin(user_id: int) -> bool:
 
 def is_allowed(user_id: int) -> bool:
     """Check if user is in allowlist"""
-    if not config.get("enableAllowlist"):
+    if not config.get("security", {}).get("enableAllowlist", False):
         return True
 
     if not os.path.exists(ALLOWLIST_PATH):
