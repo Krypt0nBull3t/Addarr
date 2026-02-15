@@ -1,0 +1,16 @@
+[run]
+source = src
+omit =
+    src/main.py
+    src/setup.py
+    src/utils/splash.py
+    src/config/settings.py
+    src/utils/config_handler.py
+    src/utils/prerun.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__
+    pass
+show_missing = true

@@ -38,8 +38,18 @@ pytest                                      # All tests
 pytest --tb=short -q                        # Quick summary
 pytest --cov=src --cov-report=term-missing  # With coverage
 pytest -k "test_name"                       # Specific test
-pytest tests/test_api/                      # Specific directory
 pytest -x                                   # Stop on first failure
+
+# Run tests by domain (scoped coverage)
+python scripts/test_runner.py api --coverage        # API clients
+python scripts/test_runner.py services --coverage   # Service layer
+python scripts/test_runner.py handlers --coverage   # Bot handlers
+python scripts/test_runner.py models --coverage     # Data models
+python scripts/test_runner.py bot --coverage        # Bot structure
+python scripts/test_runner.py utils --coverage      # Utilities
+python scripts/test_runner.py config --coverage     # Configuration
+python scripts/test_runner.py all --coverage        # Full suite
+# Extra pytest args pass through: python scripts/test_runner.py api -v -x
 ```
 
 ## Testing
