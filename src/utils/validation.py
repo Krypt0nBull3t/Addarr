@@ -8,6 +8,7 @@ This module handles all validation, including configuration checks,
 dependency verification, and pre-run requirements.
 """
 
+import os
 import sys
 import subprocess
 from typing import Any, Dict, List, Optional, Set
@@ -176,13 +177,39 @@ def _check_security_settings():
 
 
 def parse_requirements(filename: str = "requirements.txt") -> List[str]:
-    """Parse requirements.txt file"""
-    # ... (keep existing implementation)
+    """Parse requirements.txt file and return list of package names."""
+    if not os.path.exists(filename):
+        return []
+
+    packages = []
+    with open(filename, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            # Strip version specifiers (>=, ==, ~=, etc.)
+            for sep in ['>=', '<=', '==', '!=', '~=', '>']:
+                line = line.split(sep)[0]
+            packages.append(line.strip())
+    return packages
 
 
 def get_installed_packages() -> Set[str]:
-    """Get list of installed packages using pip list"""
-    # ... (keep existing implementation)
+    """Get set of installed package names using pip list."""
+    try:
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'list', '--format=freeze'],
+            capture_output=True, text=True, timeout=30,
+        )
+        packages = set()
+        for line in result.stdout.strip().split('\n'):
+            if '==' in line:
+                name = line.split('==')[0].strip().lower()
+                if name:
+                    packages.add(name)
+        return packages
+    except Exception:
+        return set()
 
 
 class Validator:
