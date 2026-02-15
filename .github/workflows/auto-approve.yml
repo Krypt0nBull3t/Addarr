@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Get PR number and diff
         id: pr
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             // Find the PR for this branch
@@ -175,7 +175,7 @@ jobs:
 
       - name: Post review comment
         if: steps.pr.outputs.number
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.REVIEWER_BOT_TOKEN }}
           script: |
@@ -203,7 +203,7 @@ jobs:
 
       - name: Approve PR
         if: steps.pr.outputs.number
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.REVIEWER_BOT_TOKEN }}
           script: |
