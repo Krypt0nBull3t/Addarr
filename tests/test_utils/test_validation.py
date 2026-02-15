@@ -180,6 +180,23 @@ class TestParseRequirements:
         result = parse_requirements()
         assert result == []
 
+    def test_parse_requirements_complex_specifiers(self, tmp_path, monkeypatch):
+        """parse_requirements handles multiple version specifiers."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text(
+            "requests>=2.28,<3.0\n"
+            "pyyaml!=6.0\n"
+            "flask~=2.3\n"
+            "aiohttp>3.0\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = parse_requirements()
+        assert "requests" in result
+        assert "pyyaml" in result
+        assert "flask" in result
+        assert "aiohttp" in result
+
 
 class TestGetInstalledPackages:
     """Tests for get_installed_packages."""
