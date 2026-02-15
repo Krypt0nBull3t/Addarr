@@ -38,3 +38,16 @@ class TestDockerCompose:
         volumes = service.get("volumes", [])
         backup_mounts = [v for v in volumes if v.startswith("./backup:")]
         assert len(backup_mounts) > 0, "Service must mount ./backup volume"
+
+    def test_backup_volume_is_read_write(self, compose_config):
+        """Backup volume should be mounted read-write."""
+        service = compose_config["services"]["addarr"]
+        volumes = service.get("volumes", [])
+        backup_mounts = [v for v in volumes if v.startswith("./backup:")]
+        assert any(":rw" in v for v in backup_mounts), "Backup volume must be :rw"
+
+    def test_has_pythonpath_env(self, compose_config):
+        """Service should set PYTHONPATH environment variable."""
+        service = compose_config["services"]["addarr"]
+        env = service.get("environment", [])
+        assert any("PYTHONPATH=/app" in e for e in env), "PYTHONPATH=/app must be set"
