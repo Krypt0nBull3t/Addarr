@@ -152,69 +152,87 @@ jobs:
         if: steps.pr.outputs.number
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PR_TITLE: ${{ steps.pr.outputs.title }}
         run: |
-          # Build the prompt
-          cat > prompt.json << 'PROMPT_END'
-          {
-            "model": "qwen/qwen3-32b",
-            "temperature": 0.3,
-            "max_tokens": 4096,
-            "messages": [
-              {
-                "role": "system",
-                "content": "You are a code reviewer for a Python Telegram bot project (Addarr). Review the PR diff and provide concise, actionable feedback. Focus on:\n1. Bugs or logic errors\n2. Security concerns\n3. Error handling issues\n4. Breaking changes\n5. Code quality improvements\n\nFormat your response as:\n## Summary\nOne paragraph overview of the changes.\n\n## Issues\nList any problems found, or 'No issues found.' if the code looks good.\n\n## Suggestions\nList optional improvements, or 'No suggestions.' if nothing to add.\n\nBe concise. Do not repeat the diff. Do not comment on formatting or whitespace."
-              },
-              {
-                "role": "user",
-                "content": "PLACEHOLDER"
-              }
-            ]
-          }
-          PROMPT_END
-
-          # Insert the diff into the prompt (escape for JSON)
-          DIFF_CONTENT=$(cat pr_diff.txt | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-          PR_TITLE="${{ steps.pr.outputs.title }}"
-          USER_MSG="Review this PR.\n\nTitle: ${PR_TITLE}\n\nDiff:\n${DIFF_CONTENT}"
-          USER_MSG_JSON=$(python3 -c "import json; print(json.dumps('''$PR_TITLE'''[:100]))" 2>/dev/null || echo '"PR"')
-
-          # Build proper request with Python to handle escaping
-          python3 << 'EOF'
+          # Build request with Python — use code-only diff, cap at 32KB for token limits
+          python3 << 'PYEOF'
           import json, os
 
-          with open('pr_diff.txt', 'r') as f:
+          # Prefer filtered diff (code only), fall back to full diff
+          diff_file = 'pr_diff_code.txt' if os.path.exists('pr_diff_code.txt') else 'pr_diff.txt'
+          with open(diff_file, 'r') as f:
               diff = f.read()
+
+          # Cap diff size to ~32KB to stay within Groq token limits
+          if len(diff) > 32000:
+              diff = diff[:32000] + "\n\n... (diff truncated for token limit)"
 
           title = os.environ.get('PR_TITLE', 'PR Review')
 
-          with open('prompt.json', 'r') as f:
-              request = json.load(f)
-
-          request['messages'][1]['content'] = f"Review this PR.\n\nTitle: {title}\n\nDiff:\n{diff}"
+          request = {
+              "model": "qwen/qwen3-32b",
+              "temperature": 0.3,
+              "max_tokens": 4096,
+              "messages": [
+                  {
+                      "role": "system",
+                      "content": (
+                          "You are a code reviewer for a Python Telegram bot project (Addarr). "
+                          "Review the PR diff and provide concise, actionable feedback. Focus on:\n"
+                          "1. Bugs or logic errors\n2. Security concerns\n3. Error handling issues\n"
+                          "4. Breaking changes\n5. Code quality improvements\n\n"
+                          "Format your response as:\n"
+                          "## Summary\nOne paragraph overview of the changes.\n\n"
+                          "## Issues\nList any problems found, or 'No issues found.' if the code looks good.\n\n"
+                          "## Suggestions\nList optional improvements, or 'No suggestions.' if nothing to add.\n\n"
+                          "Be concise. Do not repeat the diff. Do not comment on formatting or whitespace."
+                      )
+                  },
+                  {
+                      "role": "user",
+                      "content": f"Review this PR.\n\nTitle: {title}\n\nDiff:\n{diff}"
+                  }
+              ]
+          }
 
           with open('request.json', 'w') as f:
               json.dump(request, f)
-          EOF
+
+          print(f"Diff source: {diff_file} ({len(diff)} chars)")
+          PYEOF
 
           # Call Groq API
-          RESPONSE=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST \
+            "https://api.groq.com/openai/v1/chat/completions" \
             -H "Authorization: Bearer ${GROQ_API_KEY}" \
             -H "Content-Type: application/json" \
             -d @request.json)
 
+          echo "Groq API HTTP status: ${HTTP_CODE}"
+
           # Extract the review text and strip <think> blocks from Qwen
-          REVIEW=$(echo "$RESPONSE" | python3 -c "
-          import sys, json, re
+          python3 << 'PYEOF' > ai_review.txt
+          import json, re, sys
+
+          with open('response.json', 'r') as f:
+              data = json.load(f)
+
+          # Check for API error response
+          if 'error' in data:
+              err = data['error']
+              msg = err.get('message', str(err))
+              print(f"AI review unavailable (API error): {msg}", file=sys.stderr)
+              print(f"AI review unavailable: {msg}")
+              sys.exit(0)
+
           try:
-              data = json.load(sys.stdin)
               content = data['choices'][0]['message']['content']
               content = re.sub(r'<think>.*?</think>\s*', '', content, flags=re.DOTALL)
               print(content.strip())
-          except (KeyError, IndexError, json.JSONDecodeError) as e:
-              print(f'AI review unavailable: {e}')
-          ")
-
-          echo "$REVIEW" > ai_review.txt
+          except (KeyError, IndexError) as e:
+              print(f"Unexpected API response structure: {list(data.keys())}", file=sys.stderr)
+              print(f"AI review unavailable: unexpected response format")
+          PYEOF
 
       - name: Post review comment
         if: steps.pr.outputs.number
