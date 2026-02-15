@@ -44,6 +44,25 @@ async def test_show_status(mock_keyboard, make_update, make_context):
 
 @pytest.mark.asyncio
 @patch("src.bot.handlers.system.get_system_keyboard")
+async def test_show_status_no_user(mock_keyboard, make_update, make_context):
+    """show_status returns when no effective_user."""
+    from src.bot.handlers.system import SystemHandler
+    from src.bot.handlers.auth import AuthHandler
+
+    AuthHandler._authenticated_users = {12345}
+
+    handler = SystemHandler()
+    update = make_update(text="/status")
+    update.effective_user = None
+    context = make_context()
+
+    result = await handler.show_status(update, context)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.system.get_system_keyboard")
 async def test_show_status_not_authenticated(mock_keyboard, make_update, make_context):
     """show_status rejects unauthenticated users via @require_auth."""
     from src.bot.handlers.system import SystemHandler

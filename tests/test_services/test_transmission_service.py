@@ -6,7 +6,7 @@ We mock TransmissionAPI at the import site to avoid that side effect.
 """
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from tests.conftest import _mock_config
 
@@ -60,6 +60,35 @@ class TestTransmissionServiceClient:
         # enable is False, so client property won't try to create a client
         assert service.client is None
 
+    def test_client_enabled_creates_client(self, enabled_transmission_config):
+        """When transmission is enabled and client is None, create one."""
+        from src.services.transmission import TransmissionService
+
+        service = TransmissionService()
+        mock_api = MagicMock()
+
+        with patch(
+            "src.services.transmission.TransmissionAPI",
+            return_value=mock_api,
+        ):
+            client = service.client
+
+        assert client is mock_api
+
+    def test_client_enabled_init_exception(self, enabled_transmission_config):
+        """When TransmissionAPI raises, client property returns None."""
+        from src.services.transmission import TransmissionService
+
+        service = TransmissionService()
+
+        with patch(
+            "src.services.transmission.TransmissionAPI",
+            side_effect=Exception("Connection failed"),
+        ):
+            client = service.client
+
+        assert client is None
+
 
 class TestTransmissionServiceNoClient:
     def test_set_alt_speed_no_client(self):
@@ -102,6 +131,18 @@ class TestTransmissionServiceWithMockClient:
         assert result is True
         mock_client.set_alt_speed_enabled.assert_called_once_with(True)
 
+    def test_set_alt_speed_exception(self):
+        from src.services.transmission import TransmissionService
+
+        service = TransmissionService()
+        mock_client = MagicMock()
+        mock_client.set_alt_speed_enabled.side_effect = Exception("API error")
+        service._client = mock_client
+
+        result = service.set_alt_speed(True)
+
+        assert result is False
+
     def test_get_status_connected(self):
         from src.services.transmission import TransmissionService
 
@@ -115,6 +156,19 @@ class TestTransmissionServiceWithMockClient:
         assert status["connected"] is True
         assert status["alt_speed_enabled"] is True
         assert status["version"] == "3.00"
+
+    def test_get_status_exception(self):
+        from src.services.transmission import TransmissionService
+
+        service = TransmissionService()
+        mock_client = MagicMock()
+        mock_client.get_session.side_effect = Exception("Connection lost")
+        service._client = mock_client
+
+        status = service.get_status()
+
+        assert status["connected"] is False
+        assert status["error"] == "Connection lost"
 
     def test_test_connection_success(self):
         from src.services.transmission import TransmissionService

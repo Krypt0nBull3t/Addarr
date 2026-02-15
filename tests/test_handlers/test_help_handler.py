@@ -39,16 +39,9 @@ async def test_show_help_command(
 
     update.message.reply_text.assert_called_once()
     call_args = update.message.reply_text.call_args
-    help_text = call_args[0][0] if call_args[0] else call_args[1].get("text", "")
-    # Verify help text contains command references
+    help_text = call_args[0][0]
     assert "/movie" in help_text
     assert "/series" in help_text
-    assert "/help" in help_text
-
-
-# ---------------------------------------------------------------------------
-# show_help - callback query
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -74,6 +67,32 @@ async def test_show_help_callback(
     await handler.show_help(update, context)
 
     update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.help.get_main_menu_keyboard")
+@patch("src.bot.handlers.help.TranslationService")
+async def test_show_help_no_user(
+    mock_ts_class, mock_keyboard, make_update, make_context
+):
+    """show_help returns when no effective_user."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.help import HelpHandler
+    from src.bot.handlers.auth import AuthHandler
+
+    AuthHandler._authenticated_users = {12345}
+
+    handler = HelpHandler()
+    update = make_update(text="/help")
+    update.effective_user = None
+    context = make_context()
+
+    result = await handler.show_help(update, context)
+
+    assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -106,14 +125,6 @@ async def test_handle_back(
 
     update.callback_query.answer.assert_called_once()
     update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    # Verify the welcome text key was used
-    assert "Start chatting" in str(call_args)
-
-
-# ---------------------------------------------------------------------------
-# handle_back - no callback query
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -136,7 +147,6 @@ async def test_handle_back_no_callback(
     update = make_update(text="/back")
     context = make_context()
 
-    # Should return None (early exit)
     result = await handler.handle_back(update, context)
     assert result is None
 

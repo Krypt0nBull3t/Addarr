@@ -6,6 +6,7 @@ NOTE: Lidarr uses /api/v1/ (not v3).
 
 import pytest
 import aiohttp
+from unittest.mock import patch
 
 from tests.fixtures.sample_data import (
     LIDARR_SEARCH_RESULTS,
@@ -16,6 +17,65 @@ from tests.fixtures.sample_data import (
 BASE = "http://localhost:8686/api/v1"
 
 ARTIST_ID = "f59c5520-5f46-4d2c-b2c4-822eabf53419"
+
+
+# ---------------------------------------------------------------------------
+# __init__ error paths
+# ---------------------------------------------------------------------------
+
+
+class TestLidarrInit:
+    def test_init_missing_addr(self):
+        """Lines 35-36: ValueError when addr is missing."""
+        from src.config.settings import config
+        original = config["lidarr"]["server"]["addr"]
+        try:
+            config["lidarr"]["server"]["addr"] = None
+            from src.api.lidarr import LidarrClient
+            with pytest.raises(ValueError, match="address or port not configured"):
+                LidarrClient()
+        finally:
+            config["lidarr"]["server"]["addr"] = original
+
+    def test_init_missing_apikey(self):
+        """Lines 42-43: ValueError when apikey is missing."""
+        from src.config.settings import config
+        original = config["lidarr"]["auth"]["apikey"]
+        try:
+            config["lidarr"]["auth"]["apikey"] = None
+            from src.api.lidarr import LidarrClient
+            with pytest.raises(ValueError, match="API key not configured"):
+                LidarrClient()
+        finally:
+            config["lidarr"]["auth"]["apikey"] = original
+
+
+# ---------------------------------------------------------------------------
+# _make_request
+# ---------------------------------------------------------------------------
+
+
+class TestLidarrMakeRequest:
+    @pytest.mark.asyncio
+    async def test_make_request_non_200(self, aio_mock, lidarr_client):
+        """Lines 64-66: non-200 status in _make_request."""
+        aio_mock.get(
+            f"{BASE}/system/status",
+            status=500,
+            body="Internal Server Error",
+        )
+        result = await lidarr_client._make_request("system/status")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_make_request_generic_exception(self, aio_mock, lidarr_client):
+        """Lines 71-73: generic Exception in _make_request."""
+        aio_mock.get(
+            f"{BASE}/system/status",
+            exception=RuntimeError("unexpected"),
+        )
+        result = await lidarr_client._make_request("system/status")
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +104,13 @@ class TestLidarrSearch:
             status=200,
         )
         results = await lidarr_client.search("zzzzz")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_search_exception(self, lidarr_client):
+        """Lines 88-90: Exception during search."""
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await lidarr_client.search("test")
         assert results == []
 
 
@@ -84,6 +151,24 @@ class TestLidarrGetArtist:
         assert result["artistName"] == "Linkin Park"
 
     @pytest.mark.asyncio
+    async def test_get_artist_fallback_no_exact_match_uses_first(self, aio_mock, lidarr_client):
+        """Lines 113-115: fallback returns results but no exact ID match, uses first."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:unknown-id",
+            payload=[],
+            status=200,
+        )
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=unknown-id",
+            payload=LIDARR_SEARCH_RESULTS,
+            status=200,
+        )
+        result = await lidarr_client.get_artist("unknown-id")
+        assert result is not None
+        # No exact match so uses first result
+        assert result["artistName"] == "Linkin Park"
+
+    @pytest.mark.asyncio
     async def test_get_artist_not_found(self, aio_mock, lidarr_client):
         aio_mock.get(
             f"{BASE}/artist/lookup?term=lidarr:nonexistent",
@@ -96,6 +181,13 @@ class TestLidarrGetArtist:
             status=200,
         )
         result = await lidarr_client.get_artist("nonexistent")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_artist_exception(self, lidarr_client):
+        """Lines 120-122: Exception in get_artist."""
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await lidarr_client.get_artist(ARTIST_ID)
         assert result is None
 
 
@@ -146,6 +238,215 @@ class TestLidarrAddArtist:
         assert success is False
         assert "already in your library" in message
 
+    @pytest.mark.asyncio
+    async def test_add_artist_fallback_lookup(self, aio_mock, lidarr_client):
+        """Lines 131-134: lidarr: prefix fails, fallback succeeds."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            status=500,
+            body="error",
+        )
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term={ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS,
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/artist",
+            payload={"id": 1, "artistName": "Linkin Park"},
+            status=200,
+        )
+        success, message = await lidarr_client.add_artist(
+            ARTIST_ID, root_folder="/music", quality_profile_id=1
+        )
+        assert success is True
+        assert "Successfully added" in message
+
+    @pytest.mark.asyncio
+    async def test_add_artist_both_lookups_fail(self, aio_mock, lidarr_client):
+        """Lines 133-134: both lookups return None."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:nonexistent",
+            status=500,
+            body="error",
+        )
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=nonexistent",
+            status=500,
+            body="error",
+        )
+        success, message = await lidarr_client.add_artist("nonexistent")
+        assert success is False
+        assert "not found" in message.lower()
+
+    @pytest.mark.asyncio
+    async def test_add_artist_no_exact_match_uses_first(self, aio_mock, lidarr_client):
+        """Line 145: no exact foreignArtistId match, uses first result."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:unknown-id",
+            payload=LIDARR_SEARCH_RESULTS,
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/artist",
+            payload={"id": 1, "artistName": "Linkin Park"},
+            status=200,
+        )
+        success, message = await lidarr_client.add_artist("unknown-id")
+        assert success is True
+        assert "Linkin Park" in message
+
+    @pytest.mark.asyncio
+    async def test_add_artist_falsy_first_element(self, aio_mock, lidarr_client):
+        """Lines 148-149: lookup returns list with falsy element (empty dict).
+        The for loop finds no match, fallback sets artist = lookup_response[0] = {},
+        but {} is falsy, so `if not artist` is True -> 'Artist not found'.
+        """
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:empty",
+            payload=[{}],
+            status=200,
+        )
+        success, message = await lidarr_client.add_artist("empty")
+        assert success is False
+        assert "not found" in message.lower()
+
+    @pytest.mark.asyncio
+    async def test_add_artist_api_error_non_already(self, aio_mock, lidarr_client):
+        """Lines 185-186: error array with non-'already exists' message."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/artist",
+            payload=[{"errorMessage": "Some other error"}],
+            status=400,
+        )
+        success, message = await lidarr_client.add_artist(
+            ARTIST_ID, root_folder="/music", quality_profile_id=1
+        )
+        assert success is False
+        assert message == "Some other error"
+
+    @pytest.mark.asyncio
+    async def test_add_artist_json_decode_error_success(self, aio_mock, lidarr_client):
+        """Lines 188-194: JSONDecodeError then status 201 fallback."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/artist",
+            body="not json",
+            status=201,
+        )
+        success, message = await lidarr_client.add_artist(
+            ARTIST_ID, root_folder="/music", quality_profile_id=1
+        )
+        assert success is True
+        assert "Successfully added" in message
+
+    @pytest.mark.asyncio
+    async def test_add_artist_json_decode_error_failure(self, aio_mock, lidarr_client):
+        """Lines 195-197: JSONDecodeError then non-success status."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/artist",
+            body="not json",
+            status=500,
+        )
+        success, message = await lidarr_client.add_artist(
+            ARTIST_ID, root_folder="/music", quality_profile_id=1
+        )
+        assert success is False
+        assert "Failed to add" in message
+
+    @pytest.mark.asyncio
+    async def test_add_artist_client_error(self, aio_mock, lidarr_client):
+        """Lines 199-201: ClientError during POST."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/artist",
+            exception=aiohttp.ClientError("connection lost"),
+        )
+        success, message = await lidarr_client.add_artist(
+            ARTIST_ID, root_folder="/music", quality_profile_id=1
+        )
+        assert success is False
+        assert "Connection error" in message
+
+    @pytest.mark.asyncio
+    async def test_add_artist_inner_generic_exception(self, aio_mock, lidarr_client):
+        """Lines 202-204: generic Exception during POST."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/artist",
+            exception=RuntimeError("unexpected"),
+        )
+        success, message = await lidarr_client.add_artist(
+            ARTIST_ID, root_folder="/music", quality_profile_id=1
+        )
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_add_artist_outer_exception(self, lidarr_client):
+        """Lines 206-208: outer Exception in add_artist."""
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("outer boom")):
+            success, message = await lidarr_client.add_artist(ARTIST_ID)
+        assert success is False
+        assert "outer boom" in message
+
+
+# ---------------------------------------------------------------------------
+# get_root_folders
+# ---------------------------------------------------------------------------
+
+
+class TestLidarrRootFolders:
+    @pytest.mark.asyncio
+    async def test_get_root_folders_success(self, aio_mock, lidarr_client):
+        """Lines 212-215: successful get_root_folders."""
+        aio_mock.get(
+            f"{BASE}/rootFolder",
+            payload=[{"path": "/music"}, {"path": "/music2"}],
+            status=200,
+        )
+        folders = await lidarr_client.get_root_folders()
+        assert folders == ["/music", "/music2"]
+
+    @pytest.mark.asyncio
+    async def test_get_root_folders_empty(self, aio_mock, lidarr_client):
+        """Line 216: returns empty when API returns None."""
+        aio_mock.get(
+            f"{BASE}/rootFolder",
+            status=500,
+            body="error",
+        )
+        folders = await lidarr_client.get_root_folders()
+        assert folders == []
+
+    @pytest.mark.asyncio
+    async def test_get_root_folders_exception(self, lidarr_client):
+        """Lines 217-219: Exception in get_root_folders."""
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            folders = await lidarr_client.get_root_folders()
+        assert folders == []
+
 
 # ---------------------------------------------------------------------------
 # get_metadata_profiles
@@ -166,6 +467,24 @@ class TestLidarrMetadataProfiles:
         assert profiles[0]["name"] == "Standard"
         assert profiles[1]["id"] == 2
         assert profiles[1]["name"] == "None"
+
+    @pytest.mark.asyncio
+    async def test_get_metadata_profiles_empty(self, aio_mock, lidarr_client):
+        """Lines 253: returns empty when API returns None."""
+        aio_mock.get(
+            f"{BASE}/metadataprofile",
+            status=500,
+            body="error",
+        )
+        profiles = await lidarr_client.get_metadata_profiles()
+        assert profiles == []
+
+    @pytest.mark.asyncio
+    async def test_get_metadata_profiles_exception(self, lidarr_client):
+        """Lines 254-256: Exception in get_metadata_profiles."""
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            profiles = await lidarr_client.get_metadata_profiles()
+        assert profiles == []
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +507,24 @@ class TestLidarrQualityProfiles:
         assert len(profiles) == 2
         assert profiles[0]["id"] == 1
         assert profiles[0]["name"] == "Lossless"
+
+    @pytest.mark.asyncio
+    async def test_get_quality_profiles_empty(self, aio_mock, lidarr_client):
+        """Lines 228-229: empty quality profiles."""
+        aio_mock.get(
+            f"{BASE}/qualityprofile",
+            status=500,
+            body="error",
+        )
+        profiles = await lidarr_client.get_quality_profiles()
+        assert profiles == []
+
+    @pytest.mark.asyncio
+    async def test_get_quality_profiles_exception(self, lidarr_client):
+        """Lines 243-245: Exception in get_quality_profiles."""
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            profiles = await lidarr_client.get_quality_profiles()
+        assert profiles == []
 
 
 # ---------------------------------------------------------------------------
@@ -213,4 +550,11 @@ class TestLidarrCheckStatus:
             exception=aiohttp.ClientError("connection refused"),
         )
         result = await lidarr_client.check_status()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_check_status_exception(self, lidarr_client):
+        """Lines 263-265: Exception in check_status."""
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await lidarr_client.check_status()
         assert result is False

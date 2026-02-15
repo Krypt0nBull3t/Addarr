@@ -4,6 +4,7 @@ Tests for src/services/scheduler.py -- JobScheduler.
 aiocron.crontab is mocked to avoid real cron scheduling in tests.
 """
 
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
@@ -57,6 +58,53 @@ class TestAddJob:
 
         old_cron.stop.assert_called_once()
         assert scheduler.jobs["my_job"] is new_cron
+
+    @patch("src.services.scheduler.aiocron")
+    @pytest.mark.asyncio
+    async def test_wrapped_job_success(self, mock_aiocron):
+        """Test the wrapped job function executes the async func."""
+        from src.services.scheduler import JobScheduler
+
+        mock_cron = _make_mock_cron()
+        mock_aiocron.crontab.return_value = mock_cron
+
+        scheduler = JobScheduler()
+        func = AsyncMock()
+        scheduler.add_job("test_job", func, "*/5 * * * *")
+
+        # Extract the wrapped_job function passed to crontab
+        wrapped_job = mock_aiocron.crontab.call_args[1].get(
+            "func"
+        ) or mock_aiocron.crontab.call_args[0][1] if len(
+            mock_aiocron.crontab.call_args[0]
+        ) > 1 else mock_aiocron.crontab.call_args[1]["func"]
+
+        await wrapped_job()
+        func.assert_awaited_once()
+
+    @patch("src.services.scheduler.aiocron")
+    @pytest.mark.asyncio
+    async def test_wrapped_job_exception(self, mock_aiocron):
+        """Test the wrapped job catches exceptions."""
+        from src.services.scheduler import JobScheduler
+
+        mock_cron = _make_mock_cron()
+        mock_aiocron.crontab.return_value = mock_cron
+
+        scheduler = JobScheduler()
+        func = AsyncMock(side_effect=RuntimeError("Job failed"))
+        scheduler.add_job("test_job", func, "*/5 * * * *")
+
+        # Extract the wrapped_job function
+        wrapped_job = mock_aiocron.crontab.call_args[1].get(
+            "func"
+        ) or mock_aiocron.crontab.call_args[0][1] if len(
+            mock_aiocron.crontab.call_args[0]
+        ) > 1 else mock_aiocron.crontab.call_args[1]["func"]
+
+        # Should not raise
+        await wrapped_job()
+        func.assert_awaited_once()
 
 
 class TestRemoveJob:

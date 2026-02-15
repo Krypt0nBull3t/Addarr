@@ -1,5 +1,8 @@
 """Tests for src/utils/validate_translations.py -- pure functions."""
 
+from unittest.mock import patch, MagicMock
+from pathlib import Path
+
 from src.utils.validate_translations import (
     load_yaml,
     get_all_keys,
@@ -7,6 +10,7 @@ from src.utils.validate_translations import (
     get_format_placeholders,
     validate_translation,
     check_emoji_consistency,
+    main,
 )
 
 
@@ -40,6 +44,18 @@ class TestGetAllKeys:
 
     def test_empty(self):
         assert get_all_keys({}) == []
+
+    def test_required_section_not_dict(self):
+        """Prints warning and skips when required section is not a dict."""
+        data = {"messages": "not a dict"}
+        keys = get_all_keys(data, required_sections={"messages"})
+        assert keys == []
+
+    def test_required_section_is_dict(self):
+        """Required section that is a dict processes normally."""
+        data = {"messages": {"hello": "world"}}
+        keys = get_all_keys(data, required_sections={"messages"})
+        assert keys == ["messages.hello"]
 
 
 class TestGetNestedValue:
@@ -133,3 +149,162 @@ class TestCheckEmojiConsistency:
         }
         errors = check_emoji_consistency(template, translations)
         assert errors == []
+
+
+class TestMain:
+    """Tests for the main() validation function."""
+
+    def test_template_load_failure(self):
+        """Exits early when template file fails to load."""
+        with patch("src.utils.validate_translations.load_yaml", return_value={}):
+            main()  # should not raise
+
+    def test_valid_translations(self, tmp_path):
+        """All translations valid, prints success."""
+        template_data = {"template": {"greeting": "Hello"}}
+        trans_data = {"en": {"greeting": "Hello"}}
+
+        # Create translation file
+        trans_file = tmp_path / "addarr.en.yml"
+        trans_file.write_text("en:\n  greeting: Hello\n")
+
+        with (
+            patch("src.utils.validate_translations.load_yaml", side_effect=[
+                template_data,  # template load
+                trans_data,     # translation load
+            ]),
+            patch("src.utils.validate_translations.Path") as mock_path_cls,
+        ):
+            mock_translations_dir = MagicMock()
+            mock_path_cls.return_value = mock_translations_dir
+            mock_translations_dir.glob.return_value = [
+                Path("translations/addarr.en.yml")
+            ]
+            main()
+
+    def test_missing_keys(self, tmp_path):
+        """Reports missing keys in translation."""
+        template_data = {"template": {"greeting": "Hello", "farewell": "Bye"}}
+        trans_data = {"en": {"greeting": "Hello"}}
+
+        with (
+            patch("src.utils.validate_translations.load_yaml", side_effect=[
+                template_data,
+                trans_data,
+            ]),
+            patch("src.utils.validate_translations.Path") as mock_path_cls,
+        ):
+            mock_translations_dir = MagicMock()
+            mock_path_cls.return_value = mock_translations_dir
+            mock_translations_dir.glob.return_value = [
+                Path("translations/addarr.en.yml")
+            ]
+            main()
+
+    def test_extra_keys(self, tmp_path):
+        """Reports extra keys in translation."""
+        template_data = {"template": {"greeting": "Hello"}}
+        trans_data = {"en": {"greeting": "Hello", "extra": "oops"}}
+
+        with (
+            patch("src.utils.validate_translations.load_yaml", side_effect=[
+                template_data,
+                trans_data,
+            ]),
+            patch("src.utils.validate_translations.Path") as mock_path_cls,
+        ):
+            mock_translations_dir = MagicMock()
+            mock_path_cls.return_value = mock_translations_dir
+            mock_translations_dir.glob.return_value = [
+                Path("translations/addarr.en.yml")
+            ]
+            main()
+
+    def test_format_errors(self, tmp_path):
+        """Reports format placeholder mismatches."""
+        template_data = {"template": {"greeting": "Hello %{name}"}}
+        trans_data = {"en": {"greeting": "Hello %{user}"}}
+
+        with (
+            patch("src.utils.validate_translations.load_yaml", side_effect=[
+                template_data,
+                trans_data,
+            ]),
+            patch("src.utils.validate_translations.Path") as mock_path_cls,
+        ):
+            mock_translations_dir = MagicMock()
+            mock_path_cls.return_value = mock_translations_dir
+            mock_translations_dir.glob.return_value = [
+                Path("translations/addarr.en.yml")
+            ]
+            main()
+
+    def test_translation_load_failure(self):
+        """Marks invalid and continues when a translation file fails to load."""
+        template_data = {"template": {"greeting": "Hello"}}
+
+        with (
+            patch("src.utils.validate_translations.load_yaml", side_effect=[
+                template_data,
+                {},  # translation load failure
+            ]),
+            patch("src.utils.validate_translations.Path") as mock_path_cls,
+        ):
+            mock_translations_dir = MagicMock()
+            mock_path_cls.return_value = mock_translations_dir
+            mock_translations_dir.glob.return_value = [
+                Path("translations/addarr.en.yml")
+            ]
+            main()
+
+    def test_skips_template_file(self):
+        """Skips the template file itself."""
+        template_data = {"template": {"greeting": "Hello"}}
+        trans_data = {"de": {"greeting": "Hallo"}}
+
+        with (
+            patch("src.utils.validate_translations.load_yaml", side_effect=[
+                template_data,
+                trans_data,
+            ]),
+            patch("src.utils.validate_translations.Path") as mock_path_cls,
+        ):
+            mock_translations_dir = MagicMock()
+            mock_path_cls.return_value = mock_translations_dir
+            mock_translations_dir.glob.return_value = [
+                Path("translations/addarr.template.yml"),
+                Path("translations/addarr.de.yml"),
+            ]
+            main()
+
+    def test_emoji_consistency_errors(self):
+        """Reports emoji consistency issues."""
+        template_data = {"template": {"greeting": "\U0001F600 Hello"}}
+        trans_data = {"de": {"greeting": "Hallo"}}
+
+        with (
+            patch("src.utils.validate_translations.load_yaml", side_effect=[
+                template_data,
+                trans_data,
+            ]),
+            patch("src.utils.validate_translations.Path") as mock_path_cls,
+        ):
+            mock_translations_dir = MagicMock()
+            mock_path_cls.return_value = mock_translations_dir
+            mock_translations_dir.glob.return_value = [
+                Path("translations/addarr.de.yml")
+            ]
+            main()
+
+    def test_no_translation_files(self):
+        """All valid when no translation files exist."""
+        template_data = {"template": {"greeting": "Hello"}}
+
+        with (
+            patch("src.utils.validate_translations.load_yaml", return_value=template_data),
+            patch("src.utils.validate_translations.Path") as mock_path_cls,
+        ):
+            mock_translations_dir = MagicMock()
+            mock_path_cls.return_value = mock_translations_dir
+            mock_translations_dir.glob.return_value = []
+            main()

@@ -93,6 +93,12 @@ class TestBaseApiClient:
         result = client._parse_error_response("Internal Server Error")
         assert result == "Internal Server Error"
 
+    def test_parse_error_response_invalid_json(self, client):
+        """Lines 73-74: JSONDecodeError falls through to return raw text."""
+        # Must start with "[" to enter the JSON parsing branch
+        result = client._parse_error_response("[not valid json")
+        assert result == "[not valid json"
+
 
 # ---------------------------------------------------------------------------
 # BaseApiClient -- async _make_request
@@ -131,6 +137,22 @@ class TestBaseApiClientAsync:
         assert error == "bad request"
 
     @pytest.mark.asyncio
+    async def test_make_request_already_exists_error(self, client):
+        """Line 105: 'already' in error_message triggers info log path."""
+        error_body = json.dumps([{"errorMessage": "This movie has already been added"}])
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:7878//api/v3/movie",
+                body=error_body,
+                status=400,
+            )
+            success, data, error = await client._make_request("movie", title="Fight Club")
+
+        assert success is False
+        assert data is None
+        assert "already in your library" in error
+
+    @pytest.mark.asyncio
     async def test_make_request_connection_error(self, client):
         with aioresponses() as m:
             m.get(
@@ -142,3 +164,42 @@ class TestBaseApiClientAsync:
         assert success is False
         assert data is None
         assert "Connection error:" in error
+
+    @pytest.mark.asyncio
+    async def test_make_request_unexpected_exception(self, client):
+        """Lines 115-118: generic Exception in _make_request."""
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:7878//api/v3/system/status",
+                exception=RuntimeError("something unexpected"),
+            )
+            success, data, error = await client._make_request("system/status")
+
+        assert success is False
+        assert data is None
+        assert "Unexpected error:" in error
+
+
+# ---------------------------------------------------------------------------
+# BaseApiClient -- check_status
+# ---------------------------------------------------------------------------
+
+
+class TestBaseApiClientCheckStatus:
+    @pytest.mark.asyncio
+    async def test_check_status_success(self, client):
+        """Line 130: check_status returns True when status_code is 200."""
+        from unittest.mock import AsyncMock, MagicMock
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        client.get = AsyncMock(return_value=mock_response)
+        result = await client.check_status()
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_check_status_exception(self, client):
+        """Lines 131-133: check_status catches exceptions and returns False."""
+        # check_status calls self.get() which doesn't exist on BaseApiClient,
+        # so it will raise AttributeError -> caught by except -> return False
+        result = await client.check_status()
+        assert result is False

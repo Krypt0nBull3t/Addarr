@@ -1,8 +1,18 @@
 """Tests for src/utils/helpers.py"""
 
-from unittest.mock import patch, MagicMock
+import pytest
+from unittest.mock import patch, MagicMock, AsyncMock
 
-from src.utils.helpers import format_bytes, is_admin, is_allowed, save_chat_id
+from src.utils.helpers import (
+    check_auth,
+    get_authorized_chats,
+    get_chat_name,
+    format_bytes,
+    is_admin,
+    is_allowed,
+    is_authenticated,
+    save_chat_id,
+)
 
 
 # ---- format_bytes ----
@@ -30,6 +40,11 @@ class TestFormatBytes:
     def test_format_bytes_tb(self):
         """1 099 511 627 776 bytes renders as '1.0 TB'."""
         assert format_bytes(1099511627776) == "1.0 TB"
+
+    def test_format_bytes_pb(self):
+        """Very large value falls through to PB."""
+        pb = 1024 ** 5
+        assert format_bytes(pb) == "1.0 PB"
 
 
 # ---- is_admin ----
@@ -104,6 +119,18 @@ class TestIsAllowed:
         ):
             assert is_allowed(999) is False
 
+    def test_is_allowed_no_file(self, tmp_path):
+        """Returns False when allowlist is enabled but file is missing."""
+        mock_cfg = MagicMock()
+        mock_cfg.get.return_value = True
+        missing = str(tmp_path / "nonexistent_allowlist.txt")
+
+        with (
+            patch("src.utils.helpers.config", mock_cfg),
+            patch("src.utils.helpers.ALLOWLIST_PATH", missing),
+        ):
+            assert is_allowed(100) is False
+
 
 # ---- save_chat_id ----
 
@@ -126,3 +153,189 @@ class TestSaveChatId:
             save_chat_id(123)
 
         assert chatid_file.read_text() == "123\n"
+
+
+# ---- check_auth ----
+
+
+class TestCheckAuth:
+    """Tests for the check_auth decorator."""
+
+    @pytest.mark.asyncio
+    async def test_authenticated_user_proceeds(self):
+        """Authenticated user proceeds to the wrapped function."""
+        class FakeHandler:
+            @check_auth
+            async def my_method(self, update, context):
+                return "success"
+
+        handler = FakeHandler()
+        update = MagicMock()
+        update.effective_chat.id = 42
+        context = MagicMock()
+
+        with patch("src.utils.helpers.is_authenticated", new_callable=AsyncMock, return_value=True):
+            result = await handler.my_method(update, context)
+        assert result == "success"
+
+    @pytest.mark.asyncio
+    async def test_unauthenticated_user_blocked(self):
+        """Unauthenticated user gets auth prompt and returns None."""
+        class FakeHandler:
+            @check_auth
+            async def my_method(self, update, context):
+                return "success"
+
+        handler = FakeHandler()
+        update = MagicMock()
+        update.effective_chat.id = 42
+        update.message.reply_text = AsyncMock()
+        context = MagicMock()
+
+        with patch("src.utils.helpers.is_authenticated", new_callable=AsyncMock, return_value=False):
+            result = await handler.my_method(update, context)
+        assert result is None
+        update.message.reply_text.assert_awaited_once()
+
+
+# ---- get_authorized_chats ----
+
+
+class TestGetAuthorizedChats:
+    """Tests for get_authorized_chats."""
+
+    @pytest.mark.asyncio
+    async def test_file_exists(self, tmp_path):
+        """Returns list of chat IDs from file."""
+        chatid_file = tmp_path / "chatid.txt"
+        chatid_file.write_text("100 - Alice\n200 - Bob\n300\n")
+        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
+            result = await get_authorized_chats()
+        assert result == [100, 200, 300]
+
+    @pytest.mark.asyncio
+    async def test_file_missing(self, tmp_path):
+        """Returns empty list when file does not exist."""
+        missing = str(tmp_path / "nonexistent_chatid.txt")
+        with patch("src.utils.helpers.CHATID_PATH", missing):
+            result = await get_authorized_chats()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_file_with_empty_lines(self, tmp_path):
+        """Skips empty lines in the file."""
+        chatid_file = tmp_path / "chatid.txt"
+        chatid_file.write_text("100 - Alice\n\n200 - Bob\n\n")
+        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
+            result = await get_authorized_chats()
+        assert result == [100, 200]
+
+
+# ---- get_chat_name ----
+
+
+class TestGetChatName:
+    """Tests for get_chat_name."""
+
+    @pytest.mark.asyncio
+    async def test_username(self):
+        """Returns chat_id - username when username is set."""
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.username = "alice"
+        chat.title = None
+        chat.first_name = None
+        chat.last_name = None
+        bot.get_chat.return_value = chat
+        result = await get_chat_name(bot, 42)
+        assert result == "42 - alice"
+
+    @pytest.mark.asyncio
+    async def test_title(self):
+        """Returns chat_id - title when title is set."""
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.username = None
+        chat.title = "My Group"
+        chat.first_name = None
+        chat.last_name = None
+        bot.get_chat.return_value = chat
+        result = await get_chat_name(bot, 42)
+        assert result == "42 - My Group"
+
+    @pytest.mark.asyncio
+    async def test_first_and_last_name(self):
+        """Returns chat_id - first last when both names are set."""
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.username = None
+        chat.title = None
+        chat.first_name = "Alice"
+        chat.last_name = "Smith"
+        bot.get_chat.return_value = chat
+        result = await get_chat_name(bot, 42)
+        assert result == "42 - Alice Smith"
+
+    @pytest.mark.asyncio
+    async def test_first_name_only(self):
+        """Returns chat_id - first when only first_name is set."""
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.username = None
+        chat.title = None
+        chat.first_name = "Alice"
+        chat.last_name = None
+        bot.get_chat.return_value = chat
+        result = await get_chat_name(bot, 42)
+        assert result == "42 - Alice"
+
+    @pytest.mark.asyncio
+    async def test_last_name_only(self):
+        """Returns chat_id - last when only last_name is set."""
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.username = None
+        chat.title = None
+        chat.first_name = None
+        chat.last_name = "Smith"
+        bot.get_chat.return_value = chat
+        result = await get_chat_name(bot, 42)
+        assert result == "42 - Smith"
+
+    @pytest.mark.asyncio
+    async def test_no_name(self):
+        """Returns str(chat_id) when no name attributes are set."""
+        bot = AsyncMock()
+        chat = MagicMock()
+        chat.username = None
+        chat.title = None
+        chat.first_name = None
+        chat.last_name = None
+        bot.get_chat.return_value = chat
+        result = await get_chat_name(bot, 42)
+        assert result == "42"
+
+
+# ---- is_authenticated ----
+
+
+class TestIsAuthenticated:
+    """Tests for is_authenticated."""
+
+    @pytest.mark.asyncio
+    async def test_authenticated(self, tmp_path):
+        """Returns True when chat_id is in authorized chats."""
+        chatid_file = tmp_path / "chatid.txt"
+        chatid_file.write_text("42 - Alice\n")
+        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
+            result = await is_authenticated(42)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_not_authenticated(self, tmp_path):
+        """Returns False when chat_id is not in authorized chats."""
+        chatid_file = tmp_path / "chatid.txt"
+        chatid_file.write_text("100 - Bob\n")
+        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
+            result = await is_authenticated(42)
+        assert result is False

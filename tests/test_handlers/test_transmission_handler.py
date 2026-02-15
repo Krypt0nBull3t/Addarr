@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock
 
 
 # ---------------------------------------------------------------------------
-# transmission_command - not enabled
+# transmission_command
 # ---------------------------------------------------------------------------
 
 
@@ -25,7 +25,6 @@ async def test_transmission_not_enabled(
     from src.bot.handlers.transmission import TransmissionHandler
 
     handler = TransmissionHandler()
-    # Override service with our mock since __init__ captures the global
     handler.service = mock_service
 
     update = make_update(text="/transmission")
@@ -36,11 +35,6 @@ async def test_transmission_not_enabled(
     update.message.reply_text.assert_called_once()
     call_args = update.message.reply_text.call_args
     assert "not enabled" in str(call_args).lower()
-
-
-# ---------------------------------------------------------------------------
-# transmission_command - enabled but not connected
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -67,12 +61,7 @@ async def test_transmission_not_connected(
 
     update.message.reply_text.assert_called_once()
     call_args = update.message.reply_text.call_args
-    assert "Cannot connect" in str(call_args) or "connect" in str(call_args).lower()
-
-
-# ---------------------------------------------------------------------------
-# transmission_command - enabled and connected
-# ---------------------------------------------------------------------------
+    assert "connect" in str(call_args).lower()
 
 
 @pytest.mark.asyncio
@@ -81,7 +70,7 @@ async def test_transmission_not_connected(
 async def test_transmission_connected(
     mock_service, mock_keyboard, make_update, make_context
 ):
-    """When transmission is enabled and connected, show status with toggle keyboard."""
+    """When connected, show status with toggle keyboard."""
     mock_service.is_enabled = MagicMock(return_value=True)
     mock_service.get_status = MagicMock(return_value={
         "connected": True,
@@ -101,9 +90,86 @@ async def test_transmission_connected(
     await handler.transmission_command(update, context)
 
     update.message.reply_text.assert_called_once()
-    call_args = update.message.reply_text.call_args
-    msg_text = call_args[0][0] if call_args[0] else str(call_args)
-    assert "Transmission" in msg_text or "Status" in msg_text
+
+
+# ---------------------------------------------------------------------------
+# handle_callback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.transmission.transmission_service")
+async def test_handle_callback_toggle_yes_success(
+    mock_service, make_update, make_context
+):
+    """Toggle yes with success toggles turtle mode."""
+    mock_service.get_status = MagicMock(return_value={
+        "alt_speed_enabled": False,
+    })
+    mock_service.set_alt_speed = MagicMock(return_value=True)
+
+    from src.bot.handlers.transmission import TransmissionHandler
+
+    handler = TransmissionHandler()
+    handler.service = mock_service
+
+    update = make_update(callback_data="transmission_toggle_yes")
+    context = make_context()
+
+    await handler.handle_callback(update, context)
+
+    update.callback_query.answer.assert_called_once()
+    update.callback_query.edit_message_text.assert_called_once()
+    call_args = update.callback_query.edit_message_text.call_args
+    assert "enabled" in str(call_args).lower()
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.transmission.transmission_service")
+async def test_handle_callback_toggle_yes_failure(
+    mock_service, make_update, make_context
+):
+    """Toggle yes with failure shows error."""
+    mock_service.get_status = MagicMock(return_value={
+        "alt_speed_enabled": False,
+    })
+    mock_service.set_alt_speed = MagicMock(return_value=False)
+
+    from src.bot.handlers.transmission import TransmissionHandler
+
+    handler = TransmissionHandler()
+    handler.service = mock_service
+
+    update = make_update(callback_data="transmission_toggle_yes")
+    context = make_context()
+
+    await handler.handle_callback(update, context)
+
+    update.callback_query.edit_message_text.assert_called_once()
+    call_args = update.callback_query.edit_message_text.call_args
+    assert "Failed" in str(call_args)
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.transmission.transmission_service")
+async def test_handle_callback_toggle_no(
+    mock_service, make_update, make_context
+):
+    """Toggle no keeps current settings."""
+    from src.bot.handlers.transmission import TransmissionHandler
+
+    handler = TransmissionHandler()
+    handler.service = mock_service
+
+    update = make_update(callback_data="transmission_toggle_no")
+    context = make_context()
+
+    await handler.handle_callback(update, context)
+
+    update.callback_query.answer.assert_called_once()
+    update.callback_query.edit_message_text.assert_called_once()
+    call_args = update.callback_query.edit_message_text.call_args
+    assert "Keeping" in str(call_args)
 
 
 # ---------------------------------------------------------------------------

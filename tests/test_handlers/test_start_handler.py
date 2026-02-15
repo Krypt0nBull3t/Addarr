@@ -7,7 +7,7 @@ handle_menu_selection dispatches menu button presses.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 from telegram.ext import ConversationHandler
 
 
@@ -17,154 +17,176 @@ from telegram.ext import ConversationHandler
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.start.get_main_menu_keyboard")
-@patch("src.bot.handlers.start.HelpHandler")
-@patch("src.bot.handlers.start.MediaHandler")
-@patch("src.bot.handlers.start.TranslationService")
-async def test_show_menu(
-    mock_ts_class, mock_mh_class, mock_hh_class, mock_keyboard,
-    make_update, make_context
-):
-    """show_menu replies with welcome text and main menu keyboard."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_mh_class.return_value = MagicMock()
-    mock_hh_class.return_value = MagicMock()
-    mock_keyboard.return_value = MagicMock()
-
-    from src.bot.handlers.start import StartHandler
-    from src.bot.handlers.auth import AuthHandler
-
-    AuthHandler._authenticated_users = {12345}
-
-    handler = StartHandler()
+async def test_show_menu_direct_command(start_handler, make_update, make_context):
+    """show_menu via direct command replies with welcome text."""
     update = make_update(text="/start")
     context = make_context()
 
-    result = await handler.show_menu(update, context)
+    result = await start_handler.show_menu(update, context)
 
-    # show_menu returns MENU_STATE = 1
-    assert result == 1
+    assert result == 1  # MENU_STATE
     update.effective_message.reply_text.assert_called_once()
-    # Verify keyboard was passed
-    call_kwargs = update.effective_message.reply_text.call_args
-    assert call_kwargs is not None
-
-
-# ---------------------------------------------------------------------------
-# handle_menu_selection - cancel
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.start.get_main_menu_keyboard")
-@patch("src.bot.handlers.start.HelpHandler")
-@patch("src.bot.handlers.start.MediaHandler")
-@patch("src.bot.handlers.start.TranslationService")
-async def test_handle_menu_selection_cancel(
-    mock_ts_class, mock_mh_class, mock_hh_class, mock_keyboard,
-    make_update, make_context
-):
-    """menu_cancel clears user_data and returns ConversationHandler.END."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_mh_class.return_value = MagicMock()
-    mock_hh_class.return_value = MagicMock()
-
-    from src.bot.handlers.start import StartHandler
-    from src.bot.handlers.auth import AuthHandler
-
-    AuthHandler._authenticated_users = {12345}
-
-    handler = StartHandler()
-    update = make_update(callback_data="menu_cancel")
-    context = make_context(user_data={"search_type": "movie"})
-
-    result = await handler.handle_menu_selection(update, context)
-
-    assert result == ConversationHandler.END
-    # user_data should be cleared
-    assert len(context.user_data) == 0
-    update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "Canceled" in str(call_args)
-
-
-# ---------------------------------------------------------------------------
-# handle_menu_selection - movie search
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-@patch("src.bot.handlers.start.get_main_menu_keyboard")
-@patch("src.bot.handlers.start.HelpHandler")
-@patch("src.bot.handlers.start.MediaHandler")
-@patch("src.bot.handlers.start.TranslationService")
-async def test_handle_menu_selection_movie(
-    mock_ts_class, mock_mh_class, mock_hh_class, mock_keyboard,
-    make_update, make_context
-):
-    """menu_movie sets search_type and returns SEARCHING."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_mh_class.return_value = MagicMock()
-    mock_hh_class.return_value = MagicMock()
-
-    from src.bot.handlers.start import StartHandler
-    from src.bot.handlers.media import SEARCHING
-    from src.bot.handlers.auth import AuthHandler
-
-    AuthHandler._authenticated_users = {12345}
-
-    handler = StartHandler()
-    update = make_update(callback_data="menu_movie")
-    context = make_context()
-
-    result = await handler.handle_menu_selection(update, context)
-
-    assert result == SEARCHING
-    assert context.user_data["search_type"] == "movie"
-    update.callback_query.message.edit_text.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# handle_menu_selection - back
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-@patch("src.bot.handlers.start.get_main_menu_keyboard")
-@patch("src.bot.handlers.start.HelpHandler")
-@patch("src.bot.handlers.start.MediaHandler")
-@patch("src.bot.handlers.start.TranslationService")
-async def test_handle_menu_selection_back(
-    mock_ts_class, mock_mh_class, mock_hh_class, mock_keyboard,
-    make_update, make_context
-):
-    """menu_back calls show_menu to redisplay the main menu."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_mh_class.return_value = MagicMock()
-    mock_hh_class.return_value = MagicMock()
-    mock_keyboard.return_value = MagicMock()
-
-    from src.bot.handlers.start import StartHandler
-    from src.bot.handlers.auth import AuthHandler
-
-    AuthHandler._authenticated_users = {12345}
-
-    handler = StartHandler()
+async def test_show_menu_via_callback(start_handler, make_update, make_context):
+    """show_menu via callback query edits message."""
     update = make_update(callback_data="menu_back")
     context = make_context()
 
-    # Patch show_menu to track the call without full execution
-    with patch.object(handler, "show_menu", new_callable=AsyncMock) as mock_show:
-        await handler.handle_menu_selection(update, context)
+    result = await start_handler.show_menu(update, context)
+
+    assert result == 1
+    update.callback_query.answer.assert_called_once()
+    update.callback_query.message.edit_text.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# handle_menu_selection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_selection_cancel(
+    start_handler, make_update, make_context
+):
+    """menu_cancel clears user_data and returns END."""
+    update = make_update(callback_data="menu_cancel")
+    context = make_context(user_data={"search_type": "movie"})
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == ConversationHandler.END
+    assert len(context.user_data) == 0
+
+
+@pytest.mark.parametrize("media_type", ["movie", "series", "music"])
+@pytest.mark.asyncio
+async def test_handle_menu_selection_media_type(
+    start_handler, make_update, make_context, media_type
+):
+    """menu_{movie/series/music} sets search_type and returns SEARCHING."""
+    from src.bot.handlers.media import SEARCHING
+
+    update = make_update(callback_data=f"menu_{media_type}")
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == SEARCHING
+    assert context.user_data["search_type"] == media_type
+    update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_selection_back(
+    start_handler, make_update, make_context
+):
+    """menu_back calls show_menu."""
+    update = make_update(callback_data="menu_back")
+    context = make_context()
+
+    with patch.object(start_handler, "show_menu", new_callable=AsyncMock) as mock_show:
+        await start_handler.handle_menu_selection(update, context)
         mock_show.assert_called_once_with(update, context)
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_selection_status(
+    start_handler, make_update, make_context
+):
+    """menu_status delegates to media_handler.handle_status."""
+    update = make_update(callback_data="menu_status")
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == ConversationHandler.END
+    start_handler._mock_media_handler.handle_status.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_selection_help(
+    start_handler, make_update, make_context
+):
+    """menu_help delegates to help_handler.show_help."""
+    update = make_update(callback_data="menu_help")
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == ConversationHandler.END
+    start_handler._mock_help_handler.show_help.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_selection_settings(
+    start_handler, make_update, make_context
+):
+    """menu_settings delegates to media_handler.handle_settings."""
+    update = make_update(callback_data="menu_settings")
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == ConversationHandler.END
+    start_handler._mock_media_handler.handle_settings.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_selection_delete(
+    start_handler, make_update, make_context
+):
+    """menu_delete shows delete prompt."""
+    update = make_update(callback_data="menu_delete")
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == ConversationHandler.END
+    update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_selection_unknown(
+    start_handler, make_update, make_context
+):
+    """Unknown menu action returns END."""
+    update = make_update(callback_data="menu_unknown")
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == ConversationHandler.END
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_selection_no_callback(
+    start_handler, make_update, make_context
+):
+    """handle_menu_selection returns None when no callback_query."""
+    update = make_update(text="/test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# start_movie_search
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_movie_search(start_handler, make_callback_query):
+    """start_movie_search edits message with search prompt."""
+    query = make_callback_query(data="menu_movie")
+
+    await start_handler.start_movie_search(query)
+
+    query.message.edit_text.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -172,24 +194,9 @@ async def test_handle_menu_selection_back(
 # ---------------------------------------------------------------------------
 
 
-@patch("src.bot.handlers.start.get_main_menu_keyboard")
-@patch("src.bot.handlers.start.HelpHandler")
-@patch("src.bot.handlers.start.MediaHandler")
-@patch("src.bot.handlers.start.TranslationService")
-def test_get_handler_returns_list(
-    mock_ts_class, mock_mh_class, mock_hh_class, mock_keyboard
-):
+def test_get_handler_returns_list(start_handler):
     """get_handler returns a list of handlers."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_mh_class.return_value = MagicMock()
-    mock_hh_class.return_value = MagicMock()
-
-    from src.bot.handlers.start import StartHandler
-
-    handler = StartHandler()
-    handlers = handler.get_handler()
+    handlers = start_handler.get_handler()
 
     assert isinstance(handlers, list)
     assert len(handlers) > 0

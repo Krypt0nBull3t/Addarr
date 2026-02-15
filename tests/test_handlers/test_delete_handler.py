@@ -7,7 +7,7 @@ handle_delete_selection processes callback queries for deletion flow.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import AsyncMock
 
 
 # ---------------------------------------------------------------------------
@@ -16,63 +16,44 @@ from unittest.mock import patch, MagicMock
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.delete.MediaService")
-@patch("src.bot.handlers.delete.TranslationService")
-async def test_handle_delete(
-    mock_ts_class, mock_ms_class, make_update, make_context
-):
+async def test_handle_delete(delete_handler, make_update, make_context):
     """handle_delete replies with type selection keyboard."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_ms_class.return_value = MagicMock()
-
-    from src.bot.handlers.delete import DeleteHandler
-    from src.bot.handlers.auth import AuthHandler
-
-    AuthHandler._authenticated_users = {12345}
-
-    handler = DeleteHandler()
     update = make_update(text="/delete")
     context = make_context()
 
-    await handler.handle_delete(update, context)
+    await delete_handler.handle_delete(update, context)
 
     update.message.reply_text.assert_called_once()
     call_args = update.message.reply_text.call_args
-    # Verify reply_markup was passed (keyboard)
     assert call_args[1].get("reply_markup") is not None or len(call_args) > 1
 
 
-# ---------------------------------------------------------------------------
-# handle_delete - not authenticated
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
-@patch("src.bot.handlers.delete.MediaService")
-@patch("src.bot.handlers.delete.TranslationService")
 async def test_handle_delete_not_authenticated(
-    mock_ts_class, mock_ms_class, make_update, make_context
+    delete_handler, make_update, make_context
 ):
     """handle_delete rejects unauthenticated users via @require_auth."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_ms_class.return_value = MagicMock()
-
-    from src.bot.handlers.delete import DeleteHandler
     from src.bot.handlers.auth import AuthHandler
 
     AuthHandler._authenticated_users = set()
 
-    handler = DeleteHandler()
     update = make_update(text="/delete")
     context = make_context()
 
-    result = await handler.handle_delete(update, context)
+    result = await delete_handler.handle_delete(update, context)
 
-    # require_auth returns None when not authenticated
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_no_message(delete_handler, make_update, make_context):
+    """handle_delete returns early when no effective_message."""
+    update = make_update(text="/delete")
+    update.effective_message = None
+    context = make_context()
+
+    result = await delete_handler.handle_delete(update, context)
+
     assert result is None
 
 
@@ -82,24 +63,14 @@ async def test_handle_delete_not_authenticated(
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.delete.MediaService")
-@patch("src.bot.handlers.delete.TranslationService")
 async def test_handle_delete_selection_cancel(
-    mock_ts_class, mock_ms_class, make_update, make_context
+    delete_handler, make_update, make_context
 ):
     """delete_cancel callback edits message with 'End' text."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_ms_class.return_value = MagicMock()
-
-    from src.bot.handlers.delete import DeleteHandler
-
-    handler = DeleteHandler()
     update = make_update(callback_data="delete_cancel")
     context = make_context()
 
-    await handler.handle_delete_selection(update, context)
+    await delete_handler.handle_delete_selection(update, context)
 
     update.callback_query.answer.assert_called_once()
     update.callback_query.message.edit_text.assert_called_once()
@@ -107,24 +78,311 @@ async def test_handle_delete_selection_cancel(
     assert "End" in str(call_args)
 
 
+@pytest.mark.asyncio
+async def test_handle_delete_selection_no_query(
+    delete_handler, make_update, make_context
+):
+    """handle_delete_selection returns when no callback_query."""
+    update = make_update(text="/test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await delete_handler.handle_delete_selection(update, context)
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# handle_delete_selection - type selection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("media_type,service_method", [
+    ("movie", "get_movies"),
+    ("series", "get_series"),
+    ("music", "get_music"),
+])
+@pytest.mark.asyncio
+async def test_handle_delete_selection_type(
+    delete_handler, make_update, make_context, media_type, service_method
+):
+    """Type selection fetches items and shows selection keyboard."""
+    items = [{"id": "1", "title": "Test Item"}]
+    setattr(delete_handler._mock_service, service_method, AsyncMock(return_value=items))
+
+    update = make_update(callback_data=f"delete_type_{media_type}")
+    context = make_context()
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    assert context.user_data["delete_type"] == media_type
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_selection_type_invalid(
+    delete_handler, make_update, make_context
+):
+    """Invalid type selection shows error."""
+    update = make_update(callback_data="delete_type_invalid")
+    context = make_context()
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "Invalid" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_selection_type_no_items(
+    delete_handler, make_update, make_context
+):
+    """Type selection with no items shows NoExist message."""
+    delete_handler._mock_service.get_movies = AsyncMock(return_value=[])
+
+    update = make_update(callback_data="delete_type_movie")
+    context = make_context()
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "NoExist" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_selection_type_exception(
+    delete_handler, make_update, make_context
+):
+    """Type selection with API error shows error message."""
+    delete_handler._mock_service.get_movies = AsyncMock(
+        side_effect=Exception("API error")
+    )
+
+    update = make_update(callback_data="delete_type_movie")
+    context = make_context()
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "Error" in str(call_args)
+
+
+# ---------------------------------------------------------------------------
+# handle_delete_selection - item selection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("media_type,service_method", [
+    ("movie", "get_movie"),
+    ("series", "get_series"),
+    ("music", "get_music"),
+])
+@pytest.mark.asyncio
+async def test_handle_delete_selection_item(
+    delete_handler, make_update, make_context, media_type, service_method
+):
+    """Item selection shows confirmation keyboard."""
+    item = {"id": "123", "title": "Test Item"}
+    setattr(
+        delete_handler._mock_service, service_method,
+        AsyncMock(return_value=item)
+    )
+
+    update = make_update(callback_data="delete_item_123")
+    context = make_context(user_data={"delete_type": media_type})
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "ThisDelete" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_selection_item_no_type(
+    delete_handler, make_update, make_context
+):
+    """Item selection with no media_type shows error."""
+    update = make_update(callback_data="delete_item_123")
+    context = make_context(user_data={})
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "not found" in str(call_args).lower()
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_selection_item_not_found(
+    delete_handler, make_update, make_context
+):
+    """Item selection with item not found shows NoExist."""
+    delete_handler._mock_service.get_movie = AsyncMock(return_value=None)
+
+    update = make_update(callback_data="delete_item_123")
+    context = make_context(user_data={"delete_type": "movie"})
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "NoExist" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_selection_item_invalid_type(
+    delete_handler, make_update, make_context
+):
+    """Item selection with invalid media type shows error."""
+    update = make_update(callback_data="delete_item_123")
+    context = make_context(user_data={"delete_type": "invalid"})
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "Invalid" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_selection_item_exception(
+    delete_handler, make_update, make_context
+):
+    """Item selection with API error shows error."""
+    delete_handler._mock_service.get_movie = AsyncMock(
+        side_effect=Exception("API error")
+    )
+
+    update = make_update(callback_data="delete_item_123")
+    context = make_context(user_data={"delete_type": "movie"})
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "Error" in str(call_args)
+
+
+# ---------------------------------------------------------------------------
+# handle_delete_selection - confirm deletion
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("media_type,service_method", [
+    ("movie", "delete_movie"),
+    ("series", "delete_series"),
+    ("music", "delete_music"),
+])
+@pytest.mark.asyncio
+async def test_handle_delete_confirm_success(
+    delete_handler, make_update, make_context, media_type, service_method
+):
+    """Confirm deletion with success shows DeleteSuccess."""
+    setattr(
+        delete_handler._mock_service, service_method,
+        AsyncMock(return_value=True)
+    )
+
+    update = make_update(callback_data="delete_confirm")
+    context = make_context(user_data={
+        "delete_type": media_type,
+        "delete_item": {"id": "123", "title": "Test Item"},
+    })
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "DeleteSuccess" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_confirm_failure(
+    delete_handler, make_update, make_context
+):
+    """Confirm deletion with failure shows DeleteFailed."""
+    delete_handler._mock_service.delete_movie = AsyncMock(return_value=False)
+
+    update = make_update(callback_data="delete_confirm")
+    context = make_context(user_data={
+        "delete_type": "movie",
+        "delete_item": {"id": "123", "title": "Test Item"},
+    })
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "DeleteFailed" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_confirm_exception(
+    delete_handler, make_update, make_context
+):
+    """Confirm deletion with exception shows DeleteFailed."""
+    delete_handler._mock_service.delete_movie = AsyncMock(
+        side_effect=Exception("Error")
+    )
+
+    update = make_update(callback_data="delete_confirm")
+    context = make_context(user_data={
+        "delete_type": "movie",
+        "delete_item": {"id": "123", "title": "Test Item"},
+    })
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "DeleteFailed" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_confirm_no_data(
+    delete_handler, make_update, make_context
+):
+    """Confirm deletion with missing data shows error."""
+    update = make_update(callback_data="delete_confirm")
+    context = make_context(user_data={})
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "not found" in str(call_args).lower()
+
+
+@pytest.mark.asyncio
+async def test_handle_delete_confirm_invalid_type(
+    delete_handler, make_update, make_context
+):
+    """Confirm deletion with invalid type shows error."""
+    update = make_update(callback_data="delete_confirm")
+    context = make_context(user_data={
+        "delete_type": "invalid",
+        "delete_item": {"id": "123", "title": "Test"},
+    })
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "Invalid" in str(call_args)
+
+
 # ---------------------------------------------------------------------------
 # get_handler
 # ---------------------------------------------------------------------------
 
 
-@patch("src.bot.handlers.delete.MediaService")
-@patch("src.bot.handlers.delete.TranslationService")
-def test_get_handler_returns_list(mock_ts_class, mock_ms_class):
+def test_get_handler_returns_list(delete_handler):
     """get_handler returns a list of handlers."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-    mock_ms_class.return_value = MagicMock()
-
-    from src.bot.handlers.delete import DeleteHandler
-
-    handler = DeleteHandler()
-    handlers = handler.get_handler()
+    handlers = delete_handler.get_handler()
 
     assert isinstance(handlers, list)
     assert len(handlers) > 0

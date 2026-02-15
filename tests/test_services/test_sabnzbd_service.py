@@ -70,6 +70,18 @@ class TestSABnzbdServiceInit:
         assert "localhost" in service.base_url
         assert "8090" in service.base_url
 
+    def test_init_no_api_key(self, enabled_sabnzbd_config):
+        """When api key is missing, should raise ValueError."""
+        from src.services.sabnzbd import SABnzbdService
+
+        original_apikey = _mock_config._config["sabnzbd"]["auth"]["apikey"]
+        _mock_config._config["sabnzbd"]["auth"]["apikey"] = None
+        try:
+            with pytest.raises(ValueError, match="API key not configured"):
+                SABnzbdService()
+        finally:
+            _mock_config._config["sabnzbd"]["auth"]["apikey"] = original_apikey
+
 
 # ---------------------------------------------------------------------------
 # get_status
@@ -91,6 +103,19 @@ class TestGetStatus:
         assert status["queued"] == 3
         assert status["speed"] == "5.2 MB/s"
         assert status["size"] == "1.2 GB"
+
+    @pytest.mark.asyncio
+    async def test_get_status_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                status=500,
+            )
+            status = await sabnzbd_service.get_status()
+
+        assert status["active"] == 0
+        assert status["queued"] == 0
+        assert status["speed"] == "0 KB/s"
 
     @pytest.mark.asyncio
     async def test_get_status_error(self, sabnzbd_service):
@@ -124,6 +149,17 @@ class TestAddNzb:
             )
 
         assert result is True
+
+    @pytest.mark.asyncio
+    async def test_add_nzb_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                status=500,
+            )
+            result = await sabnzbd_service.add_nzb("http://example.com/test.nzb")
+
+        assert result is False
 
     @pytest.mark.asyncio
     async def test_add_nzb_failure(self, sabnzbd_service):

@@ -35,6 +35,19 @@ class TestCreateBackup:
 
         assert result is None
 
+    def test_create_backup_exception(self, tmp_path):
+        """Returns None when an exception occurs during backup."""
+        source = tmp_path / "config.yaml"
+        source.write_text("content")
+
+        with (
+            patch("src.utils.backup.CONFIG_PATH", str(source)),
+            patch("shutil.copy2", side_effect=PermissionError("denied")),
+        ):
+            result = create_backup(str(source))
+
+        assert result is None
+
 
 class TestRestoreBackup:
     """Tests for restore_backup."""
@@ -62,6 +75,35 @@ class TestRestoreBackup:
 
         with patch("src.utils.backup.CONFIG_PATH", config_file):
             result = restore_backup(missing)
+
+        assert result is False
+
+    def test_restore_backup_prints_current_backup(self, tmp_path):
+        """Prints current backup path when create_backup succeeds."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("old: true\n")
+        backup_file = tmp_path / "backup_config.yaml"
+        backup_file.write_text("restored: true\n")
+
+        with (
+            patch("src.utils.backup.CONFIG_PATH", str(config_file)),
+            patch("src.utils.backup.create_backup", return_value="/fake/backup.yaml"),
+        ):
+            result = restore_backup(str(backup_file))
+
+        assert result is True
+
+    def test_restore_backup_exception(self, tmp_path):
+        """Returns False when an exception occurs during restore."""
+        backup_file = tmp_path / "backup.yaml"
+        backup_file.write_text("content")
+
+        with (
+            patch("src.utils.backup.CONFIG_PATH", str(tmp_path / "config.yaml")),
+            patch("src.utils.backup.create_backup", return_value=None),
+            patch("shutil.copy2", side_effect=PermissionError("denied")),
+        ):
+            result = restore_backup(str(backup_file))
 
         assert result is False
 

@@ -4,6 +4,7 @@ Tests for src/api/radarr.py -- RadarrClient.
 
 import pytest
 import aiohttp
+from unittest.mock import patch
 
 from tests.fixtures.sample_data import (
     RADARR_SEARCH_RESULTS,
@@ -14,6 +15,54 @@ from tests.fixtures.sample_data import (
 
 
 BASE = "http://localhost:7878/api/v3"
+
+
+# ---------------------------------------------------------------------------
+# __init__ error paths
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrInit:
+    def test_init_missing_addr(self):
+        """Lines 35-36: ValueError when addr is missing."""
+        from src.config.settings import config
+        original = config["radarr"]["server"]["addr"]
+        try:
+            config["radarr"]["server"]["addr"] = None
+            from src.api.radarr import RadarrClient
+            with pytest.raises(ValueError, match="address or port not configured"):
+                RadarrClient()
+        finally:
+            config["radarr"]["server"]["addr"] = original
+
+    def test_init_missing_apikey(self):
+        """Lines 42-43: ValueError when apikey is missing."""
+        from src.config.settings import config
+        original = config["radarr"]["auth"]["apikey"]
+        try:
+            config["radarr"]["auth"]["apikey"] = None
+            from src.api.radarr import RadarrClient
+            with pytest.raises(ValueError, match="API key not configured"):
+                RadarrClient()
+        finally:
+            config["radarr"]["auth"]["apikey"] = original
+
+
+# ---------------------------------------------------------------------------
+# _make_request
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrMakeRequest:
+    @pytest.mark.asyncio
+    async def test_make_request_generic_exception(self, aio_mock, radarr_client):
+        """Lines 71-73: generic Exception in _make_request."""
+        aio_mock.get(
+            f"{BASE}/system/status",
+            exception=RuntimeError("unexpected"),
+        )
+        result = await radarr_client._make_request("system/status")
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +100,13 @@ class TestRadarrSearch:
             exception=aiohttp.ClientError("refused"),
         )
         results = await radarr_client.search("test")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_search_exception(self, radarr_client):
+        """Lines 88-90: Exception during search."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.search("test")
         assert results == []
 
 
@@ -105,6 +161,13 @@ class TestRadarrGetMovie:
         result = await radarr_client.get_movie("999999")
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_get_movie_exception(self, radarr_client):
+        """Lines 111-113: Exception in get_movie."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await radarr_client.get_movie("550")
+        assert result is None
+
 
 # ---------------------------------------------------------------------------
 # get_root_folders
@@ -132,6 +195,13 @@ class TestRadarrRootFolders:
         folders = await radarr_client.get_root_folders()
         assert folders == []
 
+    @pytest.mark.asyncio
+    async def test_get_root_folders_exception(self, radarr_client):
+        """Lines 122-124: Exception in get_root_folders."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            folders = await radarr_client.get_root_folders()
+        assert folders == []
+
 
 # ---------------------------------------------------------------------------
 # get_quality_profiles
@@ -152,6 +222,24 @@ class TestRadarrQualityProfiles:
         assert profiles[0]["name"] == "HD-1080p"
         assert profiles[1]["id"] == 2
         assert profiles[1]["name"] == "Ultra-HD"
+
+    @pytest.mark.asyncio
+    async def test_get_quality_profiles_empty(self, aio_mock, radarr_client):
+        """Lines 133-134: empty quality profiles."""
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            status=500,
+            body="error",
+        )
+        profiles = await radarr_client.get_quality_profiles()
+        assert profiles == []
+
+    @pytest.mark.asyncio
+    async def test_get_quality_profiles_exception(self, radarr_client):
+        """Lines 148-150: Exception in get_quality_profiles."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            profiles = await radarr_client.get_quality_profiles()
+        assert profiles == []
 
 
 # ---------------------------------------------------------------------------
@@ -209,6 +297,150 @@ class TestRadarrAddMovie:
         assert success is False
         assert "already in your library" in message
 
+    @pytest.mark.asyncio
+    async def test_add_movie_lookup_not_found(self, aio_mock, radarr_client):
+        """Lines 158-159: lookup returns empty list."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:999",
+            payload=[],
+            status=200,
+        )
+        success, message = await radarr_client.add_movie(999, "/movies", 1)
+        assert success is False
+        assert "not found" in message.lower()
+
+    @pytest.mark.asyncio
+    async def test_add_movie_invalid_quality_profile(self, aio_mock, radarr_client):
+        """Lines 166-167: invalid quality profile ID."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
+            status=200,
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=RADARR_QUALITY_PROFILES,
+            status=200,
+        )
+        success, message = await radarr_client.add_movie(550, "/movies", 999)
+        assert success is False
+        assert "Invalid quality profile" in message
+
+    @pytest.mark.asyncio
+    async def test_add_movie_api_error_non_already(self, aio_mock, radarr_client):
+        """Lines 202-203: error array with non-'already' message."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
+            status=200,
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=RADARR_QUALITY_PROFILES,
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/movie",
+            payload=[{"errorMessage": "Some other API error"}],
+            status=400,
+        )
+        success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is False
+        assert message == "Some other API error"
+
+    @pytest.mark.asyncio
+    async def test_add_movie_json_decode_error_success(self, aio_mock, radarr_client):
+        """Lines 205-211: JSONDecodeError then status 201 fallback."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
+            status=200,
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=RADARR_QUALITY_PROFILES,
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/movie",
+            body="not json",
+            status=201,
+        )
+        success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is True
+        assert "Successfully added" in message
+
+    @pytest.mark.asyncio
+    async def test_add_movie_json_decode_error_failure(self, aio_mock, radarr_client):
+        """Lines 212-214: JSONDecodeError then non-success status."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
+            status=200,
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=RADARR_QUALITY_PROFILES,
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/movie",
+            body="not json",
+            status=500,
+        )
+        success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is False
+        assert "Failed to add" in message
+
+    @pytest.mark.asyncio
+    async def test_add_movie_client_error(self, aio_mock, radarr_client):
+        """Lines 216-218: ClientError during POST."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
+            status=200,
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=RADARR_QUALITY_PROFILES,
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/movie",
+            exception=aiohttp.ClientError("connection lost"),
+        )
+        success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is False
+        assert "Connection error" in message
+
+    @pytest.mark.asyncio
+    async def test_add_movie_inner_generic_exception(self, aio_mock, radarr_client):
+        """Lines 219-221: generic Exception during POST."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
+            status=200,
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=RADARR_QUALITY_PROFILES,
+            status=200,
+        )
+        aio_mock.post(
+            f"{BASE}/movie",
+            exception=RuntimeError("unexpected"),
+        )
+        success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is False
+
+    @pytest.mark.asyncio
+    async def test_add_movie_outer_exception(self, radarr_client):
+        """Lines 223-225: outer Exception in add_movie."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("outer boom")):
+            success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is False
+        assert "outer boom" in message
+
 
 # ---------------------------------------------------------------------------
 # check_status
@@ -233,4 +465,11 @@ class TestRadarrCheckStatus:
             exception=aiohttp.ClientError("connection refused"),
         )
         result = await radarr_client.check_status()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_check_status_exception(self, radarr_client):
+        """Lines 232-234: Exception in check_status."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await radarr_client.check_status()
         assert result is False
