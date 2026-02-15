@@ -5,6 +5,7 @@ Tests for src/api/sonarr.py -- SonarrClient.
 import pytest
 import aiohttp
 from unittest.mock import patch
+from aioresponses import CallbackResult
 
 from tests.fixtures.sample_data import (
     SONARR_SEARCH_RESULTS,
@@ -133,6 +134,27 @@ class TestSonarrRootFolders:
         with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
             folders = await sonarr_client.get_root_folders()
         assert folders == []
+
+    @pytest.mark.asyncio
+    async def test_get_root_folders_excludes_by_basename_when_narrow(self, aio_mock):
+        """narrowRootFolderNames makes excludedRootFolders match by basename."""
+        from src.config.settings import config
+        orig_paths = config._config["sonarr"]["paths"].copy()
+        config._config["sonarr"]["paths"]["excludedRootFolders"] = ["tv2"]
+        config._config["sonarr"]["paths"]["narrowRootFolderNames"] = True
+        try:
+            from src.api.sonarr import SonarrClient
+            client = SonarrClient()
+            aio_mock.get(
+                f"{BASE}/rootFolder",
+                payload=[{"path": "/data/tv"}, {"path": "/data/tv2"}],
+                status=200,
+            )
+            folders = await client.get_root_folders()
+            assert "/data/tv" in folders
+            assert "/data/tv2" not in folders
+        finally:
+            config._config["sonarr"]["paths"] = orig_paths
 
 
 # ---------------------------------------------------------------------------
@@ -435,6 +457,38 @@ class TestSonarrAddSeries:
             success, message = await sonarr_client.add_series(81189, "/tv", 1)
         assert success is False
         assert "outer boom" in message
+
+    @pytest.mark.asyncio
+    async def test_add_series_includes_season_folder_from_config(self, aio_mock):
+        """add_series POST body should include seasonFolder from config."""
+        from src.config.settings import config
+        config._config["sonarr"]["features"]["seasonFolder"] = True
+        try:
+            from src.api.sonarr import SonarrClient
+            client = SonarrClient()
+
+            aio_mock.get(
+                f"{BASE}/series/lookup?term=tvdb:81189",
+                payload=SONARR_SEARCH_RESULTS[:1],
+                status=200,
+            )
+
+            posted_data = {}
+
+            def capture(url, **kwargs):
+                posted_data.update(kwargs.get("json", {}))
+                return CallbackResult(
+                    payload={"id": 1, "title": "Breaking Bad"}, status=200
+                )
+
+            aio_mock.post(f"{BASE}/series", callback=capture)
+
+            success, _ = await client.add_series(81189, "/tv", 1)
+            assert success is True
+            assert "seasonFolder" in posted_data, "POST body must include seasonFolder"
+            assert posted_data["seasonFolder"] is True
+        finally:
+            config._config["sonarr"]["features"]["seasonFolder"] = True
 
 
 # ---------------------------------------------------------------------------

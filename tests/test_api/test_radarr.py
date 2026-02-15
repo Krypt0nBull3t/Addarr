@@ -202,6 +202,54 @@ class TestRadarrRootFolders:
             folders = await radarr_client.get_root_folders()
         assert folders == []
 
+    @pytest.mark.asyncio
+    async def test_get_root_folders_excludes_by_basename_when_narrow(self, aio_mock):
+        """narrowRootFolderNames makes excludedRootFolders match by basename."""
+        from src.config.settings import config
+        orig_paths = config._config["radarr"]["paths"].copy()
+        config._config["radarr"]["paths"]["excludedRootFolders"] = ["movies2"]
+        config._config["radarr"]["paths"]["narrowRootFolderNames"] = True
+        try:
+            from src.api.radarr import RadarrClient
+            client = RadarrClient()
+            aio_mock.get(
+                f"{BASE}/rootFolder",
+                payload=[
+                    {"path": "/data/movies", "freeSpace": 1000},
+                    {"path": "/data/movies2", "freeSpace": 500},
+                ],
+                status=200,
+            )
+            folders = await client.get_root_folders()
+            assert "/data/movies" in folders
+            assert "/data/movies2" not in folders
+        finally:
+            config._config["radarr"]["paths"] = orig_paths
+
+    @pytest.mark.asyncio
+    async def test_get_root_folders_excludes_by_full_path_when_not_narrow(self, aio_mock):
+        """Without narrowRootFolderNames, excludedRootFolders matches full path."""
+        from src.config.settings import config
+        orig_paths = config._config["radarr"]["paths"].copy()
+        config._config["radarr"]["paths"]["excludedRootFolders"] = ["/data/movies2"]
+        config._config["radarr"]["paths"]["narrowRootFolderNames"] = False
+        try:
+            from src.api.radarr import RadarrClient
+            client = RadarrClient()
+            aio_mock.get(
+                f"{BASE}/rootFolder",
+                payload=[
+                    {"path": "/data/movies", "freeSpace": 1000},
+                    {"path": "/data/movies2", "freeSpace": 500},
+                ],
+                status=200,
+            )
+            folders = await client.get_root_folders()
+            assert "/data/movies" in folders
+            assert "/data/movies2" not in folders
+        finally:
+            config._config["radarr"]["paths"] = orig_paths
+
 
 # ---------------------------------------------------------------------------
 # get_quality_profiles

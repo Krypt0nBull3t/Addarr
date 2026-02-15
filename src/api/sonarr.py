@@ -5,6 +5,8 @@ Created Date: 2024-11-08
 Description: Sonarr API client module.
 """
 
+import os
+
 import aiohttp
 from typing import Optional, List, Dict, Any
 from colorama import Fore
@@ -94,7 +96,16 @@ class SonarrClient:
         try:
             results = await self._make_request("rootFolder")
             if results:
-                return [folder["path"] for folder in results]
+                paths = [folder["path"] for folder in results]
+                paths_config = config.get("sonarr", {}).get("paths", {})
+                excluded = paths_config.get("excludedRootFolders", [])
+                if excluded:
+                    narrow = paths_config.get("narrowRootFolderNames", False)
+                    if narrow:
+                        paths = [p for p in paths if os.path.basename(p.rstrip('/')) not in excluded]
+                    else:
+                        paths = [p for p in paths if p not in excluded]
+                return paths
             return []
         except Exception as e:
             logger.error(f"Failed to get root folders: {str(e)}")
@@ -141,11 +152,15 @@ class SonarrClient:
 
             series = lookup_response[0]  # Use first result
 
+            # Read seasonFolder from config
+            season_folder = config.get("sonarr", {}).get("features", {}).get("seasonFolder", True)
+
             data = {
                 "tvdbId": series["tvdbId"],
                 "title": series["title"],
                 "qualityProfileId": quality_profile_id,
                 "rootFolderPath": root_folder,
+                "seasonFolder": season_folder,
                 "monitored": True,
                 "addOptions": {
                     "searchForMissingEpisodes": True
