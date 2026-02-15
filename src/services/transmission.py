@@ -12,14 +12,15 @@ from ..utils.logger import get_logger
 
 logger = get_logger("addarr.services.transmission")
 
+
 class TransmissionService:
     """Service class for Transmission operations"""
-    
+
     def __init__(self):
         """Initialize Transmission service"""
         self._client = None
         self._config = config.get("transmission", {})
-        
+
     @property
     def client(self) -> Optional[TransmissionAPI]:
         """Get or create Transmission API client"""
@@ -36,30 +37,30 @@ class TransmissionService:
                 logger.error(f"Failed to initialize Transmission client: {str(e)}")
                 return None
         return self._client
-        
+
     def is_enabled(self) -> bool:
         """Check if Transmission is enabled in config"""
         return bool(self._config.get("enable"))
-        
+
     def test_connection(self) -> bool:
         """Test connection to Transmission"""
         if not self.client:
             return False
         return self.client.test_connection()
-        
+
     def set_alt_speed(self, enabled: bool) -> bool:
         """Enable or disable alternative speed limits
-        
+
         Args:
             enabled: Whether to enable alt speed limits
-            
+
         Returns:
             True if successful, False otherwise
         """
         if not self.client:
             logger.error("Transmission client not initialized")
             return False
-            
+
         try:
             self.client.set_alt_speed_enabled(enabled)
             status = "enabled" if enabled else "disabled"
@@ -68,10 +69,10 @@ class TransmissionService:
         except Exception as e:
             logger.error(f"Failed to set alt speed: {str(e)}")
             return False
-            
+
     def get_status(self) -> dict:
         """Get current Transmission status
-        
+
         Returns:
             Dict containing status information
         """
@@ -81,7 +82,7 @@ class TransmissionService:
                 "connected": False,
                 "error": "Transmission not initialized"
             }
-            
+
         try:
             session = self.client.get_session()
             return {
@@ -96,6 +97,7 @@ class TransmissionService:
                 "connected": False,
                 "error": str(e)
             }
+
 
 # Create global service instance
 transmission_service = TransmissionService()

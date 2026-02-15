@@ -38,22 +38,23 @@ init(autoreset=True)
 # Get logger instance
 logger = get_logger("addarr.main")
 
+
 class AddarrBot:
     """Main bot application class"""
-    
+
     def __init__(self):
         self.application = None
         self._running = False
         self.health_checker = health_service
-        
+
     async def initialize(self):
         """Initialize the bot application"""
         try:
             show_welcome_screen()
-            
+
             # Run configuration check before starting
             check_config()
-            
+
             # Run health checks on enabled services as final startup check
             health_results = await health_service.run_health_checks()
             if not display_health_status(health_results):
@@ -61,15 +62,15 @@ class AddarrBot:
                 logger.error("Please check your configuration and ensure all services are running\n")
             else:
                 logger.info("✅ All service health checks passed\n")
-            
+
             token = config.get("telegram", {}).get("token")
             if not token:
                 handle_missing_token_error()
                 raise ValueError("Telegram bot token not configured")
-                
+
             self.application = Application.builder().token(token).build()
             self._add_handlers()
-            
+
             try:
                 await self.application.initialize()
                 logger.info("🚀 Bot initialized successfully")
@@ -87,11 +88,11 @@ class AddarrBot:
             except Exception as e:
                 handle_initialization_error(e)
                 raise
-                
+
         except Exception as e:
             logger.error(f"❌ Initialization error: {str(e)}", exc_info=True)
             raise
-            
+
     def _add_handlers(self):
         """Add all handlers to the application"""
         try:
@@ -99,76 +100,76 @@ class AddarrBot:
             start_handler = StartHandler()
             for handler in start_handler.get_handler():
                 self.application.add_handler(handler)
-            
+
             # Auth handler
             auth_handler = AuthHandler()
             for handler in auth_handler.get_handler():
                 self.application.add_handler(handler)
-            
+
             # Media handler
             media_handler = MediaHandler()
             for handler in media_handler.get_handler():
                 self.application.add_handler(handler)
-            
+
             # Transmission handler (if enabled)
             if config.get("transmission", {}).get("enable", False):
                 transmission_handler = TransmissionHandler()
                 for handler in transmission_handler.get_handler():
                     self.application.add_handler(handler)
-                
+
             # SABnzbd handler (if enabled)
             if config.get("sabnzbd", {}).get("enable", False):
                 sabnzbd_handler = SabnzbdHandler()
                 for handler in sabnzbd_handler.get_handler():
                     self.application.add_handler(handler)
-                
+
             # Help handler
             help_handler = HelpHandler()
             for handler in help_handler.get_handler():
                 self.application.add_handler(handler)
-            
+
             # Status handler
             status_handler = StatusHandler()
             for handler in status_handler.get_handler():
                 self.application.add_handler(handler)
-            
+
         except Exception as e:
             logger.error(f"❌ Error adding handlers: {str(e)}", exc_info=True)
             raise
-            
+
     async def start(self):
         """Start the bot"""
         try:
             logger.info("🚀 Starting bot...")
             await self.application.start()
             self._running = True
-            
+
             # Start health check job
             asyncio.create_task(self.health_checker.start())
-            
+
             # Start polling
             await self.application.updater.start_polling(
                 allowed_updates=["message", "callback_query"]
             )
-            
+
             # Keep the bot running until stopped
             while self._running:
                 await asyncio.sleep(1)
-                
+
         except Exception as e:
             logger.error(f"❌ Error starting bot: {str(e)}")
             raise
-            
+
     async def stop(self):
         """Stop the bot gracefully"""
         if self.application:
             try:
                 logger.info("🛑 Stopping bot...")
                 self._running = False
-                
+
                 # Stop health check job
                 await self.health_checker.stop()
-                
+
                 if hasattr(self.application, 'updater') and self.application.updater.running:
                     await self.application.updater.stop()
                 await self.application.stop()
@@ -177,10 +178,11 @@ class AddarrBot:
                 logger.debug(f"Error during shutdown: {str(e)}", exc_info=True)
                 # Don't raise the error since we're shutting down anyway
 
+
 async def main():
     """Main entry point for the application"""
     bot = AddarrBot()
-    
+
     async def start_bot():
         try:
             await bot.initialize()
@@ -215,6 +217,7 @@ async def main():
         logger.error(f"Fatal error: {e}")
         sys.exit(1)
 
+
 def run_bot():
     """Entry point for running the bot directly"""
     try:
@@ -224,6 +227,7 @@ def run_bot():
     except Exception as e:
         logger.error(f"Fatal error: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     run_bot()

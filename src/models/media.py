@@ -12,7 +12,7 @@ throughout the application.
 
 from dataclasses import dataclass
 from typing import List, Optional
-from datetime import datetime
+
 
 @dataclass
 class MediaItem:
@@ -22,7 +22,8 @@ class MediaItem:
     year: Optional[int]
     overview: Optional[str]
     poster_url: Optional[str]
-    
+
+
 @dataclass
 class Movie(MediaItem):
     """Movie data model"""
@@ -30,7 +31,8 @@ class Movie(MediaItem):
     quality_profile_id: Optional[int] = None
     monitored: bool = True
     minimum_availability: str = "announced"
-    
+
+
 @dataclass
 class Series(MediaItem):
     """Series data model"""
@@ -39,7 +41,8 @@ class Series(MediaItem):
     monitored_seasons: List[int]
     quality_profile_id: Optional[int] = None
     season_folder: bool = True
-    
+
+
 @dataclass
 class Artist(MediaItem):
     """Artist data model"""
@@ -47,29 +50,33 @@ class Artist(MediaItem):
     artist_type: str
     metadata_profile_id: Optional[int] = None
     album_folder: bool = True
-    
+
+
 @dataclass
 class QualityProfile:
     """Quality profile data model"""
     id: int
     name: str
-    
+
+
 @dataclass
 class RootFolder:
     """Root folder data model"""
     path: str
     free_space: int
-    
+
+
 @dataclass
 class Tag:
     """Tag data model"""
     id: int
     label: str
-    
+
+
 @dataclass
 class SearchResult:
     """Search result data model"""
     media_type: str
     items: List[MediaItem]
     total_results: int
-    page: int = 1 
+    page: int = 1

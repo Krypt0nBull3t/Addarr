@@ -7,11 +7,12 @@ Description: Utils package initialization.
 
 from colorama import init as init_colorama
 
+
 def init_utils():
     """Initialize utility modules"""
     # Initialize colorama for cross-platform colored output
     init_colorama(autoreset=True)
-    
+
     # Import error classes
     from .error_handler import (
         AddarrError,
@@ -24,7 +25,7 @@ def init_utils():
         handle_telegram_error,
         send_error_message
     )
-    
+
     return {
         'AddarrError': AddarrError,
         'ConfigError': ConfigError,
@@ -37,8 +38,9 @@ def init_utils():
         'send_error_message': send_error_message
     }
 
+
 # Import and export prerun_checker
-from .prerun import PreRunChecker
+from .prerun import PreRunChecker  # noqa: E402
 prerun_checker = PreRunChecker()
 
 __all__ = ['init_utils', 'prerun_checker']
