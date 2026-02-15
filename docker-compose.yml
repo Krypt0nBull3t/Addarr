@@ -3,18 +3,31 @@
 # created date: 2024-11-08
 # description: Docker compose file for Addarr Refresh Telegram Bot.
 
-version: '3'
 services:
   addarr:
     container_name: addarr-refresh
     build: .
     restart: unless-stopped
-    network_mode: host
+    network_mode: host  # Required for reaching *arr services on localhost
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./chatid.txt:/app/chatid.txt:rw
       - ./admin.txt:/app/admin.txt:ro
       - ./allowlist.txt:/app/allowlist.txt:ro
       - ./logs:/app/logs:rw
+      - ./backup:/app/backup:rw
     environment:
       - PYTHONPATH=/app
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "python /app/run.py"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
