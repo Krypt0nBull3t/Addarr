@@ -13,10 +13,11 @@ import argparse
 # Only import prerun_checker initially
 from src.utils import prerun_checker
 
+
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(description='Addarr - Media Management Bot')
-    
+
     # Add command line arguments
     parser.add_argument('--setup', action='store_true', help='Run initial setup wizard')
     parser.add_argument('--configure', action='store_true', help='Add/modify services')
@@ -25,31 +26,31 @@ def main():
     parser.add_argument('--backup', action='store_true', help='Create a backup of the current configuration')
     parser.add_argument('--reset', action='store_true', help='Reset configuration to default')
     parser.add_argument('--validate-i18n', action='store_true', help='Validate translation files')
-    
+
     args = parser.parse_args()
-    
+
     # Handle validation command separately as it doesn't need config
     if args.validate_i18n:
         # Import only what's needed for validation
         from src.utils.validate_translations import main as validate_translations
         validate_translations()
         return
-        
+
     # Run pre-run checks (unless we're running setup)
     if not args.setup and not prerun_checker.run_checks():
         sys.exit(1)
-    
+
     # Now we can safely initialize everything else
     from src.utils import init_utils
-    utils = init_utils()
-    
+    init_utils()
+
     # Import other modules after checks pass
     from src.setup import SetupWizard
     from src.utils.splash import show_splash_screen, show_version
     from src.main import run_bot
     from src.utils.validation import check_config
     from src.utils.backup import create_backup
-    
+
     try:
         # Handle command line arguments
         if args.setup:
@@ -71,13 +72,14 @@ def main():
             # No arguments provided, run the bot
             show_splash_screen()
             run_bot()
-            
+
     except KeyboardInterrupt:
         print(f"\n{prerun_checker.colors.Fore.YELLOW}Shutting down...")
         sys.exit(0)
     except Exception as e:
         print(f"{prerun_checker.colors.Fore.RED}Fatal error: {str(e)}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

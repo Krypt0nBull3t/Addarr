@@ -6,7 +6,6 @@ Description: Error handling module for Addarr. This module provides centralized 
 """
 
 from colorama import Fore, Style
-import sys
 import yaml
 from typing import Optional
 from telegram import Update, Message
@@ -16,59 +15,66 @@ from src.utils.logger import get_logger
 logger = get_logger("addarr.errors")
 
 # Custom Exception Classes
+
+
 class AddarrError(Exception):
     """Base exception class for Addarr errors"""
     def __init__(self, message: str, user_message: Optional[str] = None):
         super().__init__(message)
         self.user_message = user_message or message
 
+
 class ConfigError(AddarrError):
     """Configuration related errors"""
     pass
 
+
 class ValidationError(AddarrError):
     """Data validation errors"""
     pass
+
 
 class ServiceNotEnabledError(AddarrError):
     """Raised when trying to use a service that is not enabled"""
     pass
 
 # Error Handlers
+
+
 def handle_token_error(token: str) -> bool:
     """Handle invalid or missing Telegram token errors
-    
+
     Returns:
         bool: True if token was updated, False otherwise
     """
     print(f"\n{Fore.RED}❌ Error: Invalid Telegram Bot Token!")
     print(f"\n{Fore.YELLOW}The token '{token}' was rejected by Telegram.")
-    
+
     while True:
         choice = input(f"\n{Fore.CYAN}Would you like to update the token now? (y/n): {Style.RESET_ALL}").lower()
-        
+
         if choice == 'y':
             new_token = input(f"\n{Fore.CYAN}Please enter the new token from @BotFather: {Style.RESET_ALL}")
-            
+
             if new_token.strip():
                 try:
                     # Load current config
                     with open("config.yaml", 'r') as f:
                         full_config = yaml.safe_load(f)
-                    
+
                     # Update token
                     if 'telegram' not in full_config:
                         full_config['telegram'] = {}
                     full_config['telegram']['token'] = new_token
-                    
+
                     # Save updated config
                     with open("config.yaml", 'w') as f:
                         yaml.dump(full_config, f, default_flow_style=False)
-                    
+
                     print(f"\n{Fore.GREEN}✅ Token updated successfully!")
                     print(f"{Fore.CYAN}Restarting bot with new token...{Style.RESET_ALL}")
                     return True
-                    
+
                 except Exception as e:
                     print(f"\n{Fore.RED}❌ Error updating token: {str(e)}")
                     print("Please update the token manually in config.yaml")
@@ -76,7 +82,7 @@ def handle_token_error(token: str) -> bool:
             else:
                 print(f"\n{Fore.RED}❌ Invalid token entered. Please try again.")
                 continue
-                
+
         elif choice == 'n':
             print(f"\n{Fore.YELLOW}To update the token later:")
             print("1. Get a valid token from @BotFather:")
@@ -88,9 +94,10 @@ def handle_token_error(token: str) -> bool:
             print("   • Or manually update the token in config.yaml")
             print(f"\n{Fore.CYAN}Need help? Visit: https://github.com/cyneric/addarr/wiki")
             return False
-            
+
         else:
             print(f"\n{Fore.RED}Invalid choice. Please enter 'y' or 'n'")
+
 
 def handle_missing_token_error() -> None:
     """Handle missing token configuration"""
@@ -104,6 +111,7 @@ def handle_missing_token_error() -> None:
     print("     token: \"YOUR_BOT_TOKEN\"")
     print(f"\n{Fore.CYAN}Need help? Visit: https://github.com/cyneric/addarr/wiki/Setup")
 
+
 def handle_network_error() -> None:
     """Handle network connection errors"""
     print(f"\n{Fore.RED}❌ Error: Cannot connect to Telegram!")
@@ -115,6 +123,7 @@ def handle_network_error() -> None:
     print("4. You're not using a VPN that blocks Telegram")
     print("5. Telegram is accessible in your region")
     print(f"\n{Fore.CYAN}Need help? Visit: https://github.com/cyneric/addarr/wiki/Troubleshooting")
+
 
 def handle_initialization_error(error: Exception) -> None:
     """Handle general initialization errors"""
@@ -128,6 +137,7 @@ def handle_initialization_error(error: Exception) -> None:
     print("3. Look for errors in the log file")
     print("4. Make sure all required services are running")
     print(f"\n{Fore.CYAN}Need help? Visit: https://github.com/cyneric/addarr/wiki/Troubleshooting")
+
 
 async def handle_telegram_error(update: Update, error: Exception) -> None:
     """Handle Telegram-specific errors"""
@@ -149,6 +159,7 @@ async def handle_telegram_error(update: Update, error: Exception) -> None:
                 "❌ An unexpected error occurred.\n"
                 "Please try again later."
             )
+
 
 async def send_error_message(message: Message, text: str, reply_markup=None) -> None:
     """Send an error message, handling both photo and text messages"""

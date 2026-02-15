@@ -12,9 +12,10 @@ from colorama import Fore, Style
 import platform
 from src.config.settings import config
 
+
 def get_splash_screen() -> str:
     """Get application splash screen
-    
+
     Returns:
         str: Formatted splash screen ASCII art
     """
@@ -40,9 +41,11 @@ def get_splash_screen() -> str:
 
     {Style.RESET_ALL}"""
 
+
 def show_splash_screen():
     """Display the splash screen"""
     print(get_splash_screen())
+
 
 def show_version():
     """Show version information"""
@@ -52,14 +55,15 @@ def show_version():
     print(f"{Fore.GREEN}🚀 A Telegram bot for media management")
     print(f"{Fore.CYAN}Repository: {Fore.BLUE}https://github.com/cyneric/addarr")
     print(f"{Fore.CYAN}Documentation: {Fore.BLUE}https://github.com/cyneric/addarr/wiki")
-    print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}\n") 
-    
+    print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}\n")
+
+
 def show_welcome_screen():
     """Show the main application welcome screen with system info and commands"""
     # System information
     python_version = platform.python_version()
     system_info = platform.platform()
-    
+
     # Configuration information from logging and security settings
     debug_mode = "✅ Enabled" if config.get("logging", {}).get("debug", False) else "❌ Disabled"
     admin_mode = "✅ Enabled" if config.get("security", {}).get("enableAdmin", False) else "❌ Disabled"
@@ -69,16 +73,16 @@ def show_welcome_screen():
     print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}🚀 Addarr Bot{Style.RESET_ALL} - Media Management Made Easy")
     print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
-    
+
     print(f"\n{Fore.YELLOW}📊 System Information:{Style.RESET_ALL}")
     print(f"• 🐍 Python Version: {python_version}")
     print(f"• 💻 Operating System: {system_info}")
-    
+
     print(f"\n{Fore.YELLOW}⚙️ Configuration:{Style.RESET_ALL}")
     print(f"• 🐛 Debug Mode: {debug_mode}")
     print(f"• 👑 Admin Mode: {admin_mode}")
     print(f"• 🌐 Language: {language}")
-    
+
     print(f"\n{Fore.YELLOW}💻 Command Line Interface:{Style.RESET_ALL}")
     print("• 🚀 python run.py - Start the bot normally (on first run, setup wizard will start automatically)")
     print("• 🔧 python run.py --setup - Run setup wizard again")
@@ -89,7 +93,7 @@ def show_welcome_screen():
     print("• 🔄 python run.py --reset - Reset configuration to default")
     print("• 🔍 python run.py --validate-i18n - Validate translation files")
     print("• ❓ python run.py --help - Show CLI help")
-    
+
     print(f"\n{Fore.YELLOW}📝 Telegram Chat Commands:{Style.RESET_ALL}")
     print("• 🎬 /movie - Add a movie")
     print("• 📺 /series - Add a TV show")
@@ -98,15 +102,16 @@ def show_welcome_screen():
     print("• 📊 /status - Check system status")
     print("• ⚙️ /settings - Manage settings")
     print("• ❓ /help - Show help message")
-    
+
     print(f"\n{Fore.YELLOW}📚 Resources:{Style.RESET_ALL}")
     print(f"• 🌐 Repository: {Fore.CYAN}https://github.com/cyneric/addarr{Style.RESET_ALL}")
     print(f"• 📖 Documentation: {Fore.CYAN}https://github.com/cyneric/addarr/wiki{Style.RESET_ALL}")
     print(f"• 🐛 Issues: {Fore.CYAN}https://github.com/cyneric/addarr/issues{Style.RESET_ALL}")
-    
+
     print(f"\n{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}🚀 Starting bot...{Style.RESET_ALL}")
     print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
+
 
 def show_token_help():
     """Show help information for Telegram bot token configuration"""

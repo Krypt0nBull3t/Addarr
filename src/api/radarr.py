@@ -7,7 +7,6 @@ Description: Radarr API client module.
 
 import aiohttp
 from typing import Optional, List, Dict, Any
-import logging
 from colorama import Fore
 import json
 
@@ -16,43 +15,44 @@ from src.utils.logger import get_logger
 
 logger = get_logger("addarr.radarr")
 
+
 class RadarrClient:
     """Radarr API client"""
-    
+
     def __init__(self):
         """Initialize Radarr API client"""
         radarr_config = config.get("radarr", {})
         server_config = radarr_config.get("server", {})
         auth_config = radarr_config.get("auth", {})
-        
+
         # Build API URL from server config
         protocol = "https" if server_config.get("ssl", False) else "http"
         addr = server_config.get("addr")
         port = server_config.get("port")
         path = server_config.get("path", "").rstrip('/')
-        
+
         if not addr or not port:
             logger.error(Fore.RED + "❌ Radarr server address or port not configured")
             raise ValueError("Radarr server address or port not configured")
-            
+
         self.api_url = f"{protocol}://{addr}:{port}{path}"
         self.api_key = auth_config.get("apikey")
-        
+
         if not self.api_key:
             logger.error(Fore.RED + "❌ Radarr API key not configured")
             raise ValueError("Radarr API key not configured")
-            
+
         self.headers = {
             "X-Api-Key": self.api_key,
             "Content-Type": "application/json"
         }
         logger.info(Fore.GREEN + f"✅ Radarr API client initialized: {self.api_url}")
-        
+
     async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[Dict] = None, title: Optional[str] = None) -> Any:
         """Make API request to Radarr"""
         url = f"{self.api_url}/api/v3/{endpoint}"
         logger.info(Fore.BLUE + f"🌐 API Request: {method} {url}")
-        
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.request(method, url, headers=self.headers, json=data) as response:
@@ -64,50 +64,50 @@ class RadarrClient:
                         error_text = await response.text()
                         logger.error(Fore.RED + f"❌ API request failed ({response.status}): {error_text}")
                         return None
-                        
+
         except aiohttp.ClientError as e:
             logger.error(Fore.RED + f"❌ Connection error: {str(e)}")
             return None
         except Exception as e:
             logger.error(Fore.RED + f"❌ Unexpected error: {str(e)}")
             return None
-            
+
     async def search(self, term: str) -> List[Dict]:
         """Search for movies"""
         try:
             logger.info(Fore.BLUE + f"🔍 Searching Radarr for: {term}")
             results = await self._make_request(f"movie/lookup?term={term}")
-            
+
             if not results:
                 logger.warning(Fore.YELLOW + f"⚠️ No results found for: {term}")
                 return []
-                
+
             logger.info(Fore.GREEN + f"✅ Found {len(results)} results for: {term}")
             return results
-            
+
         except Exception as e:
             logger.error(Fore.RED + f"❌ Search failed: {str(e)}")
             return []
-            
+
     async def get_movie(self, tmdb_id: str) -> Optional[Dict]:
         """Get movie details by TMDB ID"""
         try:
             logger.info(f"🔍 Looking up movie with TMDB ID: {tmdb_id}")
             results = await self._make_request(f"movie/lookup/tmdb/{tmdb_id}")
-            
+
             if results:
                 logger.info(f"✅ Found movie: {results.get('title')}")
                 return results
-            
+
             # Fallback to search with tmdb: prefix if direct lookup fails
             results = await self._make_request(f"movie/lookup?term=tmdb:{tmdb_id}")
             if results and len(results) > 0:
                 logger.info(f"✅ Found movie: {results[0].get('title')}")
                 return results[0]
-                
+
             logger.warning(f"⚠️ No movie found with TMDB ID: {tmdb_id}")
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to get movie: {str(e)}")
             return None
@@ -128,11 +128,11 @@ class RadarrClient:
         try:
             logger.info("🔍 Getting quality profiles from Radarr")
             results = await self._make_request("qualityProfile")
-            
+
             if not results:
                 logger.warning("⚠️ No quality profiles found")
                 return []
-            
+
             profiles = [
                 {
                     "id": profile["id"],
@@ -141,10 +141,10 @@ class RadarrClient:
                 }
                 for profile in results
             ]
-            
+
             logger.info(f"✅ Found {len(profiles)} quality profiles")
             return profiles
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to get quality profiles: {str(e)}")
             return []
@@ -159,13 +159,13 @@ class RadarrClient:
                 return False, "Movie not found"
 
             movie = lookup_response[0]  # Use first result
-            
+
             # Verify quality profile exists
             quality_profiles = await self.get_quality_profiles()
             if not any(p["id"] == quality_profile_id for p in quality_profiles):
                 logger.error(f"❌ Invalid quality profile ID: {quality_profile_id}")
                 return False, "Invalid quality profile selected"
-            
+
             data = {
                 "tmdbId": movie["tmdbId"],
                 "title": movie["title"],
@@ -176,22 +176,22 @@ class RadarrClient:
                     "searchForMovie": True
                 }
             }
-            
+
             try:
                 async with aiohttp.ClientSession() as session:
                     url = f"{self.api_url}/api/v3/movie"
                     async with session.post(url, headers=self.headers, json=data) as response:
                         response_text = await response.text()
-                        
+
                         # Check if response can be parsed as JSON
                         try:
                             response_data = json.loads(response_text)
-                            
+
                             # If we get a movie object back, it was successful
                             if isinstance(response_data, dict) and response_data.get("id"):
                                 logger.info(f"✅ Successfully added movie: {movie['title']}")
                                 return True, f"Successfully added {movie['title']}"
-                                
+
                             # If we get an error array back
                             if isinstance(response_data, list) and response_data:
                                 error_msg = response_data[0].get("errorMessage")
@@ -201,10 +201,10 @@ class RadarrClient:
                                         return False, f"{movie['title']} is already in your library"
                                     logger.warning(f"⚠️ API Error: {error_msg}")
                                     return False, error_msg
-                                    
+
                         except json.JSONDecodeError:
                             pass
-                        
+
                         # If we can't parse the response or don't recognize the format
                         if response.status == 201 or response.status == 200:
                             logger.info(f"✅ Successfully added movie: {movie['title']}")
@@ -212,7 +212,7 @@ class RadarrClient:
                         else:
                             logger.error(f"❌ Failed to add movie: {response_text}")
                             return False, f"Failed to add {movie['title']}"
-                        
+
             except aiohttp.ClientError as e:
                 logger.error(f"❌ Connection error: {str(e)}")
                 return False, f"Connection error: {str(e)}"
