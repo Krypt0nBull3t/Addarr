@@ -13,6 +13,7 @@ omit =
     src/utils/splash.py
 
 [report]
+fail_under = 100
 exclude_lines =
     pragma: no cover
     if __name__ == .__main__
