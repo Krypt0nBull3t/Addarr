@@ -43,36 +43,42 @@ DEFAULT_SETTINGS = {
     "logToConsole": True,
     "debugLogging": False,
     "language": "en-us",
-    "transmission": { "enable": False },
+    "transmission": {"enable": False},
     "enableAdmin": False
 }
+
 
 def load_config():
     config_path = Path("config.yaml")
     if not config_path.exists():
         raise FileNotFoundError("config.yaml not found. Please copy config_example.yaml to config.yaml and configure it.")
-    
+
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
+
 
 def get_admins():
     """Get list of admin IDs from config"""
     config = load_config()
     return config.get('admins', [])
 
+
 def get_allowed_users():
     """Get list of allowed user IDs from config"""
     config = load_config()
     return config.get('allow_list', [])
+
 
 def get_allowed_chats():
     """Get list of allowed chat IDs from config"""
     config = load_config()
     return config.get('chat_id', [])
 
+
 def is_admin(user_id: int) -> bool:
     """Check if user ID is an admin"""
     return user_id in get_admins()
+
 
 def is_allowed_user(user_id: int) -> bool:
     """Check if user ID is allowed"""
@@ -81,6 +87,7 @@ def is_allowed_user(user_id: int) -> bool:
     if not config.get('security', {}).get('enableAllowlist', False):
         return True
     return user_id in get_allowed_users()
+
 
 def is_allowed_chat(chat_id: int) -> bool:
     """Check if chat ID is allowed"""

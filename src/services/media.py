@@ -7,8 +7,7 @@ Description: Media service module.
 This module handles interactions with media services (Radarr, Sonarr, Lidarr).
 """
 
-from typing import List, Dict, Any
-from colorama import Fore
+from typing import List, Dict
 
 from src.utils.logger import get_logger
 from src.config.settings import config
@@ -18,22 +17,23 @@ from src.api.lidarr import LidarrClient
 
 logger = get_logger("addarr.services.media")
 
+
 class MediaService:
     """Service for handling media operations"""
-    
+
     # Class-level storage for singleton instances
     _instance = None
     _radarr = None
     _sonarr = None
     _lidarr = None
-    
+
     def __new__(cls):
         """Ensure only one instance of MediaService exists"""
         if cls._instance is None:
             cls._instance = super(MediaService, cls).__new__(cls)
             cls._initialize_clients()
         return cls._instance
-    
+
     @classmethod
     def _initialize_clients(cls):
         """Initialize API clients if not already initialized"""
@@ -45,7 +45,7 @@ class MediaService:
             except Exception as e:
                 logger.error(f"Failed to initialize Radarr client: {e}")
                 cls._radarr = None
-        
+
         # Initialize Sonarr
         if cls._sonarr is None:
             try:
@@ -54,7 +54,7 @@ class MediaService:
             except Exception as e:
                 logger.error(f"Failed to initialize Sonarr client: {e}")
                 cls._sonarr = None
-        
+
         # Initialize Lidarr
         if cls._lidarr is None:
             try:
@@ -63,12 +63,12 @@ class MediaService:
             except Exception as e:
                 logger.error(f"Failed to initialize Lidarr client: {e}")
                 cls._lidarr = None
-    
+
     def __init__(self):
         """Initialize the service"""
         self.transmission = None
         self.sabnzbd = None
-        
+
         # Initialize download clients if enabled
         try:
             if config.get("transmission", {}).get("enable"):
@@ -76,31 +76,31 @@ class MediaService:
                 self.transmission = TransmissionClient()
         except ImportError:
             logger.warning("Transmission module not available")
-            
+
         try:
             if config.get("sabnzbd", {}).get("enable"):
                 from src.api.sabnzbd import SabnzbdClient
                 self.sabnzbd = SabnzbdClient()
         except ImportError:
             logger.warning("SABnzbd module not available")
-    
+
     @property
     def radarr(self):
         return self._radarr
-    
+
     @property
     def sonarr(self):
         return self._sonarr
-    
+
     @property
     def lidarr(self):
         return self._lidarr
-    
+
     async def search_movies(self, query: str) -> List[Dict]:
         """Search for movies using Radarr"""
         if not self.radarr:
             raise ValueError("Radarr is not enabled or configured")
-            
+
         try:
             results = await self.radarr.search(query)
             return [
@@ -111,7 +111,7 @@ class MediaService:
                     "year": movie.get("year"),
                     "poster": (
                         # Try Radarr image first
-                        next((img["remoteUrl"] for img in movie.get("images", []) 
+                        next((img["remoteUrl"] for img in movie.get("images", [])
                              if img.get("coverType", "").lower() == "poster"), None)
                         # Fallback to TMDB
                         or (f"https://image.tmdb.org/t/p/w500/{movie.get('remotePoster')}"
@@ -134,12 +134,12 @@ class MediaService:
         except Exception as e:
             logger.error(f"Error searching movies: {e}")
             raise
-    
+
     async def search_series(self, query: str) -> List[Dict]:
         """Search for TV series using Sonarr"""
         if not self.sonarr:
             raise ValueError("Sonarr is not enabled or configured")
-            
+
         try:
             results = await self.sonarr.search(query)
             return [
@@ -150,7 +150,7 @@ class MediaService:
                     "year": series.get("year"),
                     "poster": (
                         # Try Sonarr image first
-                        next((img["remoteUrl"] for img in series.get("images", []) 
+                        next((img["remoteUrl"] for img in series.get("images", [])
                              if img.get("coverType", "").lower() == "poster"), None)
                         # Fallback to TVDB
                         or (f"https://artworks.thetvdb.com/banners/{series.get('remotePoster')}"
@@ -175,12 +175,12 @@ class MediaService:
         except Exception as e:
             logger.error(f"Error searching series: {e}")
             raise
-    
+
     async def search_music(self, query: str) -> List[Dict]:
         """Search for music using Lidarr"""
         if not self.lidarr:
             raise ValueError("Lidarr is not enabled or configured")
-            
+
         try:
             results = await self.lidarr.search(query)
             return [
@@ -191,7 +191,7 @@ class MediaService:
                     "year": artist.get("statistics", {}).get("yearStart", "N/A"),
                     "poster": (
                         # Try Lidarr image first
-                        next((img["remoteUrl"] for img in artist.get("images", []) 
+                        next((img["remoteUrl"] for img in artist.get("images", [])
                              if img.get("coverType", "").lower() in ["poster", "cover"]), None)
                         # Try MusicBrainz image
                         or (f"https://coverartarchive.org/release-group/{artist.get('foreignArtistId')}/front"
@@ -215,34 +215,34 @@ class MediaService:
         except Exception as e:
             logger.error(f"Error searching music: {e}")
             raise
-    
+
     async def add_movie(self, tmdb_id: str) -> tuple[bool, str]:
         """Add a movie to Radarr"""
         if not self.radarr:
             raise ValueError("Radarr is not enabled or configured")
-            
+
         try:
             # Get root folder and quality profiles
             root_folders = await self.radarr.get_root_folders()
             if not root_folders:
                 return False, "No root folders configured in Radarr"
-                
+
             quality_profiles = await self.radarr.get_quality_profiles()
             if not quality_profiles:
                 return False, "No quality profiles configured in Radarr"
-            
+
             # Get movie details using proper lookup endpoint
             lookup_results = await self.radarr.get_movie(tmdb_id)  # Use get_movie instead of search
             if not lookup_results:
                 return False, "Movie not found"
-            
+
             movie = lookup_results
-            
+
             # Format quality profiles for selection
             profile_text = "Select quality profile:\n\n"
             for i, profile in enumerate(quality_profiles, 1):
                 profile_text += f"{i}. {profile['name']}\n"
-            
+
             # Store information for later use
             return {
                 "type": "quality_selection",
@@ -251,16 +251,16 @@ class MediaService:
                 "movie": movie,
                 "message": profile_text
             }
-            
+
         except Exception as e:
             logger.error(f"❌ Error in MediaService.add_movie: {str(e)}")
             return False, str(e)
-            
+
     async def add_movie_with_profile(self, tmdb_id: str, profile_id: int, root_folder: str) -> tuple[bool, str]:
         """Add a movie to Radarr with selected quality profile"""
         if not self.radarr:
             raise ValueError("Radarr is not enabled or configured")
-            
+
         try:
             # Add the movie with selected profile
             success, message = await self.radarr.add_movie(
@@ -268,49 +268,49 @@ class MediaService:
                 root_folder,
                 profile_id
             )
-            
+
             if success:
-                logger.info(f"✅ Movie added successfully")
+                logger.info("✅ Movie added successfully")
             else:
                 logger.info(f"ℹ️ {message}")
-                
+
             return success, message
-            
+
         except Exception as e:
             logger.error(f"❌ Error in MediaService.add_movie: {str(e)}")
             return False, str(e)
-    
+
     async def add_series(self, tvdb_id: str) -> tuple[bool, str]:
         """Add a TV series to Sonarr"""
         if not self.sonarr:
             raise ValueError("Sonarr is not enabled or configured")
-            
+
         try:
             # Get root folder and quality profiles
             root_folders = await self.sonarr.get_root_folders()
             if not root_folders:
                 return False, "No root folders configured in Sonarr"
-                
+
             quality_profiles = await self.sonarr.get_quality_profiles()
             if not quality_profiles:
                 return False, "No quality profiles configured in Sonarr"
-            
+
             # Get series details and seasons
             lookup_results = await self.sonarr.get_series(tvdb_id)
             if not lookup_results:
                 return False, "Series not found"
-                
+
             seasons = await self.sonarr.get_seasons(tvdb_id)
             if not seasons:
                 return False, "No seasons found for series"
-            
+
             series = lookup_results
-            
+
             # Format quality profiles for selection
             profile_text = "Select quality profile:\n\n"
             for i, profile in enumerate(quality_profiles, 1):
                 profile_text += f"{i}. {profile['name']}\n"
-            
+
             # Store information for later use
             return {
                 "type": "quality_selection",
@@ -320,20 +320,20 @@ class MediaService:
                 "seasons": seasons,  # Add seasons to context
                 "message": profile_text
             }
-            
+
         except Exception as e:
             logger.error(f"❌ Error in MediaService.add_series: {str(e)}")
             return False, str(e)
-            
+
     async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, selected_seasons: List[int] = None) -> tuple[bool, str]:
         """Add a series to Sonarr with selected quality profile and seasons"""
         if not self.sonarr:
             raise ValueError("Sonarr is not enabled or configured")
-            
+
         try:
             # Get all seasons
             seasons = await self.sonarr.get_seasons(tvdb_id)
-            
+
             # Format season data
             season_data = []
             for season in seasons:
@@ -343,7 +343,7 @@ class MediaService:
                         "seasonNumber": season_number,
                         "monitored": selected_seasons is None or season_number in selected_seasons
                     })
-            
+
             # Add the series with selected profile and seasons
             success, message = await self.sonarr.add_series(
                 int(tvdb_id),
@@ -351,45 +351,45 @@ class MediaService:
                 profile_id,
                 season_data
             )
-            
+
             if success:
-                logger.info(f"✅ Series added successfully")
+                logger.info("✅ Series added successfully")
             else:
                 logger.info(f"ℹ️ {message}")
-                
+
             return success, message
-            
+
         except Exception as e:
             logger.error(f"❌ Error in MediaService.add_series: {str(e)}")
             return False, str(e)
-    
+
     async def add_music(self, artist_id: str) -> tuple[bool, str]:
         """Add an artist to Lidarr"""
         if not self.lidarr:
             raise ValueError("Lidarr is not enabled or configured")
-            
+
         try:
             # Get root folder and quality profiles
             root_folders = await self.lidarr.get_root_folders()
             if not root_folders:
                 return False, "No root folders configured in Lidarr"
-                
+
             quality_profiles = await self.lidarr.get_quality_profiles()
             if not quality_profiles:
                 return False, "No quality profiles configured in Lidarr"
-            
+
             # Get artist details
             lookup_results = await self.lidarr.get_artist(artist_id)
             if not lookup_results:
                 return False, "Artist not found"
-            
+
             artist = lookup_results
-            
+
             # Format quality profiles for selection
             profile_text = "Select quality profile:\n\n"
             for i, profile in enumerate(quality_profiles, 1):
                 profile_text += f"{i}. {profile['name']}\n"
-            
+
             # Store information for later use
             return {
                 "type": "quality_selection",
@@ -398,16 +398,16 @@ class MediaService:
                 "artist": artist,
                 "message": profile_text
             }
-            
+
         except Exception as e:
             logger.error(f"❌ Error in MediaService.add_music: {str(e)}")
             return False, str(e)
-            
+
     async def add_music_with_profile(self, artist_id: str, profile_id: int, root_folder: str) -> tuple[bool, str]:
         """Add an artist to Lidarr with selected quality profile"""
         if not self.lidarr:
             raise ValueError("Lidarr is not enabled or configured")
-            
+
         try:
             # Add the artist with selected profile
             success, message = await self.lidarr.add_artist(
@@ -415,14 +415,14 @@ class MediaService:
                 root_folder,
                 profile_id
             )
-            
+
             if success:
-                logger.info(f"✅ Artist added successfully")
+                logger.info("✅ Artist added successfully")
             else:
                 logger.info(f"ℹ️ {message}")
-                
+
             return success, message
-            
+
         except Exception as e:
             logger.error(f"❌ Error in MediaService.add_music: {str(e)}")
             return False, str(e)
