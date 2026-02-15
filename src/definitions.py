@@ -30,24 +30,6 @@ ALLOWLIST_PATH = os.path.join(ROOT_DIR, "allowlist.txt")
 # Data directory for persistent storage
 DATA_PATH = os.path.join(ROOT_DIR, "data")
 
-# Default configuration settings
-DEFAULT_SETTINGS = {
-    "entrypointAuth": "auth",      # auth or a custom entrypoint
-    "entrypointAdd": "start",      # start or a custom entrypoint
-    "entrypointDelete": "delete",  # delete or a custom entrypoint
-    "entrypointAllSeries": "allSeries",  # allSeries or a custom entrypoint
-    "entrypointAllMovies": "allMovies",  # allMovies or a custom entrypoint
-    "entrypointAllMusic": "allMusic",    # allMusic or a custom entrypoint
-    "entrypointTransmission": "transmission",  # transmission or a custom entrypoint
-    "entrypointSabnzbd": "sabnzbd",      # sabnzbd or a custom entrypoint
-    "logToConsole": True,
-    "debugLogging": False,
-    "language": "en-us",
-    "transmission": {"enable": False},
-    "enableAdmin": False
-}
-
-
 def load_config():
     config_path = Path("config.yaml")
     if not config_path.exists():
