@@ -20,7 +20,7 @@ class TestDockerfileSecurity:
 
     def test_runs_as_non_root_user(self, dockerfile_lines):
         """Container should not run as root."""
-        user_lines = [l for l in dockerfile_lines if l.strip().startswith("USER ")]
+        user_lines = [line for line in dockerfile_lines if line.strip().startswith("USER ")]
         assert len(user_lines) > 0, "Dockerfile must contain a USER directive"
         # The USER should not be root
         last_user = user_lines[-1].strip()
@@ -29,14 +29,14 @@ class TestDockerfileSecurity:
     def test_has_healthcheck(self, dockerfile_lines):
         """Container should declare a HEALTHCHECK."""
         healthcheck_lines = [
-            l for l in dockerfile_lines if l.strip().startswith("HEALTHCHECK")
+            line for line in dockerfile_lines if line.strip().startswith("HEALTHCHECK")
         ]
         assert len(healthcheck_lines) > 0, "Dockerfile must contain a HEALTHCHECK"
 
     def test_has_stopsignal(self, dockerfile_lines):
         """Container should handle graceful shutdown."""
         stopsignal_lines = [
-            l for l in dockerfile_lines if l.strip().startswith("STOPSIGNAL")
+            line for line in dockerfile_lines if line.strip().startswith("STOPSIGNAL")
         ]
         assert len(stopsignal_lines) > 0, "Dockerfile must contain a STOPSIGNAL"
 
@@ -50,7 +50,7 @@ class TestDockerfileSecurity:
     def test_entrypoint_uses_app_path(self, dockerfile_lines):
         """ENTRYPOINT should reference /app/run.py, not /run.py."""
         entrypoint_lines = [
-            l for l in dockerfile_lines if l.strip().startswith("ENTRYPOINT")
+            line for line in dockerfile_lines if line.strip().startswith("ENTRYPOINT")
         ]
         assert len(entrypoint_lines) > 0, "Dockerfile must have ENTRYPOINT"
         assert "/app/run.py" in entrypoint_lines[-1], (
