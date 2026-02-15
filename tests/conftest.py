@@ -112,10 +112,12 @@ def _validate_port(port, service_name):
 
 
 def _validate_service_apikey(service_config, service_name):
-    if service_config.get("enable") and not service_config.get("auth", {}).get("apikey"):
-        raise _ConfigurationError(
-            f"{service_name} is enabled but has no API key configured."
-        )
+    if service_config.get("enable"):
+        apikey = service_config.get("auth", {}).get("apikey")
+        if not apikey or not str(apikey).strip():
+            raise _ConfigurationError(
+                f"{service_name} is enabled but has no API key configured."
+            )
 
 
 def _validate_telegram_token(telegram_config):

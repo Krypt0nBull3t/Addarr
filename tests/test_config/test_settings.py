@@ -166,6 +166,13 @@ class TestServiceApiKeyValidation:
             {"enable": False, "auth": {}}, "radarr"
         )  # should not raise
 
+    def test_enabled_service_with_whitespace_only_key(self):
+        from src.config.settings import validate_service_apikey, ConfigurationError
+        with pytest.raises(ConfigurationError, match="radarr"):
+            validate_service_apikey(
+                {"enable": True, "auth": {"apikey": "   "}}, "radarr"
+            )
+
 
 class TestTelegramTokenValidation:
     """Test telegram token validation."""
