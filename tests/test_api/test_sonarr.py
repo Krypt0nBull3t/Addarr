@@ -156,6 +156,27 @@ class TestSonarrRootFolders:
         finally:
             config._config["sonarr"]["paths"] = orig_paths
 
+    @pytest.mark.asyncio
+    async def test_get_root_folders_excludes_by_full_path_when_not_narrow(self, aio_mock):
+        """Without narrowRootFolderNames, excludedRootFolders matches full path."""
+        from src.config.settings import config
+        orig_paths = config._config["sonarr"]["paths"].copy()
+        config._config["sonarr"]["paths"]["excludedRootFolders"] = ["/data/tv2"]
+        config._config["sonarr"]["paths"]["narrowRootFolderNames"] = False
+        try:
+            from src.api.sonarr import SonarrClient
+            client = SonarrClient()
+            aio_mock.get(
+                f"{BASE}/rootFolder",
+                payload=[{"path": "/data/tv"}, {"path": "/data/tv2"}],
+                status=200,
+            )
+            folders = await client.get_root_folders()
+            assert "/data/tv" in folders
+            assert "/data/tv2" not in folders
+        finally:
+            config._config["sonarr"]["paths"] = orig_paths
+
 
 # ---------------------------------------------------------------------------
 # get_quality_profiles
