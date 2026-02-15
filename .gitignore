@@ -17,3 +17,5 @@ config.yaml_
 .venv/
 backup/
 settings.local.json
+.coverage
+htmlcov/
