@@ -55,44 +55,85 @@ jobs:
             core.setOutput('title', pr.title);
             core.setOutput('body', pr.body || 'No description provided');
 
+      - name: Filter diff for code review
+        if: steps.pr.outputs.number
+        run: |
+          # Split diff into per-file sections and exclude non-code paths
+          # Excluded: .claude/, docs/, .md files, .yml/.yaml in non-workflow dirs
+          python3 << 'FILTER_EOF'
+          import re
+
+          with open('pr_diff.txt', 'r') as f:
+              diff = f.read()
+
+          # Paths to exclude from rule-based checks (not source code)
+          EXCLUDE_PATTERNS = [
+              r'^\.claude/',
+              r'^docs/',
+              r'\.md$',
+          ]
+
+          # Split into per-file hunks
+          file_diffs = re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE)
+          code_diffs = []
+
+          for section in file_diffs:
+              if not section.strip():
+                  continue
+              # Extract file path from "diff --git a/path b/path" or "+++ b/path"
+              match = re.search(r'\+\+\+ b/(.+)', section)
+              if not match:
+                  continue
+              path = match.group(1).strip()
+              # Skip excluded paths
+              if any(re.search(p, path) for p in EXCLUDE_PATTERNS):
+                  continue
+              code_diffs.append(section)
+
+          with open('pr_diff_code.txt', 'w') as f:
+              f.write('\n'.join(code_diffs))
+          FILTER_EOF
+
       - name: Rule-based checks
         id: rules
         if: steps.pr.outputs.number
         run: |
           WARNINGS=""
 
+          # Use filtered diff (code only) for rule checks
+          DIFF_FILE="pr_diff_code.txt"
+
           # Check for TODO/FIXME/HACK comments in added lines
-          TODOS=$(grep "^+" pr_diff.txt | grep -iE "(TODO|FIXME|HACK|XXX)" | head -10 || true)
+          TODOS=$(grep "^+" "$DIFF_FILE" | grep -iE "(TODO|FIXME|HACK|XXX)" | head -10 || true)
           if [ -n "$TODOS" ]; then
             WARNINGS="${WARNINGS}\n**TODOs/FIXMEs found in new code:**\n\`\`\`\n${TODOS}\n\`\`\`\n"
           fi
 
           # Check for print statements in added Python lines
-          PRINTS=$(grep "^+" pr_diff.txt | grep -E "^\+.*\bprint\(" | grep -v "^+++" | grep -v "#" | head -10 || true)
+          PRINTS=$(grep "^+" "$DIFF_FILE" | grep -E "^\+.*\bprint\(" | grep -v "^+++" | grep -v "#" | head -10 || true)
           if [ -n "$PRINTS" ]; then
             WARNINGS="${WARNINGS}\n**Print statements found (use logger instead):**\n\`\`\`\n${PRINTS}\n\`\`\`\n"
           fi
 
-          # Check for large files (>500 lines added)
-          LARGE_FILES=$(grep "^+++ b/" pr_diff.txt | while read -r file; do
-            fname=$(echo "$file" | sed 's/^+++ b\///')
-            added=$(grep -c "^+" pr_diff.txt || true)
-            if [ "$added" -gt 500 ]; then
-              echo "- $fname ($added lines added)"
-            fi
-          done || true)
+          # Check for large files (>500 lines added) — count per file
+          LARGE_FILES=$(awk '
+            /^diff --git/ { if (fname && count > 500) print "- " fname " (" count " lines added)"; fname=""; count=0 }
+            /^\+\+\+ b\// { fname=$0; sub(/^\+\+\+ b\//, "", fname) }
+            /^\+[^+]/ { count++ }
+            END { if (fname && count > 500) print "- " fname " (" count " lines added)" }
+          ' pr_diff.txt || true)
           if [ -n "$LARGE_FILES" ]; then
             WARNINGS="${WARNINGS}\n**Large changes detected:**\n${LARGE_FILES}\n"
           fi
 
           # Check for hardcoded secrets patterns
-          SECRETS=$(grep "^+" pr_diff.txt | grep -iE "(api_key|apikey|secret|password|token)\s*=\s*['\"][^'\"]+['\"]" | grep -v "^+++" | head -5 || true)
+          SECRETS=$(grep "^+" "$DIFF_FILE" | grep -iE "(api_key|apikey|secret|password|token)\s*=\s*['\"][^'\"]+['\"]" | grep -v "^+++" | head -5 || true)
           if [ -n "$SECRETS" ]; then
             WARNINGS="${WARNINGS}\n**⚠️ Possible hardcoded secrets found — please verify:**\n\`\`\`\n${SECRETS}\n\`\`\`\n"
           fi
 
           # Check for bare except clauses
-          BARE_EXCEPT=$(grep "^+" pr_diff.txt | grep -E "^\+\s*except\s*:" | grep -v "^+++" | head -5 || true)
+          BARE_EXCEPT=$(grep "^+" "$DIFF_FILE" | grep -E "^\+\s*except\s*:" | grep -v "^+++" | head -5 || true)
           if [ -n "$BARE_EXCEPT" ]; then
             WARNINGS="${WARNINGS}\n**Bare except clauses found (use specific exceptions):**\n\`\`\`\n${BARE_EXCEPT}\n\`\`\`\n"
           fi
