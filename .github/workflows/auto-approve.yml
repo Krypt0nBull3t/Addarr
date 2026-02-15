@@ -1,0 +1,53 @@
+# File: .github/workflows/auto-approve.yml
+# Description: Auto-approve PRs when all other checks pass
+
+name: Auto Approve
+
+on:
+  check_suite:
+    types: [completed]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  auto-approve:
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Get PR number
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${context.payload.workflow_run.head_branch}`
+            });
+            if (pulls.data.length > 0) {
+              core.setOutput('number', pulls.data[0].number);
+              return pulls.data[0].number;
+            }
+            core.setFailed('No open PR found for this branch');
+
+      - name: Approve PR
+        if: steps.pr.outputs.number
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.REVIEWER_BOT_TOKEN }}
+          script: |
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ steps.pr.outputs.number }},
+              event: 'APPROVE',
+              body: 'All CI checks passed. Auto-approved.'
+            });
