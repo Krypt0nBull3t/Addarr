@@ -118,6 +118,73 @@ class TestMissingKeysLogic:
         assert "a" in result
 
 
+class TestPortValidation:
+    """Test port validation logic."""
+
+    def test_valid_port(self):
+        from src.config.settings import validate_port
+        validate_port(8080, "test")  # should not raise
+
+    def test_port_too_low(self):
+        from src.config.settings import validate_port, ConfigurationError
+        with pytest.raises(ConfigurationError, match="port"):
+            validate_port(0, "test")
+
+    def test_port_too_high(self):
+        from src.config.settings import validate_port, ConfigurationError
+        with pytest.raises(ConfigurationError, match="port"):
+            validate_port(70000, "test")
+
+    def test_port_boundary_low(self):
+        from src.config.settings import validate_port
+        validate_port(1, "test")  # should not raise
+
+    def test_port_boundary_high(self):
+        from src.config.settings import validate_port
+        validate_port(65535, "test")  # should not raise
+
+
+class TestServiceApiKeyValidation:
+    """Test API key validation for enabled services."""
+
+    def test_enabled_service_with_key(self):
+        from src.config.settings import validate_service_apikey
+        validate_service_apikey(
+            {"enable": True, "auth": {"apikey": "key123"}}, "radarr"
+        )  # should not raise
+
+    def test_enabled_service_without_key(self):
+        from src.config.settings import validate_service_apikey, ConfigurationError
+        with pytest.raises(ConfigurationError, match="radarr"):
+            validate_service_apikey(
+                {"enable": True, "auth": {"apikey": ""}}, "radarr"
+            )
+
+    def test_disabled_service_without_key(self):
+        from src.config.settings import validate_service_apikey
+        validate_service_apikey(
+            {"enable": False, "auth": {}}, "radarr"
+        )  # should not raise
+
+
+class TestTelegramTokenValidation:
+    """Test telegram token validation."""
+
+    def test_valid_token(self):
+        from src.config.settings import validate_telegram_token
+        validate_telegram_token({"token": "123456:ABC"})  # should not raise
+
+    def test_missing_token(self):
+        from src.config.settings import validate_telegram_token, ConfigurationError
+        with pytest.raises(ConfigurationError, match="[Tt]elegram"):
+            validate_telegram_token({"token": ""})
+
+    def test_no_token_key(self):
+        from src.config.settings import validate_telegram_token, ConfigurationError
+        with pytest.raises(ConfigurationError, match="[Tt]elegram"):
+            validate_telegram_token({})
+
+
 class TestLanguageValidation:
     """Test language validation logic."""
 
