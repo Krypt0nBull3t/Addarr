@@ -40,7 +40,7 @@ class SabnzbdHandler:
     @require_auth
     async def handle_sabnzbd(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle SABnzbd command"""
-        if not update.effective_user:
+        if not update.effective_user:  # pragma: no cover
             return
 
         log_user_interaction(logger, update.effective_user, "/sabnzbd")

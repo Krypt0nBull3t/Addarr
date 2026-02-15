@@ -27,7 +27,7 @@ class SystemHandler:
     @require_auth
     async def show_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show system status"""
-        if not update.effective_user:
+        if not update.effective_user:  # pragma: no cover
             return
 
         log_user_interaction(logger, update.effective_user, "/status")

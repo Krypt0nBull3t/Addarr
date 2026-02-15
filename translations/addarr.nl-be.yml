@@ -41,7 +41,6 @@ nl-be:
   What is this?: "❓ Wat zoek je?"
   NotAuthorized: "🔒 Je moet eerst inloggen.\nGebruik /start om te beginnen met authenticatie."
   mainMenu: "🏠 Hoofdmenu - Kies een actie."
-  Canceled: "🚫 Operatie geannuleerd. Typ /start om het hoofdmenu te bekijken"
 
   messages:
     CancelHint: "(Gebruik /cancel om te annuleren)"
@@ -55,6 +54,9 @@ nl-be:
     Exist: "ℹ️ %{subjectWithArticle} bestaat al 😉"
     NoExist: "❌ %{subjectWithArticle} bestaat niet"
     DeletePrompt: "🗑️ Selecteer wat je wilt verwijderen"
+    CancelConfirm: "Weet je zeker dat je wilt annuleren?"
+    CancelSuccess: "✅ Operatie succesvol geannuleerd"
+    Canceled: "🚫 Operatie geannuleerd. Typ /start om het hoofdmenu te bekijken"
   
   # Search results
   searchresults:
