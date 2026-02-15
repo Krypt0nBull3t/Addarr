@@ -949,15 +949,15 @@ class MediaHandler:
             try:
                 if await self.media_service.get_transmission_status():
                     status_lines.append("\n📥 Transmission: ✅ Connected")
-            except Exception as e:
-                logger.error(f"Error getting Transmission status: {e}")
+            except Exception:
+                logger.exception("Error getting Transmission status")
                 status_lines.append("\n📥 Transmission: ⚠️ Unavailable")
 
             try:
                 if await self.media_service.get_sabnzbd_status():
                     status_lines.append("📥 SABnzbd: ✅ Connected")
-            except Exception as e:
-                logger.error(f"Error getting SABnzbd status: {e}")
+            except Exception:
+                logger.exception("Error getting SABnzbd status")
                 status_lines.append("📥 SABnzbd: ⚠️ Unavailable")
 
             return "\n".join(status_lines)
