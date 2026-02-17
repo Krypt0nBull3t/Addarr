@@ -177,7 +177,7 @@ def _check_security_settings():
 
 
 def parse_requirements(filename: str = "requirements.txt") -> List[str]:
-    """Parse requirements.txt file and return list of package names."""
+    """Parse requirements.txt file and return list of lowercase package names."""
     if not os.path.exists(filename):
         return []
 
@@ -187,10 +187,13 @@ def parse_requirements(filename: str = "requirements.txt") -> List[str]:
             line = line.strip()
             if not line or line.startswith('#'):
                 continue
+            # Strip extras markers (e.g. [security])
+            if '[' in line:
+                line = line[:line.index('[')] + line[line.index(']') + 1:]
             # Strip version specifiers (>=, ==, ~=, etc.)
             for sep in ['>=', '<=', '==', '!=', '~=', '>']:
                 line = line.split(sep)[0]
-            packages.append(line.strip())
+            packages.append(line.strip().lower())
     return packages
 
 
