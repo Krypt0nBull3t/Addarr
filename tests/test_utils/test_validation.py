@@ -197,6 +197,32 @@ class TestParseRequirements:
         assert "flask" in result
         assert "aiohttp" in result
 
+    def test_parse_requirements_returns_lowercase(self, tmp_path, monkeypatch):
+        """parse_requirements returns lowercase names for consistency."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("PyYAML>=6.0\nRequests\nFlask~=2.3\n")
+        monkeypatch.chdir(tmp_path)
+
+        result = parse_requirements()
+        assert "pyyaml" in result
+        assert "requests" in result
+        assert "flask" in result
+        # Should NOT contain original case
+        assert "PyYAML" not in result
+        assert "Requests" not in result
+
+    def test_parse_requirements_strips_extras(self, tmp_path, monkeypatch):
+        """parse_requirements strips extras markers like [security]."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("requests[security]>=2.28\nurllib3[socks]\n")
+        monkeypatch.chdir(tmp_path)
+
+        result = parse_requirements()
+        assert "requests" in result
+        assert "urllib3" in result
+        assert "requests[security]" not in result
+        assert "urllib3[socks]" not in result
+
 
 class TestGetInstalledPackages:
     """Tests for get_installed_packages."""
