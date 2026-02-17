@@ -154,6 +154,7 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PR_TITLE: ${{ steps.pr.outputs.title }}
+          PR_BODY: ${{ steps.pr.outputs.body }}
         run: |
           # Build request with Python — use code-only diff, cap at 32KB for token limits
           python3 << 'PYEOF'
@@ -169,6 +170,8 @@ jobs:
               diff = diff[:80000] + "\n\n... (diff truncated for token limit)"
 
           title = os.environ.get('PR_TITLE', 'PR Review')
+          pr_body = os.environ.get('PR_BODY', '').strip()
+          description = f"\n\nPR Description:\n{pr_body}" if pr_body else ""
 
           request = {
               "model": "llama-3.3-70b-versatile",
@@ -199,7 +202,9 @@ jobs:
                           "- Security vulnerabilities (injection, credential exposure)\n"
                           "- Breaking changes to existing behavior\n"
                           "- Resource leaks (unclosed sessions, missing await)\n"
-                          "- Incorrect assumptions about external API response shapes\n\n"
+                          "- Incorrect assumptions about external API response shapes\n"
+                          "- Logic errors where the return value contradicts the function "
+                          "name, docstring, or stated intent in the PR description\n\n"
                           "Format:\n"
                           "## Summary\nOne paragraph overview.\n\n"
                           "## Issues\nOnly qualified issues, or 'No issues found.'\n\n"
@@ -211,7 +216,7 @@ jobs:
                   },
                   {
                       "role": "user",
-                      "content": f"Review this PR.\n\nTitle: {title}\n\nDiff:\n{diff}"
+                      "content": f"Review this PR.\n\nTitle: {title}{description}\n\nDiff:\n{diff}"
                   }
               ]
           }
