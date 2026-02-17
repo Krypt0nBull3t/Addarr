@@ -163,14 +163,14 @@ jobs:
           with open(diff_file, 'r') as f:
               diff = f.read()
 
-          # Cap diff size to ~32KB to stay within Groq token limits
-          if len(diff) > 32000:
-              diff = diff[:32000] + "\n\n... (diff truncated for token limit)"
+          # Cap diff size to ~80KB to stay within Groq token limits
+          if len(diff) > 80000:
+              diff = diff[:80000] + "\n\n... (diff truncated for token limit)"
 
           title = os.environ.get('PR_TITLE', 'PR Review')
 
           request = {
-              "model": "qwen/qwen3-32b",
+              "model": "meta-llama/llama-4-scout-17b-16e-instruct",
               "temperature": 0.3,
               "max_tokens": 4096,
               "messages": [
@@ -210,7 +210,7 @@ jobs:
 
           echo "Groq API HTTP status: ${HTTP_CODE}"
 
-          # Extract the review text and strip <think> blocks from Qwen
+          # Extract the review text and strip any reasoning blocks
           python3 << 'PYEOF' > ai_review.txt
           import json, re, sys
 
