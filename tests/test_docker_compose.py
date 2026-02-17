@@ -36,8 +36,9 @@ class TestDockerCompose:
         """Service should mount backup directory for persistence."""
         service = compose_config["services"]["addarr"]
         volumes = service.get("volumes", [])
-        backup_mounts = [v for v in volumes if v.startswith("./backup:")]
-        assert len(backup_mounts) > 0, "Service must mount ./backup volume"
+        assert "./backup:/app/backup:rw" in volumes, (
+            "Service must mount ./backup:/app/backup:rw volume"
+        )
 
     def test_backup_volume_is_read_write(self, compose_config):
         """Backup volume should be mounted read-write."""
