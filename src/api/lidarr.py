@@ -5,13 +5,12 @@ Created Date: 2024-11-08
 Description: Lidarr API client module.
 """
 
-import os
-
 import aiohttp
 from typing import Optional, List, Dict, Any
 from colorama import Fore
 import json
 
+from src.api.base import filter_root_folders
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -159,7 +158,7 @@ class LidarrClient:
                 "foreignArtistId": artist["foreignArtistId"],
                 "artistName": artist["artistName"],
                 "qualityProfileId": quality_profile_id or 1,  # Default profile if not specified
-                "metadataProfileId": 1,  # Default metadata profile
+                "metadataProfileId": config.get("lidarr", {}).get("metadataProfileId", 1),
                 "rootFolderPath": root_folder or "/music",  # Default path if not specified
                 "albumFolder": album_folder,
                 "monitored": True,
@@ -222,15 +221,7 @@ class LidarrClient:
             results = await self._make_request("rootFolder")
             if results:
                 paths = [folder["path"] for folder in results]
-                paths_config = config.get("lidarr", {}).get("paths", {})
-                excluded = paths_config.get("excludedRootFolders", [])
-                if excluded:
-                    narrow = paths_config.get("narrowRootFolderNames", False)
-                    if narrow:
-                        paths = [p for p in paths if os.path.basename(p.rstrip('/')) not in excluded]
-                    else:
-                        paths = [p for p in paths if p not in excluded]
-                return paths
+                return filter_root_folders(paths, config.get("lidarr", {}))
             return []
         except Exception as e:
             logger.error(f"Failed to get root folders: {str(e)}")

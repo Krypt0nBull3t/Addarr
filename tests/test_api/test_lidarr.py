@@ -477,6 +477,39 @@ class TestLidarrAddArtist:
         finally:
             config._config["lidarr"]["features"]["albumFolder"] = True
 
+    @pytest.mark.asyncio
+    async def test_add_artist_reads_metadata_profile_id_from_config(self, aio_mock):
+        """add_artist POST body should use metadataProfileId from config."""
+        from src.config.settings import config
+        config._config["lidarr"]["metadataProfileId"] = 5
+        try:
+            from src.api.lidarr import LidarrClient
+            client = LidarrClient()
+
+            aio_mock.get(
+                f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+                payload=LIDARR_SEARCH_RESULTS[:1],
+                status=200,
+            )
+
+            posted_data = {}
+
+            def capture(url, **kwargs):
+                posted_data.update(kwargs.get("json", {}))
+                return CallbackResult(
+                    payload={"id": 1, "artistName": "Linkin Park"}, status=200
+                )
+
+            aio_mock.post(f"{BASE}/artist", callback=capture)
+
+            success, _ = await client.add_artist(ARTIST_ID, "/music", 1)
+            assert success is True
+            assert posted_data["metadataProfileId"] == 5, (
+                "POST body metadataProfileId must match config value"
+            )
+        finally:
+            config._config["lidarr"]["metadataProfileId"] = 1
+
 
 # ---------------------------------------------------------------------------
 # get_root_folders
