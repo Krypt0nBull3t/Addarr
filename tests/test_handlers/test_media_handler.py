@@ -1767,6 +1767,36 @@ async def test_get_status_text_service_exception(media_handler):
 
 
 @pytest.mark.asyncio
+async def test_get_status_text_transmission_exception_shows_unavailable(media_handler):
+    """Transmission exception shows Unavailable instead of being silently swallowed."""
+    media_handler._mock_service.get_transmission_status = AsyncMock(
+        side_effect=Exception("Connection refused")
+    )
+    media_handler._mock_service.get_sabnzbd_status = AsyncMock(
+        return_value=False
+    )
+
+    text = await media_handler._get_status_text()
+
+    assert "📥 Transmission: ⚠️ Unavailable" in text
+
+
+@pytest.mark.asyncio
+async def test_get_status_text_sabnzbd_exception_shows_unavailable(media_handler):
+    """SABnzbd exception shows Unavailable instead of being silently swallowed."""
+    media_handler._mock_service.get_transmission_status = AsyncMock(
+        return_value=False
+    )
+    media_handler._mock_service.get_sabnzbd_status = AsyncMock(
+        side_effect=Exception("Connection refused")
+    )
+
+    text = await media_handler._get_status_text()
+
+    assert "📥 SABnzbd: ⚠️ Unavailable" in text
+
+
+@pytest.mark.asyncio
 async def test_get_status_text_total_exception(media_handler):
     """_get_status_text handles total failure."""
     # Make the entire method fail by making services dict creation fail
