@@ -7,6 +7,7 @@ NOTE: Lidarr uses /api/v1/ (not v3).
 import pytest
 import aiohttp
 from unittest.mock import patch
+from aioresponses import CallbackResult
 
 from tests.fixtures.sample_data import (
     LIDARR_SEARCH_RESULTS,
@@ -411,6 +412,104 @@ class TestLidarrAddArtist:
         assert success is False
         assert "outer boom" in message
 
+    @pytest.mark.asyncio
+    async def test_add_artist_includes_monitor_option_from_config(self, aio_mock):
+        """add_artist POST body should include monitorOption from config."""
+        from src.config.settings import config
+        config._config["lidarr"]["features"]["monitorOption"] = "future"
+        try:
+            from src.api.lidarr import LidarrClient
+            client = LidarrClient()
+
+            aio_mock.get(
+                f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+                payload=LIDARR_SEARCH_RESULTS[:1],
+                status=200,
+            )
+
+            posted_data = {}
+
+            def capture(url, **kwargs):
+                posted_data.update(kwargs.get("json", {}))
+                return CallbackResult(
+                    payload={"id": 1, "artistName": "Linkin Park"}, status=200
+                )
+
+            aio_mock.post(f"{BASE}/artist", callback=capture)
+
+            success, _ = await client.add_artist(ARTIST_ID, "/music", 1)
+            assert success is True
+            assert posted_data["addOptions"]["monitor"] == "future", (
+                "POST body addOptions.monitor must match config monitorOption"
+            )
+        finally:
+            config._config["lidarr"]["features"]["monitorOption"] = "all"
+
+    @pytest.mark.asyncio
+    async def test_add_artist_includes_album_folder_from_config(self, aio_mock):
+        """add_artist POST body should include albumFolder from config."""
+        from src.config.settings import config
+        config._config["lidarr"]["features"]["albumFolder"] = True
+        try:
+            from src.api.lidarr import LidarrClient
+            client = LidarrClient()
+
+            aio_mock.get(
+                f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+                payload=LIDARR_SEARCH_RESULTS[:1],
+                status=200,
+            )
+
+            posted_data = {}
+
+            def capture(url, **kwargs):
+                posted_data.update(kwargs.get("json", {}))
+                return CallbackResult(
+                    payload={"id": 1, "artistName": "Linkin Park"}, status=200
+                )
+
+            aio_mock.post(f"{BASE}/artist", callback=capture)
+
+            success, _ = await client.add_artist(ARTIST_ID, "/music", 1)
+            assert success is True
+            assert "albumFolder" in posted_data, "POST body must include albumFolder"
+            assert posted_data["albumFolder"] is True
+        finally:
+            config._config["lidarr"]["features"]["albumFolder"] = True
+
+    @pytest.mark.asyncio
+    async def test_add_artist_reads_metadata_profile_id_from_config(self, aio_mock):
+        """add_artist POST body should use metadataProfileId from config."""
+        from src.config.settings import config
+        config._config["lidarr"]["metadataProfileId"] = 5
+        try:
+            from src.api.lidarr import LidarrClient
+            client = LidarrClient()
+
+            aio_mock.get(
+                f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+                payload=LIDARR_SEARCH_RESULTS[:1],
+                status=200,
+            )
+
+            posted_data = {}
+
+            def capture(url, **kwargs):
+                posted_data.update(kwargs.get("json", {}))
+                return CallbackResult(
+                    payload={"id": 1, "artistName": "Linkin Park"}, status=200
+                )
+
+            aio_mock.post(f"{BASE}/artist", callback=capture)
+
+            success, _ = await client.add_artist(ARTIST_ID, "/music", 1)
+            assert success is True
+            assert posted_data["metadataProfileId"] == 5, (
+                "POST body metadataProfileId must match config value"
+            )
+        finally:
+            config._config["lidarr"]["metadataProfileId"] = 1
+
 
 # ---------------------------------------------------------------------------
 # get_root_folders
@@ -446,6 +545,48 @@ class TestLidarrRootFolders:
         with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
             folders = await lidarr_client.get_root_folders()
         assert folders == []
+
+    @pytest.mark.asyncio
+    async def test_get_root_folders_excludes_by_basename_when_narrow(self, aio_mock):
+        """narrowRootFolderNames makes excludedRootFolders match by basename."""
+        from src.config.settings import config
+        orig_paths = config._config["lidarr"]["paths"].copy()
+        config._config["lidarr"]["paths"]["excludedRootFolders"] = ["music2"]
+        config._config["lidarr"]["paths"]["narrowRootFolderNames"] = True
+        try:
+            from src.api.lidarr import LidarrClient
+            client = LidarrClient()
+            aio_mock.get(
+                f"{BASE}/rootFolder",
+                payload=[{"path": "/data/music"}, {"path": "/data/music2"}],
+                status=200,
+            )
+            folders = await client.get_root_folders()
+            assert "/data/music" in folders
+            assert "/data/music2" not in folders
+        finally:
+            config._config["lidarr"]["paths"] = orig_paths
+
+    @pytest.mark.asyncio
+    async def test_get_root_folders_excludes_by_full_path_when_not_narrow(self, aio_mock):
+        """Without narrowRootFolderNames, excludedRootFolders matches full path."""
+        from src.config.settings import config
+        orig_paths = config._config["lidarr"]["paths"].copy()
+        config._config["lidarr"]["paths"]["excludedRootFolders"] = ["/data/music2"]
+        config._config["lidarr"]["paths"]["narrowRootFolderNames"] = False
+        try:
+            from src.api.lidarr import LidarrClient
+            client = LidarrClient()
+            aio_mock.get(
+                f"{BASE}/rootFolder",
+                payload=[{"path": "/data/music"}, {"path": "/data/music2"}],
+                status=200,
+            )
+            folders = await client.get_root_folders()
+            assert "/data/music" in folders
+            assert "/data/music2" not in folders
+        finally:
+            config._config["lidarr"]["paths"] = orig_paths
 
 
 # ---------------------------------------------------------------------------

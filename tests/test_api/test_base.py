@@ -7,7 +7,7 @@ import pytest
 import aiohttp
 from aioresponses import aioresponses
 
-from src.api.base import BaseApiClient, APIError
+from src.api.base import BaseApiClient, APIError, filter_root_folders
 
 
 # ---------------------------------------------------------------------------
@@ -45,6 +45,54 @@ class TestAPIError:
         assert err.status_code == 422
         assert err.response_text == '{"detail":"bad"}'
         assert str(err) == "something broke"
+
+
+# ---------------------------------------------------------------------------
+# filter_root_folders
+# ---------------------------------------------------------------------------
+
+
+class TestFilterRootFolders:
+    def test_no_exclusions_returns_all(self):
+        paths = ["/movies", "/movies2"]
+        cfg = {"paths": {"excludedRootFolders": []}}
+        assert filter_root_folders(paths, cfg) == ["/movies", "/movies2"]
+
+    def test_no_paths_config_returns_all(self):
+        paths = ["/movies", "/movies2"]
+        assert filter_root_folders(paths, {}) == ["/movies", "/movies2"]
+
+    def test_full_path_exclusion(self):
+        paths = ["/data/movies", "/data/movies2"]
+        cfg = {
+            "paths": {
+                "excludedRootFolders": ["/data/movies2"],
+                "narrowRootFolderNames": False,
+            }
+        }
+        assert filter_root_folders(paths, cfg) == ["/data/movies"]
+
+    def test_narrow_basename_exclusion(self):
+        paths = ["/data/movies", "/data/movies2"]
+        cfg = {
+            "paths": {
+                "excludedRootFolders": ["movies2"],
+                "narrowRootFolderNames": True,
+            }
+        }
+        assert filter_root_folders(paths, cfg) == ["/data/movies"]
+
+    def test_narrow_handles_trailing_slash(self):
+        paths = ["/data/movies/", "/data/movies2/"]
+        cfg = {
+            "paths": {
+                "excludedRootFolders": ["movies2"],
+                "narrowRootFolderNames": True,
+            }
+        }
+        result = filter_root_folders(paths, cfg)
+        assert "/data/movies/" in result
+        assert "/data/movies2/" not in result
 
 
 # ---------------------------------------------------------------------------

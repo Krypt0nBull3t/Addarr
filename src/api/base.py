@@ -11,11 +11,36 @@ handling.
 
 from abc import ABC, abstractmethod
 import json
+import os
 import aiohttp
-from typing import Tuple, Optional, Any
+from typing import List, Tuple, Optional, Any
 
 from ..utils.logger import get_logger
 from ..config.settings import config
+
+
+def filter_root_folders(paths: List[str], service_config: dict) -> List[str]:
+    """Filter root folder paths based on service exclusion config.
+
+    Args:
+        paths: List of root folder paths from the API.
+        service_config: Service-level config dict (e.g. config["radarr"]).
+
+    Returns:
+        Filtered list of paths.
+    """
+    paths_config = service_config.get("paths", {})
+    excluded = paths_config.get("excludedRootFolders", [])
+    if excluded:
+        narrow = paths_config.get("narrowRootFolderNames", False)
+        if narrow:
+            paths = [
+                p for p in paths
+                if os.path.basename(p.rstrip("/")) not in excluded
+            ]
+        else:
+            paths = [p for p in paths if p not in excluded]
+    return paths
 
 
 class APIError(Exception):
