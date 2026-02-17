@@ -101,6 +101,35 @@ _settings_mod = types.ModuleType("src.config.settings")
 _settings_mod.config = _mock_config
 _settings_mod.Config = MockConfig
 _settings_mod.ConfigurationError = type("ConfigurationError", (Exception,), {})
+_ConfigurationError = _settings_mod.ConfigurationError
+
+
+def _validate_port(port, service_name):
+    if not isinstance(port, int) or port < 1 or port > 65535:
+        raise _ConfigurationError(
+            f"Invalid port for {service_name}: {port}. Must be between 1 and 65535."
+        )
+
+
+def _validate_service_apikey(service_config, service_name):
+    if service_config.get("enable"):
+        apikey = service_config.get("auth", {}).get("apikey")
+        if not apikey or not str(apikey).strip():
+            raise _ConfigurationError(
+                f"{service_name} is enabled but has no API key configured."
+            )
+
+
+def _validate_telegram_token(telegram_config):
+    if not telegram_config.get("token"):
+        raise _ConfigurationError(
+            "Telegram bot token is not configured."
+        )
+
+
+_settings_mod.validate_port = _validate_port
+_settings_mod.validate_service_apikey = _validate_service_apikey
+_settings_mod.validate_telegram_token = _validate_telegram_token
 sys.modules["src.config.settings"] = _settings_mod
 
 # Also inject the parent packages so Python doesn't try to import them

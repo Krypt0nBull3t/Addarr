@@ -24,6 +24,32 @@ class ConfigurationError(Exception):
     pass
 
 
+def validate_port(port, service_name):
+    """Validate that a port number is in the valid range 1-65535."""
+    if not isinstance(port, int) or port < 1 or port > 65535:
+        raise ConfigurationError(
+            f"Invalid port for {service_name}: {port}. Must be between 1 and 65535."
+        )
+
+
+def validate_service_apikey(service_config, service_name):
+    """Validate that an enabled service has a non-empty API key."""
+    if service_config.get("enable"):
+        apikey = service_config.get("auth", {}).get("apikey")
+        if not apikey or not str(apikey).strip():
+            raise ConfigurationError(
+                f"{service_name} is enabled but has no API key configured."
+            )
+
+
+def validate_telegram_token(telegram_config):
+    """Validate that the Telegram bot token is configured."""
+    if not telegram_config.get("token"):
+        raise ConfigurationError(
+            "Telegram bot token is not configured."
+        )
+
+
 class Config:
     """Configuration management class"""
 
