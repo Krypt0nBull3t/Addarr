@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any
 from colorama import Fore
 import json
 
+from src.api.base import filter_root_folders
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -148,14 +149,21 @@ class LidarrClient:
                 logger.error(f"❌ No artist found with ID: {artist_id}")
                 return False, "Artist not found"
 
+            # Read feature options from config
+            lidarr_features = config.get("lidarr", {}).get("features", {})
+            monitor_option = lidarr_features.get("monitorOption", "all")
+            album_folder = lidarr_features.get("albumFolder", False)
+
             data = {
                 "foreignArtistId": artist["foreignArtistId"],
                 "artistName": artist["artistName"],
                 "qualityProfileId": quality_profile_id or 1,  # Default profile if not specified
-                "metadataProfileId": 1,  # Default metadata profile
+                "metadataProfileId": config.get("lidarr", {}).get("metadataProfileId", 1),
                 "rootFolderPath": root_folder or "/music",  # Default path if not specified
+                "albumFolder": album_folder,
                 "monitored": True,
                 "addOptions": {
+                    "monitor": monitor_option,
                     "searchForMissingAlbums": True
                 }
             }
@@ -212,7 +220,8 @@ class LidarrClient:
         try:
             results = await self._make_request("rootFolder")
             if results:
-                return [folder["path"] for folder in results]
+                paths = [folder["path"] for folder in results]
+                return filter_root_folders(paths, config.get("lidarr", {}))
             return []
         except Exception as e:
             logger.error(f"Failed to get root folders: {str(e)}")

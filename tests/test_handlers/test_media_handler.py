@@ -61,6 +61,42 @@ async def test_handle_media_no_message_returns_end(
     assert result == ConversationHandler.END
 
 
+@pytest.mark.parametrize("media_type,handler_method,service", [
+    ("movie", "handle_movie", "radarr"),
+    ("series", "handle_series", "sonarr"),
+    ("music", "handle_music", "lidarr"),
+])
+@pytest.mark.asyncio
+async def test_handle_media_admin_restriction_denies_non_admin(
+    media_handler, make_update, make_context, make_user,
+    media_type, handler_method, service
+):
+    """When adminRestrictions is True, non-admin users get denied."""
+    from src.config.settings import config
+    original = config._config[service].get("adminRestrictions", False)
+    config._config[service]["adminRestrictions"] = True
+    try:
+        # User 99999 is NOT in admins list
+        user = make_user(user_id=99999)
+        update = make_update(text=f"/{media_type}", user=user)
+        context = make_context()
+
+        # Ensure the user is authenticated but not admin
+        from src.bot.handlers.auth import AuthHandler
+        AuthHandler._authenticated_users.add(99999)
+
+        method = getattr(media_handler, handler_method)
+        result = await method(update, context)
+
+        assert result == ConversationHandler.END
+        # Should have replied with a restriction message
+        update.message.reply_text.assert_called_once()
+        call_args = update.message.reply_text.call_args
+        assert "admin" in call_args[0][0].lower() or "restricted" in call_args[0][0].lower()
+    finally:
+        config._config[service]["adminRestrictions"] = original
+
+
 # ---------------------------------------------------------------------------
 # handle_search
 # ---------------------------------------------------------------------------

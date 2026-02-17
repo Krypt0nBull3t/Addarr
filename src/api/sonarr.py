@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any
 from colorama import Fore
 import json
 
+from src.api.base import filter_root_folders
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -94,7 +95,8 @@ class SonarrClient:
         try:
             results = await self._make_request("rootFolder")
             if results:
-                return [folder["path"] for folder in results]
+                paths = [folder["path"] for folder in results]
+                return filter_root_folders(paths, config.get("sonarr", {}))
             return []
         except Exception as e:
             logger.error(f"Failed to get root folders: {str(e)}")
@@ -141,11 +143,15 @@ class SonarrClient:
 
             series = lookup_response[0]  # Use first result
 
+            # Read seasonFolder from config
+            season_folder = config.get("sonarr", {}).get("features", {}).get("seasonFolder", True)
+
             data = {
                 "tvdbId": series["tvdbId"],
                 "title": series["title"],
                 "qualityProfileId": quality_profile_id,
                 "rootFolderPath": root_folder,
+                "seasonFolder": season_folder,
                 "monitored": True,
                 "addOptions": {
                     "searchForMissingEpisodes": True

@@ -18,6 +18,7 @@ from telegram.ext import (
 )
 
 from src.bot.keyboards import get_system_keyboard
+from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.services.media import MediaService
@@ -153,6 +154,11 @@ class MediaHandler:
         if not update.effective_message or not update.effective_user:
             return ConversationHandler.END
 
+        if config.get("radarr", {}).get("adminRestrictions", False):
+            if update.effective_user.id not in config.get("admins", []):
+                await update.message.reply_text("Access restricted to admins only.")
+                return ConversationHandler.END
+
         log_user_interaction(logger, update.effective_user, "/movie")
 
         context.user_data["search_type"] = "movie"
@@ -179,6 +185,11 @@ class MediaHandler:
         if not update.effective_message or not update.effective_user:
             return ConversationHandler.END
 
+        if config.get("sonarr", {}).get("adminRestrictions", False):
+            if update.effective_user.id not in config.get("admins", []):
+                await update.message.reply_text("Access restricted to admins only.")
+                return ConversationHandler.END
+
         log_user_interaction(logger, update.effective_user, "/series")
 
         context.user_data["search_type"] = "series"
@@ -204,6 +215,11 @@ class MediaHandler:
         """Start music search conversation"""
         if not update.effective_message or not update.effective_user:
             return ConversationHandler.END
+
+        if config.get("lidarr", {}).get("adminRestrictions", False):
+            if update.effective_user.id not in config.get("admins", []):
+                await update.message.reply_text("Access restricted to admins only.")
+                return ConversationHandler.END
 
         log_user_interaction(logger, update.effective_user, "/music")
 

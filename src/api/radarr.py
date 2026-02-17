@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any
 from colorama import Fore
 import json
 
+from src.api.base import filter_root_folders
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -117,7 +118,8 @@ class RadarrClient:
         try:
             results = await self._make_request("rootFolder")
             if results:
-                return [folder["path"] for folder in results]
+                paths = [folder["path"] for folder in results]
+                return filter_root_folders(paths, config.get("radarr", {}))
             return []
         except Exception as e:
             logger.error(f"Failed to get root folders: {str(e)}")
