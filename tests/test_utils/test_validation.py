@@ -141,24 +141,104 @@ class TestValidateData:
 class TestParseRequirements:
     """Tests for parse_requirements."""
 
-    def test_parse_requirements_returns_none(self):
-        """Stub parse_requirements returns None."""
-        result = parse_requirements()
-        assert result is None
+    def test_parse_requirements_returns_list(self, tmp_path, monkeypatch):
+        """parse_requirements returns list of package names."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("requests>=2.28\npyyaml==6.0\ncolorama\n")
+        monkeypatch.chdir(tmp_path)
 
-    def test_parse_requirements_with_filename(self):
-        """Stub parse_requirements accepts a filename arg."""
+        result = parse_requirements()
+        assert isinstance(result, list)
+        assert "requests" in result
+        assert "pyyaml" in result
+        assert "colorama" in result
+
+    def test_parse_requirements_skips_comments_and_blanks(self, tmp_path, monkeypatch):
+        """parse_requirements skips comment lines and blank lines."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("# This is a comment\nrequests\n\n# Another comment\npyyaml\n")
+        monkeypatch.chdir(tmp_path)
+
+        result = parse_requirements()
+        assert len(result) == 2
+        assert "requests" in result
+        assert "pyyaml" in result
+
+    def test_parse_requirements_custom_filename(self, tmp_path, monkeypatch):
+        """parse_requirements accepts a custom filename."""
+        req_file = tmp_path / "custom.txt"
+        req_file.write_text("flask\n")
+        monkeypatch.chdir(tmp_path)
+
         result = parse_requirements("custom.txt")
-        assert result is None
+        assert result == ["flask"]
+
+    def test_parse_requirements_missing_file(self, tmp_path, monkeypatch):
+        """parse_requirements returns empty list when file is missing."""
+        monkeypatch.chdir(tmp_path)
+
+        result = parse_requirements()
+        assert result == []
+
+    def test_parse_requirements_complex_specifiers(self, tmp_path, monkeypatch):
+        """parse_requirements handles multiple version specifiers."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text(
+            "requests>=2.28,<3.0\n"
+            "pyyaml!=6.0\n"
+            "flask~=2.3\n"
+            "aiohttp>3.0\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = parse_requirements()
+        assert "requests" in result
+        assert "pyyaml" in result
+        assert "flask" in result
+        assert "aiohttp" in result
+
+    def test_parse_requirements_returns_lowercase(self, tmp_path, monkeypatch):
+        """parse_requirements returns lowercase names for consistency."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("PyYAML>=6.0\nRequests\nFlask~=2.3\n")
+        monkeypatch.chdir(tmp_path)
+
+        result = parse_requirements()
+        assert "pyyaml" in result
+        assert "requests" in result
+        assert "flask" in result
+        # Should NOT contain original case
+        assert "PyYAML" not in result
+        assert "Requests" not in result
+
+    def test_parse_requirements_strips_extras(self, tmp_path, monkeypatch):
+        """parse_requirements strips extras markers like [security]."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("requests[security]>=2.28\nurllib3[socks]\n")
+        monkeypatch.chdir(tmp_path)
+
+        result = parse_requirements()
+        assert "requests" in result
+        assert "urllib3" in result
+        assert "requests[security]" not in result
+        assert "urllib3[socks]" not in result
 
 
 class TestGetInstalledPackages:
     """Tests for get_installed_packages."""
 
-    def test_get_installed_packages_returns_none(self):
-        """Stub get_installed_packages returns None."""
+    def test_get_installed_packages_returns_set(self):
+        """get_installed_packages returns a set of lowercase package names."""
         result = get_installed_packages()
-        assert result is None
+        assert isinstance(result, set)
+        # pytest itself should be installed
+        assert "pytest" in result
+
+    def test_get_installed_packages_returns_empty_on_error(self):
+        """get_installed_packages returns empty set when subprocess fails."""
+        with patch("subprocess.run", side_effect=OSError("pip not found")):
+            result = get_installed_packages()
+        assert result == set()
 
 
 # ---- check_dependencies ----
