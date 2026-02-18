@@ -1,0 +1,1 @@
+Invoke the `addarr-workflow` skill with the argument: $ARGUMENTS
