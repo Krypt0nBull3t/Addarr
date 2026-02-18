@@ -37,6 +37,12 @@ template:
   # Navigation
   Next: Next
   Previous: Previous
+
+  # Library listing
+  LibraryEmpty: "📭 No %{subject} found in your library."
+  LibraryNotEnabled: "❌ %{subject} is not enabled or configured."
+  LibraryError: "❌ Error loading library. Please try again later."
+  LibraryExpired: "⏳ Session expired. Please run the command again."
   
   # Common messages
   Start chatting: "🤖 Start chatting with Addarr in Telegram. The first time you use \"start\" you will be asked to enter your password."

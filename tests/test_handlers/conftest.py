@@ -255,6 +255,26 @@ def help_handler(mock_translation_service):
 
 
 @pytest.fixture
+def library_handler(mock_media_service, mock_translation_service):
+    """Create a LibraryHandler with patched services."""
+    with (
+        patch("src.bot.handlers.library.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.library.TranslationService") as mock_ts_class,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+
+        from src.bot.handlers.library import LibraryHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = LibraryHandler()
+        handler._mock_service = mock_media_service
+        handler._mock_ts = mock_translation_service
+        yield handler
+
+
+@pytest.fixture
 def system_handler():
     """Create a SystemHandler with patched services."""
     with (

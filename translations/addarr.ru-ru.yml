@@ -33,7 +33,13 @@ ru-ru:
   # Navigation
   Next: Следующий
   Previous: Предыдущий
-  
+
+  # Library listing
+  LibraryEmpty: "📭 No %{subject} found in your library."
+  LibraryNotEnabled: "❌ %{subject} is not enabled or configured."
+  LibraryError: "❌ Error loading library. Please try again later."
+  LibraryExpired: "⏳ Session expired. Please run the command again."
+
   # Common messages
   Start chatting: "🤖 Начните общаться с Addarr в Telegram. При первом использовании \"start\" вам будет предложено ввести пароль."
   End: "🏁 Процесс завершен."
