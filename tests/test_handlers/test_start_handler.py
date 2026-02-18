@@ -123,14 +123,13 @@ async def test_handle_menu_selection_help(
 async def test_handle_menu_selection_settings(
     start_handler, make_update, make_context
 ):
-    """menu_settings delegates to media_handler.handle_settings."""
+    """menu_settings ends conversation to let SettingsHandler pick it up."""
     update = make_update(callback_data="menu_settings")
     context = make_context()
 
     result = await start_handler.handle_menu_selection(update, context)
 
     assert result == ConversationHandler.END
-    start_handler._mock_media_handler.handle_settings.assert_awaited_once()
 
 
 @pytest.mark.asyncio

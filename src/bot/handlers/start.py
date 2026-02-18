@@ -163,16 +163,19 @@ class StartHandler:
             return SEARCHING
 
         # For commands that end the conversation
-        if action in ["status", "help", "settings", "delete"]:
+        if action in ["status", "help", "delete"]:
             if action == "status":
                 await self.media_handler.handle_status(update, context)
             elif action == "help":
                 await self.help_handler.show_help(update, context)
-            elif action == "settings":
-                await self.media_handler.handle_settings(update, context)
             elif action == "delete":
                 delete_text = self.translation.get_text("messages.DeletePrompt")
                 await query.message.edit_text(delete_text)
+            return ConversationHandler.END
+
+        # Settings is handled by its own ConversationHandler;
+        # end this conversation so the SettingsHandler can pick it up.
+        if action == "settings":
             return ConversationHandler.END
 
         logger.warning(f"Unknown menu action '{action}' from user {user.first_name} (ID: {user.id})")

@@ -7,6 +7,7 @@ constructors before instantiating handlers.
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
+from tests.conftest import MOCK_CONFIG_DATA
 
 
 @pytest.fixture
@@ -117,7 +118,6 @@ def start_handler(mock_media_service, mock_translation_service):
         mock_ts_class.return_value = mock_translation_service
         mock_media_handler = MagicMock()
         mock_media_handler.handle_status = AsyncMock()
-        mock_media_handler.handle_settings = AsyncMock()
         mock_media_handler.handle_search = AsyncMock()
         mock_media_handler.handle_selection = AsyncMock()
         mock_media_handler.handle_navigation = AsyncMock()
@@ -288,4 +288,35 @@ def system_handler():
 
         handler = SystemHandler()
         handler._mock_ts = mock_ts
+        yield handler
+
+
+@pytest.fixture
+def settings_handler(mock_media_service, mock_translation_service):
+    """Create a SettingsHandler with patched services."""
+    with (
+        patch("src.bot.handlers.settings.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.settings.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.settings.config") as mock_cfg,
+        patch("src.bot.handlers.settings.is_admin") as mock_is_admin,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ts_class._current_language = "en-us"
+        mock_ms_class.return_value = mock_media_service
+        mock_cfg.get = MagicMock(
+            side_effect=lambda k, d=None: MOCK_CONFIG_DATA.get(k, d)
+        )
+        mock_cfg.update_nested = MagicMock()
+        mock_cfg.save = MagicMock()
+        mock_is_admin.return_value = True
+
+        from src.bot.handlers.settings import SettingsHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = SettingsHandler()
+        handler._mock_cfg = mock_cfg
+        handler._mock_ts = mock_translation_service
+        handler._mock_service = mock_media_service
+        handler._mock_is_admin = mock_is_admin
         yield handler

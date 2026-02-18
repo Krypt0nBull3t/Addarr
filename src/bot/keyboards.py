@@ -43,6 +43,12 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                f"⚙️ {translation.get_text('Settings')}",
+                callback_data="menu_settings"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
                 f"❓ {translation.get_text('HelpButton')}",
                 callback_data="menu_help"
             ),
@@ -79,8 +85,98 @@ def get_settings_keyboard() -> InlineKeyboardMarkup:
                 f"🌐 {translation.get_text('Language')}",
                 callback_data="settings_language"
             )
+        ],
+        [
+            InlineKeyboardButton(
+                f"◀️ {translation.get_text('Back')}",
+                callback_data="settings_back"
+            )
         ]
     ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_language_keyboard() -> InlineKeyboardMarkup:
+    """Get language selection keyboard"""
+    languages = [
+        ("🇩🇪 Deutsch", "de-de"),
+        ("🇺🇸 English", "en-us"),
+        ("🇪🇸 Español", "es-es"),
+        ("🇫🇷 Français", "fr-fr"),
+        ("🇮🇹 Italiano", "it-it"),
+        ("🇧🇪 Nederlands", "nl-be"),
+        ("🇵🇱 Polski", "pl-pl"),
+        ("🇵🇹 Português", "pt-pt"),
+        ("🇷🇺 Русский", "ru-ru"),
+    ]
+    keyboard = []
+    for i in range(0, len(languages), 2):
+        row = [
+            InlineKeyboardButton(
+                languages[i][0],
+                callback_data=f"lang_{languages[i][1]}"
+            )
+        ]
+        if i + 1 < len(languages):
+            row.append(
+                InlineKeyboardButton(
+                    languages[i + 1][0],
+                    callback_data=f"lang_{languages[i + 1][1]}"
+                )
+            )
+        keyboard.append(row)
+    translation = TranslationService()
+    keyboard.append([
+        InlineKeyboardButton(
+            f"◀️ {translation.get_text('Back')}",
+            callback_data="settings_back"
+        )
+    ])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_service_toggle_keyboard(
+    services_status: dict,
+) -> InlineKeyboardMarkup:
+    """Get service enable/disable toggle keyboard"""
+    keyboard = []
+    for service, enabled in services_status.items():
+        status = "✅" if enabled else "❌"
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{status} {service.title()}",
+                callback_data=f"svc_toggle_{service}"
+            )
+        ])
+    translation = TranslationService()
+    keyboard.append([
+        InlineKeyboardButton(
+            f"◀️ {translation.get_text('Back')}",
+            callback_data="settings_back"
+        )
+    ])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_quality_profile_keyboard(
+    profiles: list, service: str,
+) -> InlineKeyboardMarkup:
+    """Get quality profile selection keyboard"""
+    keyboard = []
+    for profile in profiles:
+        keyboard.append([
+            InlineKeyboardButton(
+                profile["name"],
+                callback_data=f"setquality_{service}_{profile['id']}"
+            )
+        ])
+    translation = TranslationService()
+    keyboard.append([
+        InlineKeyboardButton(
+            f"◀️ {translation.get_text('Back')}",
+            callback_data="settings_back"
+        )
+    ])
     return InlineKeyboardMarkup(keyboard)
 
 

@@ -23,6 +23,12 @@ class States:
     AWAITING_SETTING_ACTION = "awaiting_setting_action"
     AWAITING_SPEED_INPUT = "awaiting_speed_input"
 
+    # Settings states
+    SETTINGS_MENU = "settings_menu"
+    SETTINGS_LANGUAGE = "settings_language"
+    SETTINGS_SERVICE = "settings_service"
+    SETTINGS_QUALITY = "settings_quality"
+
     # Auth states
     PASSWORD = 0
 
