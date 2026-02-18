@@ -95,6 +95,21 @@ class TestTransmissionMakeRequest:
         with pytest.raises(aiohttp.ClientError):
             await transmission_client._make_request("session-get")
 
+    @pytest.mark.asyncio
+    async def test_double_409_raises(self, aio_mock, transmission_client):
+        """Two consecutive 409 responses exhaust retries and raise."""
+        aio_mock.post(
+            RPC_URL, status=409,
+            headers={"X-Transmission-Session-Id": "id1"},
+        )
+        aio_mock.post(
+            RPC_URL, status=409,
+            headers={"X-Transmission-Session-Id": "id2"},
+        )
+
+        with pytest.raises(aiohttp.ClientError, match="negotiation failed"):
+            await transmission_client._make_request("session-get")
+
 
 # ---------------------------------------------------------------------------
 # get_session / set_alt_speed_enabled
