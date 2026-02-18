@@ -33,7 +33,13 @@ nl-be:
   # Navigation
   Next: Volgende
   Previous: Vorige
-  
+
+  # Library listing
+  LibraryEmpty: "📭 No %{subject} found in your library."
+  LibraryNotEnabled: "❌ %{subject} is not enabled or configured."
+  LibraryError: "❌ Error loading library. Please try again later."
+  LibraryExpired: "⏳ Session expired. Please run the command again."
+
   # Common messages
   Start chatting: "🤖 Je kan nu chatten met Addarr op Telegram. De eerste keer dat je \"start\" gebruikt, zul je je wachtwoord moeten ingeven."
   End: "🏁 Het proces is beëindigd."

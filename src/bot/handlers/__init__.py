@@ -12,6 +12,10 @@ Each handler is responsible for managing a specific type of user interaction.
 from .auth import AuthHandler
 from .media import MediaHandler
 from .delete import DeleteHandler
+from .library import LibraryHandler
 from .system import SystemHandler
 
-__all__ = ['AuthHandler', 'MediaHandler', 'DeleteHandler', 'SystemHandler']
+__all__ = [
+    'AuthHandler', 'MediaHandler', 'DeleteHandler',
+    'LibraryHandler', 'SystemHandler',
+]
