@@ -943,3 +943,351 @@ class TestStatusChecks:
 
         result = await service.get_sabnzbd_status()
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_movies
+# ---------------------------------------------------------------------------
+
+
+class TestGetMovies:
+    @pytest.mark.asyncio
+    async def test_get_movies_success(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.get_movies.return_value = [
+            {"id": 1, "title": "Fight Club", "tmdbId": 550},
+            {"id": 2, "title": "Pulp Fiction", "tmdbId": 680},
+        ]
+
+        results = await service.get_movies()
+
+        assert len(results) == 2
+        assert results[0] == {"id": "1", "title": "Fight Club"}
+        assert results[1] == {"id": "2", "title": "Pulp Fiction"}
+        mock_radarr_client.get_movies.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_get_movies_disabled(self):
+        service = MediaService()
+        MediaService._radarr = None
+
+        with pytest.raises(ValueError, match="Radarr is not enabled"):
+            await service.get_movies()
+
+    @pytest.mark.asyncio
+    async def test_get_movies_exception(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.get_movies.side_effect = Exception("API error")
+
+        with pytest.raises(Exception, match="API error"):
+            await service.get_movies()
+
+
+# ---------------------------------------------------------------------------
+# get_movie
+# ---------------------------------------------------------------------------
+
+
+class TestGetMovie:
+    @pytest.mark.asyncio
+    async def test_get_movie_success(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.get_movie_by_id.return_value = {
+            "id": 1, "title": "Fight Club", "tmdbId": 550,
+        }
+
+        result = await service.get_movie("1")
+
+        assert result == {"id": "1", "title": "Fight Club"}
+        mock_radarr_client.get_movie_by_id.assert_awaited_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_get_movie_not_found(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.get_movie_by_id.return_value = None
+
+        result = await service.get_movie("999")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_movie_disabled(self):
+        service = MediaService()
+        MediaService._radarr = None
+
+        with pytest.raises(ValueError, match="Radarr is not enabled"):
+            await service.get_movie("1")
+
+    @pytest.mark.asyncio
+    async def test_get_movie_exception(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.get_movie_by_id.side_effect = Exception("API error")
+
+        with pytest.raises(Exception, match="API error"):
+            await service.get_movie("1")
+
+
+# ---------------------------------------------------------------------------
+# get_series (overloaded: list all or single lookup)
+# ---------------------------------------------------------------------------
+
+
+class TestGetSeriesService:
+    @pytest.mark.asyncio
+    async def test_get_series_list_all(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_all_series.return_value = [
+            {"id": 1, "title": "Breaking Bad", "tvdbId": 81189},
+            {"id": 2, "title": "Severance", "tvdbId": 295759},
+        ]
+
+        results = await service.get_series()
+
+        assert len(results) == 2
+        assert results[0] == {"id": "1", "title": "Breaking Bad"}
+        assert results[1] == {"id": "2", "title": "Severance"}
+        mock_sonarr_client.get_all_series.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_get_series_single_lookup(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_series_by_id.return_value = {
+            "id": 1, "title": "Breaking Bad", "tvdbId": 81189,
+        }
+
+        result = await service.get_series("1")
+
+        assert result == {"id": "1", "title": "Breaking Bad"}
+        mock_sonarr_client.get_series_by_id.assert_awaited_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_get_series_single_not_found(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_series_by_id.return_value = None
+
+        result = await service.get_series("999")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_series_disabled(self):
+        service = MediaService()
+        MediaService._sonarr = None
+
+        with pytest.raises(ValueError, match="Sonarr is not enabled"):
+            await service.get_series()
+
+    @pytest.mark.asyncio
+    async def test_get_series_exception(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_all_series.side_effect = Exception("API error")
+
+        with pytest.raises(Exception, match="API error"):
+            await service.get_series()
+
+
+# ---------------------------------------------------------------------------
+# get_music (overloaded: list all or single lookup)
+# ---------------------------------------------------------------------------
+
+
+class TestGetMusicService:
+    @pytest.mark.asyncio
+    async def test_get_music_list_all(self, mock_lidarr_client):
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.get_artists.return_value = [
+            {"id": 1, "artistName": "Linkin Park"},
+            {"id": 2, "artistName": "Radiohead"},
+        ]
+
+        results = await service.get_music()
+
+        assert len(results) == 2
+        assert results[0] == {"id": "1", "title": "Linkin Park"}
+        assert results[1] == {"id": "2", "title": "Radiohead"}
+        mock_lidarr_client.get_artists.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_get_music_single_lookup(self, mock_lidarr_client):
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.get_artist_by_id.return_value = {
+            "id": 1, "artistName": "Linkin Park",
+        }
+
+        result = await service.get_music("1")
+
+        assert result == {"id": "1", "title": "Linkin Park"}
+        mock_lidarr_client.get_artist_by_id.assert_awaited_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_get_music_single_not_found(self, mock_lidarr_client):
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.get_artist_by_id.return_value = None
+
+        result = await service.get_music("999")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_music_disabled(self):
+        service = MediaService()
+        MediaService._lidarr = None
+
+        with pytest.raises(ValueError, match="Lidarr is not enabled"):
+            await service.get_music()
+
+    @pytest.mark.asyncio
+    async def test_get_music_exception(self, mock_lidarr_client):
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.get_artists.side_effect = Exception("API error")
+
+        with pytest.raises(Exception, match="API error"):
+            await service.get_music()
+
+
+# ---------------------------------------------------------------------------
+# delete_movie
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteMovieService:
+    @pytest.mark.asyncio
+    async def test_delete_movie_success(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.delete_movie.return_value = True
+
+        result = await service.delete_movie("1")
+
+        assert result is True
+        mock_radarr_client.delete_movie.assert_awaited_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_delete_movie_failure(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.delete_movie.return_value = False
+
+        result = await service.delete_movie("1")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_movie_disabled(self):
+        service = MediaService()
+        MediaService._radarr = None
+
+        with pytest.raises(ValueError, match="Radarr is not enabled"):
+            await service.delete_movie("1")
+
+    @pytest.mark.asyncio
+    async def test_delete_movie_exception(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.delete_movie.side_effect = Exception("API error")
+
+        with pytest.raises(Exception, match="API error"):
+            await service.delete_movie("1")
+
+
+# ---------------------------------------------------------------------------
+# delete_series
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteSeriesService:
+    @pytest.mark.asyncio
+    async def test_delete_series_success(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.delete_series.return_value = True
+
+        result = await service.delete_series("1")
+
+        assert result is True
+        mock_sonarr_client.delete_series.assert_awaited_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_delete_series_failure(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.delete_series.return_value = False
+
+        result = await service.delete_series("1")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_series_disabled(self):
+        service = MediaService()
+        MediaService._sonarr = None
+
+        with pytest.raises(ValueError, match="Sonarr is not enabled"):
+            await service.delete_series("1")
+
+    @pytest.mark.asyncio
+    async def test_delete_series_exception(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.delete_series.side_effect = Exception("API error")
+
+        with pytest.raises(Exception, match="API error"):
+            await service.delete_series("1")
+
+
+# ---------------------------------------------------------------------------
+# delete_music
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteMusicService:
+    @pytest.mark.asyncio
+    async def test_delete_music_success(self, mock_lidarr_client):
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.delete_artist.return_value = True
+
+        result = await service.delete_music("1")
+
+        assert result is True
+        mock_lidarr_client.delete_artist.assert_awaited_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_delete_music_failure(self, mock_lidarr_client):
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.delete_artist.return_value = False
+
+        result = await service.delete_music("1")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_music_disabled(self):
+        service = MediaService()
+        MediaService._lidarr = None
+
+        with pytest.raises(ValueError, match="Lidarr is not enabled"):
+            await service.delete_music("1")
+
+    @pytest.mark.asyncio
+    async def test_delete_music_exception(self, mock_lidarr_client):
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.delete_artist.side_effect = Exception("API error")
+
+        with pytest.raises(Exception, match="API error"):
+            await service.delete_music("1")

@@ -10,6 +10,8 @@ from aioresponses import CallbackResult
 from tests.fixtures.sample_data import (
     SONARR_SEARCH_RESULTS,
     SONARR_SERIES_DETAIL,
+    SONARR_LIBRARY_SERIES,
+    SONARR_LIBRARY_SERIES_DETAIL,
 )
 
 
@@ -542,4 +544,128 @@ class TestSonarrCheckStatus:
         """Lines 234-236: Exception in check_status."""
         with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
             result = await sonarr_client.check_status()
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_all_series
+# ---------------------------------------------------------------------------
+
+
+class TestGetAllSeries:
+    @pytest.mark.asyncio
+    async def test_get_all_series_success(self, aio_mock, sonarr_client):
+        aio_mock.get(
+            f"{BASE}/series",
+            payload=SONARR_LIBRARY_SERIES,
+            status=200,
+        )
+        results = await sonarr_client.get_all_series()
+        assert len(results) == 2
+        assert results[0]["title"] == "Breaking Bad"
+        assert results[1]["title"] == "Severance"
+
+    @pytest.mark.asyncio
+    async def test_get_all_series_empty(self, aio_mock, sonarr_client):
+        aio_mock.get(
+            f"{BASE}/series",
+            payload=[],
+            status=200,
+        )
+        results = await sonarr_client.get_all_series()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_all_series_connection_error(self, aio_mock, sonarr_client):
+        aio_mock.get(
+            f"{BASE}/series",
+            exception=aiohttp.ClientError("refused"),
+        )
+        results = await sonarr_client.get_all_series()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_all_series_exception(self, sonarr_client):
+        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await sonarr_client.get_all_series()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_series_by_id
+# ---------------------------------------------------------------------------
+
+
+class TestGetSeriesById:
+    @pytest.mark.asyncio
+    async def test_get_series_by_id_success(self, aio_mock, sonarr_client):
+        aio_mock.get(
+            f"{BASE}/series/1",
+            payload=SONARR_LIBRARY_SERIES_DETAIL,
+            status=200,
+        )
+        result = await sonarr_client.get_series_by_id(1)
+        assert result is not None
+        assert result["title"] == "Breaking Bad"
+        assert result["id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_get_series_by_id_not_found(self, aio_mock, sonarr_client):
+        aio_mock.get(
+            f"{BASE}/series/999",
+            status=404,
+            body="Not found",
+        )
+        result = await sonarr_client.get_series_by_id(999)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_series_by_id_exception(self, sonarr_client):
+        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await sonarr_client.get_series_by_id(1)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# delete_series
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteSeries:
+    @pytest.mark.asyncio
+    async def test_delete_series_success(self, aio_mock, sonarr_client):
+        aio_mock.delete(
+            "http://localhost:8989/api/v3/series/1?deleteFiles=true",
+            status=200,
+            body="",
+        )
+        result = await sonarr_client.delete_series(1)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_delete_series_not_found(self, aio_mock, sonarr_client):
+        aio_mock.delete(
+            "http://localhost:8989/api/v3/series/999?deleteFiles=true",
+            status=404,
+            body="Not found",
+        )
+        result = await sonarr_client.delete_series(999)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_series_connection_error(self, aio_mock, sonarr_client):
+        aio_mock.delete(
+            "http://localhost:8989/api/v3/series/1?deleteFiles=true",
+            exception=aiohttp.ClientError("refused"),
+        )
+        result = await sonarr_client.delete_series(1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_series_exception(self, aio_mock, sonarr_client):
+        aio_mock.delete(
+            "http://localhost:8989/api/v3/series/1?deleteFiles=true",
+            exception=RuntimeError("unexpected"),
+        )
+        result = await sonarr_client.delete_series(1)
         assert result is False

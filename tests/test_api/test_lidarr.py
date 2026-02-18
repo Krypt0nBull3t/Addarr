@@ -12,6 +12,8 @@ from aioresponses import CallbackResult
 from tests.fixtures.sample_data import (
     LIDARR_SEARCH_RESULTS,
     LIDARR_METADATA_PROFILES,
+    LIDARR_LIBRARY_ARTISTS,
+    LIDARR_LIBRARY_ARTIST_DETAIL,
 )
 
 
@@ -698,4 +700,128 @@ class TestLidarrCheckStatus:
         """Lines 263-265: Exception in check_status."""
         with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
             result = await lidarr_client.check_status()
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_artists
+# ---------------------------------------------------------------------------
+
+
+class TestGetArtists:
+    @pytest.mark.asyncio
+    async def test_get_artists_success(self, aio_mock, lidarr_client):
+        aio_mock.get(
+            f"{BASE}/artist",
+            payload=LIDARR_LIBRARY_ARTISTS,
+            status=200,
+        )
+        results = await lidarr_client.get_artists()
+        assert len(results) == 2
+        assert results[0]["artistName"] == "Linkin Park"
+        assert results[1]["artistName"] == "Radiohead"
+
+    @pytest.mark.asyncio
+    async def test_get_artists_empty(self, aio_mock, lidarr_client):
+        aio_mock.get(
+            f"{BASE}/artist",
+            payload=[],
+            status=200,
+        )
+        results = await lidarr_client.get_artists()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_artists_connection_error(self, aio_mock, lidarr_client):
+        aio_mock.get(
+            f"{BASE}/artist",
+            exception=aiohttp.ClientError("refused"),
+        )
+        results = await lidarr_client.get_artists()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_artists_exception(self, lidarr_client):
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await lidarr_client.get_artists()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_artist_by_id
+# ---------------------------------------------------------------------------
+
+
+class TestGetArtistById:
+    @pytest.mark.asyncio
+    async def test_get_artist_by_id_success(self, aio_mock, lidarr_client):
+        aio_mock.get(
+            f"{BASE}/artist/1",
+            payload=LIDARR_LIBRARY_ARTIST_DETAIL,
+            status=200,
+        )
+        result = await lidarr_client.get_artist_by_id(1)
+        assert result is not None
+        assert result["artistName"] == "Linkin Park"
+        assert result["id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_get_artist_by_id_not_found(self, aio_mock, lidarr_client):
+        aio_mock.get(
+            f"{BASE}/artist/999",
+            status=404,
+            body="Not found",
+        )
+        result = await lidarr_client.get_artist_by_id(999)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_artist_by_id_exception(self, lidarr_client):
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await lidarr_client.get_artist_by_id(1)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# delete_artist
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteArtist:
+    @pytest.mark.asyncio
+    async def test_delete_artist_success(self, aio_mock, lidarr_client):
+        aio_mock.delete(
+            "http://localhost:8686/api/v1/artist/1",
+            status=200,
+            body="",
+        )
+        result = await lidarr_client.delete_artist(1)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_delete_artist_not_found(self, aio_mock, lidarr_client):
+        aio_mock.delete(
+            "http://localhost:8686/api/v1/artist/999",
+            status=404,
+            body="Not found",
+        )
+        result = await lidarr_client.delete_artist(999)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_artist_connection_error(self, aio_mock, lidarr_client):
+        aio_mock.delete(
+            "http://localhost:8686/api/v1/artist/1",
+            exception=aiohttp.ClientError("refused"),
+        )
+        result = await lidarr_client.delete_artist(1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_artist_exception(self, aio_mock, lidarr_client):
+        aio_mock.delete(
+            "http://localhost:8686/api/v1/artist/1",
+            exception=RuntimeError("unexpected"),
+        )
+        result = await lidarr_client.delete_artist(1)
         assert result is False
