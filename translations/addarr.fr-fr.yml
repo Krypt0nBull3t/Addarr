@@ -33,7 +33,13 @@ fr-fr:
   # Navigation
   Next: Suivant
   Previous: Précédent
-  
+
+  # Library listing
+  LibraryEmpty: "📭 No %{subject} found in your library."
+  LibraryNotEnabled: "❌ %{subject} is not enabled or configured."
+  LibraryError: "❌ Error loading library. Please try again later."
+  LibraryExpired: "⏳ Session expired. Please run the command again."
+
   # Common messages
   Start chatting: "🤖 Commencez à chatter avec Addarr sur Telegram. La première fois que vous utiliserez \"start\" il vous sera demandé de saisir un mot de passe."
   End: "🏁 Le processus est terminé."

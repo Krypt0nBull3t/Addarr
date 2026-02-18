@@ -42,6 +42,7 @@ class TestMainMenuKeyboard:
             "menu_series",
             "menu_music",
             "menu_status",
+            "menu_delete",
             "menu_help",
             "menu_cancel",
         ]
@@ -65,13 +66,13 @@ class TestSettingsKeyboard:
 
     @patch("src.bot.keyboards.TranslationService")
     def test_settings_keyboard_structure(self, mock_ts):
-        """3 rows with correct callback_data patterns"""
+        """4 rows with correct callback_data patterns (including back)"""
         _mock_translation(mock_ts)
 
         result = get_settings_keyboard()
 
         assert isinstance(result, InlineKeyboardMarkup)
-        assert len(result.inline_keyboard) == 3
+        assert len(result.inline_keyboard) == 4
 
         callback_data_values = [
             button.callback_data
@@ -145,3 +146,151 @@ class TestYesNoKeyboard:
 
         assert "Confirm" in button_texts
         assert "Deny" in button_texts
+
+
+class TestMainMenuSettingsButton:
+    """Tests for settings button in main menu"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_main_menu_has_settings_button(self, mock_ts):
+        """Main menu keyboard includes a settings button"""
+        _mock_translation(mock_ts)
+
+        result = get_main_menu_keyboard()
+
+        callback_data_values = [
+            button.callback_data
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert "menu_settings" in callback_data_values
+
+
+class TestLanguageKeyboard:
+    """Tests for get_language_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_get_language_keyboard_has_9_languages(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_language_keyboard
+
+        result = get_language_keyboard()
+
+        # Count buttons excluding the back button
+        lang_buttons = [
+            button
+            for row in result.inline_keyboard
+            for button in row
+            if button.callback_data.startswith("lang_")
+        ]
+        assert len(lang_buttons) == 9
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_get_language_keyboard_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_language_keyboard
+
+        result = get_language_keyboard()
+
+        callback_data_values = [
+            button.callback_data
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert "settings_back" in callback_data_values
+
+
+class TestServiceToggleKeyboard:
+    """Tests for get_service_toggle_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_get_service_toggle_keyboard_shows_services(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_service_toggle_keyboard
+
+        services_status = {
+            "radarr": True,
+            "sonarr": True,
+            "lidarr": False,
+        }
+        result = get_service_toggle_keyboard(services_status)
+
+        callback_data_values = [
+            button.callback_data
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert "svc_toggle_radarr" in callback_data_values
+        assert "svc_toggle_sonarr" in callback_data_values
+        assert "svc_toggle_lidarr" in callback_data_values
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_get_service_toggle_keyboard_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_service_toggle_keyboard
+
+        result = get_service_toggle_keyboard({"radarr": True})
+
+        callback_data_values = [
+            button.callback_data
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert "settings_back" in callback_data_values
+
+
+class TestQualityProfileKeyboard:
+    """Tests for get_quality_profile_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_get_quality_profile_keyboard(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_quality_profile_keyboard
+
+        profiles = [
+            {"id": 1, "name": "Any"},
+            {"id": 4, "name": "HD-1080p"},
+            {"id": 6, "name": "Ultra-HD"},
+        ]
+        result = get_quality_profile_keyboard(profiles, "radarr")
+
+        callback_data_values = [
+            button.callback_data
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert "setquality_radarr_1" in callback_data_values
+        assert "setquality_radarr_4" in callback_data_values
+        assert "setquality_radarr_6" in callback_data_values
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_get_quality_profile_keyboard_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_quality_profile_keyboard
+
+        profiles = [{"id": 1, "name": "Any"}]
+        result = get_quality_profile_keyboard(profiles, "radarr")
+
+        callback_data_values = [
+            button.callback_data
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert "settings_back" in callback_data_values
+
+
+class TestSettingsKeyboardBackButton:
+    """Tests for back button in settings keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_settings_keyboard_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+
+        result = get_settings_keyboard()
+
+        callback_data_values = [
+            button.callback_data
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert "settings_back" in callback_data_values

@@ -1655,45 +1655,6 @@ async def test_handle_status_exception_via_callback(
 
 
 # ---------------------------------------------------------------------------
-# handle_settings
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_handle_settings(media_handler, make_update, make_context):
-    """handle_settings sends settings message."""
-    update = make_update(text="/settings")
-    context = make_context()
-
-    await media_handler.handle_settings(update, context)
-
-    update.message.reply_text.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_handle_settings_no_message(media_handler, make_update, make_context):
-    """handle_settings returns when no effective_message."""
-    update = make_update(text="/settings")
-    update.effective_message = None
-    context = make_context()
-
-    result = await media_handler.handle_settings(update, context)
-
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_handle_settings_no_user(media_handler, make_update, make_context):
-    """handle_settings returns when no effective_user."""
-    update = make_update(text="/settings")
-    update.effective_user = None
-    context = make_context()
-
-    result = await media_handler.handle_settings(update, context)
-
-    assert result is None
-
-
 # ---------------------------------------------------------------------------
 # cancel_search
 # ---------------------------------------------------------------------------

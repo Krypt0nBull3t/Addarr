@@ -37,6 +37,12 @@ template:
   # Navigation
   Next: Next
   Previous: Previous
+
+  # Library listing
+  LibraryEmpty: "📭 No %{subject} found in your library."
+  LibraryNotEnabled: "❌ %{subject} is not enabled or configured."
+  LibraryError: "❌ Error loading library. Please try again later."
+  LibraryExpired: "⏳ Session expired. Please run the command again."
   
   # Common messages
   Start chatting: "🤖 Start chatting with Addarr in Telegram. The first time you use \"start\" you will be asked to enter your password."
@@ -164,6 +170,21 @@ template:
     Warning: "⚠️ Warning"
     Info: "ℹ️ Info"
   
+  # Settings
+  Settings:
+    Menu: "Settings"
+    Language: "Language"
+    LanguageChanged: "Language changed to %{language}"
+    Services: "Services"
+    ServiceEnabled: "enabled %{service}"
+    ServiceDisabled: "disabled %{service}"
+    QualityProfile: "Default Quality Profile"
+    QualityProfileSet: "Default quality profile set to %{profile} for %{service}"
+    AdminOnly: "Settings are only available to admins."
+    Back: "Back to Settings"
+    NoProfiles: "No quality profiles found for %{service}"
+    ServiceNotConfigured: "not configured"
+
   # Configuration messages
   Missing config: "⚠️ You are missing the following configkeys in your config.yaml-file: %{missingKeys}.
     \nAdd these before restarting the bot."

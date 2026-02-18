@@ -55,7 +55,8 @@ MOCK_CONFIG_DATA = {
     },
     "transmission": {
         "enable": False, "onlyAdmin": True, "host": "localhost",
-        "port": 9091, "authentication": False, "username": None, "password": None,
+        "port": 9091, "ssl": False,
+        "authentication": False, "username": None, "password": None,
     },
     "sabnzbd": {
         "enable": False, "onlyAdmin": True,
@@ -91,6 +92,20 @@ class MockConfig:
     def _set(self, key, value):
         """Test helper to override a config value."""
         self._config[key] = value
+
+    def update_nested(self, dotted_key, value):
+        """Update a nested config value using dot notation."""
+        keys = dotted_key.split(".")
+        current = self._config
+        for key in keys[:-1]:
+            if key not in current:
+                current[key] = {}
+            current = current[key]
+        current[keys[-1]] = value
+
+    def save(self):
+        """No-op in tests."""
+        pass
 
 
 # Create the mock config instance

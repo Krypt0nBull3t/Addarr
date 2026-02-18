@@ -159,6 +159,22 @@ class Config:
     def get(self, key, default=None):
         return self._config.get(key, default)
 
+    def update_nested(self, dotted_key: str, value):
+        """Update a nested config value using dot notation."""
+        keys = dotted_key.split(".")
+        current = self._config
+        for key in keys[:-1]:
+            if key not in current:
+                current[key] = {}
+            current = current[key]
+        current[keys[-1]] = value
+
+    def save(self):
+        """Persist current config to disk."""
+        create_backup()
+        with open(CONFIG_PATH, 'w') as f:
+            yaml.dump(self._config, f, default_flow_style=False)
+
 
 # Create global config instance
 config = Config()

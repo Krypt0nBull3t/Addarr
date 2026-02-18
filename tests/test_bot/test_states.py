@@ -50,3 +50,30 @@ class TestStringStates:
         assert isinstance(States.AWAITING_STATUS_ACTION, str)
         assert isinstance(States.AWAITING_SETTING_ACTION, str)
         assert isinstance(States.AWAITING_SPEED_INPUT, str)
+
+
+class TestSettingsStates:
+    """Tests for settings sub-states"""
+
+    def test_settings_states_exist(self):
+        """SETTINGS_MENU, SETTINGS_LANGUAGE, SETTINGS_SERVICE,
+        SETTINGS_QUALITY are defined"""
+        assert hasattr(States, "SETTINGS_MENU")
+        assert hasattr(States, "SETTINGS_LANGUAGE")
+        assert hasattr(States, "SETTINGS_SERVICE")
+        assert hasattr(States, "SETTINGS_QUALITY")
+
+    def test_settings_states_are_strings(self):
+        assert isinstance(States.SETTINGS_MENU, str)
+        assert isinstance(States.SETTINGS_LANGUAGE, str)
+        assert isinstance(States.SETTINGS_SERVICE, str)
+        assert isinstance(States.SETTINGS_QUALITY, str)
+
+    def test_settings_states_unique(self):
+        settings_states = [
+            States.SETTINGS_MENU,
+            States.SETTINGS_LANGUAGE,
+            States.SETTINGS_SERVICE,
+            States.SETTINGS_QUALITY,
+        ]
+        assert len(settings_states) == len(set(settings_states))

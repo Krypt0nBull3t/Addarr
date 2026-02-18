@@ -108,7 +108,6 @@ class MediaHandler:
                 persistent=False
             ),
             CommandHandler("status", self.handle_status),
-            CommandHandler("settings", self.handle_settings)
         ]
 
     async def handle_menu_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -877,21 +876,6 @@ class MediaHandler:
                 await update.callback_query.message.edit_text(error_msg)
             else:
                 await update.message.reply_text(error_msg)
-
-    @require_auth
-    async def handle_settings(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle settings management"""
-        if not update.effective_message or not update.effective_user:
-            return
-
-        user = update.effective_user
-        logger.info(f"⚙️ User {user.username} ({user.id}) accessed settings")
-
-        await update.message.reply_text(
-            "⚙️ Settings:\n"
-            "Settings management coming soon...\n"
-            "For now, please use the config.yaml file to manage settings."
-        )
 
     async def handle_navigation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle navigation between search results"""

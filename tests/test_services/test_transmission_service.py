@@ -1,12 +1,12 @@
 """
 Tests for src/services/transmission.py -- TransmissionService.
 
-The TransmissionAPI inherits from BaseApiClient which reads config in __init__.
-We mock TransmissionAPI at the import site to avoid that side effect.
+TransmissionClient reads config from the global singleton (mocked in conftest).
+Service methods that call async client methods use AsyncMock.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from tests.conftest import _mock_config
 
@@ -57,7 +57,6 @@ class TestTransmissionServiceClient:
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
-        # enable is False, so client property won't try to create a client
         assert service.client is None
 
     def test_client_enabled_creates_client(self, enabled_transmission_config):
@@ -68,7 +67,7 @@ class TestTransmissionServiceClient:
         mock_api = MagicMock()
 
         with patch(
-            "src.services.transmission.TransmissionAPI",
+            "src.services.transmission.TransmissionClient",
             return_value=mock_api,
         ):
             client = service.client
@@ -76,13 +75,13 @@ class TestTransmissionServiceClient:
         assert client is mock_api
 
     def test_client_enabled_init_exception(self, enabled_transmission_config):
-        """When TransmissionAPI raises, client property returns None."""
+        """When TransmissionClient raises, client property returns None."""
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
 
         with patch(
-            "src.services.transmission.TransmissionAPI",
+            "src.services.transmission.TransmissionClient",
             side_effect=Exception("Connection failed"),
         ):
             client = service.client
@@ -91,92 +90,100 @@ class TestTransmissionServiceClient:
 
 
 class TestTransmissionServiceNoClient:
-    def test_set_alt_speed_no_client(self):
+    @pytest.mark.asyncio
+    async def test_set_alt_speed_no_client(self):
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
         service._client = None
 
-        result = service.set_alt_speed(True)
+        result = await service.set_alt_speed(True)
         assert result is False
 
-    def test_get_status_not_connected(self):
+    @pytest.mark.asyncio
+    async def test_get_status_not_connected(self):
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
         service._client = None
 
-        status = service.get_status()
+        status = await service.get_status()
         assert status["connected"] is False
 
-    def test_test_connection_no_client(self):
+    @pytest.mark.asyncio
+    async def test_test_connection_no_client(self):
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
         service._client = None
 
-        assert service.test_connection() is False
+        assert await service.test_connection() is False
 
 
 class TestTransmissionServiceWithMockClient:
-    def test_set_alt_speed_success(self):
+    @pytest.mark.asyncio
+    async def test_set_alt_speed_success(self):
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
-        mock_client = MagicMock()
+        mock_client = AsyncMock()
         service._client = mock_client
 
-        result = service.set_alt_speed(True)
+        result = await service.set_alt_speed(True)
 
         assert result is True
-        mock_client.set_alt_speed_enabled.assert_called_once_with(True)
+        mock_client.set_alt_speed_enabled.assert_awaited_once_with(True)
 
-    def test_set_alt_speed_exception(self):
+    @pytest.mark.asyncio
+    async def test_set_alt_speed_exception(self):
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
-        mock_client = MagicMock()
+        mock_client = AsyncMock()
         mock_client.set_alt_speed_enabled.side_effect = Exception("API error")
         service._client = mock_client
 
-        result = service.set_alt_speed(True)
+        result = await service.set_alt_speed(True)
 
         assert result is False
 
-    def test_get_status_connected(self):
+    @pytest.mark.asyncio
+    async def test_get_status_connected(self):
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
-        mock_client = MagicMock()
+        mock_client = AsyncMock()
         mock_client.get_session.return_value = TRANSMISSION_SESSION
         service._client = mock_client
 
-        status = service.get_status()
+        status = await service.get_status()
 
         assert status["connected"] is True
         assert status["alt_speed_enabled"] is True
         assert status["version"] == "3.00"
 
-    def test_get_status_exception(self):
+    @pytest.mark.asyncio
+    async def test_get_status_exception(self):
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
-        mock_client = MagicMock()
+        mock_client = AsyncMock()
         mock_client.get_session.side_effect = Exception("Connection lost")
         service._client = mock_client
 
-        status = service.get_status()
+        status = await service.get_status()
 
         assert status["connected"] is False
         assert status["error"] == "Connection lost"
 
-    def test_test_connection_success(self):
+    @pytest.mark.asyncio
+    async def test_test_connection_success(self):
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
-        mock_client = MagicMock()
+        mock_client = AsyncMock()
         mock_client.test_connection.return_value = True
         service._client = mock_client
 
-        assert service.test_connection() is True
-        mock_client.test_connection.assert_called_once()
+        assert await service.test_connection() is True
+        mock_client.test_connection.assert_awaited_once()

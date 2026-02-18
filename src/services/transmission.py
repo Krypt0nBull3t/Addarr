@@ -6,7 +6,7 @@ Description: Transmission service for Addarr. Handles business logic for Transmi
 """
 
 from typing import Optional
-from ..api.transmission import TransmissionAPI
+from ..api.transmission import TransmissionClient
 from ..config.settings import config
 from ..utils.logger import get_logger
 
@@ -22,17 +22,11 @@ class TransmissionService:
         self._config = config.get("transmission", {})
 
     @property
-    def client(self) -> Optional[TransmissionAPI]:
+    def client(self) -> Optional[TransmissionClient]:
         """Get or create Transmission API client"""
         if not self._client and self._config.get("enable"):
             try:
-                self._client = TransmissionAPI(
-                    host=self._config.get("host", "localhost"),
-                    port=self._config.get("port", 9091),
-                    username=self._config.get("username"),
-                    password=self._config.get("password"),
-                    ssl=self._config.get("ssl", False)
-                )
+                self._client = TransmissionClient()
             except Exception as e:
                 logger.error(f"Failed to initialize Transmission client: {str(e)}")
                 return None
@@ -42,13 +36,13 @@ class TransmissionService:
         """Check if Transmission is enabled in config"""
         return bool(self._config.get("enable"))
 
-    def test_connection(self) -> bool:
+    async def test_connection(self) -> bool:
         """Test connection to Transmission"""
         if not self.client:
             return False
-        return self.client.test_connection()
+        return await self.client.test_connection()
 
-    def set_alt_speed(self, enabled: bool) -> bool:
+    async def set_alt_speed(self, enabled: bool) -> bool:
         """Enable or disable alternative speed limits
 
         Args:
@@ -62,7 +56,7 @@ class TransmissionService:
             return False
 
         try:
-            self.client.set_alt_speed_enabled(enabled)
+            await self.client.set_alt_speed_enabled(enabled)
             status = "enabled" if enabled else "disabled"
             logger.info(f"Alternative speed limits {status}")
             return True
@@ -70,7 +64,7 @@ class TransmissionService:
             logger.error(f"Failed to set alt speed: {str(e)}")
             return False
 
-    def get_status(self) -> dict:
+    async def get_status(self) -> dict:
         """Get current Transmission status
 
         Returns:
@@ -84,7 +78,7 @@ class TransmissionService:
             }
 
         try:
-            session = self.client.get_session()
+            session = await self.client.get_session()
             return {
                 "enabled": True,
                 "connected": True,
