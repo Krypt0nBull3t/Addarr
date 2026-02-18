@@ -48,7 +48,7 @@ class TransmissionHandler:
             )
             return
 
-        status = self.service.get_status()
+        status = await self.service.get_status()
 
         if not status["connected"]:
             await update.message.reply_text(
@@ -85,10 +85,10 @@ class TransmissionHandler:
 
         if query.data == "transmission_toggle_yes":
             # Get current status and toggle
-            status = self.service.get_status()
+            status = await self.service.get_status()
             current_state = status.get("alt_speed_enabled", False)
 
-            if self.service.set_alt_speed(not current_state):
+            if await self.service.set_alt_speed(not current_state):
                 new_state = "enabled 🐢" if not current_state else "disabled 🚀"
                 message = f"✅ Turtle Mode {new_state}"
             else:

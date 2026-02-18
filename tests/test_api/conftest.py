@@ -51,3 +51,14 @@ def lidarr_client():
 def sabnzbd_client():
     from src.api.sabnzbd import SabnzbdClient
     return SabnzbdClient()
+
+
+@pytest.fixture
+def transmission_url():
+    return "http://localhost:9091"
+
+
+@pytest.fixture
+def transmission_client():
+    from src.api.transmission import TransmissionClient
+    return TransmissionClient()
