@@ -9,7 +9,7 @@ level. Instead, we test:
 """
 
 import pytest
-from unittest.mock import patch, mock_open, call
+from unittest.mock import patch, mock_open
 
 
 class TestMockConfig:
