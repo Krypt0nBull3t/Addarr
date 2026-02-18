@@ -36,14 +36,10 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             ),
         ],
         [
-            # InlineKeyboardButton(
-            #     f"🗑 {translation.get_text('Delete')}",
-            #     callback_data="menu_delete"
-            # ),
-            # InlineKeyboardButton(
-            #     f"⚙️ {translation.get_text('Settings')}",
-            #     callback_data="menu_settings"
-            # ),
+            InlineKeyboardButton(
+                f"🗑 {translation.get_text('Delete')}",
+                callback_data="menu_delete"
+            ),
         ],
         [
             InlineKeyboardButton(
