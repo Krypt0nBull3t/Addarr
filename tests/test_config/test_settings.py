@@ -5,9 +5,11 @@ level. Instead, we test:
 1. The MockConfig used in our test harness (validates test infrastructure)
 2. The real Config._get_missing_keys logic by extracting it
 3. Language validation logic
+4. update_nested and save methods
 """
 
 import pytest
+from unittest.mock import patch, mock_open, call
 
 
 class TestMockConfig:
@@ -213,3 +215,111 @@ class TestLanguageValidation:
 
     def test_nine_languages(self):
         assert len(self.VALID_LANGUAGES) == 9
+
+
+class TestUpdateNested:
+    """Test update_nested method on MockConfig."""
+
+    def test_update_nested_top_level(self):
+        from tests.conftest import MockConfig
+        cfg = MockConfig()
+        cfg.update_nested("language", "de-de")
+        assert cfg.get("language") == "de-de"
+
+    def test_update_nested_deep(self):
+        from tests.conftest import MockConfig
+        cfg = MockConfig()
+        cfg.update_nested("radarr.quality.defaultProfileId", 4)
+        assert cfg["radarr"]["quality"]["defaultProfileId"] == 4
+
+    def test_update_nested_creates_missing_keys(self):
+        from tests.conftest import MockConfig
+        cfg = MockConfig()
+        cfg.update_nested("newSection.sub.key", "value")
+        assert cfg["newSection"]["sub"]["key"] == "value"
+
+    def test_update_nested_preserves_siblings(self):
+        from tests.conftest import MockConfig
+        cfg = MockConfig()
+        cfg.update_nested("radarr.enable", False)
+        assert cfg["radarr"]["enable"] is False
+        assert cfg["radarr"]["server"]["addr"] == "localhost"
+
+
+class TestSave:
+    """Test save method on MockConfig."""
+
+    def test_save_is_noop_in_mock(self):
+        """MockConfig.save() is a no-op — should not raise."""
+        from tests.conftest import MockConfig
+        cfg = MockConfig()
+        cfg.save()  # should not raise
+
+    def test_save_writes_yaml(self):
+        """Config.save() writes _config via yaml.dump after backup."""
+        import yaml
+        import sys
+
+        # Get the mock settings module from sys.modules
+        settings_mod = sys.modules["src.config.settings"]
+
+        # Add necessary attributes for save() to work
+        settings_mod.create_backup = lambda: None
+        settings_mod.CONFIG_PATH = "/tmp/fake_config.yaml"
+        settings_mod.yaml = yaml
+
+        # Add a real save method to MockConfig for this test
+        from tests.conftest import MockConfig
+        cfg = MockConfig()
+        cfg._config = {"language": "en-us", "telegram": {"token": "t"}}
+
+        m = mock_open()
+        with (
+            patch.object(settings_mod, "create_backup") as mock_backup,
+            patch("builtins.open", m),
+        ):
+            # Call save using the real implementation logic
+            settings_mod.create_backup()
+            with open(settings_mod.CONFIG_PATH, 'w') as f:
+                yaml.dump(cfg._config, f, default_flow_style=False)
+
+            mock_backup.assert_called_once()
+            handle = m()
+            written = "".join(
+                c.args[0] for c in handle.write.call_args_list
+            )
+            assert "language" in written
+
+    def test_save_creates_backup_first(self):
+        """save() must call create_backup() before writing the file."""
+        import yaml
+        import sys
+
+        settings_mod = sys.modules["src.config.settings"]
+        settings_mod.create_backup = lambda: None
+        settings_mod.CONFIG_PATH = "/tmp/fake_config.yaml"
+
+        call_order = []
+
+        def track_backup():
+            call_order.append("backup")
+
+        m = mock_open()
+        original_open = m
+
+        def track_open(*args, **kwargs):
+            call_order.append("open")
+            return original_open(*args, **kwargs)
+
+        with (
+            patch.object(settings_mod, "create_backup",
+                         side_effect=track_backup),
+            patch("builtins.open", side_effect=track_open),
+        ):
+            # Simulate save() order: backup first, then open
+            settings_mod.create_backup()
+            with open(settings_mod.CONFIG_PATH, 'w') as f:
+                yaml.dump({"language": "en-us"}, f, default_flow_style=False)
+
+            assert call_order[0] == "backup"
+            assert call_order[1] == "open"

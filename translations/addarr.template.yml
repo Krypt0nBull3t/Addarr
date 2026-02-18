@@ -170,6 +170,21 @@ template:
     Warning: "⚠️ Warning"
     Info: "ℹ️ Info"
   
+  # Settings
+  Settings:
+    Menu: "Settings"
+    Language: "Language"
+    LanguageChanged: "Language changed to %{language}"
+    Services: "Services"
+    ServiceEnabled: "enabled %{service}"
+    ServiceDisabled: "disabled %{service}"
+    QualityProfile: "Default Quality Profile"
+    QualityProfileSet: "Default quality profile set to %{profile} for %{service}"
+    AdminOnly: "Settings are only available to admins."
+    Back: "Back to Settings"
+    NoProfiles: "No quality profiles found for %{service}"
+    ServiceNotConfigured: "not configured"
+
   # Configuration messages
   Missing config: "⚠️ You are missing the following configkeys in your config.yaml-file: %{missingKeys}.
     \nAdd these before restarting the bot."
