@@ -153,3 +153,48 @@ SABNZBD_QUEUE = {
 }
 
 SABNZBD_VERSION = {"version": "4.0.0"}
+
+# ---------------------------------------------------------------------------
+# Library items (internal *arr IDs, used by delete flow)
+# ---------------------------------------------------------------------------
+
+RADARR_LIBRARY_MOVIES = [
+    {"id": 1, "title": "Fight Club", "tmdbId": 550, "year": 1999},
+    {"id": 2, "title": "Pulp Fiction", "tmdbId": 680, "year": 1994},
+]
+
+RADARR_LIBRARY_MOVIE_DETAIL = {
+    "id": 1,
+    "title": "Fight Club",
+    "tmdbId": 550,
+    "year": 1999,
+    "overview": "An insomniac office worker...",
+    "path": "/movies/Fight Club (1999)",
+}
+
+SONARR_LIBRARY_SERIES = [
+    {"id": 1, "title": "Breaking Bad", "tvdbId": 81189, "year": 2008},
+    {"id": 2, "title": "Severance", "tvdbId": 295759, "year": 2022},
+]
+
+SONARR_LIBRARY_SERIES_DETAIL = {
+    "id": 1,
+    "title": "Breaking Bad",
+    "tvdbId": 81189,
+    "year": 2008,
+    "overview": "A high school chemistry teacher...",
+    "path": "/tv/Breaking Bad",
+}
+
+LIDARR_LIBRARY_ARTISTS = [
+    {"id": 1, "artistName": "Linkin Park", "foreignArtistId": "f59c5520-5f46-4d2c-b2c4-822eabf53419"},
+    {"id": 2, "artistName": "Radiohead", "foreignArtistId": "a74b1b7f-71a5-4011-9441-d0b5e4122711"},
+]
+
+LIDARR_LIBRARY_ARTIST_DETAIL = {
+    "id": 1,
+    "artistName": "Linkin Park",
+    "foreignArtistId": "f59c5520-5f46-4d2c-b2c4-822eabf53419",
+    "overview": "Linkin Park is an American rock band...",
+    "path": "/music/Linkin Park",
+}

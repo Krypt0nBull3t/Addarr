@@ -226,6 +226,65 @@ class RadarrClient:
             logger.error(f"❌ Error in add_movie: {str(e)}")
             return False, str(e)
 
+    async def get_movies(self) -> List[Dict]:
+        """Get all movies in the library"""
+        try:
+            logger.info(Fore.BLUE + "🔍 Getting all movies from Radarr")
+            results = await self._make_request("movie")
+
+            if not results:
+                logger.warning(Fore.YELLOW + "⚠️ No movies found in library")
+                return []
+
+            logger.info(Fore.GREEN + f"✅ Found {len(results)} movies in library")
+            return results
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get movies: {str(e)}")
+            return []
+
+    async def get_movie_by_id(self, movie_id: int) -> Optional[Dict]:
+        """Get movie details by internal Radarr ID"""
+        try:
+            logger.info(f"🔍 Looking up movie with ID: {movie_id}")
+            result = await self._make_request(f"movie/{movie_id}")
+
+            if result:
+                logger.info(f"✅ Found movie: {result.get('title')}")
+                return result
+
+            logger.warning(f"⚠️ No movie found with ID: {movie_id}")
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get movie by ID: {str(e)}")
+            return None
+
+    async def delete_movie(self, movie_id: int) -> bool:
+        """Delete a movie from Radarr by internal ID"""
+        try:
+            logger.info(f"🗑️ Deleting movie with ID: {movie_id}")
+            url = f"{self.api_url}/api/v3/movie/{movie_id}?deleteFiles=true"
+
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(url, headers=self.headers) as response:
+                    if response.status == 200:
+                        logger.info(f"✅ Successfully deleted movie {movie_id}")
+                        return True
+                    else:
+                        error_text = await response.text()
+                        logger.error(
+                            f"❌ Failed to delete movie ({response.status}): {error_text}"
+                        )
+                        return False
+
+        except aiohttp.ClientError as e:
+            logger.error(f"❌ Connection error deleting movie: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error deleting movie: {str(e)}")
+            return False
+
     async def check_status(self) -> bool:
         """Check if Radarr is available"""
         try:

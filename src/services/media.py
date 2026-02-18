@@ -7,7 +7,7 @@ Description: Media service module.
 This module handles interactions with media services (Radarr, Sonarr, Lidarr).
 """
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from src.utils.logger import get_logger
 from src.config.settings import config
@@ -426,6 +426,113 @@ class MediaService:
         except Exception as e:
             logger.error(f"❌ Error in MediaService.add_music: {str(e)}")
             return False, str(e)
+
+    async def get_movies(self) -> List[Dict]:
+        """Get all movies from Radarr library"""
+        if not self.radarr:
+            raise ValueError("Radarr is not enabled or configured")
+
+        try:
+            results = await self.radarr.get_movies()
+            return [
+                {"id": str(movie["id"]), "title": movie["title"]}
+                for movie in results
+            ]
+        except Exception as e:
+            logger.error(f"Error getting movies: {e}")
+            raise
+
+    async def get_movie(self, movie_id) -> Optional[Dict]:
+        """Get a single movie from Radarr by internal ID"""
+        if not self.radarr:
+            raise ValueError("Radarr is not enabled or configured")
+
+        try:
+            result = await self.radarr.get_movie_by_id(int(movie_id))
+            if not result:
+                return None
+            return {"id": str(result["id"]), "title": result["title"]}
+        except Exception as e:
+            logger.error(f"Error getting movie: {e}")
+            raise
+
+    async def get_series(self, series_id=None) -> object:
+        """Get series from Sonarr. If series_id given, get single; else list all."""
+        if not self.sonarr:
+            raise ValueError("Sonarr is not enabled or configured")
+
+        try:
+            if series_id is not None:
+                result = await self.sonarr.get_series_by_id(int(series_id))
+                if not result:
+                    return None
+                return {"id": str(result["id"]), "title": result["title"]}
+            else:
+                results = await self.sonarr.get_all_series()
+                return [
+                    {"id": str(s["id"]), "title": s["title"]}
+                    for s in results
+                ]
+        except Exception as e:
+            logger.error(f"Error getting series: {e}")
+            raise
+
+    async def get_music(self, music_id=None) -> object:
+        """Get artists from Lidarr. If music_id given, get single; else list all."""
+        if not self.lidarr:
+            raise ValueError("Lidarr is not enabled or configured")
+
+        try:
+            if music_id is not None:
+                result = await self.lidarr.get_artist_by_id(int(music_id))
+                if not result:
+                    return None
+                return {
+                    "id": str(result["id"]),
+                    "title": result["artistName"],
+                }
+            else:
+                results = await self.lidarr.get_artists()
+                return [
+                    {"id": str(a["id"]), "title": a["artistName"]}
+                    for a in results
+                ]
+        except Exception as e:
+            logger.error(f"Error getting music: {e}")
+            raise
+
+    async def delete_movie(self, movie_id) -> bool:
+        """Delete a movie from Radarr"""
+        if not self.radarr:
+            raise ValueError("Radarr is not enabled or configured")
+
+        try:
+            return await self.radarr.delete_movie(int(movie_id))
+        except Exception as e:
+            logger.error(f"Error deleting movie: {e}")
+            raise
+
+    async def delete_series(self, series_id) -> bool:
+        """Delete a series from Sonarr"""
+        if not self.sonarr:
+            raise ValueError("Sonarr is not enabled or configured")
+
+        try:
+            return await self.sonarr.delete_series(int(series_id))
+        except Exception as e:
+            logger.error(f"Error deleting series: {e}")
+            raise
+
+    async def delete_music(self, music_id) -> bool:
+        """Delete an artist from Lidarr"""
+        if not self.lidarr:
+            raise ValueError("Lidarr is not enabled or configured")
+
+        try:
+            return await self.lidarr.delete_artist(int(music_id))
+        except Exception as e:
+            logger.error(f"Error deleting music: {e}")
+            raise
 
     async def get_radarr_status(self) -> bool:
         """Check if Radarr is available"""

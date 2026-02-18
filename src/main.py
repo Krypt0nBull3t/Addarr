@@ -14,6 +14,7 @@ from telegram.ext import Application
 from telegram.error import InvalidToken, NetworkError
 
 from src.bot.handlers.auth import AuthHandler
+from src.bot.handlers.delete import DeleteHandler
 from src.bot.handlers.media import MediaHandler
 from src.bot.handlers.transmission import TransmissionHandler
 from src.bot.handlers.sabnzbd import SabnzbdHandler
@@ -109,6 +110,11 @@ class AddarrBot:
             # Media handler
             media_handler = MediaHandler()
             for handler in media_handler.get_handler():
+                self.application.add_handler(handler)
+
+            # Delete handler
+            delete_handler = DeleteHandler()
+            for handler in delete_handler.get_handler():
                 self.application.add_handler(handler)
 
             # Transmission handler (if enabled)

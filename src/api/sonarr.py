@@ -232,6 +232,65 @@ class SonarrClient:
             logger.error(f"❌ Failed to get series: {str(e)}")
             return None
 
+    async def get_all_series(self) -> List[Dict]:
+        """Get all series in the library"""
+        try:
+            logger.info(Fore.BLUE + "🔍 Getting all series from Sonarr")
+            results = await self._make_request("series")
+
+            if not results:
+                logger.warning(Fore.YELLOW + "⚠️ No series found in library")
+                return []
+
+            logger.info(Fore.GREEN + f"✅ Found {len(results)} series in library")
+            return results
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get series: {str(e)}")
+            return []
+
+    async def get_series_by_id(self, series_id: int) -> Optional[Dict]:
+        """Get series details by internal Sonarr ID"""
+        try:
+            logger.info(f"🔍 Looking up series with ID: {series_id}")
+            result = await self._make_request(f"series/{series_id}")
+
+            if result:
+                logger.info(f"✅ Found series: {result.get('title')}")
+                return result
+
+            logger.warning(f"⚠️ No series found with ID: {series_id}")
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get series by ID: {str(e)}")
+            return None
+
+    async def delete_series(self, series_id: int) -> bool:
+        """Delete a series from Sonarr by internal ID"""
+        try:
+            logger.info(f"🗑️ Deleting series with ID: {series_id}")
+            url = f"{self.api_url}/api/v3/series/{series_id}?deleteFiles=true"
+
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(url, headers=self.headers) as response:
+                    if response.status == 200:
+                        logger.info(f"✅ Successfully deleted series {series_id}")
+                        return True
+                    else:
+                        error_text = await response.text()
+                        logger.error(
+                            f"❌ Failed to delete series ({response.status}): {error_text}"
+                        )
+                        return False
+
+        except aiohttp.ClientError as e:
+            logger.error(f"❌ Connection error deleting series: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error deleting series: {str(e)}")
+            return False
+
     async def check_status(self) -> bool:
         """Check if Sonarr is available"""
         try:
