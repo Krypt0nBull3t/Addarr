@@ -264,6 +264,65 @@ class LidarrClient:
             logger.error(f"Failed to get metadata profiles: {str(e)}")
             return []
 
+    async def get_artists(self) -> List[Dict]:
+        """Get all artists in the library"""
+        try:
+            logger.info(Fore.BLUE + "🔍 Getting all artists from Lidarr")
+            results = await self._make_request("artist")
+
+            if not results:
+                logger.warning(Fore.YELLOW + "⚠️ No artists found in library")
+                return []
+
+            logger.info(Fore.GREEN + f"✅ Found {len(results)} artists in library")
+            return results
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get artists: {str(e)}")
+            return []
+
+    async def get_artist_by_id(self, artist_id: int) -> Optional[Dict]:
+        """Get artist details by internal Lidarr ID"""
+        try:
+            logger.info(f"🔍 Looking up artist with ID: {artist_id}")
+            result = await self._make_request(f"artist/{artist_id}")
+
+            if result:
+                logger.info(f"✅ Found artist: {result.get('artistName')}")
+                return result
+
+            logger.warning(f"⚠️ No artist found with ID: {artist_id}")
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get artist by ID: {str(e)}")
+            return None
+
+    async def delete_artist(self, artist_id: int) -> bool:
+        """Delete an artist from Lidarr by internal ID"""
+        try:
+            logger.info(f"🗑️ Deleting artist with ID: {artist_id}")
+            url = f"{self.api_url}/api/v1/artist/{artist_id}"
+
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(url, headers=self.headers) as response:
+                    if response.status == 200:
+                        logger.info(f"✅ Successfully deleted artist {artist_id}")
+                        return True
+                    else:
+                        error_text = await response.text()
+                        logger.error(
+                            f"❌ Failed to delete artist ({response.status}): {error_text}"
+                        )
+                        return False
+
+        except aiohttp.ClientError as e:
+            logger.error(f"❌ Connection error deleting artist: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error deleting artist: {str(e)}")
+            return False
+
     async def check_status(self) -> bool:
         """Check if Lidarr is available"""
         try:

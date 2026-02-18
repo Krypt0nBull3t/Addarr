@@ -11,6 +11,8 @@ from tests.fixtures.sample_data import (
     RADARR_MOVIE_DETAIL,
     RADARR_QUALITY_PROFILES,
     RADARR_SYSTEM_STATUS,
+    RADARR_LIBRARY_MOVIES,
+    RADARR_LIBRARY_MOVIE_DETAIL,
 )
 
 
@@ -567,4 +569,128 @@ class TestRadarrCheckStatus:
         """Lines 232-234: Exception in check_status."""
         with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
             result = await radarr_client.check_status()
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_movies
+# ---------------------------------------------------------------------------
+
+
+class TestGetMovies:
+    @pytest.mark.asyncio
+    async def test_get_movies_success(self, aio_mock, radarr_client):
+        aio_mock.get(
+            f"{BASE}/movie",
+            payload=RADARR_LIBRARY_MOVIES,
+            status=200,
+        )
+        results = await radarr_client.get_movies()
+        assert len(results) == 2
+        assert results[0]["title"] == "Fight Club"
+        assert results[1]["title"] == "Pulp Fiction"
+
+    @pytest.mark.asyncio
+    async def test_get_movies_empty(self, aio_mock, radarr_client):
+        aio_mock.get(
+            f"{BASE}/movie",
+            payload=[],
+            status=200,
+        )
+        results = await radarr_client.get_movies()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_movies_connection_error(self, aio_mock, radarr_client):
+        aio_mock.get(
+            f"{BASE}/movie",
+            exception=aiohttp.ClientError("refused"),
+        )
+        results = await radarr_client.get_movies()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_movies_exception(self, radarr_client):
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_movies()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_movie_by_id
+# ---------------------------------------------------------------------------
+
+
+class TestGetMovieById:
+    @pytest.mark.asyncio
+    async def test_get_movie_by_id_success(self, aio_mock, radarr_client):
+        aio_mock.get(
+            f"{BASE}/movie/1",
+            payload=RADARR_LIBRARY_MOVIE_DETAIL,
+            status=200,
+        )
+        result = await radarr_client.get_movie_by_id(1)
+        assert result is not None
+        assert result["title"] == "Fight Club"
+        assert result["id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_get_movie_by_id_not_found(self, aio_mock, radarr_client):
+        aio_mock.get(
+            f"{BASE}/movie/999",
+            status=404,
+            body="Not found",
+        )
+        result = await radarr_client.get_movie_by_id(999)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_movie_by_id_exception(self, radarr_client):
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await radarr_client.get_movie_by_id(1)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# delete_movie
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteMovie:
+    @pytest.mark.asyncio
+    async def test_delete_movie_success(self, aio_mock, radarr_client):
+        aio_mock.delete(
+            "http://localhost:7878/api/v3/movie/1?deleteFiles=true",
+            status=200,
+            body="",
+        )
+        result = await radarr_client.delete_movie(1)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_delete_movie_not_found(self, aio_mock, radarr_client):
+        aio_mock.delete(
+            "http://localhost:7878/api/v3/movie/999?deleteFiles=true",
+            status=404,
+            body="Not found",
+        )
+        result = await radarr_client.delete_movie(999)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_movie_connection_error(self, aio_mock, radarr_client):
+        aio_mock.delete(
+            "http://localhost:7878/api/v3/movie/1?deleteFiles=true",
+            exception=aiohttp.ClientError("refused"),
+        )
+        result = await radarr_client.delete_movie(1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_delete_movie_exception(self, aio_mock, radarr_client):
+        aio_mock.delete(
+            "http://localhost:7878/api/v3/movie/1?deleteFiles=true",
+            exception=RuntimeError("unexpected"),
+        )
+        result = await radarr_client.delete_movie(1)
         assert result is False
