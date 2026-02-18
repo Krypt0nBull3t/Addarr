@@ -6,7 +6,6 @@
 # Core dependencies
 python-telegram-bot>=20.0.0
 pyyaml>=6.0.1
-requests>=2.31.0
 python-i18n>=0.3.9
 colorama>=0.4.6
 
@@ -29,6 +28,3 @@ readchar>=4.0.0
 
 # YAML handling
 ruamel.yaml>=0.17.22
-
-# Transmission RPC
-transmission-rpc>=3.0.0

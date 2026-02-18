@@ -3,10 +3,11 @@ Tests for src/bot/handlers/transmission.py - TransmissionHandler.
 
 TransmissionHandler uses a module-level `transmission_service` global from
 src.services.transmission. The handler checks is_enabled() before proceeding.
+Service methods get_status/set_alt_speed/test_connection are async.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +45,7 @@ async def test_transmission_not_connected(
 ):
     """When transmission is enabled but not connected, show error."""
     mock_service.is_enabled = MagicMock(return_value=True)
-    mock_service.get_status = MagicMock(return_value={
+    mock_service.get_status = AsyncMock(return_value={
         "connected": False,
         "error": "Connection refused"
     })
@@ -72,7 +73,7 @@ async def test_transmission_connected(
 ):
     """When connected, show status with toggle keyboard."""
     mock_service.is_enabled = MagicMock(return_value=True)
-    mock_service.get_status = MagicMock(return_value={
+    mock_service.get_status = AsyncMock(return_value={
         "connected": True,
         "alt_speed_enabled": False,
         "version": "3.0.0"
@@ -103,10 +104,10 @@ async def test_handle_callback_toggle_yes_success(
     mock_service, make_update, make_context
 ):
     """Toggle yes with success toggles turtle mode."""
-    mock_service.get_status = MagicMock(return_value={
+    mock_service.get_status = AsyncMock(return_value={
         "alt_speed_enabled": False,
     })
-    mock_service.set_alt_speed = MagicMock(return_value=True)
+    mock_service.set_alt_speed = AsyncMock(return_value=True)
 
     from src.bot.handlers.transmission import TransmissionHandler
 
@@ -130,10 +131,10 @@ async def test_handle_callback_toggle_yes_failure(
     mock_service, make_update, make_context
 ):
     """Toggle yes with failure shows error."""
-    mock_service.get_status = MagicMock(return_value={
+    mock_service.get_status = AsyncMock(return_value={
         "alt_speed_enabled": False,
     })
-    mock_service.set_alt_speed = MagicMock(return_value=False)
+    mock_service.set_alt_speed = AsyncMock(return_value=False)
 
     from src.bot.handlers.transmission import TransmissionHandler
 
