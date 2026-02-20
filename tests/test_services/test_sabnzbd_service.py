@@ -171,3 +171,37 @@ class TestAddNzb:
             result = await sabnzbd_service.add_nzb("http://example.com/test.nzb")
 
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# set_speed_limit
+# ---------------------------------------------------------------------------
+
+
+class TestSetSpeedLimit:
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_success(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload={"status": True}, status=200)
+            result = await sabnzbd_service.set_speed_limit(50)
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, status=500)
+            result = await sabnzbd_service.set_speed_limit(50)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_connection_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                exception=Exception("Connection refused"),
+            )
+            result = await sabnzbd_service.set_speed_limit(50)
+
+        assert result is False

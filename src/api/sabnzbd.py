@@ -52,3 +52,14 @@ class SabnzbdClient:
         except Exception as e:
             logger.error(f"Error checking SABnzbd status: {e}")
             return False
+
+    async def set_speed_limit(self, percentage: int) -> bool:
+        """Set SABnzbd speed limit percentage"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=config&name=speedlimit&value={percentage}&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Error setting SABnzbd speed limit: {e}")
+            return False
