@@ -1,0 +1,115 @@
+# Issue #20: Flesh Out SABnzbd API Client
+
+### Phase 1: SABnzbd API Parity (3 tasks)
+
+**Goal:** Add missing SABnzbd operations (queue retrieval, NZB submission, pause/resume, history) to bring the API client and service layer to full parity.
+
+**Phase Context:**
+
+- The two layers are **independent** — each makes its own HTTP calls via `aiohttp`. API client uses inline f-string URLs; service uses params dicts. Follow each convention exactly.
+- Why NOT delegate service→client: existing pattern has both layers making direct HTTP calls. Changing that is a separate refactor.
+
+- [x] **1.1** Add `get_queue()` and `add_nzb()` to API client
+    - **Context:**
+        - **Why:** The API client only has `check_status()` and `set_speed_limit()`. `get_queue()` returns full queue data (complementary to `check_status()` which just returns bool). `add_nzb()` exists in the service layer but is missing from the API client.
+        - **Architecture:** API client layer only — no service changes needed. `get_queue()` uses `mode=queue` (same as `check_status` but returns parsed JSON instead of bool). `add_nzb()` uses `mode=addurl` with optional `nzbname` and `cat` params appended to the URL.
+        - **Key refs:**
+            - `src/api/sabnzbd.py:45` — `check_status()` as pattern for `get_queue()` (same mode, different return)
+            - `src/api/sabnzbd.py:56` — `set_speed_limit()` as pattern for URL construction
+            - `src/services/sabnzbd.py:99` — `add_nzb()` in service layer shows the SABnzbd API contract (mode, params, response shape)
+            - `tests/test_api/test_sabnzbd_api.py:51` — `TestSabnzbdCheckStatus` as test pattern (exact URL matching, `aio_mock` fixture)
+            - `tests/fixtures/sample_data.py:145` — `SABNZBD_QUEUE` fixture data already exists
+        - **Watch out:**
+            - `get_queue()` returns `dict` on success, `{}` on any error — NOT bool like `check_status()`
+            - `add_nzb()` optional params (`nzbname`, `cat`) are appended to the f-string URL only when provided — use `if nzbname: url += f"&nzbname={nzbname}"` pattern
+            - `add_nzb()` parses JSON response for `status` field (returns bool), not just HTTP status code
+            - API client URL has NO double-slash — `check_status` at line 49 confirms the pattern
+    - **Scope:** Add 2 methods to `SabnzbdClient`, plus 7 tests (3 for get_queue, 4 for add_nzb including optional params test)
+    - **Touches:** `src/api/sabnzbd.py`, `tests/test_api/test_sabnzbd_api.py`
+    - **Action items:**
+        - [RED] Write `TestSabnzbdGetQueue` in API tests (success returns parsed dict, HTTP error returns `{}`, connection error returns `{}`)
+        - [RED] Write `TestSabnzbdAddNzb` in API tests (success returns True, with optional nzbname+category, HTTP error returns False, connection error returns False)
+        - [GREEN] Implement `SabnzbdClient.get_queue()` — `mode=queue`, parse JSON on 200, return `{}` on error
+        - [GREEN] Implement `SabnzbdClient.add_nzb(url, nzbname=None, category=None)` — `mode=addurl&name={url}`, append optional params, parse JSON for `status`
+    - **Success:** `pytest tests/test_api/test_sabnzbd_api.py -v` passes (all existing + 7 new tests), `flake8 src/api/sabnzbd.py` clean
+    - **Completed:** 2026-02-20
+    - **Learnings:**
+        - `get_queue()` uses the same URL as `check_status()` (`mode=queue`) but parses JSON instead of returning bool — same endpoint, different return type
+        - `add_nzb()` optional params appended via f-string `+=` to match API client convention (not params dict like service layer)
+        - `aioresponses` matches exact URL strings including query params — spaces in nzbname become `+` encoding in the mock URL
+    - **Key Changes:**
+        - Added `SabnzbdClient.get_queue()` to `src/api/sabnzbd.py` — returns parsed dict on 200, `{}` on error
+        - Added `SabnzbdClient.add_nzb(url, nzbname, category)` to `src/api/sabnzbd.py` — returns `data['status']` bool on 200, `False` on error
+        - Added `TestSabnzbdGetQueue` (3 tests) and `TestSabnzbdAddNzb` (4 tests) to `tests/test_api/test_sabnzbd_api.py`
+    - **Notes:** Tests from previous session were already in the file — picked up at verify RED stage
+
+- [x] **1.2** Add `pause_queue()` and `resume_queue()` to both layers
+    - **Context:**
+        - **Why:** No way to pause/resume the SABnzbd download queue. Both operations are needed for the handler layer to offer queue control (handler work is a separate issue).
+        - **Architecture:** Mirror pair — `pause_queue` uses `mode=pause`, `resume_queue` uses `mode=resume`. Implement in both API client (inline URL, return `response.status == 200`) and service (params dict, parse JSON `status` field).
+        - **Key refs:**
+            - `src/api/sabnzbd.py:45` — `check_status()` for API client bool-return pattern
+            - `src/services/sabnzbd.py:75` — `set_speed_limit()` for service bool-return pattern (params dict, JSON status parsing)
+            - `tests/test_api/test_sabnzbd_api.py:79` — `TestSabnzbdSetSpeedLimit` for API test pattern (3 tests: success, HTTP error, connection error)
+            - `tests/test_services/test_sabnzbd_service.py:181` — `TestSetSpeedLimit` for service test pattern (3 tests with `aioresponses()` context manager + `SABNZBD_API_PATTERN` regex)
+        - **Watch out:**
+            - API client returns `response.status == 200` (bool from HTTP status) — same as `check_status`
+            - Service parses `data.get('status', False)` from JSON — same as `set_speed_limit`
+            - Service URL has double-slash (`http://localhost:8090//api`) — existing `SABNZBD_API_PATTERN` regex handles this
+            - These are a natural pair — `resume_queue` is identical to `pause_queue` with `mode=resume`
+    - **Scope:** Add 2 methods to `SabnzbdClient` + 2 methods to `SABnzbdService`, plus 12 tests (6 API + 6 service)
+    - **Touches:** `src/api/sabnzbd.py`, `src/services/sabnzbd.py`, `tests/test_api/test_sabnzbd_api.py`, `tests/test_services/test_sabnzbd_service.py`
+    - **Action items:**
+        - [RED] Write `TestSabnzbdPauseQueue` in API tests (success, HTTP error, connection error)
+        - [RED] Write `TestSabnzbdResumeQueue` in API tests (success, HTTP error, connection error)
+        - [RED] Write `TestPauseQueue` in service tests (success, HTTP error, connection error)
+        - [RED] Write `TestResumeQueue` in service tests (success, HTTP error, connection error)
+        - [GREEN] Implement `SabnzbdClient.pause_queue()` and `resume_queue()` — inline URL, return `response.status == 200`
+        - [GREEN] Implement `SABnzbdService.pause_queue()` and `resume_queue()` — params dict, parse JSON `status`
+    - **Success:** `pytest tests/test_api/test_sabnzbd_api.py tests/test_services/test_sabnzbd_service.py -v` passes, `flake8 src/api/sabnzbd.py src/services/sabnzbd.py` clean
+    - **Completed:** 2026-02-20
+    - **Learnings:**
+        - API client and service layer follow different conventions: API uses f-string URLs + `response.status == 200`, service uses params dicts + `data.get('status', False)` — both patterns must be respected
+        - `SABNZBD_API_PATTERN` regex in service tests handles the double-slash URL seamlessly — no special handling needed
+        - pause/resume are a true mirror pair, identical except for the `mode` param
+    - **Key Changes:**
+        - Added `SabnzbdClient.pause_queue()` and `resume_queue()` to `src/api/sabnzbd.py` — returns `response.status == 200`
+        - Added `SABnzbdService.pause_queue()` and `resume_queue()` to `src/services/sabnzbd.py` — params dict, returns `data.get('status', False)`
+        - Added `TestSabnzbdPauseQueue` + `TestSabnzbdResumeQueue` (6 tests) to API tests
+        - Added `TestPauseQueue` + `TestResumeQueue` (6 tests) to service tests
+    - **Notes:** 39 total SABnzbd tests now passing across both layers
+
+- [x] **1.3** Add `get_history()` to both layers with fixture data
+    - **Context:**
+        - **Why:** No way to retrieve download history from SABnzbd. Needed for status displays and history browsing in the handler layer (separate issue).
+        - **Architecture:** API client returns raw parsed dict (or `{}` on error). Service returns normalized dict with `total` and `items` keys (or `{'total': 0, 'items': []}` on error). New `SABNZBD_HISTORY` fixture constant needed in `tests/fixtures/sample_data.py`.
+        - **Key refs:**
+            - `src/api/sabnzbd.py` — `get_queue()` (from task 1.1) as pattern for dict-returning API method
+            - `src/services/sabnzbd.py:36` — `get_status()` for service dict-return pattern (normalizes raw API data into app-specific shape)
+            - `tests/fixtures/sample_data.py:145` — `SABNZBD_QUEUE` as pattern for fixture constant structure
+            - SABnzbd API: `mode=history&limit=N` returns `{"history": {"noofslots": N, "slots": [...]}}`
+        - **Watch out:**
+            - API client: `mode=history&limit={limit}` with default `limit=10` — limit is part of the URL string
+            - Service: normalizes response into `{'total': history.noofslots, 'items': history.slots}` — don't just pass through raw data
+            - Service error fallback is `{'total': 0, 'items': []}` (not `{}` like API client)
+            - `SABNZBD_HISTORY` fixture should mirror real SABnzbd history response shape with `history.slots` containing download entries
+    - **Scope:** Add 1 method to `SabnzbdClient` + 1 method to `SABnzbdService` + fixture constant, plus 6 tests (3 API + 3 service)
+    - **Touches:** `src/api/sabnzbd.py`, `src/services/sabnzbd.py`, `tests/test_api/test_sabnzbd_api.py`, `tests/test_services/test_sabnzbd_service.py`, `tests/fixtures/sample_data.py`
+    - **Action items:**
+        - [RED] Add `SABNZBD_HISTORY` constant to `tests/fixtures/sample_data.py` — realistic history response with 2 completed slots
+        - [RED] Write `TestSabnzbdGetHistory` in API tests (success returns parsed dict, HTTP error returns `{}`, connection error returns `{}`)
+        - [RED] Write `TestGetHistory` in service tests (success returns normalized dict with total+items, HTTP error returns empty fallback, connection error returns empty fallback)
+        - [GREEN] Implement `SabnzbdClient.get_history(limit=10)` — `mode=history&limit={limit}`, parse JSON on 200, return `{}` on error
+        - [GREEN] Implement `SABnzbdService.get_history(limit=10)` — params dict, normalize into `{'total': N, 'items': [...]}`, return `{'total': 0, 'items': []}` on error
+    - **Success:** `pytest tests/test_api/test_sabnzbd_api.py tests/test_services/test_sabnzbd_service.py -v` passes (all 25 new + existing tests), `flake8 src/api/sabnzbd.py src/services/sabnzbd.py` clean
+    - **Completed:** 2026-02-20
+    - **Learnings:**
+        - Service layer normalizes `history.noofslots` → `total` and `history.slots` → `items` — different error fallback shape (`{'total': 0, 'items': []}`) vs API client (`{}`)
+        - Service tests use inline `SABNZBD_HISTORY_RESPONSE` dict rather than importing from `sample_data.py` — follows existing pattern where service tests define their own response data
+        - `limit` default of 10 is baked into the URL for API client and params dict for service
+    - **Key Changes:**
+        - Added `SABNZBD_HISTORY` to `tests/fixtures/sample_data.py` — 2 completed download slots
+        - Added `SabnzbdClient.get_history(limit=10)` to `src/api/sabnzbd.py` — returns parsed dict or `{}`
+        - Added `SABnzbdService.get_history(limit=10)` to `src/services/sabnzbd.py` — returns normalized `{total, items}` or `{total: 0, items: []}`
+        - Added `TestSabnzbdGetHistory` (3 tests) to API tests, `TestGetHistory` (3 tests) to service tests
+    - **Notes:** 45 total SABnzbd tests now passing across both layers. All Phase 1 tasks complete.
