@@ -6,7 +6,19 @@ de-de:
   Cancel: Abbrechen
   Back: Zurück
   Language: Sprache
-  Settings: Einstellungen
+  Settings:
+    Menu: "Einstellungen"
+    Language: "Sprache"
+    LanguageChanged: "Sprache geändert zu %{language}"
+    Services: "Dienste"
+    ServiceEnabled: "%{service} aktiviert"
+    ServiceDisabled: "%{service} deaktiviert"
+    QualityProfile: "Standard-Qualitätsprofil"
+    QualityProfileSet: "Standard-Qualitätsprofil für %{service} auf %{profile} gesetzt"
+    AdminOnly: "Einstellungen sind nur für Administratoren verfügbar."
+    Back: "Zurück zu Einstellungen"
+    NoProfiles: "Keine Qualitätsprofile für %{service} gefunden"
+    ServiceNotConfigured: "nicht konfiguriert"
   Status: Status
   HelpButton: Hilfe
   
