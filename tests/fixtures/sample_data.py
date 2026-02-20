@@ -154,6 +154,30 @@ SABNZBD_QUEUE = {
 
 SABNZBD_VERSION = {"version": "4.0.0"}
 
+SABNZBD_HISTORY = {
+    "history": {
+        "noofslots": 2,
+        "slots": [
+            {
+                "status": "Completed",
+                "nzb_name": "Ubuntu.22.04.nzb",
+                "name": "Ubuntu 22.04",
+                "category": "software",
+                "size": "2.1 GB",
+                "completed": 1700000000,
+            },
+            {
+                "status": "Completed",
+                "nzb_name": "Fedora.39.nzb",
+                "name": "Fedora 39",
+                "category": "software",
+                "size": "1.8 GB",
+                "completed": 1700001000,
+            },
+        ],
+    }
+}
+
 # ---------------------------------------------------------------------------
 # Library items (internal *arr IDs, used by delete flow)
 # ---------------------------------------------------------------------------

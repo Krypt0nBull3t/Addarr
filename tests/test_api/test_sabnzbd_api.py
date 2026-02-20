@@ -5,7 +5,7 @@ Tests for src/api/sabnzbd.py -- SabnzbdClient.
 import pytest
 import aiohttp
 
-from tests.fixtures.sample_data import SABNZBD_QUEUE
+from tests.fixtures.sample_data import SABNZBD_QUEUE, SABNZBD_HISTORY
 
 
 # ---------------------------------------------------------------------------
@@ -97,3 +97,154 @@ class TestSabnzbdSetSpeedLimit:
         aio_mock.get(url, exception=aiohttp.ClientError("connection refused"))
         result = await sabnzbd_client.set_speed_limit(50)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_queue
+# ---------------------------------------------------------------------------
+
+
+class TestSabnzbdGetQueue:
+    @pytest.mark.asyncio
+    async def test_get_queue_success(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=queue&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, payload=SABNZBD_QUEUE, status=200)
+        result = await sabnzbd_client.get_queue()
+        assert result == SABNZBD_QUEUE
+
+    @pytest.mark.asyncio
+    async def test_get_queue_http_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=queue&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, status=500)
+        result = await sabnzbd_client.get_queue()
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_get_queue_connection_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=queue&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, exception=aiohttp.ClientError("connection refused"))
+        result = await sabnzbd_client.get_queue()
+        assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# add_nzb
+# ---------------------------------------------------------------------------
+
+
+class TestSabnzbdAddNzb:
+    @pytest.mark.asyncio
+    async def test_add_nzb_success(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=addurl&name=http://example.com/test.nzb&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, payload={"status": True}, status=200)
+        result = await sabnzbd_client.add_nzb("http://example.com/test.nzb")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_add_nzb_with_optional_params(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=addurl&name=http://example.com/test.nzb&output=json&apikey=test-sabnzbd-key&nzbname=My+Download&cat=movies"
+        aio_mock.get(url, payload={"status": True}, status=200)
+        result = await sabnzbd_client.add_nzb(
+            "http://example.com/test.nzb",
+            nzbname="My Download",
+            category="movies",
+        )
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_add_nzb_http_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=addurl&name=http://example.com/test.nzb&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, status=500)
+        result = await sabnzbd_client.add_nzb("http://example.com/test.nzb")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_add_nzb_connection_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=addurl&name=http://example.com/test.nzb&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, exception=aiohttp.ClientError("connection refused"))
+        result = await sabnzbd_client.add_nzb("http://example.com/test.nzb")
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# pause_queue
+# ---------------------------------------------------------------------------
+
+
+class TestSabnzbdPauseQueue:
+    @pytest.mark.asyncio
+    async def test_pause_queue_success(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=pause&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, payload={"status": "ok"}, status=200)
+        result = await sabnzbd_client.pause_queue()
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_pause_queue_http_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=pause&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, status=500)
+        result = await sabnzbd_client.pause_queue()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_pause_queue_connection_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=pause&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, exception=aiohttp.ClientError("connection refused"))
+        result = await sabnzbd_client.pause_queue()
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# resume_queue
+# ---------------------------------------------------------------------------
+
+
+class TestSabnzbdResumeQueue:
+    @pytest.mark.asyncio
+    async def test_resume_queue_success(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=resume&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, payload={"status": "ok"}, status=200)
+        result = await sabnzbd_client.resume_queue()
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_resume_queue_http_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=resume&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, status=500)
+        result = await sabnzbd_client.resume_queue()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_resume_queue_connection_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=resume&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, exception=aiohttp.ClientError("connection refused"))
+        result = await sabnzbd_client.resume_queue()
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_history
+# ---------------------------------------------------------------------------
+
+
+class TestSabnzbdGetHistory:
+    @pytest.mark.asyncio
+    async def test_get_history_success(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=history&limit=10&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, payload=SABNZBD_HISTORY, status=200)
+        result = await sabnzbd_client.get_history()
+        assert result == SABNZBD_HISTORY
+
+    @pytest.mark.asyncio
+    async def test_get_history_http_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=history&limit=10&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, status=500)
+        result = await sabnzbd_client.get_history()
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_get_history_connection_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=history&limit=10&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, exception=aiohttp.ClientError("connection refused"))
+        result = await sabnzbd_client.get_history()
+        assert result == {}
