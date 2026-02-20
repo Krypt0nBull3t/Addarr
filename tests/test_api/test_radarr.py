@@ -4,7 +4,7 @@ Tests for src/api/radarr.py -- RadarrClient.
 
 import pytest
 import aiohttp
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from tests.fixtures.sample_data import (
     RADARR_SEARCH_RESULTS,
@@ -57,13 +57,13 @@ class TestRadarrInit:
 
 class TestRadarrMakeRequest:
     @pytest.mark.asyncio
-    async def test_make_request_generic_exception(self, aio_mock, radarr_client):
-        """Lines 71-73: generic Exception in _make_request."""
+    async def test_request_generic_exception(self, aio_mock, radarr_client):
+        """RuntimeError via _request returns None."""
         aio_mock.get(
             f"{BASE}/system/status",
             exception=RuntimeError("unexpected"),
         )
-        result = await radarr_client._make_request("system/status")
+        result = await radarr_client._request("system/status")
         assert result is None
 
 
@@ -97,11 +97,13 @@ class TestRadarrSearch:
 
     @pytest.mark.asyncio
     async def test_search_connection_error(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/movie/lookup?term=test",
-            exception=aiohttp.ClientError("refused"),
-        )
-        results = await radarr_client.search("test")
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/movie/lookup?term=test",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await radarr_client.search("test")
         assert results == []
 
     @pytest.mark.asyncio
@@ -189,12 +191,14 @@ class TestRadarrRootFolders:
 
     @pytest.mark.asyncio
     async def test_get_root_folders_empty(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/rootFolder",
-            status=500,
-            body="error",
-        )
-        folders = await radarr_client.get_root_folders()
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/rootFolder",
+                status=500,
+                body="error",
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            folders = await radarr_client.get_root_folders()
         assert folders == []
 
     @pytest.mark.asyncio
@@ -227,6 +231,7 @@ class TestRadarrRootFolders:
             assert "/data/movies2" not in folders
         finally:
             config._config["radarr"]["paths"] = orig_paths
+            await client.close()
 
     @pytest.mark.asyncio
     async def test_get_root_folders_excludes_by_full_path_when_not_narrow(self, aio_mock):
@@ -251,6 +256,7 @@ class TestRadarrRootFolders:
             assert "/data/movies2" not in folders
         finally:
             config._config["radarr"]["paths"] = orig_paths
+            await client.close()
 
     @pytest.mark.asyncio
     async def test_get_root_folders_narrow_handles_trailing_slash(self, aio_mock):
@@ -275,6 +281,7 @@ class TestRadarrRootFolders:
             assert "/data/movies2/" not in folders
         finally:
             config._config["radarr"]["paths"] = orig_paths
+            await client.close()
 
     @pytest.mark.asyncio
     async def test_get_root_folders_empty_exclusion_returns_all(self, aio_mock):
@@ -298,6 +305,7 @@ class TestRadarrRootFolders:
             assert len(folders) == 2
         finally:
             config._config["radarr"]["paths"] = orig_paths
+            await client.close()
 
 
 # ---------------------------------------------------------------------------
@@ -322,13 +330,15 @@ class TestRadarrQualityProfiles:
 
     @pytest.mark.asyncio
     async def test_get_quality_profiles_empty(self, aio_mock, radarr_client):
-        """Lines 133-134: empty quality profiles."""
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            status=500,
-            body="error",
-        )
-        profiles = await radarr_client.get_quality_profiles()
+        """500 response exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/qualityProfile",
+                status=500,
+                body="error",
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            profiles = await radarr_client.get_quality_profiles()
         assert profiles == []
 
     @pytest.mark.asyncio
@@ -557,11 +567,13 @@ class TestRadarrCheckStatus:
 
     @pytest.mark.asyncio
     async def test_check_status_offline(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/system/status",
-            exception=aiohttp.ClientError("connection refused"),
-        )
-        result = await radarr_client.check_status()
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/system/status",
+                exception=aiohttp.ClientError("connection refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await radarr_client.check_status()
         assert result is False
 
     @pytest.mark.asyncio
@@ -602,11 +614,13 @@ class TestGetMovies:
 
     @pytest.mark.asyncio
     async def test_get_movies_connection_error(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/movie",
-            exception=aiohttp.ClientError("refused"),
-        )
-        results = await radarr_client.get_movies()
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/movie",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await radarr_client.get_movies()
         assert results == []
 
     @pytest.mark.asyncio

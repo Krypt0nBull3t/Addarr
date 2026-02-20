@@ -60,6 +60,7 @@ class BaseApiClient(ABC):
     DEFAULT_MAX_RETRIES = 2
     DEFAULT_BACKOFF_BASE = 1.0
     RETRYABLE_STATUS_CODES = frozenset({500, 502, 503, 504})
+    API_VERSION = "v3"
 
     def __init__(self, service_name, request_timeout=None):
         self.service_name = service_name
@@ -89,7 +90,8 @@ class BaseApiClient(ABC):
         """Build the base URL for API requests"""
         server_config = self.config["server"]
         protocol = "https" if server_config.get("ssl", False) else "http"
-        return f"{protocol}://{server_config['addr']}:{server_config['port']}{server_config['path']}"
+        path = server_config.get("path", "").rstrip("/")
+        return f"{protocol}://{server_config['addr']}:{server_config['port']}{path}"
 
     def _get_headers(self):
         """Get headers for API requests"""
@@ -140,7 +142,7 @@ class BaseApiClient(ABC):
         Returns:
             Tuple[bool, Any, Optional[str]]: (success, data, error_message)
         """
-        url = f"{self.base_url}/api/v3/{endpoint}"
+        url = f"{self.base_url}/api/{self.API_VERSION}/{endpoint}"
         retries = (
             max_retries if max_retries is not None
             else self.DEFAULT_MAX_RETRIES
@@ -161,9 +163,13 @@ class BaseApiClient(ABC):
                 async with session.request(method, url, **request_kwargs) as response:
                     response_text = await response.text()
 
-                    if response.status == 200:
+                    if 200 <= response.status < 300:
                         self.logger.info(f"✅ API Response: {response.status}")
-                        return True, json.loads(response_text) if response_text else None, None
+                        try:
+                            data = json.loads(response_text) if response_text else None
+                        except json.JSONDecodeError:
+                            data = None
+                        return True, data, None
 
                     # Parse error response with title context
                     error_message = self._parse_error_response(
@@ -217,6 +223,17 @@ class BaseApiClient(ABC):
                 self.logger.error(f"❌ {error_message}")
                 return False, None, error_message
 
+    async def _request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: str = None) -> Any:
+        """Convenience wrapper: returns parsed data on success, None on failure.
+
+        Delegates to _make_request() but discards the success flag and error
+        message, returning only the data payload (or None).
+        """
+        success, result, _error = await self._make_request(
+            endpoint, method=method, data=data, title=title
+        )
+        return result if success else None
+
     @abstractmethod
     def search(self, term):
         """Search for media"""
@@ -225,9 +242,8 @@ class BaseApiClient(ABC):
     async def check_status(self) -> bool:
         """Check if the service is available"""
         try:
-            # Most APIs have a system/status endpoint
-            response = await self.get("system/status")
-            return response.status_code == 200
+            success, _data, _error = await self._make_request("system/status")
+            return success
         except Exception as e:
             self.logger.error(f"Error checking API status: {e}")
             return False
