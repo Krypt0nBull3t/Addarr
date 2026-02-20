@@ -153,8 +153,6 @@ class BaseApiClient(ABC):
         if timeout is not None:
             request_kwargs["timeout"] = aiohttp.ClientTimeout(total=timeout)
 
-        last_error_message = None
-
         for attempt in range(retries + 1):
             self.logger.info(f"🌐 API Request: {method} {url}")
 
@@ -184,7 +182,6 @@ class BaseApiClient(ABC):
                             f"(attempt {attempt + 1}/{retries + 1})"
                         )
                         await asyncio.sleep(delay)
-                        last_error_message = error_message
                         continue
 
                     # Non-retryable or final attempt
@@ -202,7 +199,6 @@ class BaseApiClient(ABC):
                     error_message = "Connection error: timeout"
                 else:
                     error_message = f"Connection error: {str(e)}"
-                last_error_message = error_message
 
                 if attempt < retries:
                     delay = self.DEFAULT_BACKOFF_BASE * (2 ** attempt)
@@ -220,9 +216,6 @@ class BaseApiClient(ABC):
                 error_message = f"Unexpected error: {str(e)}"
                 self.logger.error(f"❌ {error_message}")
                 return False, None, error_message
-
-        # Should not reach here, but safety fallback
-        return False, None, last_error_message
 
     @abstractmethod
     def search(self, term):
