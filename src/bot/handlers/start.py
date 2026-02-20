@@ -20,6 +20,7 @@ from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.bot.handlers.media import MediaHandler, SEARCHING, SELECTING
 from src.bot.handlers.help import HelpHandler
+from src.bot.handlers.system import SystemHandler
 from src.bot.keyboards import get_main_menu_keyboard
 from src.services.translation import TranslationService
 
@@ -33,6 +34,7 @@ class StartHandler:
     def __init__(self):
         self.media_handler = MediaHandler()
         self.help_handler = HelpHandler()
+        self.system_handler = SystemHandler()
         self.translation = TranslationService()
 
     def get_handler(self):
@@ -166,7 +168,7 @@ class StartHandler:
         # For commands that end the conversation
         if action in ["status", "help", "delete"]:
             if action == "status":
-                await self.media_handler.handle_status(update, context)
+                await self.system_handler.show_status(update, context)
             elif action == "help":
                 await self.help_handler.show_help(update, context)
             elif action == "delete":

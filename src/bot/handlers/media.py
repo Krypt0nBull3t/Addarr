@@ -17,7 +17,6 @@ from telegram.ext import (
     ContextTypes
 )
 
-from src.bot.keyboards import get_system_keyboard
 from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
@@ -108,7 +107,6 @@ class MediaHandler:
                 persistent=False,
                 per_message=False,
             ),
-            CommandHandler("status", self.handle_status),
         ]
 
     async def handle_menu_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -853,31 +851,6 @@ class MediaHandler:
             )
         return ConversationHandler.END
 
-    @require_auth
-    async def handle_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle status check request"""
-        try:
-            # Get status from all services
-            status_text = await self._get_status_text()
-
-            if update.callback_query:
-                await update.callback_query.message.edit_text(
-                    status_text,
-                    reply_markup=get_system_keyboard()
-                )
-            else:
-                await update.message.reply_text(
-                    status_text,
-                    reply_markup=get_system_keyboard()
-                )
-        except Exception as e:
-            logger.error(f"Error in handle_status: {e}")
-            error_msg = "❌ Error getting system status. Please try again later."
-            if update.callback_query:
-                await update.callback_query.message.edit_text(error_msg)
-            else:
-                await update.message.reply_text(error_msg)
-
     async def handle_navigation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle navigation between search results"""
         if not update.callback_query:
@@ -908,45 +881,3 @@ class MediaHandler:
         else:
             logger.error(f"Invalid navigation index: {new_index}")
             return SELECTING
-
-    async def _get_status_text(self) -> str:
-        """Get status text from all services"""
-        try:
-            status_lines = ["📊 System Status\n"]
-
-            # Get status from media services
-            services = {
-                "🎬 Radarr": self.media_service.get_radarr_status,
-                "📺 Sonarr": self.media_service.get_sonarr_status,
-                "🎵 Lidarr": self.media_service.get_lidarr_status,
-            }
-
-            for service_name, status_func in services.items():
-                try:
-                    is_available = await status_func()
-                    status = "✅ Online" if is_available else "❌ Offline"
-                    status_lines.append(f"{service_name}: {status}")
-                except Exception as e:
-                    logger.error(f"Error getting status for {service_name}: {e}")
-                    status_lines.append(f"{service_name}: ❌ Error")
-
-            # Get download client status if configured
-            try:
-                if await self.media_service.get_transmission_status():
-                    status_lines.append("\n📥 Transmission: ✅ Connected")
-            except Exception:
-                logger.exception("Error getting Transmission status")
-                status_lines.append("\n📥 Transmission: ⚠️ Unavailable")
-
-            try:
-                if await self.media_service.get_sabnzbd_status():
-                    status_lines.append("📥 SABnzbd: ✅ Connected")
-            except Exception:
-                logger.exception("Error getting SABnzbd status")
-                status_lines.append("📥 SABnzbd: ⚠️ Unavailable")
-
-            return "\n".join(status_lines)
-
-        except Exception as e:
-            logger.error(f"Error generating status text: {e}")
-            return "❌ Error getting system status"
