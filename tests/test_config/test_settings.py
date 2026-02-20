@@ -194,6 +194,52 @@ class TestTelegramTokenValidation:
             validate_telegram_token({})
 
 
+class TestServerAddrValidation:
+    """Test server address validation logic."""
+
+    def test_valid_hostname(self):
+        from src.config.settings import validate_server_addr
+        validate_server_addr("localhost", "radarr")  # should not raise
+
+    def test_valid_ip(self):
+        from src.config.settings import validate_server_addr
+        validate_server_addr("192.168.1.100", "radarr")  # should not raise
+
+    def test_valid_domain(self):
+        from src.config.settings import validate_server_addr
+        validate_server_addr("my.server.example.com", "radarr")  # should not raise
+
+    def test_empty_addr(self):
+        from src.config.settings import validate_server_addr, ConfigurationError
+        with pytest.raises(ConfigurationError, match="radarr"):
+            validate_server_addr("", "radarr")
+
+    def test_none_addr(self):
+        from src.config.settings import validate_server_addr, ConfigurationError
+        with pytest.raises(ConfigurationError, match="radarr"):
+            validate_server_addr(None, "radarr")
+
+    def test_addr_with_http_prefix(self):
+        from src.config.settings import validate_server_addr, ConfigurationError
+        with pytest.raises(ConfigurationError, match="protocol"):
+            validate_server_addr("http://localhost", "radarr")
+
+    def test_addr_with_https_prefix(self):
+        from src.config.settings import validate_server_addr, ConfigurationError
+        with pytest.raises(ConfigurationError, match="protocol"):
+            validate_server_addr("https://myserver.com", "sonarr")
+
+    def test_addr_with_whitespace(self):
+        from src.config.settings import validate_server_addr, ConfigurationError
+        with pytest.raises(ConfigurationError, match="radarr"):
+            validate_server_addr("local host", "radarr")
+
+    def test_whitespace_only_addr(self):
+        from src.config.settings import validate_server_addr, ConfigurationError
+        with pytest.raises(ConfigurationError, match="radarr"):
+            validate_server_addr("   ", "radarr")
+
+
 class TestLanguageValidation:
     """Test language validation logic."""
 

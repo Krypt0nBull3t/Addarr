@@ -42,6 +42,29 @@ def validate_service_apikey(service_config, service_name):
             )
 
 
+def validate_server_addr(addr, service_name):
+    """Validate that a server address is a valid hostname or IP.
+
+    Rejects empty values, protocol prefixes, and whitespace.
+    """
+    if not addr or not str(addr).strip():
+        raise ConfigurationError(
+            f"Invalid server address for {service_name}: address is empty."
+        )
+    addr_str = str(addr)
+    if addr_str.startswith(("http://", "https://")):
+        raise ConfigurationError(
+            f"Invalid server address for {service_name}: '{addr_str}'. "
+            f"Remove the protocol prefix (http:// or https://). "
+            f"Use the 'ssl' option instead."
+        )
+    if " " in addr_str.strip():
+        raise ConfigurationError(
+            f"Invalid server address for {service_name}: '{addr_str}'. "
+            f"Address must not contain spaces."
+        )
+
+
 def validate_telegram_token(telegram_config):
     """Validate that the Telegram bot token is configured."""
     if not telegram_config.get("token"):
@@ -138,7 +161,12 @@ class Config:
                 f"Invalid language. Must be one of: {', '.join(valid_languages)}"
             )
 
-        # Add other validation as needed...
+        # Validate server addresses for enabled services
+        for service_name in ("radarr", "sonarr", "lidarr", "sabnzbd"):
+            service = self._config.get(service_name, {})
+            if service.get("enable"):
+                addr = service.get("server", {}).get("addr")
+                validate_server_addr(addr, service_name)
 
     def _get_missing_keys(self, example: Dict, config: Dict, prefix="") -> List[str]:
         """Recursively find missing configuration keys"""
