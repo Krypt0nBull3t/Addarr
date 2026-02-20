@@ -24,7 +24,7 @@ RUN addgroup -S addarr && adduser -S addarr -G addarr \
 USER addarr
 
 # Graceful shutdown signal
-STOPSIGNAL SIGINT
+STOPSIGNAL SIGTERM
 
 # Health check - verify the process is running
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
