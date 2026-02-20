@@ -69,3 +69,31 @@ class TestSabnzbdCheckStatus:
         )
         result = await sabnzbd_client.check_status()
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# set_speed_limit
+# ---------------------------------------------------------------------------
+
+
+class TestSabnzbdSetSpeedLimit:
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_success(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=config&name=speedlimit&value=50&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, payload={"status": True}, status=200)
+        result = await sabnzbd_client.set_speed_limit(50)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_http_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=config&name=speedlimit&value=50&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, status=500)
+        result = await sabnzbd_client.set_speed_limit(50)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_connection_error(self, aio_mock, sabnzbd_client, sabnzbd_url):
+        url = f"{sabnzbd_url}/api?mode=config&name=speedlimit&value=50&output=json&apikey=test-sabnzbd-key"
+        aio_mock.get(url, exception=aiohttp.ClientError("connection refused"))
+        result = await sabnzbd_client.set_speed_limit(50)
+        assert result is False

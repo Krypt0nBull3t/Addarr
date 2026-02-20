@@ -6,7 +6,19 @@ pl-pl:
   Cancel: Anuluj
   Back: Wróć
   Language: Język
-  Settings: Ustawienia
+  Settings:
+    Menu: "Ustawienia"
+    Language: "Język"
+    LanguageChanged: "Język zmieniony na %{language}"
+    Services: "Usługi"
+    ServiceEnabled: "%{service} włączony"
+    ServiceDisabled: "%{service} wyłączony"
+    QualityProfile: "Domyślny profil jakości"
+    QualityProfileSet: "Domyślny profil jakości ustawiony na %{profile} dla %{service}"
+    AdminOnly: "Ustawienia są dostępne tylko dla administratorów."
+    Back: "Powrót do Ustawień"
+    NoProfiles: "Nie znaleziono profili jakości dla %{service}"
+    ServiceNotConfigured: "nie skonfigurowano"
   Status: Status
   HelpButton: Pomoc
   
