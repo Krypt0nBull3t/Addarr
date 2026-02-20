@@ -372,22 +372,349 @@ class TestQualityFlow:
         assert result == States.SETTINGS_MENU
 
 
-class TestMisc:
-    """Miscellaneous handler tests"""
+class TestDownloadsFlow:
+    """Downloads sub-menu flow tests"""
 
     @pytest.mark.asyncio
-    async def test_handle_coming_soon(
+    async def test_handle_downloads_menu_shows_keyboard(
         self, settings_handler, make_update, make_context
     ):
-        """Coming soon sections show placeholder message"""
+        """Clicking settings_downloads shows downloads keyboard"""
         update = make_update(callback_data="settings_downloads")
         context = make_context()
 
-        result = await settings_handler.handle_coming_soon(update, context)
+        result = await settings_handler.handle_downloads_menu(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        update.callback_query.message.edit_text.assert_called_once()
+        call_args = update.callback_query.message.edit_text.call_args
+        assert call_args.kwargs.get("reply_markup") is not None
+
+    @pytest.mark.asyncio
+    async def test_handle_transmission_settings(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking dl_transmission shows transmission settings keyboard"""
+        update = make_update(callback_data="dl_transmission")
+        context = make_context()
+
+        result = await settings_handler.handle_transmission_settings(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        update.callback_query.message.edit_text.assert_called_once()
+        call_args = update.callback_query.message.edit_text.call_args
+        assert call_args.kwargs.get("reply_markup") is not None
+
+    @pytest.mark.asyncio
+    async def test_handle_transmission_toggle(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking dl_trans_toggle toggles transmission.enable in config"""
+        update = make_update(callback_data="dl_trans_toggle")
+        context = make_context()
+
+        result = await settings_handler.handle_transmission_toggle(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        settings_handler._mock_cfg.update_nested.assert_called_with(
+            "transmission.enable", True
+        )
+        settings_handler._mock_cfg.save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_transmission_turtle(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking dl_trans_turtle toggles turtle mode via service"""
+        update = make_update(callback_data="dl_trans_turtle")
+        context = make_context()
+
+        result = await settings_handler.handle_transmission_turtle(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        settings_handler._mock_trans.set_alt_speed.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_transmission_turtle_error(
+        self, settings_handler, make_update, make_context
+    ):
+        """Turtle mode error is handled gracefully"""
+        settings_handler._mock_trans.set_alt_speed = AsyncMock(
+            return_value=False
+        )
+        update = make_update(callback_data="dl_trans_turtle")
+        context = make_context()
+
+        result = await settings_handler.handle_transmission_turtle(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_settings(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking dl_sabnzbd shows sabnzbd settings keyboard"""
+        update = make_update(callback_data="dl_sabnzbd")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_settings(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        update.callback_query.message.edit_text.assert_called_once()
+        call_args = update.callback_query.message.edit_text.call_args
+        assert call_args.kwargs.get("reply_markup") is not None
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_toggle(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking dl_sab_toggle toggles sabnzbd.enable in config"""
+        update = make_update(callback_data="dl_sab_toggle")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_toggle(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        settings_handler._mock_cfg.update_nested.assert_called_with(
+            "sabnzbd.enable", True
+        )
+        settings_handler._mock_cfg.save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_speed(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking dl_sab_speed shows speed limit options"""
+        update = make_update(callback_data="dl_sab_speed")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_speed(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        update.callback_query.message.edit_text.assert_called_once()
+        call_args = update.callback_query.message.edit_text.call_args
+        assert call_args.kwargs.get("reply_markup") is not None
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_pause(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking dl_sab_pause pauses the queue"""
+        update = make_update(callback_data="dl_sab_pause")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        settings_handler._mock_sab.pause_queue.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_resume(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking dl_sab_resume resumes the queue"""
+        update = make_update(callback_data="dl_sab_resume")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        settings_handler._mock_sab.resume_queue.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_downloads_back(
+        self, settings_handler, make_update, make_context
+    ):
+        """Back from downloads returns to settings menu"""
+        update = make_update(callback_data="dl_back")
+        context = make_context()
+
+        result = await settings_handler.handle_settings_from_callback(
+            update, context
+        )
 
         assert result == States.SETTINGS_MENU
+
+
+class TestUsersFlow:
+    """Users sub-menu flow tests"""
+
+    @pytest.mark.asyncio
+    async def test_handle_users_menu_shows_keyboard(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking settings_users shows users keyboard"""
+        update = make_update(callback_data="settings_users")
+        context = make_context()
+
+        result = await settings_handler.handle_users_menu(update, context)
+
+        assert result == States.SETTINGS_USERS
+        update.callback_query.message.edit_text.assert_called_once()
         call_args = update.callback_query.message.edit_text.call_args
-        assert "Coming soon" in call_args.args[0]
+        assert call_args.kwargs.get("reply_markup") is not None
+
+    @pytest.mark.asyncio
+    async def test_handle_users_toggle_admin(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking usr_toggle_admin flips security.enableAdmin"""
+        update = make_update(callback_data="usr_toggle_admin")
+        context = make_context()
+
+        result = await settings_handler.handle_users_toggle(update, context)
+
+        assert result == States.SETTINGS_USERS
+        settings_handler._mock_cfg.update_nested.assert_called_with(
+            "security.enableAdmin", True
+        )
+        settings_handler._mock_cfg.save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_users_toggle_allowlist(
+        self, settings_handler, make_update, make_context
+    ):
+        """Clicking usr_toggle_allowlist flips security.enableAllowlist"""
+        update = make_update(callback_data="usr_toggle_allowlist")
+        context = make_context()
+
+        result = await settings_handler.handle_users_toggle(update, context)
+
+        assert result == States.SETTINGS_USERS
+        settings_handler._mock_cfg.update_nested.assert_called_with(
+            "security.enableAllowlist", True
+        )
+        settings_handler._mock_cfg.save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_users_back(
+        self, settings_handler, make_update, make_context
+    ):
+        """Back from users returns to settings menu"""
+        update = make_update(callback_data="usr_back")
+        context = make_context()
+
+        result = await settings_handler.handle_settings_from_callback(
+            update, context
+        )
+
+        assert result == States.SETTINGS_MENU
+
+
+class TestSabnzbdInitError:
+    """SABnzbd service initialization error handling"""
+
+    def test_sabnzbd_service_none_when_valueerror(
+        self, mock_media_service, mock_translation_service
+    ):
+        """SABnzbdService ValueError sets self.sabnzbd_service = None"""
+        from unittest.mock import patch, MagicMock
+        from tests.conftest import MOCK_CONFIG_DATA
+
+        with (
+            patch("src.bot.handlers.settings.TranslationService") as ts_cls,
+            patch("src.bot.handlers.settings.MediaService") as ms_cls,
+            patch("src.bot.handlers.settings.config") as cfg,
+            patch("src.bot.handlers.settings.is_admin"),
+            patch("src.bot.handlers.settings.TransmissionService"),
+            patch(
+                "src.bot.handlers.settings.SABnzbdService",
+                side_effect=ValueError("SABnzbd not enabled"),
+            ),
+        ):
+            ts_cls.return_value = mock_translation_service
+            ms_cls.return_value = mock_media_service
+            cfg.get = MagicMock(
+                side_effect=lambda k, d=None: MOCK_CONFIG_DATA.get(k, d)
+            )
+
+            from src.bot.handlers.settings import SettingsHandler
+
+            handler = SettingsHandler()
+            assert handler.sabnzbd_service is None
+
+
+class TestDownloadsEdgeCases:
+    """Edge cases for downloads sub-menu handlers"""
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_speed_applies_value(
+        self, settings_handler, make_update, make_context
+    ):
+        """Selecting dl_sab_speed_25 applies 25% speed limit"""
+        update = make_update(callback_data="dl_sab_speed_25")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_speed(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        settings_handler._mock_sab.set_speed_limit.assert_awaited_once_with(
+            25
+        )
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "25%" in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_pause_when_service_none(
+        self, settings_handler, make_update, make_context
+    ):
+        """Pause with sabnzbd_service=None shows not available message"""
+        settings_handler.sabnzbd_service = None
+        update = make_update(callback_data="dl_sab_pause")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "not available" in call_args.args[0].lower()
+
+
+class TestUsersEdgeCases:
+    """Edge cases for users sub-menu handlers"""
+
+    @pytest.mark.asyncio
+    async def test_handle_users_toggle_unknown_flag(
+        self, settings_handler, make_update, make_context
+    ):
+        """Unknown toggle flag returns to users menu without config change"""
+        update = make_update(callback_data="usr_toggle_unknown")
+        context = make_context()
+
+        result = await settings_handler.handle_users_toggle(update, context)
+
+        assert result == States.SETTINGS_USERS
+        settings_handler._mock_cfg.update_nested.assert_not_called()
+
+
+class TestMisc:
+    """Miscellaneous handler tests"""
 
     @pytest.mark.asyncio
     async def test_handle_back_ends_conversation(
