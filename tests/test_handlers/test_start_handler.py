@@ -95,14 +95,14 @@ async def test_handle_menu_selection_back(
 async def test_handle_menu_selection_status(
     start_handler, make_update, make_context
 ):
-    """menu_status delegates to media_handler.handle_status."""
+    """menu_status delegates to system_handler.show_status."""
     update = make_update(callback_data="menu_status")
     context = make_context()
 
     result = await start_handler.handle_menu_selection(update, context)
 
     assert result == ConversationHandler.END
-    start_handler._mock_media_handler.handle_status.assert_awaited_once()
+    start_handler._mock_system_handler.show_status.assert_awaited_once()
 
 
 @pytest.mark.asyncio

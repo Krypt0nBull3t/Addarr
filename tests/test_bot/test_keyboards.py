@@ -55,10 +55,45 @@ class TestMainMenuKeyboard:
 class TestSystemKeyboard:
     """Tests for get_system_keyboard"""
 
-    def test_system_keyboard_returns_none(self):
-        """get_system_keyboard returns None"""
+    @patch("src.bot.keyboards.TranslationService")
+    def test_system_keyboard_returns_markup(self, mock_ts):
+        """get_system_keyboard returns InlineKeyboardMarkup"""
+        _mock_translation(mock_ts)
         result = get_system_keyboard()
-        assert result is None
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_system_keyboard_has_refresh_button(self, mock_ts):
+        """Keyboard contains system_refresh callback"""
+        _mock_translation(mock_ts)
+        result = get_system_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "system_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_system_keyboard_has_details_button(self, mock_ts):
+        """Keyboard contains system_details callback"""
+        _mock_translation(mock_ts)
+        result = get_system_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "system_details" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_system_keyboard_has_back_button(self, mock_ts):
+        """Keyboard contains system_back callback"""
+        _mock_translation(mock_ts)
+        result = get_system_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "system_back" in callbacks
 
 
 class TestSettingsKeyboard:

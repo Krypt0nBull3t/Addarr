@@ -62,9 +62,25 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_system_keyboard() -> InlineKeyboardMarkup:
-    """Get system status keyboard"""
-    # Return empty keyboard - no buttons needed
-    return None
+    """Get system status keyboard with action buttons"""
+    translation = TranslationService()
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "🔄 Refresh", callback_data="system_refresh"
+            ),
+            InlineKeyboardButton(
+                "📋 Details", callback_data="system_details"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"◀️ {translation.get_text('Back')}",
+                callback_data="system_back"
+            ),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 
 def get_settings_keyboard() -> InlineKeyboardMarkup:
