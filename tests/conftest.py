@@ -142,9 +142,29 @@ def _validate_telegram_token(telegram_config):
         )
 
 
+def _validate_server_addr(addr, service_name):
+    if not addr or not str(addr).strip():
+        raise _ConfigurationError(
+            f"Invalid server address for {service_name}: address is empty."
+        )
+    addr_str = str(addr)
+    if addr_str.startswith(("http://", "https://")):
+        raise _ConfigurationError(
+            f"Invalid server address for {service_name}: '{addr_str}'. "
+            f"Remove the protocol prefix (http:// or https://). "
+            f"Use the 'ssl' option instead."
+        )
+    if " " in addr_str.strip():
+        raise _ConfigurationError(
+            f"Invalid server address for {service_name}: '{addr_str}'. "
+            f"Address must not contain spaces."
+        )
+
+
 _settings_mod.validate_port = _validate_port
 _settings_mod.validate_service_apikey = _validate_service_apikey
 _settings_mod.validate_telegram_token = _validate_telegram_token
+_settings_mod.validate_server_addr = _validate_server_addr
 sys.modules["src.config.settings"] = _settings_mod
 
 # Also inject the parent packages so Python doesn't try to import them

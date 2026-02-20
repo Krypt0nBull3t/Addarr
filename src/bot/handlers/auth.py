@@ -92,7 +92,8 @@ class AuthHandler:
                     PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.check_password)]
                 },
                 fallbacks=[CommandHandler("cancel", self.cancel_auth)],
-                name="auth_conversation"
+                name="auth_conversation",
+                per_message=False,
             )
         ]
 

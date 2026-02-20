@@ -22,7 +22,7 @@ from src.bot.handlers.transmission import TransmissionHandler
 from src.bot.handlers.sabnzbd import SabnzbdHandler
 from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.start import StartHandler
-from src.bot.handlers.status import StatusHandler
+from src.bot.handlers.system import SystemHandler
 from src.config.settings import config
 from src.utils.logger import get_logger
 from src.utils.splash import show_welcome_screen
@@ -146,9 +146,9 @@ class AddarrBot:
             for handler in help_handler.get_handler():
                 self.application.add_handler(handler)
 
-            # Status handler
-            status_handler = StatusHandler()
-            for handler in status_handler.get_handler():
+            # System handler
+            system_handler = SystemHandler()
+            for handler in system_handler.get_handler():
                 self.application.add_handler(handler)
 
         except Exception as e:

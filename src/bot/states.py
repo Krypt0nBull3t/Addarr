@@ -15,19 +15,13 @@ class States:
     QUALITY_SELECT = 3
     SEASON_SELECT = 4
 
-    # Delete states
-    AWAITING_DELETE_CONFIRMATION = "awaiting_delete_confirmation"
-
-    # System states
-    AWAITING_STATUS_ACTION = "awaiting_status_action"
-    AWAITING_SETTING_ACTION = "awaiting_setting_action"
-    AWAITING_SPEED_INPUT = "awaiting_speed_input"
-
     # Settings states
     SETTINGS_MENU = "settings_menu"
     SETTINGS_LANGUAGE = "settings_language"
     SETTINGS_SERVICE = "settings_service"
     SETTINGS_QUALITY = "settings_quality"
+    SETTINGS_DOWNLOADS = "settings_downloads"
+    SETTINGS_USERS = "settings_users"
 
     # Auth states
     PASSWORD = 0

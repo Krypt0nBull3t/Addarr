@@ -171,3 +171,170 @@ class TestAddNzb:
             result = await sabnzbd_service.add_nzb("http://example.com/test.nzb")
 
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# set_speed_limit
+# ---------------------------------------------------------------------------
+
+
+class TestSetSpeedLimit:
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_success(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload={"status": True}, status=200)
+            result = await sabnzbd_service.set_speed_limit(50)
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, status=500)
+            result = await sabnzbd_service.set_speed_limit(50)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_set_speed_limit_connection_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                exception=Exception("Connection refused"),
+            )
+            result = await sabnzbd_service.set_speed_limit(50)
+
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# pause_queue
+# ---------------------------------------------------------------------------
+
+
+class TestPauseQueue:
+    @pytest.mark.asyncio
+    async def test_pause_queue_success(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload={"status": True}, status=200)
+            result = await sabnzbd_service.pause_queue()
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_pause_queue_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, status=500)
+            result = await sabnzbd_service.pause_queue()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_pause_queue_connection_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                exception=Exception("Connection refused"),
+            )
+            result = await sabnzbd_service.pause_queue()
+
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# resume_queue
+# ---------------------------------------------------------------------------
+
+
+class TestResumeQueue:
+    @pytest.mark.asyncio
+    async def test_resume_queue_success(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload={"status": True}, status=200)
+            result = await sabnzbd_service.resume_queue()
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_resume_queue_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, status=500)
+            result = await sabnzbd_service.resume_queue()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_resume_queue_connection_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                exception=Exception("Connection refused"),
+            )
+            result = await sabnzbd_service.resume_queue()
+
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_history
+# ---------------------------------------------------------------------------
+
+
+SABNZBD_HISTORY_RESPONSE = {
+    "history": {
+        "noofslots": 2,
+        "slots": [
+            {
+                "status": "Completed",
+                "nzb_name": "Ubuntu.22.04.nzb",
+                "name": "Ubuntu 22.04",
+                "category": "software",
+                "size": "2.1 GB",
+                "completed": 1700000000,
+            },
+            {
+                "status": "Completed",
+                "nzb_name": "Fedora.39.nzb",
+                "name": "Fedora 39",
+                "category": "software",
+                "size": "1.8 GB",
+                "completed": 1700001000,
+            },
+        ],
+    }
+}
+
+
+class TestGetHistory:
+    @pytest.mark.asyncio
+    async def test_get_history_success(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                payload=SABNZBD_HISTORY_RESPONSE,
+                status=200,
+            )
+            result = await sabnzbd_service.get_history()
+
+        assert result["total"] == 2
+        assert len(result["items"]) == 2
+        assert result["items"][0]["name"] == "Ubuntu 22.04"
+
+    @pytest.mark.asyncio
+    async def test_get_history_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, status=500)
+            result = await sabnzbd_service.get_history()
+
+        assert result == {"total": 0, "items": []}
+
+    @pytest.mark.asyncio
+    async def test_get_history_connection_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                exception=Exception("Connection refused"),
+            )
+            result = await sabnzbd_service.get_history()
+
+        assert result == {"total": 0, "items": []}

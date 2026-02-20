@@ -62,9 +62,25 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_system_keyboard() -> InlineKeyboardMarkup:
-    """Get system status keyboard"""
-    # Return empty keyboard - no buttons needed
-    return None
+    """Get system status keyboard with action buttons"""
+    translation = TranslationService()
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "🔄 Refresh", callback_data="system_refresh"
+            ),
+            InlineKeyboardButton(
+                "📋 Details", callback_data="system_details"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"◀️ {translation.get_text('Back')}",
+                callback_data="system_back"
+            ),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 
 def get_settings_keyboard() -> InlineKeyboardMarkup:
@@ -135,26 +151,104 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_service_toggle_keyboard(
-    services_status: dict,
+def get_downloads_keyboard(
+    trans_enabled: bool, sab_enabled: bool,
 ) -> InlineKeyboardMarkup:
-    """Get service enable/disable toggle keyboard"""
+    """Get downloads sub-menu keyboard"""
+    translation = TranslationService()
     keyboard = []
-    for service, enabled in services_status.items():
-        status = "✅" if enabled else "❌"
+    if trans_enabled:
         keyboard.append([
             InlineKeyboardButton(
-                f"{status} {service.title()}",
-                callback_data=f"svc_toggle_{service}"
+                "📡 Transmission", callback_data="dl_transmission"
             )
         ])
-    translation = TranslationService()
+    if sab_enabled:
+        keyboard.append([
+            InlineKeyboardButton(
+                "📥 SABnzbd", callback_data="dl_sabnzbd"
+            )
+        ])
     keyboard.append([
         InlineKeyboardButton(
             f"◀️ {translation.get_text('Back')}",
-            callback_data="settings_back"
+            callback_data="dl_back"
         )
     ])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_transmission_settings_keyboard(
+    enabled: bool, alt_speed_enabled: bool,
+) -> InlineKeyboardMarkup:
+    """Get Transmission settings keyboard"""
+    translation = TranslationService()
+    status = "✅" if enabled else "❌"
+    turtle = "🐢 On" if alt_speed_enabled else "🐢 Off"
+    keyboard = [
+        [InlineKeyboardButton(
+            f"{status} Enabled — tap to toggle",
+            callback_data="dl_trans_toggle"
+        )],
+        [InlineKeyboardButton(
+            f"Turtle Mode: {turtle}",
+            callback_data="dl_trans_turtle"
+        )],
+        [InlineKeyboardButton(
+            f"◀️ {translation.get_text('Back')}",
+            callback_data="dl_back"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_sabnzbd_settings_keyboard(
+    enabled: bool,
+) -> InlineKeyboardMarkup:
+    """Get SABnzbd settings keyboard"""
+    translation = TranslationService()
+    status = "✅" if enabled else "❌"
+    keyboard = [
+        [InlineKeyboardButton(
+            f"{status} Enabled — tap to toggle",
+            callback_data="dl_sab_toggle"
+        )],
+        [InlineKeyboardButton(
+            "⚡ Speed Limit", callback_data="dl_sab_speed"
+        )],
+        [InlineKeyboardButton(
+            "⏸ Pause / ▶️ Resume", callback_data="dl_sab_pause"
+        )],
+        [InlineKeyboardButton(
+            f"◀️ {translation.get_text('Back')}",
+            callback_data="dl_back"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_users_keyboard(
+    admin_enabled: bool, allowlist_enabled: bool,
+    admin_count: int, auth_count: int,
+) -> InlineKeyboardMarkup:
+    """Get users sub-menu keyboard"""
+    translation = TranslationService()
+    admin_status = "✅" if admin_enabled else "❌"
+    allowlist_status = "✅" if allowlist_enabled else "❌"
+    keyboard = [
+        [InlineKeyboardButton(
+            f"{admin_status} Admin Mode ({admin_count} admins)",
+            callback_data="usr_toggle_admin"
+        )],
+        [InlineKeyboardButton(
+            f"{allowlist_status} Allowlist ({auth_count} users)",
+            callback_data="usr_toggle_allowlist"
+        )],
+        [InlineKeyboardButton(
+            f"◀️ {translation.get_text('Back')}",
+            callback_data="usr_back"
+        )],
+    ]
     return InlineKeyboardMarkup(keyboard)
 
 

@@ -6,7 +6,19 @@ ru-ru:
   Cancel: Отмена
   Back: Назад
   Language: Язык
-  Settings: Настройки
+  Settings:
+    Menu: "Настройки"
+    Language: "Язык"
+    LanguageChanged: "Язык изменён на %{language}"
+    Services: "Сервисы"
+    ServiceEnabled: "%{service} включён"
+    ServiceDisabled: "%{service} отключён"
+    QualityProfile: "Профиль качества по умолчанию"
+    QualityProfileSet: "Профиль качества по умолчанию установлен на %{profile} для %{service}"
+    AdminOnly: "Настройки доступны только администраторам."
+    Back: "Назад к Настройкам"
+    NoProfiles: "Профили качества для %{service} не найдены"
+    ServiceNotConfigured: "не настроено"
   Status: Статус
   HelpButton: Помощь
   

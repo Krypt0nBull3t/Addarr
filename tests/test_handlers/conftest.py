@@ -112,12 +112,12 @@ def start_handler(mock_media_service, mock_translation_service):
     with (
         patch("src.bot.handlers.start.MediaHandler") as mock_mh_class,
         patch("src.bot.handlers.start.HelpHandler") as mock_hh_class,
+        patch("src.bot.handlers.start.SystemHandler") as mock_sh_class,
         patch("src.bot.handlers.start.TranslationService") as mock_ts_class,
         patch("src.bot.handlers.start.get_main_menu_keyboard") as mock_kbd,
     ):
         mock_ts_class.return_value = mock_translation_service
         mock_media_handler = MagicMock()
-        mock_media_handler.handle_status = AsyncMock()
         mock_media_handler.handle_search = AsyncMock()
         mock_media_handler.handle_selection = AsyncMock()
         mock_media_handler.handle_navigation = AsyncMock()
@@ -126,6 +126,9 @@ def start_handler(mock_media_service, mock_translation_service):
         mock_help_handler = MagicMock()
         mock_help_handler.show_help = AsyncMock()
         mock_hh_class.return_value = mock_help_handler
+        mock_system_handler = MagicMock()
+        mock_system_handler.show_status = AsyncMock()
+        mock_sh_class.return_value = mock_system_handler
         mock_kbd.return_value = MagicMock()
 
         from src.bot.handlers.start import StartHandler
@@ -135,40 +138,9 @@ def start_handler(mock_media_service, mock_translation_service):
         handler = StartHandler()
         handler._mock_media_handler = mock_media_handler
         handler._mock_help_handler = mock_help_handler
+        handler._mock_system_handler = mock_system_handler
         handler._mock_ts = mock_translation_service
         handler._mock_kbd = mock_kbd
-        yield handler
-
-
-@pytest.fixture
-def status_handler(mock_media_service, mock_translation_service):
-    """Create a StatusHandler with patched services."""
-    with (
-        patch("src.bot.handlers.status.MediaService") as mock_ms_class,
-        patch("src.bot.handlers.status.TranslationService") as mock_ts_class,
-        patch("src.bot.handlers.status.HealthService") as mock_hs_class,
-    ):
-        mock_ts_class.return_value = mock_translation_service
-        mock_ms_class.return_value = mock_media_service
-        mock_health = MagicMock()
-        mock_health.get_status = MagicMock(return_value={
-            "running": True,
-            "check_interval": 5,
-            "last_check": "2024-01-01 00:00:00",
-            "unhealthy_services": [],
-        })
-        mock_health.run_health_checks = AsyncMock()
-        mock_health.display_health_status = MagicMock(return_value="Status OK")
-        mock_hs_class.return_value = mock_health
-
-        from src.bot.handlers.status import StatusHandler
-        from src.bot.handlers.auth import AuthHandler
-
-        AuthHandler._authenticated_users = {12345}
-        handler = StatusHandler()
-        handler._mock_service = mock_media_service
-        handler._mock_health = mock_health
-        handler._mock_ts = mock_translation_service
         yield handler
 
 
@@ -278,16 +250,30 @@ def library_handler(mock_media_service, mock_translation_service):
 def system_handler():
     """Create a SystemHandler with patched services."""
     with (
-        patch("src.bot.handlers.system.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.system.health_service") as mock_health,
+        patch("src.bot.handlers.system.get_system_keyboard") as mock_kbd,
+        patch("src.bot.handlers.system.get_main_menu_keyboard") as mock_menu_kbd,
     ):
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
+        mock_health.get_status.return_value = {
+            "running": True,
+            "last_check": None,
+            "unhealthy_services": [],
+        }
+        mock_health.run_health_checks = AsyncMock(return_value={
+            "media_services": [],
+            "download_clients": [],
+        })
+        mock_kbd.return_value = MagicMock()
+        mock_menu_kbd.return_value = MagicMock()
 
         from src.bot.handlers.system import SystemHandler
+        from src.bot.handlers.auth import AuthHandler
 
+        AuthHandler._authenticated_users = {12345}
         handler = SystemHandler()
-        handler._mock_ts = mock_ts
+        handler._mock_health = mock_health
+        handler._mock_kbd = mock_kbd
+        handler._mock_menu_kbd = mock_menu_kbd
         yield handler
 
 
@@ -299,6 +285,8 @@ def settings_handler(mock_media_service, mock_translation_service):
         patch("src.bot.handlers.settings.MediaService") as mock_ms_class,
         patch("src.bot.handlers.settings.config") as mock_cfg,
         patch("src.bot.handlers.settings.is_admin") as mock_is_admin,
+        patch("src.bot.handlers.settings.TransmissionService") as mock_trans_cls,
+        patch("src.bot.handlers.settings.SABnzbdService") as mock_sab_cls,
     ):
         mock_ts_class.return_value = mock_translation_service
         mock_ts_class._current_language = "en-us"
@@ -310,6 +298,23 @@ def settings_handler(mock_media_service, mock_translation_service):
         mock_cfg.save = MagicMock()
         mock_is_admin.return_value = True
 
+        # Transmission mock
+        mock_trans = MagicMock()
+        mock_trans.is_enabled.return_value = True
+        mock_trans.set_alt_speed = AsyncMock(return_value=True)
+        mock_trans.get_status = AsyncMock(return_value={
+            "enabled": True, "connected": True,
+            "alt_speed_enabled": False, "version": "3.0",
+        })
+        mock_trans_cls.return_value = mock_trans
+
+        # SABnzbd mock
+        mock_sab = MagicMock()
+        mock_sab.set_speed_limit = AsyncMock(return_value=True)
+        mock_sab.pause_queue = AsyncMock(return_value=True)
+        mock_sab.resume_queue = AsyncMock(return_value=True)
+        mock_sab_cls.return_value = mock_sab
+
         from src.bot.handlers.settings import SettingsHandler
         from src.bot.handlers.auth import AuthHandler
 
@@ -319,4 +324,6 @@ def settings_handler(mock_media_service, mock_translation_service):
         handler._mock_ts = mock_translation_service
         handler._mock_service = mock_media_service
         handler._mock_is_admin = mock_is_admin
+        handler._mock_trans = mock_trans
+        handler._mock_sab = mock_sab
         yield handler

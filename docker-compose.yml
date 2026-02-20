@@ -9,6 +9,15 @@ services:
     container_name: addarr-refresh
     build: .
     restart: unless-stopped
+    # Host networking is used because Addarr is a Telegram bot that makes
+    # outbound connections only (no listening ports). It needs to reach
+    # Radarr, Sonarr, Lidarr, Transmission, and SABnzbd which typically
+    # run on the same host. Host mode avoids the need to configure bridge
+    # networking or explicit port mappings for each service.
+    #
+    # To use bridge networking instead (e.g. for Docker Swarm or stricter
+    # network isolation), remove this line and ensure Addarr can reach
+    # your media services via their container names or host.docker.internal.
     network_mode: host
     volumes:
       - ./config.yaml:/app/config.yaml:ro

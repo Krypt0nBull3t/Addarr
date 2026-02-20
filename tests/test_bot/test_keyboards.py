@@ -55,10 +55,45 @@ class TestMainMenuKeyboard:
 class TestSystemKeyboard:
     """Tests for get_system_keyboard"""
 
-    def test_system_keyboard_returns_none(self):
-        """get_system_keyboard returns None"""
+    @patch("src.bot.keyboards.TranslationService")
+    def test_system_keyboard_returns_markup(self, mock_ts):
+        """get_system_keyboard returns InlineKeyboardMarkup"""
+        _mock_translation(mock_ts)
         result = get_system_keyboard()
-        assert result is None
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_system_keyboard_has_refresh_button(self, mock_ts):
+        """Keyboard contains system_refresh callback"""
+        _mock_translation(mock_ts)
+        result = get_system_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "system_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_system_keyboard_has_details_button(self, mock_ts):
+        """Keyboard contains system_details callback"""
+        _mock_translation(mock_ts)
+        result = get_system_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "system_details" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_system_keyboard_has_back_button(self, mock_ts):
+        """Keyboard contains system_back callback"""
+        _mock_translation(mock_ts)
+        result = get_system_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "system_back" in callbacks
 
 
 class TestSettingsKeyboard:
@@ -200,43 +235,213 @@ class TestLanguageKeyboard:
         assert "settings_back" in callback_data_values
 
 
-class TestServiceToggleKeyboard:
-    """Tests for get_service_toggle_keyboard"""
+class TestServiceToggleKeyboardRemoved:
+    """Verify dead code get_service_toggle_keyboard is removed"""
+
+    def test_service_toggle_keyboard_removed(self):
+        """get_service_toggle_keyboard no longer exists in keyboards module"""
+        import src.bot.keyboards as kb
+        assert not hasattr(kb, "get_service_toggle_keyboard")
+
+
+class TestDownloadsKeyboard:
+    """Tests for get_downloads_keyboard"""
 
     @patch("src.bot.keyboards.TranslationService")
-    def test_get_service_toggle_keyboard_shows_services(self, mock_ts):
+    def test_shows_transmission_when_enabled(self, mock_ts):
         _mock_translation(mock_ts)
-        from src.bot.keyboards import get_service_toggle_keyboard
+        from src.bot.keyboards import get_downloads_keyboard
 
-        services_status = {
-            "radarr": True,
-            "sonarr": True,
-            "lidarr": False,
-        }
-        result = get_service_toggle_keyboard(services_status)
-
-        callback_data_values = [
-            button.callback_data
+        result = get_downloads_keyboard(trans_enabled=True, sab_enabled=False)
+        callback_data = [
+            btn.callback_data
             for row in result.inline_keyboard
-            for button in row
+            for btn in row
         ]
-        assert "svc_toggle_radarr" in callback_data_values
-        assert "svc_toggle_sonarr" in callback_data_values
-        assert "svc_toggle_lidarr" in callback_data_values
+        assert "dl_transmission" in callback_data
 
     @patch("src.bot.keyboards.TranslationService")
-    def test_get_service_toggle_keyboard_has_back_button(self, mock_ts):
+    def test_shows_sabnzbd_when_enabled(self, mock_ts):
         _mock_translation(mock_ts)
-        from src.bot.keyboards import get_service_toggle_keyboard
+        from src.bot.keyboards import get_downloads_keyboard
 
-        result = get_service_toggle_keyboard({"radarr": True})
-
-        callback_data_values = [
-            button.callback_data
+        result = get_downloads_keyboard(trans_enabled=False, sab_enabled=True)
+        callback_data = [
+            btn.callback_data
             for row in result.inline_keyboard
-            for button in row
+            for btn in row
         ]
-        assert "settings_back" in callback_data_values
+        assert "dl_sabnzbd" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_downloads_keyboard
+
+        result = get_downloads_keyboard(trans_enabled=True, sab_enabled=True)
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_back" in callback_data
+
+
+class TestTransmissionSettingsKeyboard:
+    """Tests for get_transmission_settings_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_toggle_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_transmission_settings_keyboard
+
+        result = get_transmission_settings_keyboard(
+            enabled=True, alt_speed_enabled=False
+        )
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_trans_toggle" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_turtle_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_transmission_settings_keyboard
+
+        result = get_transmission_settings_keyboard(
+            enabled=True, alt_speed_enabled=False
+        )
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_trans_turtle" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_transmission_settings_keyboard
+
+        result = get_transmission_settings_keyboard(
+            enabled=True, alt_speed_enabled=False
+        )
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_back" in callback_data
+
+
+class TestSabnzbdSettingsKeyboard:
+    """Tests for get_sabnzbd_settings_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_toggle_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_sabnzbd_settings_keyboard
+
+        result = get_sabnzbd_settings_keyboard(enabled=True)
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_sab_toggle" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_speed_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_sabnzbd_settings_keyboard
+
+        result = get_sabnzbd_settings_keyboard(enabled=True)
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_sab_speed" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_pause_resume_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_sabnzbd_settings_keyboard
+
+        result = get_sabnzbd_settings_keyboard(enabled=True)
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_sab_pause" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_sabnzbd_settings_keyboard
+
+        result = get_sabnzbd_settings_keyboard(enabled=True)
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_back" in callback_data
+
+
+class TestUsersKeyboard:
+    """Tests for get_users_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_admin_toggle(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_users_keyboard
+
+        result = get_users_keyboard(
+            admin_enabled=False, allowlist_enabled=False,
+            admin_count=0, auth_count=1
+        )
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "usr_toggle_admin" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_allowlist_toggle(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_users_keyboard
+
+        result = get_users_keyboard(
+            admin_enabled=False, allowlist_enabled=False,
+            admin_count=0, auth_count=1
+        )
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "usr_toggle_allowlist" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_users_keyboard
+
+        result = get_users_keyboard(
+            admin_enabled=True, allowlist_enabled=True,
+            admin_count=2, auth_count=5
+        )
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "usr_back" in callback_data
 
 
 class TestQualityProfileKeyboard:

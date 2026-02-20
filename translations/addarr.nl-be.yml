@@ -6,7 +6,19 @@ nl-be:
   Cancel: Annuleren
   Back: Terug
   Language: Taal
-  Settings: Instellingen
+  Settings:
+    Menu: "Instellingen"
+    Language: "Taal"
+    LanguageChanged: "Taal gewijzigd naar %{language}"
+    Services: "Services"
+    ServiceEnabled: "%{service} ingeschakeld"
+    ServiceDisabled: "%{service} uitgeschakeld"
+    QualityProfile: "Standaard kwaliteitsprofiel"
+    QualityProfileSet: "Standaard kwaliteitsprofiel ingesteld op %{profile} voor %{service}"
+    AdminOnly: "Instellingen zijn alleen beschikbaar voor beheerders."
+    Back: "Terug naar Instellingen"
+    NoProfiles: "Geen kwaliteitsprofielen gevonden voor %{service}"
+    ServiceNotConfigured: "niet geconfigureerd"
   Status: Status
   HelpButton: Help
   

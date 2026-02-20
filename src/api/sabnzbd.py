@@ -52,3 +52,80 @@ class SabnzbdClient:
         except Exception as e:
             logger.error(f"Error checking SABnzbd status: {e}")
             return False
+
+    async def set_speed_limit(self, percentage: int) -> bool:
+        """Set SABnzbd speed limit percentage"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=config&name=speedlimit&value={percentage}&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Error setting SABnzbd speed limit: {e}")
+            return False
+
+    async def get_queue(self) -> dict:
+        """Get SABnzbd queue data"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=queue&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    return {}
+        except Exception as e:
+            logger.error(f"Error getting SABnzbd queue: {e}")
+            return {}
+
+    async def add_nzb(self, url: str, nzbname: str = None, category: str = None) -> bool:
+        """Add an NZB to SABnzbd queue"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                api_url = f"{self.api_url}/api?mode=addurl&name={url}&output=json&apikey={self.api_key}"
+                if nzbname:
+                    api_url += f"&nzbname={nzbname}"
+                if category:
+                    api_url += f"&cat={category}"
+                async with session.get(api_url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data.get('status', False)
+                    return False
+        except Exception as e:
+            logger.error(f"Error adding NZB to SABnzbd: {e}")
+            return False
+
+    async def pause_queue(self) -> bool:
+        """Pause the SABnzbd download queue"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=pause&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Error pausing SABnzbd queue: {e}")
+            return False
+
+    async def resume_queue(self) -> bool:
+        """Resume the SABnzbd download queue"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=resume&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Error resuming SABnzbd queue: {e}")
+            return False
+
+    async def get_history(self, limit: int = 10) -> dict:
+        """Get SABnzbd download history"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=history&limit={limit}&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    return {}
+        except Exception as e:
+            logger.error(f"Error getting SABnzbd history: {e}")
+            return {}
