@@ -391,6 +391,96 @@ class TestCheckSabnzbdHealth:
 
 
 # ---------------------------------------------------------------------------
+# check_transmission_health
+# ---------------------------------------------------------------------------
+
+
+class TestCheckTransmissionHealth:
+    @pytest.mark.asyncio
+    async def test_check_transmission_health_success(self):
+        service = HealthService()
+
+        with patch("src.services.health.TransmissionClient") as MockClient:
+            mock_instance = AsyncMock()
+            MockClient.return_value = mock_instance
+            mock_instance.get_session.return_value = {
+                "arguments": {"version": "4.0.0"},
+                "result": "success",
+            }
+
+            healthy, status = await service.check_transmission_health()
+
+        assert healthy is True
+        assert "Online" in status
+        assert "v4.0.0" in status
+
+    @pytest.mark.asyncio
+    async def test_check_transmission_health_missing_version(self):
+        service = HealthService()
+
+        with patch("src.services.health.TransmissionClient") as MockClient:
+            mock_instance = AsyncMock()
+            MockClient.return_value = mock_instance
+            mock_instance.get_session.return_value = {
+                "arguments": {},
+                "result": "success",
+            }
+
+            healthy, status = await service.check_transmission_health()
+
+        assert healthy is True
+        assert "Online" in status
+        assert "vUnknown" in status
+
+    @pytest.mark.asyncio
+    async def test_check_transmission_health_connection_error(self):
+        service = HealthService()
+
+        with patch("src.services.health.TransmissionClient") as MockClient:
+            mock_instance = AsyncMock()
+            MockClient.return_value = mock_instance
+            err = OSError("Connection refused")
+            mock_instance.get_session.side_effect = (
+                aiohttp.ClientConnectorError(
+                    connection_key=MagicMock(), os_error=err
+                )
+            )
+
+            healthy, status = await service.check_transmission_health()
+
+        assert healthy is False
+        assert "Connection failed" in status
+
+    @pytest.mark.asyncio
+    async def test_check_transmission_health_timeout(self):
+        service = HealthService()
+
+        with patch("src.services.health.TransmissionClient") as MockClient:
+            mock_instance = AsyncMock()
+            MockClient.return_value = mock_instance
+            mock_instance.get_session.side_effect = asyncio.TimeoutError()
+
+            healthy, status = await service.check_transmission_health()
+
+        assert healthy is False
+        assert "timeout" in status.lower()
+
+    @pytest.mark.asyncio
+    async def test_check_transmission_health_generic_exception(self):
+        service = HealthService()
+
+        with patch("src.services.health.TransmissionClient") as MockClient:
+            mock_instance = AsyncMock()
+            MockClient.return_value = mock_instance
+            mock_instance.get_session.side_effect = RuntimeError("Unexpected")
+
+            healthy, status = await service.check_transmission_health()
+
+        assert healthy is False
+        assert "Unexpected" in status
+
+
+# ---------------------------------------------------------------------------
 # run_health_checks
 # ---------------------------------------------------------------------------
 
@@ -493,6 +583,147 @@ class TestRunHealthChecks:
         assert len(results["download_clients"]) == 1
         assert results["download_clients"][0]["name"] == "SABnzbd"
         assert results["download_clients"][0]["healthy"] is True
+
+    @pytest.mark.asyncio
+    async def test_run_health_checks_transmission_enabled(self):
+        """Test that Transmission is checked when enabled in config."""
+        service = HealthService()
+
+        with patch(
+            "src.services.health.config"
+        ) as mock_config:
+            mock_config.get.side_effect = lambda key, default=None: (
+                {
+                    "enable": True,
+                    "host": "localhost",
+                    "port": 9091,
+                    "ssl": False,
+                    "username": None,
+                    "password": None,
+                }
+                if key == "transmission"
+                else {
+                    "enable": True,
+                    "server": {
+                        "addr": "localhost",
+                        "port": 7878,
+                        "path": "/",
+                        "ssl": False,
+                    },
+                    "auth": {"apikey": "test-key"},
+                }
+                if key in ("radarr", "sonarr", "lidarr")
+                else default
+            )
+            with patch.object(
+                service,
+                "check_service_health",
+                new_callable=AsyncMock,
+                return_value=(True, "Online"),
+            ), patch.object(
+                service,
+                "check_transmission_health",
+                new_callable=AsyncMock,
+                return_value=(True, "Online (v4.0.0)"),
+            ) as mock_tx_health:
+                results = await service.run_health_checks()
+
+        mock_tx_health.assert_called_once()
+        tx_entries = [
+            c for c in results["download_clients"] if c["name"] == "Transmission"
+        ]
+        assert len(tx_entries) == 1
+        assert tx_entries[0]["healthy"] is True
+        assert "v4.0.0" in tx_entries[0]["status"]
+
+    @pytest.mark.asyncio
+    async def test_run_health_checks_transmission_disabled(self):
+        """Test that Transmission is NOT checked when disabled in config."""
+        service = HealthService()
+
+        with patch.object(
+            service,
+            "check_service_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online"),
+        ), patch.object(
+            service,
+            "check_transmission_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online (v4.0.0)"),
+        ) as mock_tx_health:
+            results = await service.run_health_checks()
+
+        mock_tx_health.assert_not_called()
+        tx_entries = [
+            c for c in results["download_clients"] if c["name"] == "Transmission"
+        ]
+        assert len(tx_entries) == 0
+
+    @pytest.mark.asyncio
+    async def test_run_health_checks_both_download_clients(self):
+        """Test that both Transmission and SABnzbd appear when enabled."""
+        service = HealthService()
+
+        with patch(
+            "src.services.health.config"
+        ) as mock_config:
+            mock_config.get.side_effect = lambda key, default=None: (
+                {
+                    "enable": True,
+                    "host": "localhost",
+                    "port": 9091,
+                    "ssl": False,
+                    "username": None,
+                    "password": None,
+                }
+                if key == "transmission"
+                else {
+                    "enable": True,
+                    "server": {
+                        "addr": "localhost",
+                        "port": 8090,
+                        "path": "/",
+                        "ssl": False,
+                    },
+                    "auth": {"apikey": "test-key"},
+                }
+                if key == "sabnzbd"
+                else {
+                    "enable": True,
+                    "server": {
+                        "addr": "localhost",
+                        "port": 7878,
+                        "path": "/",
+                        "ssl": False,
+                    },
+                    "auth": {"apikey": "test-key"},
+                }
+                if key in ("radarr", "sonarr", "lidarr")
+                else default
+            )
+            with patch.object(
+                service,
+                "check_service_health",
+                new_callable=AsyncMock,
+                return_value=(True, "Online"),
+            ), patch.object(
+                service,
+                "check_transmission_health",
+                new_callable=AsyncMock,
+                return_value=(True, "Online (v4.0.0)"),
+            ), patch.object(
+                service,
+                "check_sabnzbd_health",
+                new_callable=AsyncMock,
+                return_value=(True, "Online (v3.5.0)"),
+            ):
+                results = await service.run_health_checks()
+
+        names = [c["name"] for c in results["download_clients"]]
+        assert "Transmission" in names
+        assert "SABnzbd" in names
+        assert len(results["download_clients"]) == 2
 
 
 # ---------------------------------------------------------------------------

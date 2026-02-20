@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 from colorama import Fore, Style
 
+from src.api.transmission import TransmissionClient
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -220,6 +221,20 @@ class HealthService:
         except Exception as e:
             return False, f"Error: {str(e)}"
 
+    async def check_transmission_health(self) -> Tuple[bool, str]:
+        """Check Transmission connection via RPC client."""
+        try:
+            client = TransmissionClient()
+            data = await client.get_session()
+            version = data.get("arguments", {}).get("version", "Unknown")
+            return True, f"Online (v{version})"
+        except aiohttp.ClientConnectorError:
+            return False, "Error: Connection failed"
+        except asyncio.TimeoutError:
+            return False, "Error: Connection timeout"
+        except Exception as e:
+            return False, f"Error: {str(e)}"
+
     async def run_health_checks(self) -> Dict[str, List[Dict]]:
         """Run health checks on all enabled services"""
         results = {
@@ -252,6 +267,16 @@ class HealthService:
                     "healthy": is_healthy,
                     "status": status
                 })
+
+        # Check Transmission
+        transmission = config.get("transmission", {})
+        if transmission.get("enable"):
+            is_healthy, status = await self.check_transmission_health()
+            results["download_clients"].append({
+                "name": "Transmission",
+                "healthy": is_healthy,
+                "status": status
+            })
 
         # Check SABnzbd
         sabnzbd = config.get("sabnzbd", {})
