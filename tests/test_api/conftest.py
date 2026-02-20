@@ -1,6 +1,18 @@
 import pytest
 from aioresponses import aioresponses
 
+_CLIENT_FIXTURES = ("radarr_client", "sonarr_client", "lidarr_client")
+
+
+@pytest.fixture(autouse=True)
+async def cleanup_sessions(request):
+    """Close BaseApiClient sessions after each test."""
+    yield
+    for name in _CLIENT_FIXTURES:
+        client = request.node.funcargs.get(name)
+        if client is not None and hasattr(client, "close"):
+            await client.close()
+
 
 @pytest.fixture
 def aio_mock():

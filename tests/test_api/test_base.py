@@ -130,6 +130,11 @@ class TestBaseApiClient:
         finally:
             client.config["server"]["ssl"] = original
 
+    def test_build_base_url_strips_trailing_slash(self, client):
+        """Path '/' should be stripped so URLs don't get double slashes."""
+        url = client._build_base_url()
+        assert url == "http://localhost:7878"
+
     def test_get_headers(self, client):
         headers = client._get_headers()
         assert headers["X-Api-Key"] == "test-radarr-key"
@@ -152,10 +157,56 @@ class TestBaseApiClient:
         assert result == "Internal Server Error"
 
     def test_parse_error_response_invalid_json(self, client):
-        """Lines 73-74: JSONDecodeError falls through to return raw text."""
+        """JSONDecodeError falls through to return raw text."""
         # Must start with "[" to enter the JSON parsing branch
         result = client._parse_error_response("[not valid json")
         assert result == "[not valid json"
+
+
+# ---------------------------------------------------------------------------
+# BaseApiClient -- API_VERSION
+# ---------------------------------------------------------------------------
+
+
+class TestBaseApiClientApiVersion:
+    def test_default_api_version(self, client):
+        """Default API_VERSION should be v3."""
+        assert client.API_VERSION == "v3"
+
+    @pytest.mark.asyncio
+    async def test_api_version_in_url(self, client):
+        """_make_request should use API_VERSION in the URL."""
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:7878/api/v3/system/status",
+                payload={"ok": True},
+                status=200,
+            )
+            success, data, error = await client._make_request("system/status")
+        assert success is True
+
+    @pytest.mark.asyncio
+    async def test_custom_api_version(self):
+        """Subclass with API_VERSION='v1' constructs correct URL."""
+        class V1Client(BaseApiClient):
+            API_VERSION = "v1"
+
+            async def search(self, term):
+                return await self._request(f"search?term={term}")
+
+        client = V1Client("lidarr")
+        try:
+            with aioresponses() as m:
+                m.get(
+                    "http://localhost:8686/api/v1/system/status",
+                    payload={"ok": True},
+                    status=200,
+                )
+                success, data, error = await client._make_request("system/status")
+            assert success is True
+            assert data == {"ok": True}
+        finally:
+            await client.close()
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +220,7 @@ class TestBaseApiClientAsync:
         payload = {"id": 1, "title": "Test"}
         with aioresponses() as m:
             m.get(
-                "http://localhost:7878//api/v3/system/status",
+                "http://localhost:7878/api/v3/system/status",
                 payload=payload,
                 status=200,
             )
@@ -180,11 +231,45 @@ class TestBaseApiClientAsync:
         assert error is None
 
     @pytest.mark.asyncio
+    async def test_make_request_201_success(self, client):
+        """201 Created should be treated as success."""
+        with aioresponses() as m:
+            m.post(
+                "http://localhost:7878/api/v3/movie",
+                payload={"id": 1, "title": "Test"},
+                status=201,
+            )
+            success, data, error = await client._make_request(
+                "movie", method="POST"
+            )
+
+        assert success is True
+        assert data == {"id": 1, "title": "Test"}
+        assert error is None
+
+    @pytest.mark.asyncio
+    async def test_make_request_2xx_non_json_body(self, client):
+        """2xx with non-JSON body should return (True, None, None)."""
+        with aioresponses() as m:
+            m.post(
+                "http://localhost:7878/api/v3/movie",
+                body="Created",
+                status=201,
+            )
+            success, data, error = await client._make_request(
+                "movie", method="POST"
+            )
+
+        assert success is True
+        assert data is None
+        assert error is None
+
+    @pytest.mark.asyncio
     async def test_make_request_error(self, client):
         error_body = json.dumps([{"errorMessage": "bad request"}])
         with aioresponses() as m:
             m.get(
-                "http://localhost:7878//api/v3/movie",
+                "http://localhost:7878/api/v3/movie",
                 body=error_body,
                 status=400,
             )
@@ -196,11 +281,11 @@ class TestBaseApiClientAsync:
 
     @pytest.mark.asyncio
     async def test_make_request_already_exists_error(self, client):
-        """Line 105: 'already' in error_message triggers info log path."""
+        """'already' in error_message triggers info log path."""
         error_body = json.dumps([{"errorMessage": "This movie has already been added"}])
         with aioresponses() as m:
             m.get(
-                "http://localhost:7878//api/v3/movie",
+                "http://localhost:7878/api/v3/movie",
                 body=error_body,
                 status=400,
             )
@@ -212,7 +297,7 @@ class TestBaseApiClientAsync:
 
     @pytest.mark.asyncio
     async def test_make_request_connection_error(self, client):
-        url = "http://localhost:7878//api/v3/system/status"
+        url = "http://localhost:7878/api/v3/system/status"
         with aioresponses() as m:
             # 3 mocks needed: initial attempt + 2 retries (default max_retries=2)
             for _ in range(3):
@@ -226,10 +311,10 @@ class TestBaseApiClientAsync:
 
     @pytest.mark.asyncio
     async def test_make_request_unexpected_exception(self, client):
-        """Lines 115-118: generic Exception in _make_request."""
+        """Generic Exception in _make_request."""
         with aioresponses() as m:
             m.get(
-                "http://localhost:7878//api/v3/system/status",
+                "http://localhost:7878/api/v3/system/status",
                 exception=RuntimeError("something unexpected"),
             )
             success, data, error = await client._make_request("system/status")
@@ -240,6 +325,47 @@ class TestBaseApiClientAsync:
 
 
 # ---------------------------------------------------------------------------
+# BaseApiClient -- _request() convenience wrapper
+# ---------------------------------------------------------------------------
+
+
+class TestBaseApiClientRequest:
+    @pytest.mark.asyncio
+    async def test_request_returns_data_on_success(self, client):
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:7878/api/v3/system/status",
+                payload={"ok": True},
+                status=200,
+            )
+            result = await client._request("system/status")
+        assert result == {"ok": True}
+
+    @pytest.mark.asyncio
+    async def test_request_returns_none_on_failure(self, client):
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:7878/api/v3/system/status",
+                status=400,
+                body="error",
+            )
+            result = await client._request("system/status")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_request_returns_none_on_connection_error(self, client):
+        with aioresponses() as m:
+            for _ in range(3):
+                m.get(
+                    "http://localhost:7878/api/v3/system/status",
+                    exception=aiohttp.ClientError("refused"),
+                )
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                result = await client._request("system/status")
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
 # BaseApiClient -- check_status
 # ---------------------------------------------------------------------------
 
@@ -247,19 +373,34 @@ class TestBaseApiClientAsync:
 class TestBaseApiClientCheckStatus:
     @pytest.mark.asyncio
     async def test_check_status_success(self, client):
-        """Line 130: check_status returns True when status_code is 200."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        client.get = AsyncMock(return_value=mock_response)
-        result = await client.check_status()
+        """check_status returns True when API responds 200."""
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:7878/api/v3/system/status",
+                payload={"status": "ok"},
+                status=200,
+            )
+            result = await client.check_status()
         assert result is True
 
     @pytest.mark.asyncio
+    async def test_check_status_failure(self, client):
+        """check_status returns False when all retries fail."""
+        with aioresponses() as m:
+            for _ in range(3):
+                m.get(
+                    "http://localhost:7878/api/v3/system/status",
+                    exception=aiohttp.ClientError("refused"),
+                )
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                result = await client.check_status()
+        assert result is False
+
+    @pytest.mark.asyncio
     async def test_check_status_exception(self, client):
-        """Lines 131-133: check_status catches exceptions and returns False."""
-        # check_status calls self.get() which doesn't exist on BaseApiClient,
-        # so it will raise AttributeError -> caught by except -> return False
-        result = await client.check_status()
+        """check_status catches unexpected exceptions and returns False."""
+        with patch.object(client, "_make_request", side_effect=Exception("boom")):
+            result = await client.check_status()
         assert result is False
 
 
@@ -321,12 +462,12 @@ class TestBaseApiClientSession:
         """_make_request() should reuse the same session for multiple calls."""
         with aioresponses() as m:
             m.get(
-                "http://localhost:7878//api/v3/system/status",
+                "http://localhost:7878/api/v3/system/status",
                 payload={"status": "ok"},
                 status=200,
             )
             m.get(
-                "http://localhost:7878//api/v3/system/status",
+                "http://localhost:7878/api/v3/system/status",
                 payload={"status": "ok"},
                 status=200,
             )
@@ -388,7 +529,7 @@ class TestBaseApiClientTimeout:
 # BaseApiClient -- Retry logic
 # ---------------------------------------------------------------------------
 
-URL = "http://localhost:7878//api/v3/system/status"
+URL = "http://localhost:7878/api/v3/system/status"
 
 
 class TestBaseApiClientRetry:
