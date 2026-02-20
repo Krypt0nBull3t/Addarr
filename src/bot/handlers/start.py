@@ -72,7 +72,8 @@ class StartHandler:
                     CommandHandler("cancel", self.media_handler.cancel_search),
                 ],
                 name="start_conversation",
-                persistent=False
+                persistent=False,
+                per_message=False,
             )
         ]
 

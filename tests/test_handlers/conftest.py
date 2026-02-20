@@ -299,6 +299,8 @@ def settings_handler(mock_media_service, mock_translation_service):
         patch("src.bot.handlers.settings.MediaService") as mock_ms_class,
         patch("src.bot.handlers.settings.config") as mock_cfg,
         patch("src.bot.handlers.settings.is_admin") as mock_is_admin,
+        patch("src.bot.handlers.settings.TransmissionService") as mock_trans_cls,
+        patch("src.bot.handlers.settings.SABnzbdService") as mock_sab_cls,
     ):
         mock_ts_class.return_value = mock_translation_service
         mock_ts_class._current_language = "en-us"
@@ -310,6 +312,23 @@ def settings_handler(mock_media_service, mock_translation_service):
         mock_cfg.save = MagicMock()
         mock_is_admin.return_value = True
 
+        # Transmission mock
+        mock_trans = MagicMock()
+        mock_trans.is_enabled.return_value = True
+        mock_trans.set_alt_speed = AsyncMock(return_value=True)
+        mock_trans.get_status = AsyncMock(return_value={
+            "enabled": True, "connected": True,
+            "alt_speed_enabled": False, "version": "3.0",
+        })
+        mock_trans_cls.return_value = mock_trans
+
+        # SABnzbd mock
+        mock_sab = MagicMock()
+        mock_sab.set_speed_limit = AsyncMock(return_value=True)
+        mock_sab.pause_queue = AsyncMock(return_value=True)
+        mock_sab.resume_queue = AsyncMock(return_value=True)
+        mock_sab_cls.return_value = mock_sab
+
         from src.bot.handlers.settings import SettingsHandler
         from src.bot.handlers.auth import AuthHandler
 
@@ -319,4 +338,6 @@ def settings_handler(mock_media_service, mock_translation_service):
         handler._mock_ts = mock_translation_service
         handler._mock_service = mock_media_service
         handler._mock_is_admin = mock_is_admin
+        handler._mock_trans = mock_trans
+        handler._mock_sab = mock_sab
         yield handler

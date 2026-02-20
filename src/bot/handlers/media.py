@@ -105,7 +105,8 @@ class MediaHandler:
                     CallbackQueryHandler(self.handle_menu_callback, pattern="^menu_cancel$")
                 ],
                 name="media_conversation",
-                persistent=False
+                persistent=False,
+                per_message=False,
             ),
             CommandHandler("status", self.handle_status),
         ]

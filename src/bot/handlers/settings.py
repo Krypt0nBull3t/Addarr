@@ -24,9 +24,15 @@ from src.bot.keyboards import (
     get_settings_keyboard,
     get_language_keyboard,
     get_quality_profile_keyboard,
+    get_downloads_keyboard,
+    get_transmission_settings_keyboard,
+    get_sabnzbd_settings_keyboard,
+    get_users_keyboard,
 )
 from src.bot.states import States
 from src.services.media import MediaService
+from src.services.transmission import TransmissionService
+from src.services.sabnzbd import SABnzbdService
 from src.services.translation import TranslationService
 from src.definitions import is_admin
 
@@ -39,6 +45,11 @@ class SettingsHandler:
     def __init__(self):
         self.translation = TranslationService()
         self.media_service = MediaService()
+        self.transmission_service = TransmissionService()
+        try:
+            self.sabnzbd_service = SABnzbdService()
+        except ValueError:
+            self.sabnzbd_service = None
 
     def get_handler(self):
         """Get command handlers for settings operations"""
@@ -62,8 +73,12 @@ class SettingsHandler:
                             pattern="^settings_(radarr|sonarr|lidarr)$"
                         ),
                         CallbackQueryHandler(
-                            self.handle_coming_soon,
-                            pattern="^settings_(downloads|users)$"
+                            self.handle_downloads_menu,
+                            pattern="^settings_downloads$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_users_menu,
+                            pattern="^settings_users$"
                         ),
                         CallbackQueryHandler(
                             self.handle_back,
@@ -104,6 +119,50 @@ class SettingsHandler:
                             pattern="^settings_back$"
                         ),
                     ],
+                    States.SETTINGS_DOWNLOADS: [
+                        CallbackQueryHandler(
+                            self.handle_transmission_settings,
+                            pattern="^dl_transmission$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_sabnzbd_settings,
+                            pattern="^dl_sabnzbd$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_transmission_toggle,
+                            pattern="^dl_trans_toggle$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_transmission_turtle,
+                            pattern="^dl_trans_turtle$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_sabnzbd_toggle,
+                            pattern="^dl_sab_toggle$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_sabnzbd_speed,
+                            pattern="^dl_sab_speed"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_sabnzbd_pause_resume,
+                            pattern="^dl_sab_(pause|resume)$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_settings_from_callback,
+                            pattern="^dl_back$"
+                        ),
+                    ],
+                    States.SETTINGS_USERS: [
+                        CallbackQueryHandler(
+                            self.handle_users_toggle,
+                            pattern="^usr_toggle_"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_settings_from_callback,
+                            pattern="^usr_back$"
+                        ),
+                    ],
                 },
                 fallbacks=[
                     CommandHandler("cancel", self.handle_cancel),
@@ -114,6 +173,7 @@ class SettingsHandler:
                 ],
                 name="settings_conversation",
                 persistent=False,
+                per_message=False,
             )
         ]
 
@@ -364,19 +424,247 @@ class SettingsHandler:
         )
         return States.SETTINGS_MENU
 
-    # -- Misc --
+    # -- Downloads flow --
 
-    async def handle_coming_soon(self, update: Update,
-                                 context: ContextTypes.DEFAULT_TYPE):
-        """Handle settings sections not yet implemented"""
+    async def handle_downloads_menu(self, update: Update,
+                                    context: ContextTypes.DEFAULT_TYPE):
+        """Show downloads sub-menu keyboard"""
         query = update.callback_query
         await query.answer()
 
+        trans_enabled = config.get("transmission", {}).get("enable", False)
+        sab_enabled = config.get("sabnzbd", {}).get("enable", False)
+
+        keyboard = get_downloads_keyboard(trans_enabled, sab_enabled)
         await query.message.edit_text(
-            "🚧 Coming soon...",
-            reply_markup=get_settings_keyboard(),
+            "📥 Downloads", reply_markup=keyboard
         )
-        return States.SETTINGS_MENU
+        return States.SETTINGS_DOWNLOADS
+
+    async def handle_transmission_settings(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Show Transmission settings keyboard"""
+        query = update.callback_query
+        await query.answer()
+
+        enabled = config.get("transmission", {}).get("enable", False)
+        status = await self.transmission_service.get_status()
+        alt_speed = status.get("alt_speed_enabled", False)
+
+        keyboard = get_transmission_settings_keyboard(enabled, alt_speed)
+        await query.message.edit_text(
+            "📡 Transmission Settings", reply_markup=keyboard
+        )
+        return States.SETTINGS_DOWNLOADS
+
+    async def handle_transmission_toggle(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Toggle transmission.enable in config"""
+        query = update.callback_query
+        await query.answer()
+
+        current = config.get("transmission", {}).get("enable", False)
+        new_value = not current
+        config.update_nested("transmission.enable", new_value)
+        config.save()
+
+        status = "enabled" if new_value else "disabled"
+        enabled = config.get("transmission", {}).get("enable", False)
+        trans_status = await self.transmission_service.get_status()
+        alt_speed = trans_status.get("alt_speed_enabled", False)
+
+        keyboard = get_transmission_settings_keyboard(enabled, alt_speed)
+        await query.message.edit_text(
+            f"✅ Transmission {status}",
+            reply_markup=keyboard,
+        )
+        return States.SETTINGS_DOWNLOADS
+
+    async def handle_transmission_turtle(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Toggle Transmission turtle mode via service"""
+        query = update.callback_query
+        await query.answer()
+
+        status = await self.transmission_service.get_status()
+        current = status.get("alt_speed_enabled", False)
+        success = await self.transmission_service.set_alt_speed(not current)
+
+        if success:
+            new_state = "enabled 🐢" if not current else "disabled 🚀"
+            text = f"✅ Turtle Mode {new_state}"
+        else:
+            text = "❌ Failed to toggle Turtle Mode"
+
+        enabled = config.get("transmission", {}).get("enable", False)
+        new_status = await self.transmission_service.get_status()
+        alt_speed = new_status.get("alt_speed_enabled", False)
+
+        keyboard = get_transmission_settings_keyboard(enabled, alt_speed)
+        await query.message.edit_text(text, reply_markup=keyboard)
+        return States.SETTINGS_DOWNLOADS
+
+    async def handle_sabnzbd_settings(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Show SABnzbd settings keyboard"""
+        query = update.callback_query
+        await query.answer()
+
+        enabled = config.get("sabnzbd", {}).get("enable", False)
+        keyboard = get_sabnzbd_settings_keyboard(enabled)
+        await query.message.edit_text(
+            "📥 SABnzbd Settings", reply_markup=keyboard
+        )
+        return States.SETTINGS_DOWNLOADS
+
+    async def handle_sabnzbd_toggle(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Toggle sabnzbd.enable in config"""
+        query = update.callback_query
+        await query.answer()
+
+        current = config.get("sabnzbd", {}).get("enable", False)
+        new_value = not current
+        config.update_nested("sabnzbd.enable", new_value)
+        config.save()
+
+        status = "enabled" if new_value else "disabled"
+        keyboard = get_sabnzbd_settings_keyboard(new_value)
+        await query.message.edit_text(
+            f"✅ SABnzbd {status}", reply_markup=keyboard,
+        )
+        return States.SETTINGS_DOWNLOADS
+
+    async def handle_sabnzbd_speed(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Show speed limit options or apply selected speed"""
+        query = update.callback_query
+        await query.answer()
+
+        if query.data == "dl_sab_speed":
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        "25%", callback_data="dl_sab_speed_25"
+                    ),
+                    InlineKeyboardButton(
+                        "50%", callback_data="dl_sab_speed_50"
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        "100%", callback_data="dl_sab_speed_100"
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        f"◀️ {self.translation.get_text('Back')}",
+                        callback_data="dl_back"
+                    ),
+                ],
+            ]
+            await query.message.edit_text(
+                "⚡ Select speed limit:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+            )
+        else:
+            speed = int(query.data.replace("dl_sab_speed_", ""))
+            if self.sabnzbd_service:
+                await self.sabnzbd_service.set_speed_limit(speed)
+            enabled = config.get("sabnzbd", {}).get("enable", False)
+            keyboard = get_sabnzbd_settings_keyboard(enabled)
+            await query.message.edit_text(
+                f"✅ Speed limit set to {speed}%",
+                reply_markup=keyboard,
+            )
+        return States.SETTINGS_DOWNLOADS
+
+    async def handle_sabnzbd_pause_resume(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Pause or resume SABnzbd queue"""
+        query = update.callback_query
+        await query.answer()
+
+        if query.data == "dl_sab_pause" and self.sabnzbd_service:
+            await self.sabnzbd_service.pause_queue()
+            text = "⏸ Queue paused"
+        elif query.data == "dl_sab_resume" and self.sabnzbd_service:
+            await self.sabnzbd_service.resume_queue()
+            text = "▶️ Queue resumed"
+        else:
+            text = "❌ SABnzbd not available"
+
+        enabled = config.get("sabnzbd", {}).get("enable", False)
+        keyboard = get_sabnzbd_settings_keyboard(enabled)
+        await query.message.edit_text(text, reply_markup=keyboard)
+        return States.SETTINGS_DOWNLOADS
+
+    # -- Users flow --
+
+    async def handle_users_menu(self, update: Update,
+                                context: ContextTypes.DEFAULT_TYPE):
+        """Show users sub-menu keyboard"""
+        query = update.callback_query
+        await query.answer()
+
+        security = config.get("security", {})
+        admin_enabled = security.get("enableAdmin", False)
+        allowlist_enabled = security.get("enableAllowlist", False)
+        admin_count = len(config.get("admins", []))
+        auth_count = len(config.get("authenticated_users", []))
+
+        keyboard = get_users_keyboard(
+            admin_enabled, allowlist_enabled, admin_count, auth_count
+        )
+        await query.message.edit_text(
+            "👥 Users", reply_markup=keyboard
+        )
+        return States.SETTINGS_USERS
+
+    async def handle_users_toggle(self, update: Update,
+                                  context: ContextTypes.DEFAULT_TYPE):
+        """Toggle a security flag (admin or allowlist)"""
+        query = update.callback_query
+        await query.answer()
+
+        flag = query.data.replace("usr_toggle_", "")
+        key_map = {
+            "admin": "security.enableAdmin",
+            "allowlist": "security.enableAllowlist",
+        }
+        dotted_key = key_map.get(flag)
+        if not dotted_key:
+            return States.SETTINGS_USERS
+
+        security = config.get("security", {})
+        field = dotted_key.split(".")[-1]
+        current = security.get(field, False)
+        new_value = not current
+
+        config.update_nested(dotted_key, new_value)
+        config.save()
+
+        status = "enabled" if new_value else "disabled"
+        await query.message.edit_text(
+            f"✅ {flag.title()} {status}",
+            reply_markup=get_users_keyboard(
+                config.get("security", {}).get("enableAdmin", False),
+                config.get("security", {}).get("enableAllowlist", False),
+                len(config.get("admins", [])),
+                len(config.get("authenticated_users", [])),
+            ),
+        )
+        return States.SETTINGS_USERS
+
+    # -- Misc --
 
     async def handle_back(self, update: Update,
                           context: ContextTypes.DEFAULT_TYPE):
