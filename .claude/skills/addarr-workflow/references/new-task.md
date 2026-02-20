@@ -33,7 +33,7 @@ git branch --show-current
 **If on a feature/fix branch already:**
 - Ask if they want to continue here or create a new branch
 
-**If on `development` or `main`:**
+**If on `development`:**
 
 Ask with AskUserQuestion:
 - Header: "Branch"

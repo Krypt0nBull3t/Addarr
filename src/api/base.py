@@ -10,6 +10,7 @@ handling.
 """
 
 from abc import ABC, abstractmethod
+import asyncio
 import json
 import os
 import aiohttp
@@ -55,11 +56,34 @@ class APIError(Exception):
 class BaseApiClient(ABC):
     """Base class for API clients"""
 
-    def __init__(self, service_name):
+    DEFAULT_TIMEOUT = 30
+    DEFAULT_MAX_RETRIES = 2
+    DEFAULT_BACKOFF_BASE = 1.0
+    RETRYABLE_STATUS_CODES = frozenset({500, 502, 503, 504})
+
+    def __init__(self, service_name, request_timeout=None):
         self.service_name = service_name
         self.config = config[service_name]
         self.logger = get_logger(f"addarr.{service_name}")
         self.base_url = self._build_base_url()
+        self.request_timeout = (
+            request_timeout if request_timeout is not None
+            else self.DEFAULT_TIMEOUT
+        )
+        self._session = None
+
+    async def _get_session(self):
+        """Get or create a reusable aiohttp session with default timeout."""
+        if self._session is None or self._session.closed:
+            timeout = aiohttp.ClientTimeout(total=self.request_timeout)
+            self._session = aiohttp.ClientSession(timeout=timeout)
+        return self._session
+
+    async def close(self):
+        """Close the aiohttp session if open."""
+        if self._session is not None and not self._session.closed:
+            await self._session.close()
+        self._session = None
 
     def _build_base_url(self):
         """Build the base URL for API requests"""
@@ -98,24 +122,45 @@ class BaseApiClient(ABC):
         except json.JSONDecodeError:
             return response_text
 
-    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: str = None) -> Tuple[bool, Any, Optional[str]]:
-        """Make an API request
+    def _is_retryable_status(self, status_code: int) -> bool:
+        """Check if an HTTP status code is retryable."""
+        return status_code in self.RETRYABLE_STATUS_CODES
+
+    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: str = None, timeout: int = None, max_retries: int = None) -> Tuple[bool, Any, Optional[str]]:
+        """Make an API request with retry and exponential backoff.
 
         Args:
             endpoint: API endpoint
             method: HTTP method
             data: Request data
             title: Title/name of the item being processed
+            timeout: Per-request timeout in seconds (overrides instance default)
+            max_retries: Max retry attempts (overrides instance default)
 
         Returns:
             Tuple[bool, Any, Optional[str]]: (success, data, error_message)
         """
         url = f"{self.base_url}/api/v3/{endpoint}"
-        self.logger.info(f"🌐 API Request: {method} {url}")
+        retries = (
+            max_retries if max_retries is not None
+            else self.DEFAULT_MAX_RETRIES
+        )
 
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.request(method, url, headers=self._get_headers(), json=data) as response:
+        request_kwargs = {
+            "headers": self._get_headers(),
+            "json": data,
+        }
+        if timeout is not None:
+            request_kwargs["timeout"] = aiohttp.ClientTimeout(total=timeout)
+
+        last_error_message = None
+
+        for attempt in range(retries + 1):
+            self.logger.info(f"🌐 API Request: {method} {url}")
+
+            try:
+                session = await self._get_session()
+                async with session.request(method, url, **request_kwargs) as response:
                     response_text = await response.text()
 
                     if response.status == 200:
@@ -123,24 +168,61 @@ class BaseApiClient(ABC):
                         return True, json.loads(response_text) if response_text else None, None
 
                     # Parse error response with title context
-                    error_message = self._parse_error_response(response_text, title)
+                    error_message = self._parse_error_response(
+                        response_text, title
+                    )
 
-                    # Log at appropriate level based on error type
+                    # Retry on retryable status codes
+                    if (
+                        self._is_retryable_status(response.status)
+                        and attempt < retries
+                    ):
+                        delay = self.DEFAULT_BACKOFF_BASE * (2 ** attempt)
+                        self.logger.warning(
+                            f"⚠️ Retryable error ({response.status}), "
+                            f"retrying in {delay}s "
+                            f"(attempt {attempt + 1}/{retries + 1})"
+                        )
+                        await asyncio.sleep(delay)
+                        last_error_message = error_message
+                        continue
+
+                    # Non-retryable or final attempt
                     if "already" in error_message.lower():
                         self.logger.info(f"ℹ️ {error_message}")
                     else:
-                        self.logger.error(f"❌ API request failed ({response.status}): {error_message}")
-
+                        self.logger.error(
+                            f"❌ API request failed ({response.status}): "
+                            f"{error_message}"
+                        )
                     return False, None, error_message
 
-        except aiohttp.ClientError as e:
-            error_message = f"Connection error: {str(e)}"
-            self.logger.error(f"❌ {error_message}")
-            return False, None, error_message
-        except Exception as e:
-            error_message = f"Unexpected error: {str(e)}"
-            self.logger.error(f"❌ {error_message}")
-            return False, None, error_message
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if isinstance(e, asyncio.TimeoutError):
+                    error_message = "Connection error: timeout"
+                else:
+                    error_message = f"Connection error: {str(e)}"
+                last_error_message = error_message
+
+                if attempt < retries:
+                    delay = self.DEFAULT_BACKOFF_BASE * (2 ** attempt)
+                    self.logger.warning(
+                        f"⚠️ {error_message}, retrying in {delay}s "
+                        f"(attempt {attempt + 1}/{retries + 1})"
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+                self.logger.error(f"❌ {error_message}")
+                return False, None, error_message
+
+            except Exception as e:
+                error_message = f"Unexpected error: {str(e)}"
+                self.logger.error(f"❌ {error_message}")
+                return False, None, error_message
+
+        # Should not reach here, but safety fallback
+        return False, None, last_error_message
 
     @abstractmethod
     def search(self, term):
