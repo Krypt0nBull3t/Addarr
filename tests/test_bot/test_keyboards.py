@@ -499,3 +499,227 @@ class TestSettingsKeyboardBackButton:
             for button in row
         ]
         assert "settings_back" in callback_data_values
+
+
+# ---------------------------------------------------------------------------
+# get_search_results_list_keyboard
+# ---------------------------------------------------------------------------
+
+
+class TestSearchResultsListKeyboard:
+    """Tests for the paginated search results list keyboard."""
+
+    def _make_results(self, count=3):
+        """Create sample search results."""
+        return [
+            {"id": str(i), "title": f"Movie {i}", "overview": "Overview"}
+            for i in range(count)
+        ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_renders_result_titles_with_movie_emoji(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(3)
+        keyboard = get_search_results_list_keyboard(
+            results, page=0, page_size=5, search_type="movie"
+        )
+        buttons = keyboard.inline_keyboard
+
+        for i in range(3):
+            assert buttons[i][0].text.startswith("\U0001f3ac")
+            assert f"Movie {i}" in buttons[i][0].text
+            assert buttons[i][0].callback_data == f"listsel_{i}"
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_renders_series_emoji(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(2)
+        keyboard = get_search_results_list_keyboard(
+            results, page=0, page_size=5, search_type="series"
+        )
+        buttons = keyboard.inline_keyboard
+
+        for i in range(2):
+            assert buttons[i][0].text.startswith("\U0001f4fa")
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_renders_music_emoji(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(2)
+        keyboard = get_search_results_list_keyboard(
+            results, page=0, page_size=5, search_type="music"
+        )
+        buttons = keyboard.inline_keyboard
+
+        for i in range(2):
+            assert buttons[i][0].text.startswith("\U0001f3b5")
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_buttons_on_first_page(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(10)
+        keyboard = get_search_results_list_keyboard(
+            results, page=0, page_size=5, search_type="movie"
+        )
+        buttons = keyboard.inline_keyboard
+
+        # After 5 result rows, should have pagination row
+        pagination_row = buttons[5]
+        page_btn = next(
+            b for b in pagination_row if b.callback_data == "listpage_noop"
+        )
+        assert "1" in page_btn.text and "2" in page_btn.text
+
+        next_btn = next(
+            b for b in pagination_row if b.callback_data == "listpage_1"
+        )
+        assert "\u25b6" in next_btn.text
+
+        # No prev button on first page
+        prev_cbs = [b.callback_data for b in pagination_row]
+        assert "listpage_-1" not in prev_cbs
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_buttons_on_last_page(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(10)
+        keyboard = get_search_results_list_keyboard(
+            results, page=1, page_size=5, search_type="movie"
+        )
+        buttons = keyboard.inline_keyboard
+
+        pagination_row = buttons[5]
+        prev_btn = next(
+            b for b in pagination_row if b.callback_data == "listpage_0"
+        )
+        assert "\u25c0" in prev_btn.text
+
+        # No next button on last page
+        next_cbs = [b.callback_data for b in pagination_row]
+        assert "listpage_2" not in next_cbs
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_page_indicator_shows_correct_page(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(15)
+        keyboard = get_search_results_list_keyboard(
+            results, page=1, page_size=5, search_type="movie"
+        )
+        buttons = keyboard.inline_keyboard
+
+        pagination_row = buttons[5]
+        page_btn = next(
+            b for b in pagination_row if b.callback_data == "listpage_noop"
+        )
+        assert "2" in page_btn.text and "3" in page_btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_single_page_omits_pagination_row(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(3)
+        keyboard = get_search_results_list_keyboard(
+            results, page=0, page_size=5, search_type="movie"
+        )
+        buttons = keyboard.inline_keyboard
+
+        # 3 result rows + 1 bottom row (viewtoggle + cancel) = 4 total
+        assert len(buttons) == 4
+
+        all_callbacks = [
+            b.callback_data for row in buttons for b in row
+        ]
+        assert not any(
+            cb.startswith("listpage_") for cb in all_callbacks
+        )
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_bottom_row_has_viewtoggle_and_cancel(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(3)
+        keyboard = get_search_results_list_keyboard(
+            results, page=0, page_size=5, search_type="movie"
+        )
+        buttons = keyboard.inline_keyboard
+
+        bottom_row = buttons[-1]
+        callbacks = [b.callback_data for b in bottom_row]
+        assert "viewtoggle" in callbacks
+        assert "select_cancel" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_page_slices_results_correctly(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = self._make_results(8)
+        keyboard = get_search_results_list_keyboard(
+            results, page=1, page_size=5, search_type="movie"
+        )
+        buttons = keyboard.inline_keyboard
+
+        result_rows = [
+            row for row in buttons
+            if row[0].callback_data.startswith("listsel_")
+        ]
+        assert len(result_rows) == 3
+        assert result_rows[0][0].callback_data == "listsel_5"
+        assert result_rows[2][0].callback_data == "listsel_7"
+
+
+# ---------------------------------------------------------------------------
+# get_list_detail_keyboard
+# ---------------------------------------------------------------------------
+
+
+class TestListDetailKeyboard:
+    """Tests for the list detail view keyboard."""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_add_button_with_correct_id(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_list_detail_keyboard
+
+        keyboard = get_list_detail_keyboard("movie_123")
+        buttons = keyboard.inline_keyboard
+
+        add_btn = buttons[0][0]
+        assert add_btn.callback_data == "select_movie_123"
+        assert "Add" in add_btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_list_detail_keyboard
+
+        keyboard = get_list_detail_keyboard("movie_123")
+        buttons = keyboard.inline_keyboard
+
+        back_btn = buttons[1][0]
+        assert back_btn.callback_data == "listback"
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_cancel_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_list_detail_keyboard
+
+        keyboard = get_list_detail_keyboard("movie_123")
+        buttons = keyboard.inline_keyboard
+
+        cancel_btn = buttons[2][0]
+        assert cancel_btn.callback_data == "select_cancel"
