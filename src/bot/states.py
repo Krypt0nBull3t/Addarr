@@ -14,6 +14,7 @@ class States:
     SELECTING = 2
     QUALITY_SELECT = 3
     SEASON_SELECT = 4
+    ALBUM_SELECT = 5
 
     # Settings states
     SETTINGS_MENU = "settings_menu"

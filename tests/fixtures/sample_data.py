@@ -128,6 +128,60 @@ LIDARR_SEARCH_RESULTS = [
     },
 ]
 
+LIDARR_ALBUM_SEARCH_RESULTS = [
+    {
+        "foreignAlbumId": "b1ae2a0f-5b83-4d98-93e2-4e7a9f7a7c1d",
+        "title": "Hybrid Theory",
+        "artist": {
+            "foreignArtistId": "f59c5520-5f46-4d2c-b2c4-822eabf53419",
+            "artistName": "Linkin Park",
+        },
+        "images": [{"coverType": "cover", "remoteUrl": "https://example.com/album1.jpg"}],
+        "releaseDate": "2000-10-24T00:00:00Z",
+        "overview": "Debut studio album by Linkin Park",
+        "ratings": {"value": 8.5},
+        "genres": ["Rock", "Nu Metal"],
+        "albumType": "Album",
+    },
+    {
+        "foreignAlbumId": "c2bf3b1e-6c94-5ea9-a4f3-5e8b0a8b8d2e",
+        "title": "Meteora",
+        "artist": {
+            "foreignArtistId": "f59c5520-5f46-4d2c-b2c4-822eabf53419",
+            "artistName": "Linkin Park",
+        },
+        "images": [{"coverType": "cover", "remoteUrl": "https://example.com/album2.jpg"}],
+        "releaseDate": "2003-03-25T00:00:00Z",
+        "overview": "Second studio album by Linkin Park",
+        "ratings": {"value": 8.3},
+        "genres": ["Rock", "Nu Metal"],
+        "albumType": "Album",
+    },
+]
+
+LIDARR_ALBUM_WITH_TRACKS = {
+    "foreignAlbumId": "b1ae2a0f-5b83-4d98-93e2-4e7a9f7a7c1d",
+    "title": "Hybrid Theory",
+    "artist": {
+        "foreignArtistId": "f59c5520-5f46-4d2c-b2c4-822eabf53419",
+        "artistName": "Linkin Park",
+    },
+    "images": [{"coverType": "cover", "remoteUrl": "https://example.com/album1.jpg"}],
+    "releaseDate": "2000-10-24T00:00:00Z",
+    "media": [
+        {
+            "mediumNumber": 1,
+            "mediumName": "",
+            "mediumFormat": "CD",
+            "tracks": [
+                {"trackNumber": "1", "title": "Papercut", "duration": 185000},
+                {"trackNumber": "2", "title": "One Step Closer", "duration": 156000},
+                {"trackNumber": "3", "title": "With You", "duration": 203000},
+            ],
+        }
+    ],
+}
+
 LIDARR_METADATA_PROFILES = [
     {"id": 1, "name": "Standard"},
     {"id": 2, "name": "None"},

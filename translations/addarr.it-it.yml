@@ -90,7 +90,15 @@ it-it:
   FutureEpisodes: "⏩ Episodi futuri"
   SelectSeasons: "📺 Seleziona le stagioni da scaricare"
   ConfirmSelection: "✅ Conferma selezione"
-  
+
+  # Album selection
+  AlbumMonitorAll: "💿 All Albums"
+  AlbumMonitorPick: "🎯 Pick Specific Albums"
+  AllAlbums: "💿 Tutti gli Album"
+  AlbumSelectPrompt: "🎵 Select albums to monitor"
+  AlbumConfirm: "✅ Confirm album selection"
+  FutureAlbums: "🔄 Future Albums"
+
   # Quality selection
   SelectQuality: "🎯 Seleziona il profilo di qualità"
   

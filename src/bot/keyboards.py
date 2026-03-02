@@ -304,7 +304,8 @@ def get_search_results_list_keyboard(
         search_type: "movie", "series", or "music" for emoji prefix.
     """
     emoji_map = {"movie": "\U0001f3ac", "series": "\U0001f4fa", "music": "\U0001f3b5"}
-    emoji = emoji_map.get(search_type, "\U0001f3ac")
+    music_type_emoji = {"artist": "\U0001f3a4", "album": "\U0001f4bf", "song": "\U0001f3b5"}
+    default_emoji = emoji_map.get(search_type, "\U0001f3ac")
 
     total_pages = max(1, -(-len(results) // page_size))  # ceil division
     start = page * page_size
@@ -316,6 +317,11 @@ def get_search_results_list_keyboard(
     # Result buttons
     for i, result in enumerate(page_results):
         idx = start + i
+        # Per-result emoji for music based on music_type
+        if search_type == "music" and "music_type" in result:
+            emoji = music_type_emoji.get(result["music_type"], default_emoji)
+        else:
+            emoji = default_emoji
         keyboard.append([
             InlineKeyboardButton(
                 f"{emoji} {result['title']}",
@@ -385,6 +391,83 @@ def get_list_detail_keyboard(result_id: str) -> InlineKeyboardMarkup:
             callback_data="select_cancel"
         )],
     ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_album_monitor_mode_keyboard() -> InlineKeyboardMarkup:
+    """Get album monitor mode selection keyboard.
+
+    Prompts the user to choose between monitoring all albums
+    or picking specific albums for an artist.
+    """
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            f"💿 {translation.get_text('AlbumMonitorAll', default='All Albums')}",
+            callback_data="album_monitor_mode_all"
+        )],
+        [InlineKeyboardButton(
+            f"🎯 {translation.get_text('AlbumMonitorPick', default='Pick Specific Albums')}",
+            callback_data="album_monitor_mode_pick"
+        )],
+        [InlineKeyboardButton(
+            f"❌ {translation.get_text('Cancel')}",
+            callback_data="menu_cancel"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_album_selection_keyboard(
+    albums: list, selected_albums: set, future_mode: bool,
+) -> InlineKeyboardMarkup:
+    """Get album selection keyboard with toggle buttons.
+
+    Args:
+        albums: List of album dicts with album_id, title, release_date.
+        selected_albums: Set of selected album IDs.
+        future_mode: Whether future albums monitoring is enabled.
+    """
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            f"{'✅ ' if future_mode else ''}🔄 {translation.get_text('FutureAlbums', default='Future Albums')}",
+            callback_data="albumsel_future"
+        )],
+        [InlineKeyboardButton(
+            f"💿 {translation.get_text('AllAlbums', default='All Albums')}",
+            callback_data="albumsel_all"
+        )],
+    ]
+
+    # Individual album buttons
+    for album in albums:
+        album_id = album["album_id"]
+        is_selected = album_id in selected_albums
+        title = album["title"]
+        year = album.get("release_date", "")[:4]
+        label = f"{'✅ ' if is_selected else ''}{title}"
+        if year:
+            label += f" ({year})"
+        keyboard.append([InlineKeyboardButton(
+            label, callback_data=f"albumsel_{album_id}"
+        )])
+
+    # Action buttons
+    keyboard.extend([
+        [InlineKeyboardButton(
+            f"👁️ {translation.get_text('MonitorAll', default='Monitor All')}",
+            callback_data="albumsel_monitor_all"
+        )],
+        [InlineKeyboardButton(
+            f"✅ {translation.get_text('ConfirmSelection', default='Confirm Selection')}",
+            callback_data="albumsel_confirm"
+        )],
+        [InlineKeyboardButton(
+            f"❌ {translation.get_text('Cancel')}",
+            callback_data="menu_cancel"
+        )],
+    ])
     return InlineKeyboardMarkup(keyboard)
 
 

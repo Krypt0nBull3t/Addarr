@@ -90,7 +90,15 @@ nl-be:
   FutureEpisodes: "⏩ Toekomstige afleveringen"
   SelectSeasons: "📺 Selecteer seizoenen om te downloaden"
   ConfirmSelection: "✅ Bevestig selectie"
-  
+
+  # Album selection
+  AlbumMonitorAll: "💿 All Albums"
+  AlbumMonitorPick: "🎯 Pick Specific Albums"
+  AllAlbums: "💿 Alle Albums"
+  AlbumSelectPrompt: "🎵 Select albums to monitor"
+  AlbumConfirm: "✅ Confirm album selection"
+  FutureAlbums: "🔄 Future Albums"
+
   # Quality selection
   SelectQuality: "🎯 Selecteer kwaliteitsprofiel"
   

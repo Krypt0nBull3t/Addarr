@@ -52,6 +52,52 @@ SAMPLE_ARTIST = {
     "status": "active",
 }
 
+SAMPLE_ALBUM = {
+    "foreignAlbumId": "album-id-abc",
+    "title": "OK Computer",
+    "artist": {
+        "foreignArtistId": "some-mbid-123",
+        "artistName": "Radiohead",
+    },
+    "images": [
+        {"coverType": "cover", "remoteUrl": "https://example.com/okcomputer.jpg"}
+    ],
+    "releaseDate": "1997-05-21T00:00:00Z",
+    "overview": "Third studio album...",
+    "ratings": {"value": 9.5},
+    "genres": ["Alternative Rock"],
+    "albumType": "Album",
+}
+
+SAMPLE_ALBUM_WITH_TRACKS = {
+    "foreignAlbumId": "album-id-abc",
+    "title": "OK Computer",
+    "artist": {
+        "foreignArtistId": "some-mbid-123",
+        "artistName": "Radiohead",
+    },
+    "images": [
+        {"coverType": "cover", "remoteUrl": "https://example.com/okcomputer.jpg"}
+    ],
+    "releaseDate": "1997-05-21T00:00:00Z",
+    "overview": "Third studio album...",
+    "ratings": {"value": 9.5},
+    "genres": ["Alternative Rock"],
+    "albumType": "Album",
+    "media": [
+        {
+            "mediumNumber": 1,
+            "mediumName": "",
+            "mediumFormat": "CD",
+            "tracks": [
+                {"trackNumber": "1", "title": "Airbag"},
+                {"trackNumber": "2", "title": "Paranoid Android"},
+                {"trackNumber": "3", "title": "Subterranean Homesick Alien"},
+            ],
+        }
+    ],
+}
+
 
 # ---------------------------------------------------------------------------
 # Singleton
@@ -1291,3 +1337,290 @@ class TestDeleteMusicService:
 
         with pytest.raises(Exception, match="API error"):
             await service.delete_music("1")
+
+
+# ---------------------------------------------------------------------------
+# search_music — combined artist + album + song search
+# ---------------------------------------------------------------------------
+
+
+class TestSearchMusicCombined:
+    @pytest.mark.asyncio
+    async def test_combined_results_have_music_type(self, mock_lidarr_client):
+        """search_music returns results with music_type on each item."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
+
+        results = await service.search_music("radiohead")
+
+        artists = [r for r in results if r["music_type"] == "artist"]
+        albums = [r for r in results if r["music_type"] == "album"]
+        assert len(artists) == 1
+        assert len(albums) == 1
+
+    @pytest.mark.asyncio
+    async def test_album_ids_prefixed(self, mock_lidarr_client):
+        """Album result IDs are prefixed with 'album:'."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = []
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
+
+        results = await service.search_music("ok computer")
+
+        assert results[0]["id"] == "album:album-id-abc"
+        assert results[0]["album_id"] == "album-id-abc"
+        assert results[0]["artist_id"] == "some-mbid-123"
+
+    @pytest.mark.asyncio
+    async def test_song_results_from_track_data(self, mock_lidarr_client):
+        """Song results extracted when album track data matches query."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = []
+        mock_lidarr_client.search_albums.return_value = [
+            SAMPLE_ALBUM_WITH_TRACKS
+        ]
+
+        results = await service.search_music("paranoid android")
+
+        songs = [r for r in results if r["music_type"] == "song"]
+        assert len(songs) == 1
+        assert songs[0]["title"] == "Paranoid Android"
+        assert songs[0]["album_id"] == "album-id-abc"
+        assert songs[0]["artist_id"] == "some-mbid-123"
+
+    @pytest.mark.asyncio
+    async def test_no_song_when_no_track_data(self, mock_lidarr_client):
+        """No song results when album has no media/track data."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = []
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
+
+        results = await service.search_music("paranoid android")
+
+        songs = [r for r in results if r["music_type"] == "song"]
+        assert len(songs) == 0
+
+    @pytest.mark.asyncio
+    async def test_albums_without_foreign_id_skipped(self, mock_lidarr_client):
+        """Albums missing foreignAlbumId are filtered out."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = []
+        mock_lidarr_client.search_albums.return_value = [
+            {"title": "No ID Album", "artist": {}},
+            SAMPLE_ALBUM,
+        ]
+
+        results = await service.search_music("test")
+
+        albums = [r for r in results if r["music_type"] == "album"]
+        assert len(albums) == 1
+        assert albums[0]["title"] == "OK Computer"
+
+    @pytest.mark.asyncio
+    async def test_artists_only_when_albums_empty(self, mock_lidarr_client):
+        """When album search returns empty, only artist results returned."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+        mock_lidarr_client.search_albums.return_value = []
+
+        results = await service.search_music("radiohead")
+
+        assert len(results) == 1
+        assert results[0]["music_type"] == "artist"
+
+    @pytest.mark.asyncio
+    async def test_albums_only_when_artists_empty(self, mock_lidarr_client):
+        """When artist search returns empty, only album results returned."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = []
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
+
+        results = await service.search_music("ok computer")
+
+        assert len(results) == 1
+        assert results[0]["music_type"] == "album"
+
+    @pytest.mark.asyncio
+    async def test_artist_fields_preserved(self, mock_lidarr_client):
+        """Existing artist result fields preserved (backwards compatibility)."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+        mock_lidarr_client.search_albums.return_value = []
+
+        results = await service.search_music("radiohead")
+
+        r = results[0]
+        assert r["id"] == "some-mbid-123"
+        assert r["title"] == "Radiohead"
+        assert r["overview"] == "English rock band..."
+        assert r["rating"] == 9.1
+        assert r["status"] == "active"
+        assert r["data"] == SAMPLE_ARTIST
+
+    @pytest.mark.asyncio
+    async def test_result_ordering(self, mock_lidarr_client):
+        """Results ordered: artists first, then albums, then songs."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+        mock_lidarr_client.search_albums.return_value = [
+            SAMPLE_ALBUM_WITH_TRACKS
+        ]
+
+        results = await service.search_music("radiohead")
+
+        types = [r["music_type"] for r in results]
+        # Artists before albums; songs (if any) after albums
+        artist_idx = [i for i, t in enumerate(types) if t == "artist"]
+        album_idx = [i for i, t in enumerate(types) if t == "album"]
+        song_idx = [i for i, t in enumerate(types) if t == "song"]
+
+        if artist_idx and album_idx:
+            assert max(artist_idx) < min(album_idx)
+        if album_idx and song_idx:
+            assert max(album_idx) < min(song_idx)
+
+
+# ---------------------------------------------------------------------------
+# add_music_with_profile — albums_to_monitor pass-through
+# ---------------------------------------------------------------------------
+
+
+class TestAddMusicWithProfileAlbums:
+    @pytest.mark.asyncio
+    async def test_passes_albums_to_monitor(self, mock_lidarr_client):
+        """albums_to_monitor is passed through to lidarr.add_artist()."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.add_artist.return_value = (True, "Added")
+
+        success, msg = await service.add_music_with_profile(
+            "some-mbid-123", 1, "/music",
+            albums_to_monitor=["alb-1", "alb-2"],
+        )
+
+        assert success is True
+        mock_lidarr_client.add_artist.assert_awaited_once_with(
+            "some-mbid-123", "/music", 1,
+            albums_to_monitor=["alb-1", "alb-2"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_albums_to_monitor_backwards_compat(
+        self, mock_lidarr_client
+    ):
+        """Without albums_to_monitor, add_artist called without it."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.add_artist.return_value = (True, "Added")
+
+        success, msg = await service.add_music_with_profile(
+            "some-mbid-123", 1, "/music"
+        )
+
+        assert success is True
+        mock_lidarr_client.add_artist.assert_awaited_once_with(
+            "some-mbid-123", "/music", 1,
+        )
+
+    @pytest.mark.asyncio
+    async def test_passes_future_albums(self, mock_lidarr_client):
+        """future_albums is passed through to lidarr.add_artist()."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.add_artist.return_value = (True, "Added")
+
+        success, msg = await service.add_music_with_profile(
+            "some-mbid-123", 1, "/music",
+            albums_to_monitor=["alb-1"],
+            future_albums=True,
+        )
+
+        assert success is True
+        mock_lidarr_client.add_artist.assert_awaited_once_with(
+            "some-mbid-123", "/music", 1,
+            albums_to_monitor=["alb-1"],
+            future_albums=True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_future_albums_false_not_passed(self, mock_lidarr_client):
+        """future_albums=False is not passed (backwards compat)."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.add_artist.return_value = (True, "Added")
+
+        success, msg = await service.add_music_with_profile(
+            "some-mbid-123", 1, "/music",
+            albums_to_monitor=["alb-1"],
+        )
+
+        assert success is True
+        mock_lidarr_client.add_artist.assert_awaited_once_with(
+            "some-mbid-123", "/music", 1,
+            albums_to_monitor=["alb-1"],
+        )
+
+
+# ---------------------------------------------------------------------------
+# get_artist_albums
+# ---------------------------------------------------------------------------
+
+
+class TestGetArtistAlbums:
+    @pytest.mark.asyncio
+    async def test_returns_normalized_albums(self, mock_lidarr_client):
+        """get_artist_albums returns normalized album list."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search_albums.return_value = [
+            SAMPLE_ALBUM,
+            {
+                "foreignAlbumId": "album-id-xyz",
+                "title": "Kid A",
+                "artist": {
+                    "foreignArtistId": "some-mbid-123",
+                    "artistName": "Radiohead",
+                },
+                "releaseDate": "2000-10-02T00:00:00Z",
+            },
+        ]
+
+        albums = await service.get_artist_albums("some-mbid-123")
+
+        assert len(albums) == 2
+        assert albums[0]["album_id"] == "album-id-abc"
+        assert albums[0]["title"] == "OK Computer"
+        assert albums[0]["release_date"] == "1997-05-21T00:00:00Z"
+        assert albums[1]["album_id"] == "album-id-xyz"
+        assert albums[1]["title"] == "Kid A"
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_exception(self, mock_lidarr_client):
+        """get_artist_albums returns [] on exception."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search_albums.side_effect = Exception("API error")
+
+        albums = await service.get_artist_albums("some-mbid-123")
+
+        assert albums == []
+
+    @pytest.mark.asyncio
+    async def test_disabled_returns_empty(self):
+        """get_artist_albums returns [] when Lidarr disabled."""
+        service = MediaService()
+        MediaService._lidarr = None
+
+        albums = await service.get_artist_albums("some-mbid-123")
+
+        assert albums == []

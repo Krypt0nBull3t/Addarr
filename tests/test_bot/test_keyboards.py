@@ -561,6 +561,27 @@ class TestSearchResultsListKeyboard:
             assert buttons[i][0].text.startswith("\U0001f3b5")
 
     @patch("src.bot.keyboards.TranslationService")
+    def test_renders_per_result_music_type_emoji(self, mock_ts):
+        """Music results with music_type use per-result emoji."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_search_results_list_keyboard
+
+        results = [
+            {"id": "1", "title": "Artist A", "music_type": "artist"},
+            {"id": "2", "title": "Album B", "music_type": "album"},
+            {"id": "3", "title": "Song C", "music_type": "song"},
+        ]
+        keyboard = get_search_results_list_keyboard(
+            results, page=0, page_size=5, search_type="music"
+        )
+        buttons = keyboard.inline_keyboard
+
+        # artist = 🎤, album = 💿, song = 🎵
+        assert buttons[0][0].text.startswith("\U0001f3a4")
+        assert buttons[1][0].text.startswith("\U0001f4bf")
+        assert buttons[2][0].text.startswith("\U0001f3b5")
+
+    @patch("src.bot.keyboards.TranslationService")
     def test_pagination_buttons_on_first_page(self, mock_ts):
         _mock_translation(mock_ts)
         from src.bot.keyboards import get_search_results_list_keyboard
@@ -685,6 +706,195 @@ class TestSearchResultsListKeyboard:
 # ---------------------------------------------------------------------------
 # get_list_detail_keyboard
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# get_album_monitor_mode_keyboard
+# ---------------------------------------------------------------------------
+
+
+class TestAlbumMonitorModeKeyboard:
+    """Tests for get_album_monitor_mode_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_all_albums_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_monitor_mode_keyboard
+
+        result = get_album_monitor_mode_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "album_monitor_mode_all" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_pick_specific_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_monitor_mode_keyboard
+
+        result = get_album_monitor_mode_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "album_monitor_mode_pick" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_cancel_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_monitor_mode_keyboard
+
+        result = get_album_monitor_mode_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "menu_cancel" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_monitor_mode_keyboard
+
+        result = get_album_monitor_mode_keyboard()
+        assert isinstance(result, InlineKeyboardMarkup)
+
+
+# ---------------------------------------------------------------------------
+# get_album_selection_keyboard
+# ---------------------------------------------------------------------------
+
+
+class TestAlbumSelectionKeyboard:
+    """Tests for get_album_selection_keyboard"""
+
+    SAMPLE_ALBUMS = [
+        {"album_id": "abc-123", "title": "Album One", "release_date": "2020-01-01"},
+        {"album_id": "def-456", "title": "Album Two", "release_date": "2021-06-15"},
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), False)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_album_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), False)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "albumsel_abc-123" in callbacks
+        assert "albumsel_def-456" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_selected_albums_show_checkmarks(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(
+            self.SAMPLE_ALBUMS, {"abc-123"}, False
+        )
+        # Find the button for abc-123
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "albumsel_abc-123":
+                    assert "✅" in btn.text
+                if btn.callback_data == "albumsel_def-456":
+                    assert "✅" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_all_albums_button_uses_album_key(self, mock_ts):
+        """All Albums button uses AllAlbums key, not AllSeasons."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), False)
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "albumsel_all":
+                    # Should use album emoji, not TV emoji
+                    assert "💿" in btn.text
+                    assert "📺" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_all_toggle_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), False)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "albumsel_all" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_future_toggle_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), False)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "albumsel_future" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_future_mode_shows_checkmark(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), True)
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "albumsel_future":
+                    assert "✅" in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_monitor_all_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), False)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "albumsel_monitor_all" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_confirm_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), False)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "albumsel_confirm" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_cancel_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_album_selection_keyboard
+
+        result = get_album_selection_keyboard(self.SAMPLE_ALBUMS, set(), False)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "menu_cancel" in callbacks
 
 
 class TestListDetailKeyboard:
