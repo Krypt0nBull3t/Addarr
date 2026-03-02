@@ -37,8 +37,23 @@ jobs:
               core.setFailed('No open PR found for this branch');
               return;
             }
-            const prNumber = pulls.data[0].number;
+            const pr = pulls.data[0];
+            const prNumber = pr.number;
             core.setOutput('number', prNumber);
+
+            // Skip AI review for merge PRs (development → main)
+            const isMergePR = pr.head.ref === 'development' && pr.base.ref === 'main';
+            core.setOutput('skip_ai_review', isMergePR ? 'true' : 'false');
+            if (isMergePR) {
+              core.info('Merge PR detected (development → main) — skipping AI review');
+            }
+
+            // Get PR details
+            core.setOutput('title', pr.title);
+            core.setOutput('body', pr.body || 'No description provided');
+
+            // Skip fetching diff for merge PRs — no review needed
+            if (isMergePR) return;
 
             // Get the diff
             const diff = await github.rest.pulls.get({
@@ -52,13 +67,8 @@ jobs:
             const diffText = diff.data.substring(0, 50000);
             fs.writeFileSync('pr_diff.txt', diffText);
 
-            // Get PR details
-            const pr = pulls.data[0];
-            core.setOutput('title', pr.title);
-            core.setOutput('body', pr.body || 'No description provided');
-
       - name: Filter diff for code review
-        if: steps.pr.outputs.number
+        if: steps.pr.outputs.number && steps.pr.outputs.skip_ai_review != 'true'
         run: |
           # Split diff into per-file sections and exclude non-code paths
           # Excluded: .claude/, docs/, .md files, .yml/.yaml in non-workflow dirs
@@ -98,7 +108,7 @@ jobs:
 
       - name: Rule-based checks
         id: rules
-        if: steps.pr.outputs.number
+        if: steps.pr.outputs.number && steps.pr.outputs.skip_ai_review != 'true'
         run: |
           WARNINGS=""
 
@@ -151,7 +161,7 @@ jobs:
 
       - name: AI code review via Groq
         id: ai_review
-        if: steps.pr.outputs.number
+        if: steps.pr.outputs.number && steps.pr.outputs.skip_ai_review != 'true'
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PR_TITLE: ${{ steps.pr.outputs.title }}
@@ -268,18 +278,27 @@ jobs:
         with:
           github-token: ${{ secrets.REVIEWER_BOT_TOKEN }}
           script: |
-            const fs = require('fs');
-            const aiReview = fs.readFileSync('ai_review.txt', 'utf8');
-            const ruleWarnings = fs.readFileSync('rule_warnings.txt', 'utf8');
-            const hasWarnings = '${{ steps.rules.outputs.found }}' === 'true';
+            const skipAiReview = '${{ steps.pr.outputs.skip_ai_review }}' === 'true';
+            let body;
 
-            let body = `## 🤖 Automated PR Review\n\n`;
-            body += `### AI Review\n${aiReview}\n\n`;
-
-            if (hasWarnings) {
-              body += `### ⚠️ Rule-based Warnings\n${ruleWarnings}\n\n`;
+            if (skipAiReview) {
+              body = `## 🤖 Automated PR Review\n\n`;
+              body += `Merge PR (development → main) — AI review and rule checks skipped.\n`;
+              body += `Individual PRs were already reviewed before merging into development.\n`;
             } else {
-              body += `### ✅ Rule-based Checks\nNo issues found.\n\n`;
+              const fs = require('fs');
+              const aiReview = fs.readFileSync('ai_review.txt', 'utf8');
+              const ruleWarnings = fs.readFileSync('rule_warnings.txt', 'utf8');
+              const hasWarnings = '${{ steps.rules.outputs.found }}' === 'true';
+
+              body = `## 🤖 Automated PR Review\n\n`;
+              body += `### AI Review\n${aiReview}\n\n`;
+
+              if (hasWarnings) {
+                body += `### ⚠️ Rule-based Warnings\n${ruleWarnings}\n\n`;
+              } else {
+                body += `### ✅ Rule-based Checks\nNo issues found.\n\n`;
+              }
             }
 
             // Post the review comment
