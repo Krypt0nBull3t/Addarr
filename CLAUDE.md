@@ -102,6 +102,12 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 Handlers are registered in `AddarrBot._add_handlers()` in this order: Start, Auth, Media, Transmission (if enabled), SABnzbd (if enabled), Help, Status. Order matters because `python-telegram-bot` matches the first matching handler.
 
+## Git Branching
+
+- **`main`** is the production branch. Never target `main` with a feature/fix PR.
+- **`development`** is the integration branch. All feature and fix PRs target `development`.
+- The only PRs that target `main` are merge PRs from `development` → `main` (releases).
+
 ## CI/CD
 
 GitHub Actions workflows in `.github/workflows/`:

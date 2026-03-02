@@ -63,47 +63,93 @@ jobs:
               mediaType: { format: 'diff' }
             });
             const fs = require('fs');
-            // Truncate diff to ~50KB — further trimmed later to fit 8K TPM limit
+            // Truncate diff to ~50KB — filter step trims further to 20K with priority
             const diffText = diff.data.substring(0, 50000);
             fs.writeFileSync('pr_diff.txt', diffText);
 
       - name: Filter diff for code review
         if: steps.pr.outputs.number && steps.pr.outputs.skip_ai_review != 'true'
         run: |
-          # Split diff into per-file sections and exclude non-code paths
-          # Excluded: .claude/, docs/, .md files, .yml/.yaml in non-workflow dirs
+          # Split diff into per-file sections, exclude non-code paths,
+          # then prioritize and truncate at file boundaries to fit 20K char budget
           python3 << 'FILTER_EOF'
           import re
+
+          CHAR_BUDGET = 20000
 
           with open('pr_diff.txt', 'r') as f:
               diff = f.read()
 
-          # Paths to exclude from rule-based checks (not source code)
+          # Paths to exclude entirely (not reviewable code)
           EXCLUDE_PATTERNS = [
               r'^\.claude/',
               r'^docs/',
+              r'^translations/',
+              r'^helm/',
               r'\.md$',
           ]
 
+          # Priority tiers (lower = higher priority)
+          def priority(path):
+              if path.startswith('src/') and path.endswith('.py'):
+                  return 0  # P0: source Python
+              if path.endswith('.py') and '/' not in path:
+                  return 1  # P1: root Python (run.py, setup.py)
+              if path.startswith('tests/') and path.endswith('.py'):
+                  return 2  # P2: test Python
+              return 3      # P3: everything else
+
           # Split into per-file hunks
           file_diffs = re.split(r'(?=^diff --git )', diff, flags=re.MULTILINE)
-          code_diffs = []
+          file_entries = []
 
           for section in file_diffs:
               if not section.strip():
                   continue
-              # Extract file path from "diff --git a/path b/path" or "+++ b/path"
               match = re.search(r'\+\+\+ b/(.+)', section)
               if not match:
                   continue
               path = match.group(1).strip()
-              # Skip excluded paths
               if any(re.search(p, path) for p in EXCLUDE_PATTERNS):
                   continue
-              code_diffs.append(section)
+              file_entries.append((priority(path), path, section))
+
+          # Sort by priority, then by path for stable ordering
+          file_entries.sort(key=lambda e: (e[0], e[1]))
+
+          # Accumulate files in priority order, never cut mid-file
+          included = []
+          dropped = []
+          used = 0
+
+          for pri, path, section in file_entries:
+              size = len(section)
+              if used + size <= CHAR_BUDGET:
+                  included.append(section)
+                  used += size
+              else:
+                  dropped.append(path)
+
+          result = '\n'.join(included)
+
+          if dropped:
+              notice = (
+                  "\n\n--- TRUNCATION NOTICE ---\n"
+                  "The following files were omitted due to size budget:\n"
+              )
+              for p in dropped:
+                  notice += f"  - {p}\n"
+              notice += (
+                  "Do NOT report issues about code in these files — "
+                  "you cannot see their contents.\n"
+              )
+              result += notice
 
           with open('pr_diff_code.txt', 'w') as f:
-              f.write('\n'.join(code_diffs))
+              f.write(result)
+
+          print(f"Included {len(included)} files ({used} chars), "
+                f"dropped {len(dropped)} files")
           FILTER_EOF
 
       - name: Rule-based checks
@@ -167,19 +213,14 @@ jobs:
           PR_TITLE: ${{ steps.pr.outputs.title }}
           PR_BODY: ${{ steps.pr.outputs.body }}
         run: |
-          # Build request with Python — use code-only diff, cap to stay within 8K TPM
+          # Build request with Python — use pre-filtered, budget-capped diff
           python3 << 'PYEOF'
           import json, os
 
-          # Prefer filtered diff (code only), fall back to full diff
+          # Prefer filtered diff (code only, already truncated to budget)
           diff_file = 'pr_diff_code.txt' if os.path.exists('pr_diff_code.txt') else 'pr_diff.txt'
           with open(diff_file, 'r') as f:
               diff = f.read()
-
-          # Token budget: 8K TPM limit on Groq free tier
-          # ~2K output + ~425 prompt overhead = ~5,500 tokens for diff (~20K chars)
-          if len(diff) > 20000:
-              diff = diff[:20000] + "\n\n... (diff truncated to stay within 8K TPM limit)"
 
           title = os.environ.get('PR_TITLE', 'PR Review')
           pr_body = os.environ.get('PR_BODY', '').strip()
@@ -196,6 +237,15 @@ jobs:
                           "You are a strict code reviewer for Addarr, a Python Telegram bot "
                           "using python-telegram-bot v20+, aiohttp, and a layered architecture "
                           "(handlers, services, API clients). All I/O is async.\n\n"
+                          "CRITICAL CONSTRAINTS:\n"
+                          "- The diff may be truncated. Files omitted due to size are listed "
+                          "at the end.\n"
+                          "- If you cannot see the complete implementation of a function, do "
+                          "NOT assume it is incomplete or broken. Absence of code is not "
+                          "evidence of a bug.\n"
+                          "- For each issue, you MUST quote the exact line(s) from the diff "
+                          "that demonstrate the problem. If you cannot quote real lines, do "
+                          "not report the issue.\n\n"
                           "This project values minimal, focused changes. Most PRs are correct "
                           "and clean. A good review often has zero issues and zero suggestions. "
                           "Only report problems you are confident would cause a real failure.\n\n"
@@ -219,7 +269,11 @@ jobs:
                           "name, docstring, or stated intent in the PR description\n\n"
                           "Format:\n"
                           "## Summary\nOne paragraph overview.\n\n"
-                          "## Issues\nOnly qualified issues, or 'No issues found.'\n\n"
+                          "## Issues\nFor each issue:\n"
+                          "1. **Description**: What is wrong\n"
+                          "2. **Evidence**: Quote the exact diff line(s) showing the problem\n"
+                          "3. **Impact**: What happens at runtime\n\n"
+                          "Or 'No issues found.'\n\n"
                           "## Suggestions\nOnly if you identified a specific, actionable fix "
                           "for a qualified issue, or 'No suggestions.'\n\n"
                           "If the code is correct, respond with 'No issues found.' and "
