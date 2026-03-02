@@ -197,9 +197,18 @@ def reset_singletons():
     from src.services.health import HealthService
     from src.services.translation import TranslationService
     from src.services.notification import NotificationService
+    from src.services.scheduler import JobScheduler
+    from src.services.transmission import TransmissionService
+    from src.services.sabnzbd import SABnzbdService
     from src.bot.handlers.auth import AuthHandler
 
     # Reset singletons
+    JobScheduler._instance = None
+
+    TransmissionService._instance = None
+
+    SABnzbdService._instance = None
+
     MediaService._instance = None
     MediaService._radarr = None
     MediaService._sonarr = None

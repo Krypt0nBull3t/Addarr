@@ -21,8 +21,10 @@ from unittest.mock import patch, MagicMock, AsyncMock
 async def test_handle_sabnzbd_not_available(
     mock_sab_class, mock_ts_class, make_update, make_context
 ):
-    """When sabnzbd_service is None, reply with 'not enabled' message."""
-    mock_sab_class.side_effect = ValueError("SABnzbd is not enabled")
+    """When sabnzbd service is not enabled, reply with 'not enabled' message."""
+    mock_sab = MagicMock()
+    mock_sab.is_enabled.return_value = False
+    mock_sab_class.return_value = mock_sab
 
     mock_ts = MagicMock()
     mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
@@ -34,7 +36,7 @@ async def test_handle_sabnzbd_not_available(
     AuthHandler._authenticated_users = {12345}
 
     handler = SabnzbdHandler()
-    assert handler.sabnzbd_service is None
+    assert handler.sabnzbd_service.is_enabled() is False
 
     handler.translation = mock_ts
 
@@ -199,7 +201,9 @@ async def test_handle_speed_selection_no_query(
 @patch("src.bot.handlers.sabnzbd.SABnzbdService")
 def test_get_handler_returns_empty_when_unavailable(mock_sab_class, mock_ts_class):
     """get_handler returns empty list when service is not available."""
-    mock_sab_class.side_effect = ValueError("SABnzbd is not enabled")
+    mock_sab = MagicMock()
+    mock_sab.is_enabled.return_value = False
+    mock_sab_class.return_value = mock_sab
     mock_ts_class.return_value = MagicMock()
 
     from src.bot.handlers.sabnzbd import SabnzbdHandler

@@ -19,16 +19,12 @@ class SabnzbdHandler:
     """Handler for SABnzbd-related commands"""
 
     def __init__(self):
-        try:
-            self.sabnzbd_service = SABnzbdService()
-            self.translation = TranslationService()
-        except Exception as e:
-            logger.error(f"Failed to initialize SABnzbdService: {e}")
-            self.sabnzbd_service = None
+        self.sabnzbd_service = SABnzbdService()
+        self.translation = TranslationService()
 
     def get_handler(self):
         """Get the conversation handler for SABnzbd"""
-        if not self.sabnzbd_service:
+        if not self.sabnzbd_service.is_enabled():
             logger.warning("SABnzbd service not available, skipping handler registration")
             return []
 
@@ -45,7 +41,7 @@ class SabnzbdHandler:
 
         log_user_interaction(logger, update.effective_user, "/sabnzbd")
 
-        if not self.sabnzbd_service:
+        if not self.sabnzbd_service.is_enabled():
             await update.message.reply_text(
                 self.translation.get_text("Sabnzbd.NotEnabled")
             )

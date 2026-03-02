@@ -37,6 +37,15 @@ def enabled_transmission_config():
 # ---------------------------------------------------------------------------
 
 
+class TestTransmissionServiceSingleton:
+    def test_singleton(self):
+        from src.services.transmission import TransmissionService
+
+        a = TransmissionService()
+        b = TransmissionService()
+        assert a is b
+
+
 class TestTransmissionServiceEnabled:
     def test_is_enabled_false(self):
         from src.services.transmission import TransmissionService

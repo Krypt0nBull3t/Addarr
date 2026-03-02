@@ -9,12 +9,18 @@ from .media import MediaService
 from .health import health_service
 from .translation import TranslationService
 from .notification import NotificationService
-from .scheduler import scheduler
+from .scheduler import scheduler, JobScheduler
+from .transmission import transmission_service, TransmissionService
+from .sabnzbd import SABnzbdService
 
 __all__ = [
     'MediaService',
     'health_service',
     'TranslationService',
     'NotificationService',
-    'scheduler'
+    'scheduler',
+    'JobScheduler',
+    'transmission_service',
+    'TransmissionService',
+    'SABnzbdService',
 ]

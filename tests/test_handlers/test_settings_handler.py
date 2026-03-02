@@ -1,7 +1,7 @@
 """Tests for src/bot/handlers/settings.py"""
 
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from telegram.ext import ConversationHandler
 
 from src.bot.states import States
@@ -626,12 +626,15 @@ class TestUsersFlow:
 class TestSabnzbdInitError:
     """SABnzbd service initialization error handling"""
 
-    def test_sabnzbd_service_none_when_valueerror(
+    def test_sabnzbd_service_disabled_when_not_enabled(
         self, mock_media_service, mock_translation_service
     ):
-        """SABnzbdService ValueError sets self.sabnzbd_service = None"""
+        """SABnzbdService with disabled config has is_enabled() == False"""
         from unittest.mock import patch, MagicMock
         from tests.conftest import MOCK_CONFIG_DATA
+
+        mock_sab = MagicMock()
+        mock_sab.is_enabled.return_value = False
 
         with (
             patch("src.bot.handlers.settings.TranslationService") as ts_cls,
@@ -641,7 +644,7 @@ class TestSabnzbdInitError:
             patch("src.bot.handlers.settings.TransmissionService"),
             patch(
                 "src.bot.handlers.settings.SABnzbdService",
-                side_effect=ValueError("SABnzbd not enabled"),
+                return_value=mock_sab,
             ),
         ):
             ts_cls.return_value = mock_translation_service
@@ -653,7 +656,8 @@ class TestSabnzbdInitError:
             from src.bot.handlers.settings import SettingsHandler
 
             handler = SettingsHandler()
-            assert handler.sabnzbd_service is None
+            assert handler.sabnzbd_service is not None
+            assert handler.sabnzbd_service.is_enabled() is False
 
 
 class TestDownloadsEdgeCases:
@@ -679,11 +683,13 @@ class TestDownloadsEdgeCases:
         assert "25%" in call_args.args[0]
 
     @pytest.mark.asyncio
-    async def test_handle_sabnzbd_pause_when_service_none(
+    async def test_handle_sabnzbd_pause_when_service_disabled(
         self, settings_handler, make_update, make_context
     ):
-        """Pause with sabnzbd_service=None shows not available message"""
-        settings_handler.sabnzbd_service = None
+        """Pause with sabnzbd_service disabled shows not available message"""
+        mock_sab = MagicMock()
+        mock_sab.is_enabled.return_value = False
+        settings_handler.sabnzbd_service = mock_sab
         update = make_update(callback_data="dl_sab_pause")
         context = make_context()
 

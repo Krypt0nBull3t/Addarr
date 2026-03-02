@@ -55,32 +55,55 @@ def sabnzbd_service(enabled_sabnzbd_config):
 # ---------------------------------------------------------------------------
 
 
-class TestSABnzbdServiceInit:
-    def test_init_disabled_raises(self):
+class TestSABnzbdServiceSingleton:
+    def test_singleton(self, enabled_sabnzbd_config):
         from src.services.sabnzbd import SABnzbdService
 
-        with pytest.raises(ValueError, match="SABnzbd is not enabled"):
-            SABnzbdService()
+        a = SABnzbdService()
+        b = SABnzbdService()
+        assert a is b
+
+
+class TestSABnzbdServiceInit:
+    def test_init_disabled_not_enabled(self):
+        """When sabnzbd is disabled, service exists but is_enabled() is False."""
+        from src.services.sabnzbd import SABnzbdService
+
+        service = SABnzbdService()
+        assert service.is_enabled() is False
 
     def test_init_success(self, enabled_sabnzbd_config):
         from src.services.sabnzbd import SABnzbdService
 
         service = SABnzbdService()
+        assert service.is_enabled() is True
         assert service.api_key == "test-sabnzbd-key"
         assert "localhost" in service.base_url
         assert "8090" in service.base_url
 
     def test_init_no_api_key(self, enabled_sabnzbd_config):
-        """When api key is missing, should raise ValueError."""
+        """When api key is missing, is_enabled() returns False."""
         from src.services.sabnzbd import SABnzbdService
 
         original_apikey = _mock_config._config["sabnzbd"]["auth"]["apikey"]
         _mock_config._config["sabnzbd"]["auth"]["apikey"] = None
         try:
-            with pytest.raises(ValueError, match="API key not configured"):
-                SABnzbdService()
+            service = SABnzbdService()
+            assert service.is_enabled() is False
         finally:
             _mock_config._config["sabnzbd"]["auth"]["apikey"] = original_apikey
+
+    def test_init_config_error(self, enabled_sabnzbd_config):
+        """When config keys are missing/corrupt, is_enabled() returns False."""
+        from src.services.sabnzbd import SABnzbdService
+
+        original_server = _mock_config._config["sabnzbd"]["server"]
+        _mock_config._config["sabnzbd"]["server"] = "not-a-dict"
+        try:
+            service = SABnzbdService()
+            assert service.is_enabled() is False
+        finally:
+            _mock_config._config["sabnzbd"]["server"] = original_server
 
 
 # ---------------------------------------------------------------------------
