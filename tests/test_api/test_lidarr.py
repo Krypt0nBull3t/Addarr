@@ -11,6 +11,8 @@ from aioresponses import CallbackResult
 
 from tests.fixtures.sample_data import (
     LIDARR_SEARCH_RESULTS,
+    LIDARR_ALBUM_SEARCH_RESULTS,
+    LIDARR_ALBUM_WITH_TRACKS,
     LIDARR_METADATA_PROFILES,
     LIDARR_LIBRARY_ARTISTS,
     LIDARR_LIBRARY_ARTIST_DETAIL,
@@ -847,3 +849,226 @@ class TestDeleteArtist:
         )
         result = await lidarr_client.delete_artist(1)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# search_albums
+# ---------------------------------------------------------------------------
+
+
+class TestLidarrSearchAlbums:
+    @pytest.mark.asyncio
+    async def test_search_albums_success(self, aio_mock, lidarr_client):
+        """search_albums returns album list from album/lookup endpoint."""
+        aio_mock.get(
+            f"{BASE}/album/lookup?term=test",
+            payload=LIDARR_ALBUM_SEARCH_RESULTS,
+            status=200,
+        )
+        results = await lidarr_client.search_albums("test")
+        assert len(results) == 2
+        assert results[0]["title"] == "Hybrid Theory"
+        assert results[1]["title"] == "Meteora"
+        assert results[0]["foreignAlbumId"] == "b1ae2a0f-5b83-4d98-93e2-4e7a9f7a7c1d"
+
+    @pytest.mark.asyncio
+    async def test_search_albums_empty(self, aio_mock, lidarr_client):
+        """search_albums returns [] when no results found."""
+        aio_mock.get(
+            f"{BASE}/album/lookup?term=zzzzz",
+            payload=[],
+            status=200,
+        )
+        results = await lidarr_client.search_albums("zzzzz")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_search_albums_exception(self, lidarr_client):
+        """search_albums returns [] on exception."""
+        with patch.object(
+            lidarr_client, "_make_request", side_effect=Exception("boom")
+        ):
+            results = await lidarr_client.search_albums("test")
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_album_tracks
+# ---------------------------------------------------------------------------
+
+
+class TestLidarrGetAlbumTracks:
+    @pytest.mark.asyncio
+    async def test_get_album_tracks_success(self, aio_mock, lidarr_client):
+        """get_album_tracks extracts track data from album media array."""
+        album_id = "b1ae2a0f-5b83-4d98-93e2-4e7a9f7a7c1d"
+        aio_mock.get(
+            f"{BASE}/album/lookup?term=lidarr:{album_id}",
+            payload=[LIDARR_ALBUM_WITH_TRACKS],
+            status=200,
+        )
+        tracks = await lidarr_client.get_album_tracks(album_id)
+        assert len(tracks) == 3
+        assert tracks[0]["title"] == "Papercut"
+        assert tracks[1]["title"] == "One Step Closer"
+        assert tracks[2]["title"] == "With You"
+
+    @pytest.mark.asyncio
+    async def test_get_album_tracks_no_media(self, aio_mock, lidarr_client):
+        """get_album_tracks returns [] when album has no media/track data."""
+        album_id = "b1ae2a0f-5b83-4d98-93e2-4e7a9f7a7c1d"
+        album_no_tracks = {
+            "foreignAlbumId": album_id,
+            "title": "Hybrid Theory",
+            "media": [
+                {"mediumNumber": 1, "mediumName": "", "mediumFormat": "CD"}
+            ],
+        }
+        aio_mock.get(
+            f"{BASE}/album/lookup?term=lidarr:{album_id}",
+            payload=[album_no_tracks],
+            status=200,
+        )
+        tracks = await lidarr_client.get_album_tracks(album_id)
+        assert tracks == []
+
+    @pytest.mark.asyncio
+    async def test_get_album_tracks_not_found(self, aio_mock, lidarr_client):
+        """get_album_tracks returns [] when album lookup returns empty."""
+        aio_mock.get(
+            f"{BASE}/album/lookup?term=lidarr:nonexistent",
+            payload=[],
+            status=200,
+        )
+        tracks = await lidarr_client.get_album_tracks("nonexistent")
+        assert tracks == []
+
+    @pytest.mark.asyncio
+    async def test_get_album_tracks_exception(self, lidarr_client):
+        """get_album_tracks returns [] on exception."""
+        with patch.object(
+            lidarr_client, "_make_request", side_effect=Exception("boom")
+        ):
+            tracks = await lidarr_client.get_album_tracks("some-id")
+        assert tracks == []
+
+
+# ---------------------------------------------------------------------------
+# add_artist with albums_to_monitor
+# ---------------------------------------------------------------------------
+
+
+class TestLidarrAddArtistAlbumMonitor:
+    @pytest.mark.asyncio
+    async def test_add_artist_with_albums_to_monitor(self, aio_mock, lidarr_client):
+        """albums_to_monitor sets monitor to 'none' and includes albumsToMonitor."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+
+        posted_data = {}
+
+        def capture(url, **kwargs):
+            posted_data.update(kwargs.get("json", {}))
+            return CallbackResult(
+                payload={"id": 1, "artistName": "Linkin Park"}, status=200
+            )
+
+        aio_mock.post(f"{BASE}/artist", callback=capture)
+
+        success, _ = await lidarr_client.add_artist(
+            ARTIST_ID, "/music", 1,
+            albums_to_monitor=["album-id-1", "album-id-2"],
+        )
+        assert success is True
+        assert posted_data["addOptions"]["monitor"] == "none"
+        assert posted_data["addOptions"]["albumsToMonitor"] == [
+            "album-id-1", "album-id-2"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_add_artist_without_albums_preserves_config(
+        self, aio_mock, lidarr_client
+    ):
+        """Without albums_to_monitor, uses config monitorOption, no albumsToMonitor."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+
+        posted_data = {}
+
+        def capture(url, **kwargs):
+            posted_data.update(kwargs.get("json", {}))
+            return CallbackResult(
+                payload={"id": 1, "artistName": "Linkin Park"}, status=200
+            )
+
+        aio_mock.post(f"{BASE}/artist", callback=capture)
+
+        success, _ = await lidarr_client.add_artist(ARTIST_ID, "/music", 1)
+        assert success is True
+        assert posted_data["addOptions"]["monitor"] == "all"
+        assert "albumsToMonitor" not in posted_data["addOptions"]
+
+    @pytest.mark.asyncio
+    async def test_add_artist_future_albums_with_specific_albums(
+        self, aio_mock, lidarr_client
+    ):
+        """future_albums=True with albums_to_monitor sets monitor to 'future'."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+
+        posted_data = {}
+
+        def capture(url, **kwargs):
+            posted_data.update(kwargs.get("json", {}))
+            return CallbackResult(
+                payload={"id": 1, "artistName": "Linkin Park"}, status=200
+            )
+
+        aio_mock.post(f"{BASE}/artist", callback=capture)
+
+        success, _ = await lidarr_client.add_artist(
+            ARTIST_ID, "/music", 1,
+            albums_to_monitor=["album-id-1"],
+            future_albums=True,
+        )
+        assert success is True
+        assert posted_data["addOptions"]["monitor"] == "future"
+        assert posted_data["addOptions"]["albumsToMonitor"] == ["album-id-1"]
+
+    @pytest.mark.asyncio
+    async def test_add_artist_future_albums_without_specific_albums(
+        self, aio_mock, lidarr_client
+    ):
+        """future_albums=True without albums_to_monitor sets monitor to 'future'."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:{ARTIST_ID}",
+            payload=LIDARR_SEARCH_RESULTS[:1],
+            status=200,
+        )
+
+        posted_data = {}
+
+        def capture(url, **kwargs):
+            posted_data.update(kwargs.get("json", {}))
+            return CallbackResult(
+                payload={"id": 1, "artistName": "Linkin Park"}, status=200
+            )
+
+        aio_mock.post(f"{BASE}/artist", callback=capture)
+
+        success, _ = await lidarr_client.add_artist(
+            ARTIST_ID, "/music", 1,
+            future_albums=True,
+        )
+        assert success is True
+        assert posted_data["addOptions"]["monitor"] == "future"
+        assert "albumsToMonitor" not in posted_data["addOptions"]

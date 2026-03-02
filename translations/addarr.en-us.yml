@@ -78,7 +78,15 @@ en-us:
   FutureEpisodes: "⏩ Future Episodes"
   SelectSeasons: "📺 Select seasons to download"
   ConfirmSelection: "✅ Confirm Selection"
-  
+
+  # Album selection
+  AlbumMonitorAll: "💿 All Albums"
+  AlbumMonitorPick: "🎯 Pick Specific Albums"
+  AllAlbums: "💿 All Albums"
+  AlbumSelectPrompt: "🎵 Select albums to monitor"
+  AlbumConfirm: "✅ Confirm album selection"
+  FutureAlbums: "🔄 Future Albums"
+
   # Quality selection
   SelectQuality: "🎯 Select quality profile"
   

@@ -2215,3 +2215,820 @@ async def test_handle_view_toggle_no_callback_query(
     result = await media_handler.handle_view_toggle(update, context)
 
     assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# _build_result_caption with album/song music_type
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_album(media_handler):
+    """Album caption shows artist name and release date."""
+    result = {
+        "id": "album:abc-123",
+        "title": "Greatest Hits",
+        "music_type": "album",
+        "artist_name": "Test Artist",
+        "release_date": "2020-05-15T00:00:00Z",
+        "overview": "No overview available",
+    }
+
+    caption = media_handler._build_result_caption(result)
+
+    assert "Greatest Hits" in caption
+    assert "Test Artist" in caption
+    assert "2020-05-15" in caption
+    assert "💿" in caption
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_song(media_handler):
+    """Song caption shows album and artist."""
+    result = {
+        "id": "album:abc-123",
+        "title": "My Song",
+        "music_type": "song",
+        "album_title": "Greatest Hits",
+        "artist_name": "Test Artist",
+    }
+
+    caption = media_handler._build_result_caption(result)
+
+    assert "My Song" in caption
+    assert "Greatest Hits" in caption
+    assert "Test Artist" in caption
+    assert "🎵" in caption
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_album_with_overview(media_handler):
+    """Album caption includes overview when not default."""
+    result = {
+        "id": "album:abc-123",
+        "title": "Greatest Hits",
+        "music_type": "album",
+        "artist_name": "Test Artist",
+        "release_date": "2020-05-15T00:00:00Z",
+        "overview": "A compilation of the best tracks.",
+    }
+
+    caption = media_handler._build_result_caption(result)
+
+    assert "A compilation of the best tracks." in caption
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_album_truncates_long_overview(media_handler):
+    """Album caption truncates overview longer than 300 chars."""
+    long_overview = "A" * 350
+    result = {
+        "id": "album:abc-123",
+        "title": "Greatest Hits",
+        "music_type": "album",
+        "artist_name": "Test Artist",
+        "release_date": "2020-05-15T00:00:00Z",
+        "overview": long_overview,
+    }
+
+    caption = media_handler._build_result_caption(result)
+
+    assert "..." in caption
+    assert long_overview not in caption
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_album_with_index(media_handler):
+    """Album caption shows result index when provided."""
+    result = {
+        "id": "album:abc-123",
+        "title": "Greatest Hits",
+        "music_type": "album",
+        "artist_name": "Test Artist",
+        "release_date": "2020-05-15T00:00:00Z",
+        "overview": "No overview available",
+    }
+
+    caption = media_handler._build_result_caption(result, index=2, total=5)
+
+    assert "Result 3 of 5" in caption
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_song_with_index(media_handler):
+    """Song caption shows result index when provided."""
+    result = {
+        "id": "album:abc-123",
+        "title": "My Song",
+        "music_type": "song",
+        "album_title": "Greatest Hits",
+        "artist_name": "Test Artist",
+    }
+
+    caption = media_handler._build_result_caption(result, index=0, total=3)
+
+    assert "Result 1 of 3" in caption
+
+
+# ---------------------------------------------------------------------------
+# handle_selection with album: prefix
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_album_prefix(
+    media_handler, make_update, make_context
+):
+    """Selecting album: prefixed result stores music_type/artist_id/album_id."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    media_handler._mock_service.add_music = AsyncMock(return_value={
+        "type": "quality_selection",
+        "profiles": [{"id": 1, "name": "Standard"}],
+        "root_folder": "/music",
+    })
+
+    update = make_update(callback_data="select_album:abc-123")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": "music",
+        "search_results": [
+            {
+                "id": "album:abc-123",
+                "title": "Album",
+                "music_type": "album",
+                "artist_id": "artist-1",
+                "album_id": "abc-123",
+            }
+        ],
+    })
+
+    result = await media_handler.handle_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    assert context.user_data.get("music_type") == "album"
+    assert context.user_data.get("artist_id") == "artist-1"
+    assert context.user_data.get("album_id") == "abc-123"
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_song_stores_routing_data(
+    media_handler, make_update, make_context
+):
+    """Selecting song result stores song routing data."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    media_handler._mock_service.add_music = AsyncMock(return_value={
+        "type": "quality_selection",
+        "profiles": [{"id": 1, "name": "Standard"}],
+        "root_folder": "/music",
+    })
+
+    update = make_update(callback_data="select_album:abc-123")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": "music",
+        "search_results": [
+            {
+                "id": "album:abc-123",
+                "title": "My Song",
+                "music_type": "song",
+                "artist_id": "artist-1",
+                "album_id": "abc-123",
+            }
+        ],
+    })
+
+    result = await media_handler.handle_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    assert context.user_data.get("music_type") == "song"
+    assert context.user_data.get("album_id") == "abc-123"
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_artist_uses_original_id(
+    media_handler, make_update, make_context
+):
+    """Selecting artist (no prefix) calls add_music with original ID."""
+    media_handler._mock_service.add_music = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="select_artist-id-1")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": "music",
+        "search_results": [
+            {
+                "id": "artist-id-1",
+                "title": "Some Artist",
+                "music_type": "artist",
+            }
+        ],
+    })
+
+    result = await media_handler.handle_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music.assert_awaited_once_with(
+        "artist-id-1"
+    )
+
+
+# ---------------------------------------------------------------------------
+# handle_quality_selection music branching
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_quality_selection_music_artist_shows_album_monitor(
+    media_handler, make_update, make_context
+):
+    """Quality selected for music artist returns ALBUM_SELECT with monitor mode."""
+    from src.bot.handlers.media import ALBUM_SELECT
+
+    update = make_update(callback_data="quality_1")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": "music",
+        "music_type": "artist",
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "quality_data": {
+            "profiles": [{"id": 1, "name": "Standard"}],
+            "root_folder": "/music",
+        },
+    })
+
+    result = await media_handler.handle_quality_selection(update, context)
+
+    assert result == ALBUM_SELECT
+
+
+@pytest.mark.asyncio
+async def test_handle_quality_selection_music_album_adds_directly(
+    media_handler, make_update, make_context
+):
+    """Quality selected for music album adds with pre-selected album."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="quality_1")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": "music",
+        "music_type": "album",
+        "album_id": "abc-123",
+        "artist_id": "artist-1",
+        "selected_media": {"id": "album:abc-123", "title": "Album"},
+        "quality_data": {
+            "profiles": [{"id": 1, "name": "Standard"}],
+            "root_folder": "/music",
+        },
+    })
+
+    result = await media_handler.handle_quality_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music_with_profile.assert_awaited_once()
+    call_kwargs = media_handler._mock_service.add_music_with_profile.call_args
+    # Should pass albums_to_monitor with the specific album
+    assert "abc-123" in str(call_kwargs)
+
+
+@pytest.mark.asyncio
+async def test_handle_quality_selection_music_song_adds_with_album(
+    media_handler, make_update, make_context
+):
+    """Quality selected for music song adds artist with containing album."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="quality_1")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": "music",
+        "music_type": "song",
+        "album_id": "abc-123",
+        "artist_id": "artist-1",
+        "selected_media": {"id": "album:abc-123", "title": "Song"},
+        "quality_data": {
+            "profiles": [{"id": 1, "name": "Standard"}],
+            "root_folder": "/music",
+        },
+    })
+
+    result = await media_handler.handle_quality_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music_with_profile.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# handle_album_monitor_mode
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_album_monitor_mode_all(
+    media_handler, make_update, make_context
+):
+    """'All' mode adds artist directly and returns END."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="album_monitor_mode_all")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": "music",
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+    })
+
+    result = await media_handler.handle_album_monitor_mode(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music_with_profile.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_album_monitor_mode_pick(
+    media_handler, make_update, make_context
+):
+    """'Pick' mode fetches albums and shows picker, stays in ALBUM_SELECT."""
+    from src.bot.handlers.media import ALBUM_SELECT
+
+    media_handler._mock_service.get_artist_albums = AsyncMock(return_value=[
+        {"album_id": "abc-123", "title": "Album 1", "release_date": "2020-01-01"},
+        {"album_id": "def-456", "title": "Album 2", "release_date": "2021-06-15"},
+    ])
+
+    update = make_update(callback_data="album_monitor_mode_pick")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": "music",
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+    })
+
+    result = await media_handler.handle_album_monitor_mode(update, context)
+
+    assert result == ALBUM_SELECT
+    assert len(context.user_data.get("artist_albums", [])) == 2
+
+
+@pytest.mark.asyncio
+async def test_handle_album_monitor_mode_no_query(
+    media_handler, make_update, make_context
+):
+    """handle_album_monitor_mode returns END when no callback_query."""
+    update = make_update(text="test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await media_handler.handle_album_monitor_mode(update, context)
+
+    assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# handle_album_selection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_toggle_individual(
+    media_handler, make_update, make_context
+):
+    """Toggle individual album selection."""
+    from src.bot.handlers.media import ALBUM_SELECT
+
+    update = make_update(callback_data="albumsel_abc-123")
+    update.callback_query.message.photo = None
+    update.callback_query.message.reply_markup = MagicMock()
+    update.callback_query.message.reply_markup.to_dict.return_value = {}
+    context = make_context(user_data={
+        "selected_albums": set(),
+        "future_albums": False,
+        "artist_albums": [
+            {"album_id": "abc-123", "title": "Album 1", "release_date": "2020-01-01"},
+        ],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ALBUM_SELECT
+    assert "abc-123" in context.user_data["selected_albums"]
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_toggle_all(
+    media_handler, make_update, make_context
+):
+    """Toggle all albums on."""
+    from src.bot.handlers.media import ALBUM_SELECT
+
+    update = make_update(callback_data="albumsel_all")
+    update.callback_query.message.photo = None
+    update.callback_query.message.reply_markup = MagicMock()
+    update.callback_query.message.reply_markup.to_dict.return_value = {}
+    context = make_context(user_data={
+        "selected_albums": set(),
+        "future_albums": False,
+        "artist_albums": [
+            {"album_id": "abc-123", "title": "Album 1", "release_date": ""},
+            {"album_id": "def-456", "title": "Album 2", "release_date": ""},
+        ],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ALBUM_SELECT
+    assert context.user_data["selected_albums"] == {"abc-123", "def-456"}
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_toggle_future(
+    media_handler, make_update, make_context
+):
+    """Toggle future albums mode."""
+    from src.bot.handlers.media import ALBUM_SELECT
+
+    update = make_update(callback_data="albumsel_future")
+    update.callback_query.message.photo = None
+    update.callback_query.message.reply_markup = MagicMock()
+    update.callback_query.message.reply_markup.to_dict.return_value = {}
+    context = make_context(user_data={
+        "selected_albums": set(),
+        "future_albums": False,
+        "artist_albums": [
+            {"album_id": "abc-123", "title": "Album 1", "release_date": ""},
+        ],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ALBUM_SELECT
+    assert context.user_data["future_albums"] is True
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_monitor_all_auto_confirms(
+    media_handler, make_update, make_context
+):
+    """Monitor all auto-confirms and returns END."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_monitor_all")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_albums": set(),
+        "future_albums": False,
+        "artist_albums": [
+            {"album_id": "abc-123", "title": "Album 1", "release_date": ""},
+        ],
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music_with_profile.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_cancel(
+    media_handler, make_update, make_context
+):
+    """Cancel during album selection returns END."""
+    update = make_update(callback_data="albumsel_cancel")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_albums": set(),
+        "future_albums": False,
+        "artist_albums": [],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ConversationHandler.END
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_no_query(
+    media_handler, make_update, make_context
+):
+    """handle_album_selection returns END when no callback_query."""
+    update = make_update(text="test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# handle_album_confirm
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_album_confirm_passes_selected_albums(
+    media_handler, make_update, make_context
+):
+    """Confirm passes selected albums_to_monitor to service."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": {"abc-123", "def-456"},
+        "future_albums": False,
+    })
+
+    result = await media_handler.handle_album_confirm(update, context)
+
+    assert result == ConversationHandler.END
+    call_args = media_handler._mock_service.add_music_with_profile.call_args
+    albums_to_monitor = call_args[1].get("albums_to_monitor") or call_args[0][3] if len(call_args[0]) > 3 else call_args[1].get("albums_to_monitor")
+    assert albums_to_monitor is not None
+    assert set(albums_to_monitor) == {"abc-123", "def-456"}
+
+
+@pytest.mark.asyncio
+async def test_handle_album_confirm_passes_future_albums(
+    media_handler, make_update, make_context
+):
+    """Confirm passes future_albums=True to service when enabled."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": {"abc-123"},
+        "future_albums": True,
+    })
+
+    result = await media_handler.handle_album_confirm(update, context)
+
+    assert result == ConversationHandler.END
+    call_kwargs = media_handler._mock_service.add_music_with_profile.call_args[1]
+    assert call_kwargs.get("future_albums") is True
+
+
+@pytest.mark.asyncio
+async def test_handle_album_confirm_no_future_albums(
+    media_handler, make_update, make_context
+):
+    """Confirm does not pass future_albums when False."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": {"abc-123"},
+        "future_albums": False,
+    })
+
+    result = await media_handler.handle_album_confirm(update, context)
+
+    assert result == ConversationHandler.END
+    call_kwargs = media_handler._mock_service.add_music_with_profile.call_args[1]
+    assert "future_albums" not in call_kwargs
+
+
+@pytest.mark.asyncio
+async def test_handle_album_confirm_exception(
+    media_handler, make_update, make_context
+):
+    """Exception during album confirm returns END."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        side_effect=Exception("API error")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": {"abc-123"},
+        "future_albums": False,
+    })
+
+    result = await media_handler.handle_album_confirm(update, context)
+
+    assert result == ConversationHandler.END
+
+
+@pytest.mark.asyncio
+async def test_handle_album_confirm_no_query(
+    media_handler, make_update, make_context
+):
+    """handle_album_confirm returns END when no callback_query."""
+    update = make_update(text="test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await media_handler.handle_album_confirm(update, context)
+
+    assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# handle_album_monitor_mode error paths
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_album_monitor_mode_all_exception(
+    media_handler, make_update, make_context
+):
+    """Exception in 'all' mode returns END with error message."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        side_effect=Exception("API error")
+    )
+
+    update = make_update(callback_data="album_monitor_mode_all")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+    })
+
+    result = await media_handler.handle_album_monitor_mode(update, context)
+
+    assert result == ConversationHandler.END
+
+
+@pytest.mark.asyncio
+async def test_handle_album_monitor_mode_pick_exception(
+    media_handler, make_update, make_context
+):
+    """Exception in 'pick' mode returns END with error message."""
+    media_handler._mock_service.get_artist_albums = AsyncMock(
+        side_effect=Exception("API error")
+    )
+
+    update = make_update(callback_data="album_monitor_mode_pick")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+    })
+
+    result = await media_handler.handle_album_monitor_mode(update, context)
+
+    assert result == ConversationHandler.END
+
+
+@pytest.mark.asyncio
+async def test_handle_album_monitor_mode_unknown_action(
+    media_handler, make_update, make_context
+):
+    """Unknown action in monitor mode returns END (fallback)."""
+    update = make_update(callback_data="album_monitor_mode_unknown")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+    })
+
+    result = await media_handler.handle_album_monitor_mode(update, context)
+
+    assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# handle_album_selection edge cases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_confirm_delegates(
+    media_handler, make_update, make_context
+):
+    """albumsel_confirm delegates to handle_album_confirm."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": {"abc-123"},
+        "future_albums": False,
+        "artist_albums": [],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music_with_profile.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_monitor_all_exception(
+    media_handler, make_update, make_context
+):
+    """Exception in monitor_all returns END with error message."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        side_effect=Exception("API error")
+    )
+
+    update = make_update(callback_data="albumsel_monitor_all")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_albums": set(),
+        "future_albums": False,
+        "artist_albums": [],
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ConversationHandler.END
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_deselect_all(
+    media_handler, make_update, make_context
+):
+    """Toggling 'all' when all are selected deselects all."""
+    from src.bot.handlers.media import ALBUM_SELECT
+
+    update = make_update(callback_data="albumsel_all")
+    update.callback_query.message.photo = None
+    update.callback_query.message.reply_markup = MagicMock()
+    update.callback_query.message.reply_markup.to_dict.return_value = {}
+    context = make_context(user_data={
+        "selected_albums": {"abc-123", "def-456"},
+        "future_albums": False,
+        "artist_albums": [
+            {"album_id": "abc-123", "title": "Album 1", "release_date": ""},
+            {"album_id": "def-456", "title": "Album 2", "release_date": ""},
+        ],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ALBUM_SELECT
+    assert context.user_data["selected_albums"] == set()
+
+
+@pytest.mark.asyncio
+async def test_handle_album_selection_remove_individual(
+    media_handler, make_update, make_context
+):
+    """Toggling an already-selected album removes it."""
+    from src.bot.handlers.media import ALBUM_SELECT
+
+    update = make_update(callback_data="albumsel_abc-123")
+    update.callback_query.message.photo = None
+    update.callback_query.message.reply_markup = MagicMock()
+    update.callback_query.message.reply_markup.to_dict.return_value = {}
+    context = make_context(user_data={
+        "selected_albums": {"abc-123", "def-456"},
+        "future_albums": False,
+        "artist_albums": [
+            {"album_id": "abc-123", "title": "Album 1", "release_date": ""},
+            {"album_id": "def-456", "title": "Album 2", "release_date": ""},
+        ],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ALBUM_SELECT
+    assert "abc-123" not in context.user_data["selected_albums"]
+    assert "def-456" in context.user_data["selected_albums"]

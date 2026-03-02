@@ -90,7 +90,15 @@ ru-ru:
   FutureEpisodes: "⏩ Будущие эпизоды"
   SelectSeasons: "📺 Выберите сезоны для загрузки"
   ConfirmSelection: "✅ Подтвердить выбор"
-  
+
+  # Album selection
+  AlbumMonitorAll: "💿 All Albums"
+  AlbumMonitorPick: "🎯 Pick Specific Albums"
+  AllAlbums: "💿 Все альбомы"
+  AlbumSelectPrompt: "🎵 Select albums to monitor"
+  AlbumConfirm: "✅ Confirm album selection"
+  FutureAlbums: "🔄 Future Albums"
+
   # Quality selection
   SelectQuality: "🎯 Выберите профиль качества"
   

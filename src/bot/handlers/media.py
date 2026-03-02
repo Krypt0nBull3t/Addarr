@@ -20,7 +20,12 @@ from telegram.ext import (
 from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
-from src.bot.keyboards import get_search_results_list_keyboard, get_list_detail_keyboard
+from src.bot.keyboards import (
+    get_search_results_list_keyboard,
+    get_list_detail_keyboard,
+    get_album_monitor_mode_keyboard,
+    get_album_selection_keyboard,
+)
 from src.services.media import MediaService
 from src.services.translation import TranslationService
 from src.services.preferences import PreferencesService
@@ -32,6 +37,7 @@ SEARCHING = 1
 SELECTING = 2
 QUALITY_SELECT = 3
 SEASON_SELECT = 4
+ALBUM_SELECT = 5
 
 
 class MediaHandler:
@@ -110,6 +116,20 @@ class MediaHandler:
                         CallbackQueryHandler(
                             self.handle_season_confirm,
                             pattern="^season_confirm$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_menu_callback,
+                            pattern="^menu_cancel$"
+                        )
+                    ],
+                    ALBUM_SELECT: [
+                        CallbackQueryHandler(
+                            self.handle_album_monitor_mode,
+                            pattern="^album_monitor_mode_"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_album_selection,
+                            pattern="^albumsel_"
                         ),
                         CallbackQueryHandler(
                             self.handle_menu_callback,
@@ -328,6 +348,35 @@ class MediaHandler:
         Returns:
             Formatted caption string.
         """
+        music_type = result.get("music_type")
+
+        # Album-specific caption
+        if music_type == "album":
+            caption = f"*💿 {result['title']}*\n\n"
+            if result.get("artist_name"):
+                caption += f"🎤 Artist: {result['artist_name']}\n"
+            if result.get("release_date"):
+                caption += f"📅 Released: {result['release_date'][:10]}\n"
+            if result.get("overview", "No overview available") != "No overview available":
+                overview = result["overview"]
+                if len(overview) > 300:
+                    overview = overview[:297] + "..."
+                caption += f"\n_{overview}_\n"
+            if index is not None and total is not None:
+                caption += f"\n📊 Result {index + 1} of {total}"
+            return caption
+
+        # Song-specific caption
+        if music_type == "song":
+            caption = f"*🎵 {result['title']}*\n\n"
+            if result.get("album_title"):
+                caption += f"💿 Album: {result['album_title']}\n"
+            if result.get("artist_name"):
+                caption += f"🎤 Artist: {result['artist_name']}\n"
+            if index is not None and total is not None:
+                caption += f"\n📊 Result {index + 1} of {total}"
+            return caption
+
         overview = result.get('overview', 'No overview available')
         if len(overview) > 300:
             overview = overview[:297] + "..."
@@ -648,14 +697,29 @@ class MediaHandler:
                 # Store selection for later use
                 context.user_data["selected_media"] = selected
 
+                # Store music routing data if present
+                if selected.get("music_type"):
+                    context.user_data["music_type"] = selected["music_type"]
+                if selected.get("artist_id"):
+                    context.user_data["artist_id"] = selected["artist_id"]
+                if selected.get("album_id"):
+                    context.user_data["album_id"] = selected["album_id"]
+
                 # Get quality profiles based on media type
                 search_type = context.user_data.get("search_type")
+
+                # For music with album: prefix, strip it for the API call
+                media_id = selected["id"]
+                if search_type == "music" and media_id.startswith("album:"):
+                    # Album/song selections use the artist_id for add_music
+                    media_id = selected.get("artist_id", media_id[6:])
+
                 if search_type == "movie":
-                    result = await self.media_service.add_movie(selected["id"])
+                    result = await self.media_service.add_movie(media_id)
                 elif search_type == "series":
-                    result = await self.media_service.add_series(selected["id"])
+                    result = await self.media_service.add_series(media_id)
                 elif search_type == "music":
-                    result = await self.media_service.add_music(selected["id"])
+                    result = await self.media_service.add_music(media_id)
 
                 # Handle quality profile selection
                 if isinstance(result, dict) and result.get("type") == "quality_selection":
@@ -778,6 +842,36 @@ class MediaHandler:
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
                 return SEASON_SELECT
+
+            # For music, branch based on music_type
+            if search_type == "music":
+                music_type = context.user_data.get("music_type", "artist")
+
+                if music_type == "artist":
+                    # Artist: show album monitor mode prompt
+                    await self._send_response(
+                        query.message,
+                        f"Adding: {selected['title']}\n\n"
+                        "How would you like to monitor albums?",
+                        reply_markup=get_album_monitor_mode_keyboard()
+                    )
+                    return ALBUM_SELECT
+
+                # Album or song: add with pre-selected album
+                album_id = context.user_data.get("album_id")
+                artist_id = context.user_data.get("artist_id", selected["id"])
+                albums_to_monitor = [album_id] if album_id else None
+
+                success, message = await self.media_service.add_music_with_profile(
+                    artist_id, profile_id, quality_data["root_folder"],
+                    albums_to_monitor=albums_to_monitor,
+                )
+
+                await self._send_response(
+                    query.message,
+                    f"{'✅' if success else '❌'} {message}"
+                )
+                return ConversationHandler.END
 
             # For other media types, proceed with adding
             success, message = await self._add_media_with_profile(
@@ -974,6 +1068,180 @@ class MediaHandler:
 
         except Exception as e:
             logger.error(f"Error confirming season selection: {e}")
+            await self._send_response(
+                query.message,
+                "❌ An error occurred while processing your selection.\n"
+                "Please try again."
+            )
+            return ConversationHandler.END
+
+    async def handle_album_monitor_mode(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle album monitor mode selection (all vs pick specific)"""
+        if not update.callback_query:
+            return ConversationHandler.END
+
+        query = update.callback_query
+        await query.answer()
+
+        action = query.data.replace("album_monitor_mode_", "")
+
+        if action == "all":
+            # Add artist monitoring all albums
+            selected = context.user_data.get("selected_media")
+            profile_id = context.user_data.get("selected_profile_id")
+            root_folder = context.user_data.get("selected_root_folder")
+
+            try:
+                success, message = await self.media_service.add_music_with_profile(
+                    selected["id"], profile_id, root_folder
+                )
+                await self._send_response(
+                    query.message,
+                    f"{'✅' if success else '❌'} {message}"
+                )
+            except Exception as e:
+                logger.error(f"Error adding artist: {e}")
+                await self._send_response(
+                    query.message,
+                    "❌ An error occurred while adding the artist."
+                )
+            return ConversationHandler.END
+
+        elif action == "pick":
+            # Fetch artist albums and show picker
+            selected = context.user_data.get("selected_media")
+            try:
+                albums = await self.media_service.get_artist_albums(selected["id"])
+                context.user_data["artist_albums"] = albums
+                context.user_data["selected_albums"] = set()
+                context.user_data["future_albums"] = False
+
+                keyboard = get_album_selection_keyboard(albums, set(), False)
+                await self._send_response(
+                    query.message,
+                    f"Adding: {selected['title']}\n\n"
+                    "Select albums to monitor:",
+                    reply_markup=keyboard
+                )
+                return ALBUM_SELECT
+            except Exception as e:
+                logger.error(f"Error fetching albums: {e}")
+                await self._send_response(
+                    query.message,
+                    "❌ An error occurred while fetching albums."
+                )
+                return ConversationHandler.END
+
+        return ConversationHandler.END
+
+    async def handle_album_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle album selection toggles"""
+        if not update.callback_query:
+            return ConversationHandler.END
+
+        query = update.callback_query
+        await query.answer()
+
+        action = query.data.replace("albumsel_", "")
+        albums = context.user_data.get("artist_albums", [])
+        selected_albums = context.user_data.get("selected_albums", set())
+        future_albums = context.user_data.get("future_albums", False)
+
+        if action == "cancel":
+            await self._send_response(
+                query.message,
+                "🚫 Search cancelled.\nUse /start to see the main menu."
+            )
+            return ConversationHandler.END
+
+        if action == "confirm":
+            return await self.handle_album_confirm(update, context)
+
+        if action == "monitor_all":
+            # Auto-confirm with all albums
+            selected = context.user_data.get("selected_media")
+            profile_id = context.user_data.get("selected_profile_id")
+            root_folder = context.user_data.get("selected_root_folder")
+
+            try:
+                success, message = await self.media_service.add_music_with_profile(
+                    selected["id"], profile_id, root_folder
+                )
+                await self._send_response(
+                    query.message,
+                    f"{'✅' if success else '❌'} {message}"
+                )
+            except Exception as e:
+                logger.error(f"Error adding artist: {e}")
+                await self._send_response(
+                    query.message,
+                    "❌ An error occurred while adding the artist."
+                )
+            return ConversationHandler.END
+
+        if action == "all":
+            # Toggle all albums
+            all_ids = {a["album_id"] for a in albums}
+            if selected_albums == all_ids:
+                selected_albums.clear()
+            else:
+                selected_albums.clear()
+                selected_albums.update(all_ids)
+        elif action == "future":
+            future_albums = not future_albums
+        else:
+            # Toggle individual album
+            if action in selected_albums:
+                selected_albums.remove(action)
+            else:
+                selected_albums.add(action)
+
+        context.user_data["selected_albums"] = selected_albums
+        context.user_data["future_albums"] = future_albums
+
+        # Rebuild keyboard
+        new_markup = get_album_selection_keyboard(
+            albums, selected_albums, future_albums
+        )
+        if query.message.reply_markup.to_dict() != new_markup.to_dict():
+            await query.message.edit_reply_markup(reply_markup=new_markup)
+
+        return ALBUM_SELECT
+
+    async def handle_album_confirm(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle album selection confirmation"""
+        if not update.callback_query:
+            return ConversationHandler.END
+
+        query = update.callback_query
+        await query.answer()
+
+        try:
+            selected = context.user_data.get("selected_media")
+            profile_id = context.user_data.get("selected_profile_id")
+            root_folder = context.user_data.get("selected_root_folder")
+            selected_albums = list(context.user_data.get("selected_albums", set()))
+            future_albums = context.user_data.get("future_albums", False)
+
+            kwargs = {}
+            if selected_albums:
+                kwargs["albums_to_monitor"] = selected_albums
+            if future_albums:
+                kwargs["future_albums"] = True
+
+            success, message = await self.media_service.add_music_with_profile(
+                selected["id"], profile_id, root_folder,
+                **kwargs,
+            )
+
+            await self._send_response(
+                query.message,
+                f"{'✅' if success else '❌'} {message}"
+            )
+            return ConversationHandler.END
+
+        except Exception as e:
+            logger.error(f"Error confirming album selection: {e}")
             await self._send_response(
                 query.message,
                 "❌ An error occurred while processing your selection.\n"
