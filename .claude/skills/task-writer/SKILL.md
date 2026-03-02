@@ -141,6 +141,18 @@ Task complete
 | Architectural uncertainty?     | Stop and ask before implementing          |
 | Trivial (1-line change)?       | Don't create task, just do it             |
 
+## Test Count Estimation
+
+Historical data shows test counts in plans are consistently underestimated by 1.5-2x:
+
+| Issue | Planned Tests | Actual Tests | Ratio |
+|-------|--------------|--------------|-------|
+| #79 (task 2.1) | 8 | 15 | 1.9x |
+| #79 (task 2.2) | 13 | 17 | 1.3x |
+| #81 | baseline | +extra coverage tests | ~1.5x |
+
+**Rule of thumb:** When listing `[RED]` action items, the obvious test cases cover ~60-70% of what you'll actually write. Edge cases (error paths, boundary conditions, format variations) add another 30-40%. Plan for ~1.5x the obvious test count when estimating task size.
+
 ## Self-Verification
 
 Before finalizing tasks, check:
@@ -151,6 +163,7 @@ Before finalizing tasks, check:
 4. Are approval gates only at natural boundaries?
 5. Is the task count appropriate for the feature size?
 6. **Can this task be picked up after context loss?** (Context block complete?)
+7. **Are test counts realistic?** (Apply 1.5x multiplier to obvious test cases)
 
 ## Output
 

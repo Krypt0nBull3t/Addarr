@@ -24,6 +24,8 @@ Resets all singleton `_instance` attributes after each test:
 - `NotificationService._instance` = None, `._bot` = None
 - `AuthHandler._authenticated_users` = set()
 
+> **When adding new singletons:** Reset ALL relevant class vars, not just `_instance`. Singletons often store state beyond the instance reference (e.g., `_preferences = {}`, `_enabled = False`, `_client = None`). If you only reset `_instance = None`, the new instance may inherit stale class-level state from the previous test. Three separate issues (#67, #78, #81) independently discovered this — always audit what class vars your singleton sets during `__new__`/`_initialize` and reset them all.
+
 ### mock_translation (autouse)
 
 Patches `TranslationService._load_translations` so tests don't need real YAML files. Does NOT patch `get_text` — tests that call code which uses `get_text` must either:
