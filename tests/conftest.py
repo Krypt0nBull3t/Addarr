@@ -200,6 +200,7 @@ def reset_singletons():
     from src.services.scheduler import JobScheduler
     from src.services.transmission import TransmissionService
     from src.services.sabnzbd import SABnzbdService
+    from src.services.preferences import PreferencesService
     from src.bot.handlers.auth import AuthHandler
 
     # Reset singletons
@@ -221,6 +222,9 @@ def reset_singletons():
 
     NotificationService._instance = None
     NotificationService._bot = None
+
+    PreferencesService._instance = None
+    PreferencesService._preferences = {}
 
     AuthHandler._authenticated_users = set()
 
