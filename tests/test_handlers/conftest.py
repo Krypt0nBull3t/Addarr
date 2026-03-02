@@ -72,9 +72,15 @@ def media_handler(mock_media_service, mock_translation_service):
     with (
         patch("src.bot.handlers.media.MediaService") as mock_ms_class,
         patch("src.bot.handlers.media.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.media.PreferencesService") as mock_ps_class,
     ):
         mock_ts_class.return_value = mock_translation_service
         mock_ms_class.return_value = mock_media_service
+
+        mock_prefs = MagicMock()
+        mock_prefs.get_view_mode.return_value = "card"
+        mock_prefs.toggle_view_mode.return_value = "list"
+        mock_ps_class.return_value = mock_prefs
 
         from src.bot.handlers.media import MediaHandler
         from src.bot.handlers.auth import AuthHandler
@@ -83,6 +89,7 @@ def media_handler(mock_media_service, mock_translation_service):
         handler = MediaHandler()
         handler._mock_service = mock_media_service
         handler._mock_ts = mock_translation_service
+        handler._mock_prefs = mock_prefs
         yield handler
 
 
@@ -121,6 +128,10 @@ def start_handler(mock_media_service, mock_translation_service):
         mock_media_handler.handle_search = AsyncMock()
         mock_media_handler.handle_selection = AsyncMock()
         mock_media_handler.handle_navigation = AsyncMock()
+        mock_media_handler.handle_list_select = AsyncMock()
+        mock_media_handler.handle_list_back = AsyncMock()
+        mock_media_handler.handle_list_page = AsyncMock()
+        mock_media_handler.handle_view_toggle = AsyncMock()
         mock_media_handler.cancel_search = AsyncMock()
         mock_mh_class.return_value = mock_media_handler
         mock_help_handler = MagicMock()
@@ -326,4 +337,28 @@ def settings_handler(mock_media_service, mock_translation_service):
         handler._mock_is_admin = mock_is_admin
         handler._mock_trans = mock_trans
         handler._mock_sab = mock_sab
+        yield handler
+
+
+@pytest.fixture
+def preferences_handler(mock_translation_service):
+    """Create a PreferencesHandler with patched services."""
+    with (
+        patch("src.bot.handlers.preferences.PreferencesService") as mock_ps_class,
+        patch("src.bot.handlers.preferences.TranslationService") as mock_ts_class,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+
+        mock_prefs = MagicMock()
+        mock_prefs.get_view_mode.return_value = "card"
+        mock_prefs.toggle_view_mode.return_value = "list"
+        mock_ps_class.return_value = mock_prefs
+
+        from src.bot.handlers.preferences import PreferencesHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = PreferencesHandler()
+        handler._mock_prefs = mock_prefs
+        handler._mock_ts = mock_translation_service
         yield handler

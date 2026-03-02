@@ -65,6 +65,22 @@ class StartHandler:
                             pattern="^nav_"
                         ),
                         CallbackQueryHandler(
+                            self.media_handler.handle_list_select,
+                            pattern="^listsel_"
+                        ),
+                        CallbackQueryHandler(
+                            self.media_handler.handle_list_back,
+                            pattern="^listback$"
+                        ),
+                        CallbackQueryHandler(
+                            self.media_handler.handle_list_page,
+                            pattern="^listpage_"
+                        ),
+                        CallbackQueryHandler(
+                            self.media_handler.handle_view_toggle,
+                            pattern="^viewtoggle$"
+                        ),
+                        CallbackQueryHandler(
                             self.handle_menu_selection,
                             pattern="^menu_"
                         )
