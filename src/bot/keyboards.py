@@ -292,6 +292,102 @@ def get_confirmation_keyboard(action: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_search_results_list_keyboard(
+    results: list, page: int, page_size: int = 5, search_type: str = "movie"
+) -> InlineKeyboardMarkup:
+    """Get paginated list keyboard for search results.
+
+    Args:
+        results: Full list of search results.
+        page: Current page (0-indexed).
+        page_size: Number of results per page.
+        search_type: "movie", "series", or "music" for emoji prefix.
+    """
+    emoji_map = {"movie": "\U0001f3ac", "series": "\U0001f4fa", "music": "\U0001f3b5"}
+    emoji = emoji_map.get(search_type, "\U0001f3ac")
+
+    total_pages = max(1, -(-len(results) // page_size))  # ceil division
+    start = page * page_size
+    end = start + page_size
+    page_results = results[start:end]
+
+    keyboard = []
+
+    # Result buttons
+    for i, result in enumerate(page_results):
+        idx = start + i
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{emoji} {result['title']}",
+                callback_data=f"listsel_{idx}"
+            )
+        ])
+
+    # Pagination row (only if more than one page)
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev",
+                    callback_data=f"listpage_{page - 1}"
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"Page {page + 1}/{total_pages}",
+                callback_data="listpage_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f",
+                    callback_data=f"listpage_{page + 1}"
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Bottom row: view toggle + cancel
+    translation = TranslationService()
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f4cb Switch to Card View",
+            callback_data="viewtoggle"
+        ),
+        InlineKeyboardButton(
+            f"\u274c {translation.get_text('Cancel')}",
+            callback_data="select_cancel"
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_list_detail_keyboard(result_id: str) -> InlineKeyboardMarkup:
+    """Get keyboard for list detail view (single result expanded).
+
+    Args:
+        result_id: The ID of the selected result.
+    """
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            f"\u2705 {translation.get_text('Add')} to Library",
+            callback_data=f"select_{result_id}"
+        )],
+        [InlineKeyboardButton(
+            "\u25c0\ufe0f Back to List",
+            callback_data="listback"
+        )],
+        [InlineKeyboardButton(
+            f"\u274c {translation.get_text('Cancel')}",
+            callback_data="select_cancel"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: str = "No") -> InlineKeyboardMarkup:
     """Create a Yes/No inline keyboard
 

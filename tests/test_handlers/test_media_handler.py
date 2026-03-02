@@ -1617,3 +1617,601 @@ def test_get_handler_returns_list(media_handler):
 
     assert isinstance(handlers, list)
     assert len(handlers) > 0
+
+
+# ---------------------------------------------------------------------------
+# _build_result_caption
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_movie_with_year_and_ratings(
+    media_handler,
+):
+    """_build_result_caption includes title, year, and IMDB rating for movies."""
+    result = {
+        "id": "123",
+        "title": "Test Movie",
+        "overview": "A test overview",
+        "year": 2024,
+        "ratings": {"imdb": "8.0", "rottenTomatoes": "90"},
+        "studio": "Test Studio",
+        "runtime": 120,
+        "genres": ["Drama", "Thriller"],
+    }
+
+    caption = media_handler._build_result_caption(result)
+
+    assert "Test Movie" in caption
+    assert "2024" in caption
+    assert "IMDB" in caption
+    assert "8.0" in caption
+    assert "Rotten Tomatoes" in caption
+    assert "90%" in caption
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_series_with_tmdb(media_handler):
+    """_build_result_caption includes TMDB rating for series."""
+    result = {
+        "id": "456",
+        "title": "Test Series",
+        "overview": "Series overview",
+        "year": 2024,
+        "ratings": {"tmdb": "8.5", "votes": 1000},
+    }
+
+    caption = media_handler._build_result_caption(result)
+
+    assert "TMDB" in caption
+    assert "8.5" in caption
+    assert "1,000" in caption
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_with_index_total(media_handler):
+    """_build_result_caption shows counter when index/total provided."""
+    result = {
+        "id": "123",
+        "title": "Test",
+        "overview": "Overview",
+    }
+
+    caption = media_handler._build_result_caption(result, index=2, total=5)
+
+    assert "3 of 5" in caption
+
+
+@pytest.mark.asyncio
+async def test_build_result_caption_without_index_total(media_handler):
+    """_build_result_caption omits counter when no index/total."""
+    result = {
+        "id": "123",
+        "title": "Test",
+        "overview": "Overview",
+    }
+
+    caption = media_handler._build_result_caption(result)
+
+    assert "of" not in caption or "Result" not in caption
+
+
+# ---------------------------------------------------------------------------
+# _show_list
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_show_list_sends_text_message(media_handler, make_message):
+    """_show_list sends a text message with the list keyboard."""
+    message = make_message()
+    results = [
+        {"id": str(i), "title": f"Movie {i}", "overview": "Ov"}
+        for i in range(3)
+    ]
+
+    with patch(
+        "src.bot.handlers.media.get_search_results_list_keyboard"
+    ) as mock_kbd:
+        mock_kbd.return_value = MagicMock()
+        await media_handler._show_list(
+            message, results, page=0, search_type="movie"
+        )
+
+    message.reply_text.assert_called_once()
+    mock_kbd.assert_called_once_with(
+        results, 0, page_size=5, search_type="movie"
+    )
+
+
+@pytest.mark.asyncio
+async def test_show_list_deletes_old_message(media_handler, make_message):
+    """_show_list deletes the old message after sending new one."""
+    message = make_message()
+    results = [{"id": "1", "title": "M", "overview": "O"}]
+
+    with patch(
+        "src.bot.handlers.media.get_search_results_list_keyboard"
+    ) as mock_kbd:
+        mock_kbd.return_value = MagicMock()
+        await media_handler._show_list(
+            message, results, page=0, search_type="movie"
+        )
+
+    message.delete.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _show_list_detail
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_show_list_detail_sends_photo_with_poster(
+    media_handler, make_message
+):
+    """_show_list_detail sends photo when poster URL is present."""
+    message = make_message()
+    result = {
+        "id": "123",
+        "title": "Test Movie",
+        "overview": "Overview",
+        "poster": "https://example.com/poster.jpg",
+    }
+
+    with patch(
+        "src.bot.handlers.media.get_list_detail_keyboard"
+    ) as mock_kbd:
+        mock_kbd.return_value = MagicMock()
+        await media_handler._show_list_detail(message, result)
+
+    message.reply_photo.assert_called_once()
+    mock_kbd.assert_called_once_with("123")
+
+
+@pytest.mark.asyncio
+async def test_show_list_detail_sends_text_without_poster(
+    media_handler, make_message
+):
+    """_show_list_detail sends text when no poster."""
+    message = make_message()
+    result = {
+        "id": "456",
+        "title": "Test Movie",
+        "overview": "Overview",
+        "poster": None,
+    }
+
+    with patch(
+        "src.bot.handlers.media.get_list_detail_keyboard"
+    ) as mock_kbd:
+        mock_kbd.return_value = MagicMock()
+        await media_handler._show_list_detail(message, result)
+
+    message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_show_list_detail_deletes_old_message(
+    media_handler, make_message
+):
+    """_show_list_detail deletes the old message."""
+    message = make_message()
+    result = {
+        "id": "123",
+        "title": "Test",
+        "overview": "Overview",
+        "poster": None,
+    }
+
+    with patch(
+        "src.bot.handlers.media.get_list_detail_keyboard"
+    ) as mock_kbd:
+        mock_kbd.return_value = MagicMock()
+        await media_handler._show_list_detail(message, result)
+
+    message.delete.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_show_list_detail_photo_failure_falls_back_to_text(
+    media_handler, make_message
+):
+    """_show_list_detail falls back to text when photo send fails."""
+    message = make_message()
+    message.reply_photo = AsyncMock(side_effect=Exception("Photo failed"))
+    result = {
+        "id": "123",
+        "title": "Test Movie",
+        "overview": "Overview",
+        "poster": "https://example.com/poster.jpg",
+    }
+
+    with patch(
+        "src.bot.handlers.media.get_list_detail_keyboard"
+    ) as mock_kbd:
+        mock_kbd.return_value = MagicMock()
+        await media_handler._show_list_detail(message, result)
+
+    message.reply_text.assert_called_once()
+    message.delete.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _show_result still works after caption extraction refactor
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_show_result_still_shows_counter_after_refactor(
+    media_handler, make_message
+):
+    """After caption extraction, _show_result still shows 'Result X of Y'."""
+    message = make_message()
+    result = {
+        "id": "123",
+        "title": "Test Movie",
+        "overview": "A test overview",
+        "year": 2024,
+        "poster": None,
+    }
+
+    await media_handler._show_result(message, result, 2, 5)
+
+    call_args = message.reply_text.call_args
+    caption = call_args[0][0]
+    assert "3 of 5" in caption
+
+
+@pytest.mark.asyncio
+async def test_show_result_card_view_has_viewtoggle_button(
+    media_handler, make_message
+):
+    """After refactor, card view keyboard includes viewtoggle button."""
+    message = make_message()
+    result = {
+        "id": "123",
+        "title": "Test",
+        "overview": "Overview",
+        "poster": None,
+    }
+
+    await media_handler._show_result(message, result, 0, 1)
+
+    call_args = message.reply_text.call_args
+    reply_markup = call_args[1]["reply_markup"]
+    all_callbacks = [
+        btn.callback_data
+        for row in reply_markup.inline_keyboard
+        for btn in row
+    ]
+    assert "viewtoggle" in all_callbacks
+
+
+# ---------------------------------------------------------------------------
+# handle_search view mode branching
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_search_defaults_to_card_view(
+    media_handler, make_update, make_context
+):
+    """handle_search uses card view (_show_result) by default."""
+    from src.bot.handlers.media import SELECTING
+
+    media_handler._mock_service.search_movies = AsyncMock(return_value=[
+        {"id": "1", "title": "Movie 1", "overview": "Ov", "poster": None}
+    ])
+
+    update = make_update(text="test movie")
+    context = make_context(user_data={"search_type": "movie"})
+
+    with patch.object(
+        media_handler, "_show_result", new_callable=AsyncMock
+    ) as mock_show:
+        result = await media_handler.handle_search(update, context)
+
+    mock_show.assert_called_once()
+    assert result == SELECTING
+
+
+@pytest.mark.asyncio
+async def test_handle_search_uses_list_view_when_preference_set(
+    media_handler, make_update, make_context
+):
+    """handle_search uses list view (_show_list) when user preference is 'list'."""
+    from src.bot.handlers.media import SELECTING
+
+    media_handler._mock_prefs.get_view_mode.return_value = "list"
+    media_handler._mock_service.search_movies = AsyncMock(return_value=[
+        {"id": "1", "title": "Movie 1", "overview": "Ov"}
+    ])
+
+    update = make_update(text="test movie")
+    context = make_context(user_data={"search_type": "movie"})
+
+    with patch.object(
+        media_handler, "_show_list", new_callable=AsyncMock
+    ) as mock_show:
+        result = await media_handler.handle_search(update, context)
+
+    mock_show.assert_called_once()
+    assert result == SELECTING
+    assert context.user_data["list_page"] == 0
+
+
+# ---------------------------------------------------------------------------
+# handle_list_select
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_list_select_shows_detail(
+    media_handler, make_update, make_context
+):
+    """handle_list_select shows detail card for selected index."""
+    from src.bot.handlers.media import SELECTING
+
+    results = [
+        {"id": "1", "title": "Movie 1", "overview": "Ov"},
+        {"id": "2", "title": "Movie 2", "overview": "Ov"},
+    ]
+
+    update = make_update(callback_data="listsel_1")
+    context = make_context(user_data={
+        "search_results": results,
+        "search_type": "movie",
+    })
+
+    with patch.object(
+        media_handler, "_show_list_detail", new_callable=AsyncMock
+    ) as mock_show:
+        result = await media_handler.handle_list_select(update, context)
+
+    mock_show.assert_called_once_with(
+        update.callback_query.message, results[1]
+    )
+    assert result == SELECTING
+    assert context.user_data["current_index"] == 1
+
+
+@pytest.mark.asyncio
+async def test_handle_list_select_no_callback_query(
+    media_handler, make_update, make_context
+):
+    """handle_list_select returns END when no callback_query."""
+    update = make_update(text="test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await media_handler.handle_list_select(update, context)
+
+    assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# handle_list_back
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_list_back_returns_to_list(
+    media_handler, make_update, make_context
+):
+    """handle_list_back returns to paginated list at stored page."""
+    from src.bot.handlers.media import SELECTING
+
+    results = [
+        {"id": str(i), "title": f"Movie {i}", "overview": "Ov"}
+        for i in range(10)
+    ]
+
+    update = make_update(callback_data="listback")
+    context = make_context(user_data={
+        "search_results": results,
+        "search_type": "movie",
+        "list_page": 1,
+    })
+
+    with patch.object(
+        media_handler, "_show_list", new_callable=AsyncMock
+    ) as mock_show:
+        result = await media_handler.handle_list_back(update, context)
+
+    mock_show.assert_called_once_with(
+        update.callback_query.message, results, 1, "movie"
+    )
+    assert result == SELECTING
+
+
+@pytest.mark.asyncio
+async def test_handle_list_back_defaults_page_zero(
+    media_handler, make_update, make_context
+):
+    """handle_list_back defaults to page 0 if list_page not in user_data."""
+    from src.bot.handlers.media import SELECTING
+
+    results = [{"id": "1", "title": "Movie 1", "overview": "Ov"}]
+
+    update = make_update(callback_data="listback")
+    context = make_context(user_data={
+        "search_results": results,
+        "search_type": "series",
+    })
+
+    with patch.object(
+        media_handler, "_show_list", new_callable=AsyncMock
+    ) as mock_show:
+        result = await media_handler.handle_list_back(update, context)
+
+    mock_show.assert_called_once_with(
+        update.callback_query.message, results, 0, "series"
+    )
+    assert result == SELECTING
+
+
+@pytest.mark.asyncio
+async def test_handle_list_back_no_callback_query(
+    media_handler, make_update, make_context
+):
+    """handle_list_back returns END when no callback_query."""
+    update = make_update(text="test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await media_handler.handle_list_back(update, context)
+
+    assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# handle_list_page
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_list_page_navigates_forward(
+    media_handler, make_update, make_context
+):
+    """handle_list_page navigates to requested page."""
+    from src.bot.handlers.media import SELECTING
+
+    results = [
+        {"id": str(i), "title": f"Movie {i}", "overview": "Ov"}
+        for i in range(10)
+    ]
+
+    update = make_update(callback_data="listpage_1")
+    context = make_context(user_data={
+        "search_results": results,
+        "search_type": "movie",
+        "list_page": 0,
+    })
+
+    with patch.object(
+        media_handler, "_show_list", new_callable=AsyncMock
+    ) as mock_show:
+        result = await media_handler.handle_list_page(update, context)
+
+    mock_show.assert_called_once_with(
+        update.callback_query.message, results, 1, "movie"
+    )
+    assert context.user_data["list_page"] == 1
+    assert result == SELECTING
+
+
+@pytest.mark.asyncio
+async def test_handle_list_page_noop_is_no_op(
+    media_handler, make_update, make_context
+):
+    """listpage_noop just answers the query and stays in SELECTING."""
+    from src.bot.handlers.media import SELECTING
+
+    update = make_update(callback_data="listpage_noop")
+    context = make_context(user_data={
+        "search_results": [{"id": "1", "title": "M", "overview": "O"}],
+        "search_type": "movie",
+        "list_page": 0,
+    })
+
+    result = await media_handler.handle_list_page(update, context)
+
+    assert result == SELECTING
+    # Page should not change
+    assert context.user_data["list_page"] == 0
+
+
+@pytest.mark.asyncio
+async def test_handle_list_page_no_callback_query(
+    media_handler, make_update, make_context
+):
+    """handle_list_page returns END when no callback_query."""
+    update = make_update(text="test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await media_handler.handle_list_page(update, context)
+
+    assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# handle_view_toggle
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_handle_view_toggle_card_to_list(
+    media_handler, make_update, make_context
+):
+    """handle_view_toggle switches from card to list view."""
+    from src.bot.handlers.media import SELECTING
+
+    media_handler._mock_prefs.toggle_view_mode.return_value = "list"
+
+    results = [
+        {"id": str(i), "title": f"Movie {i}", "overview": "Ov"}
+        for i in range(3)
+    ]
+
+    update = make_update(callback_data="viewtoggle")
+    context = make_context(user_data={
+        "search_results": results,
+        "search_type": "movie",
+        "current_index": 0,
+    })
+
+    with patch.object(
+        media_handler, "_show_list", new_callable=AsyncMock
+    ) as mock_show:
+        result = await media_handler.handle_view_toggle(update, context)
+
+    mock_show.assert_called_once()
+    assert result == SELECTING
+
+
+@pytest.mark.asyncio
+async def test_handle_view_toggle_list_to_card(
+    media_handler, make_update, make_context
+):
+    """handle_view_toggle switches from list to card view."""
+    from src.bot.handlers.media import SELECTING
+
+    media_handler._mock_prefs.toggle_view_mode.return_value = "card"
+
+    results = [
+        {"id": "1", "title": "Movie 1", "overview": "Ov", "poster": None},
+        {"id": "2", "title": "Movie 2", "overview": "Ov", "poster": None},
+    ]
+
+    update = make_update(callback_data="viewtoggle")
+    context = make_context(user_data={
+        "search_results": results,
+        "search_type": "movie",
+        "current_index": 1,
+    })
+
+    with patch.object(
+        media_handler, "_show_result", new_callable=AsyncMock
+    ) as mock_show:
+        result = await media_handler.handle_view_toggle(update, context)
+
+    mock_show.assert_called_once_with(
+        update.callback_query.message, results[1], 1, 2
+    )
+    assert result == SELECTING
+
+
+@pytest.mark.asyncio
+async def test_handle_view_toggle_no_callback_query(
+    media_handler, make_update, make_context
+):
+    """handle_view_toggle returns END when no callback_query."""
+    update = make_update(text="test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await media_handler.handle_view_toggle(update, context)
+
+    assert result == ConversationHandler.END

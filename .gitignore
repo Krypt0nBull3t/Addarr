@@ -19,3 +19,4 @@ backup/
 settings.local.json
 .coverage
 htmlcov/
+user_preferences.json
