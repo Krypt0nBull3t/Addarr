@@ -4,7 +4,7 @@ Tests for src/api/sonarr.py -- SonarrClient.
 
 import pytest
 import aiohttp
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from aioresponses import CallbackResult
 
 from tests.fixtures.sample_data import (
@@ -56,13 +56,13 @@ class TestSonarrInit:
 
 class TestSonarrMakeRequest:
     @pytest.mark.asyncio
-    async def test_make_request_generic_exception(self, aio_mock, sonarr_client):
-        """Lines 71-73: generic Exception in _make_request."""
+    async def test_request_generic_exception(self, aio_mock, sonarr_client):
+        """RuntimeError via _request returns None."""
         aio_mock.get(
             f"{BASE}/system/status",
             exception=RuntimeError("unexpected"),
         )
-        result = await sonarr_client._make_request("system/status")
+        result = await sonarr_client._request("system/status")
         assert result is None
 
 
@@ -121,13 +121,15 @@ class TestSonarrRootFolders:
 
     @pytest.mark.asyncio
     async def test_get_root_folders_empty(self, aio_mock, sonarr_client):
-        """Lines 98: returns empty when API returns None."""
-        aio_mock.get(
-            f"{BASE}/rootFolder",
-            status=500,
-            body="error",
-        )
-        folders = await sonarr_client.get_root_folders()
+        """500 response exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/rootFolder",
+                status=500,
+                body="error",
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            folders = await sonarr_client.get_root_folders()
         assert folders == []
 
     @pytest.mark.asyncio
@@ -157,6 +159,7 @@ class TestSonarrRootFolders:
             assert "/data/tv2" not in folders
         finally:
             config._config["sonarr"]["paths"] = orig_paths
+            await client.close()
 
     @pytest.mark.asyncio
     async def test_get_root_folders_excludes_by_full_path_when_not_narrow(self, aio_mock):
@@ -178,6 +181,7 @@ class TestSonarrRootFolders:
             assert "/data/tv2" not in folders
         finally:
             config._config["sonarr"]["paths"] = orig_paths
+            await client.close()
 
 
 # ---------------------------------------------------------------------------
@@ -204,13 +208,15 @@ class TestSonarrQualityProfiles:
 
     @pytest.mark.asyncio
     async def test_get_quality_profiles_empty(self, aio_mock, sonarr_client):
-        """Lines 109: returns empty when API returns None."""
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            status=500,
-            body="error",
-        )
-        profiles = await sonarr_client.get_quality_profiles()
+        """500 response exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/qualityProfile",
+                status=500,
+                body="error",
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            profiles = await sonarr_client.get_quality_profiles()
         assert profiles == []
 
     @pytest.mark.asyncio
@@ -512,6 +518,7 @@ class TestSonarrAddSeries:
             assert posted_data["seasonFolder"] is True
         finally:
             config._config["sonarr"]["features"]["seasonFolder"] = True
+            await client.close()
 
 
 # ---------------------------------------------------------------------------
@@ -532,11 +539,13 @@ class TestSonarrCheckStatus:
 
     @pytest.mark.asyncio
     async def test_check_status_offline(self, aio_mock, sonarr_client):
-        aio_mock.get(
-            f"{BASE}/system/status",
-            exception=aiohttp.ClientError("connection refused"),
-        )
-        result = await sonarr_client.check_status()
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/system/status",
+                exception=aiohttp.ClientError("connection refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await sonarr_client.check_status()
         assert result is False
 
     @pytest.mark.asyncio
@@ -577,11 +586,13 @@ class TestGetAllSeries:
 
     @pytest.mark.asyncio
     async def test_get_all_series_connection_error(self, aio_mock, sonarr_client):
-        aio_mock.get(
-            f"{BASE}/series",
-            exception=aiohttp.ClientError("refused"),
-        )
-        results = await sonarr_client.get_all_series()
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/series",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await sonarr_client.get_all_series()
         assert results == []
 
     @pytest.mark.asyncio

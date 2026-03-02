@@ -12,6 +12,8 @@ description: |
 
 Orchestrates the development workflow for Addarr. Entry point: `/addarr [argument]`
 
+**IMPORTANT:** All PRs target `development` as base branch, never `main`.
+
 ## Entry Points
 
 | Command | Flow | Description |

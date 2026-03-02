@@ -5,19 +5,19 @@ Created Date: 2024-11-08
 Description: Sonarr API client module.
 """
 
-import aiohttp
-from typing import Optional, List, Dict, Any
-from colorama import Fore
 import json
+import aiohttp
+from typing import Optional, List, Dict
+from colorama import Fore
 
-from src.api.base import filter_root_folders
+from src.api.base import BaseApiClient, filter_root_folders
 from src.config.settings import config
 from src.utils.logger import get_logger
 
 logger = get_logger("addarr.sonarr")
 
 
-class SonarrClient:
+class SonarrClient(BaseApiClient):
     """Sonarr API client"""
 
     def __init__(self):
@@ -26,58 +26,25 @@ class SonarrClient:
         server_config = sonarr_config.get("server", {})
         auth_config = sonarr_config.get("auth", {})
 
-        # Build API URL from server config
-        protocol = "https" if server_config.get("ssl", False) else "http"
         addr = server_config.get("addr")
         port = server_config.get("port")
-        path = server_config.get("path", "").rstrip('/')
 
         if not addr or not port:
             logger.error(Fore.RED + "❌ Sonarr server address or port not configured")
             raise ValueError("Sonarr server address or port not configured")
 
-        self.api_url = f"{protocol}://{addr}:{port}{path}"
-        self.api_key = auth_config.get("apikey")
-
-        if not self.api_key:
+        if not auth_config.get("apikey"):
             logger.error(Fore.RED + "❌ Sonarr API key not configured")
             raise ValueError("Sonarr API key not configured")
 
-        self.headers = {
-            "X-Api-Key": self.api_key,
-            "Content-Type": "application/json"
-        }
-        logger.info(Fore.GREEN + f"✅ Sonarr API client initialized: {self.api_url}")
-
-    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[Dict] = None) -> Any:
-        """Make API request to Sonarr"""
-        url = f"{self.api_url}/api/v3/{endpoint}"
-        logger.info(Fore.BLUE + f"🌐 API Request: {method} {url}")
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.request(method, url, headers=self.headers, json=data) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        logger.info(Fore.GREEN + f"✅ API Response: {response.status}")
-                        return result
-                    else:
-                        error_text = await response.text()
-                        logger.error(Fore.RED + f"❌ API request failed ({response.status}): {error_text}")
-                        return None
-
-        except aiohttp.ClientError as e:
-            logger.error(Fore.RED + f"❌ Connection error: {str(e)}")
-            return None
-        except Exception as e:
-            logger.error(Fore.RED + f"❌ Unexpected error: {str(e)}")
-            return None
+        super().__init__("sonarr")
+        logger.info(Fore.GREEN + f"✅ Sonarr API client initialized: {self.base_url}")
 
     async def search(self, term: str) -> List[Dict]:
         """Search for TV series"""
         try:
             logger.info(Fore.BLUE + f"🔍 Searching Sonarr for: {term}")
-            results = await self._make_request(f"series/lookup?term={term}")
+            results = await self._request(f"series/lookup?term={term}")
 
             if not results:
                 logger.warning(Fore.YELLOW + f"⚠️ No results found for: {term}")
@@ -93,7 +60,7 @@ class SonarrClient:
     async def get_root_folders(self) -> List[str]:
         """Get available root folders"""
         try:
-            results = await self._make_request("rootFolder")
+            results = await self._request("rootFolder")
             if results:
                 paths = [folder["path"] for folder in results]
                 return filter_root_folders(paths, config.get("sonarr", {}))
@@ -105,7 +72,7 @@ class SonarrClient:
     async def get_quality_profiles(self) -> List[Dict]:
         """Get available quality profiles"""
         try:
-            results = await self._make_request("qualityProfile")
+            results = await self._request("qualityProfile")
             if results:
                 return [{"id": profile["id"], "name": profile["name"]} for profile in results]
             return []
@@ -117,7 +84,7 @@ class SonarrClient:
         """Get available seasons for a series"""
         try:
             logger.info(f"🔍 Getting seasons for series with TVDB ID: {tvdb_id}")
-            results = await self._make_request(f"series/lookup?term=tvdb:{tvdb_id}")
+            results = await self._request(f"series/lookup?term=tvdb:{tvdb_id}")
 
             if results and isinstance(results, list) and results[0]:
                 series = results[0]
@@ -136,7 +103,7 @@ class SonarrClient:
         """Add a TV series to Sonarr with optional season selection"""
         try:
             # Get series details from search results
-            lookup_response = await self._make_request(f"series/lookup?term=tvdb:{tvdb_id}")
+            lookup_response = await self._request(f"series/lookup?term=tvdb:{tvdb_id}")
             if not lookup_response or not isinstance(lookup_response, list) or not lookup_response[0]:
                 logger.error(f"❌ No series found with TVDB ID: {tvdb_id}")
                 return False, "Series not found"
@@ -163,40 +130,40 @@ class SonarrClient:
                 data["seasons"] = seasons
 
             try:
-                async with aiohttp.ClientSession() as session:
-                    url = f"{self.api_url}/api/v3/series"
-                    async with session.post(url, headers=self.headers, json=data) as response:
-                        response_text = await response.text()
+                session = await self._get_session()
+                url = f"{self.base_url}/api/{self.API_VERSION}/series"
+                async with session.post(url, headers=self._get_headers(), json=data) as response:
+                    response_text = await response.text()
 
-                        # Check if response can be parsed as JSON
-                        try:
-                            response_data = json.loads(response_text)
+                    # Check if response can be parsed as JSON
+                    try:
+                        response_data = json.loads(response_text)
 
-                            # If we get a series object back, it was successful
-                            if isinstance(response_data, dict) and response_data.get("id"):
-                                logger.info(f"✅ Successfully added series: {series['title']}")
-                                return True, f"Successfully added {series['title']}"
-
-                            # If we get an error array back
-                            if isinstance(response_data, list) and response_data:
-                                error_msg = response_data[0].get("errorMessage")
-                                if error_msg:
-                                    if "already" in error_msg.lower():
-                                        logger.info(f"ℹ️ Series already exists: {series['title']}")
-                                        return False, f"{series['title']} is already in your library"
-                                    logger.warning(f"⚠️ API Error: {error_msg}")
-                                    return False, error_msg
-
-                        except json.JSONDecodeError:
-                            pass
-
-                        # If we can't parse the response or don't recognize the format
-                        if response.status == 201 or response.status == 200:
+                        # If we get a series object back, it was successful
+                        if isinstance(response_data, dict) and response_data.get("id"):
                             logger.info(f"✅ Successfully added series: {series['title']}")
                             return True, f"Successfully added {series['title']}"
-                        else:
-                            logger.error(f"❌ Failed to add series: {response_text}")
-                            return False, f"Failed to add {series['title']}"
+
+                        # If we get an error array back
+                        if isinstance(response_data, list) and response_data:
+                            error_msg = response_data[0].get("errorMessage")
+                            if error_msg:
+                                if "already" in error_msg.lower():
+                                    logger.info(f"ℹ️ Series already exists: {series['title']}")
+                                    return False, f"{series['title']} is already in your library"
+                                logger.warning(f"⚠️ API Error: {error_msg}")
+                                return False, error_msg
+
+                    except json.JSONDecodeError:
+                        pass
+
+                    # If we can't parse the response or don't recognize the format
+                    if response.status == 201 or response.status == 200:
+                        logger.info(f"✅ Successfully added series: {series['title']}")
+                        return True, f"Successfully added {series['title']}"
+                    else:
+                        logger.error(f"❌ Failed to add series: {response_text}")
+                        return False, f"Failed to add {series['title']}"
 
             except aiohttp.ClientError as e:
                 logger.error(f"❌ Connection error: {str(e)}")
@@ -213,14 +180,14 @@ class SonarrClient:
         """Get series details by TVDB ID"""
         try:
             logger.info(f"🔍 Looking up series with TVDB ID: {tvdb_id}")
-            results = await self._make_request(f"series/lookup/tvdb/{tvdb_id}")
+            results = await self._request(f"series/lookup/tvdb/{tvdb_id}")
 
             if results:
                 logger.info(f"✅ Found series: {results.get('title')}")
                 return results
 
             # Fallback to search with tvdb: prefix if direct lookup fails
-            results = await self._make_request(f"series/lookup?term=tvdb:{tvdb_id}")
+            results = await self._request(f"series/lookup?term=tvdb:{tvdb_id}")
             if results and len(results) > 0:
                 logger.info(f"✅ Found series: {results[0].get('title')}")
                 return results[0]
@@ -236,7 +203,7 @@ class SonarrClient:
         """Get all series in the library"""
         try:
             logger.info(Fore.BLUE + "🔍 Getting all series from Sonarr")
-            results = await self._make_request("series")
+            results = await self._request("series")
 
             if not results:
                 logger.warning(Fore.YELLOW + "⚠️ No series found in library")
@@ -253,7 +220,7 @@ class SonarrClient:
         """Get series details by internal Sonarr ID"""
         try:
             logger.info(f"🔍 Looking up series with ID: {series_id}")
-            result = await self._make_request(f"series/{series_id}")
+            result = await self._request(f"series/{series_id}")
 
             if result:
                 logger.info(f"✅ Found series: {result.get('title')}")
@@ -270,32 +237,23 @@ class SonarrClient:
         """Delete a series from Sonarr by internal ID"""
         try:
             logger.info(f"🗑️ Deleting series with ID: {series_id}")
-            url = f"{self.api_url}/api/v3/series/{series_id}?deleteFiles=true"
+            url = f"{self.base_url}/api/{self.API_VERSION}/series/{series_id}?deleteFiles=true"
 
-            async with aiohttp.ClientSession() as session:
-                async with session.delete(url, headers=self.headers) as response:
-                    if response.status == 200:
-                        logger.info(f"✅ Successfully deleted series {series_id}")
-                        return True
-                    else:
-                        error_text = await response.text()
-                        logger.error(
-                            f"❌ Failed to delete series ({response.status}): {error_text}"
-                        )
-                        return False
+            session = await self._get_session()
+            async with session.delete(url, headers=self._get_headers()) as response:
+                if response.status == 200:
+                    logger.info(f"✅ Successfully deleted series {series_id}")
+                    return True
+                else:
+                    error_text = await response.text()
+                    logger.error(
+                        f"❌ Failed to delete series ({response.status}): {error_text}"
+                    )
+                    return False
 
         except aiohttp.ClientError as e:
             logger.error(f"❌ Connection error deleting series: {str(e)}")
             return False
         except Exception as e:
             logger.error(f"❌ Error deleting series: {str(e)}")
-            return False
-
-    async def check_status(self) -> bool:
-        """Check if Sonarr is available"""
-        try:
-            result = await self._make_request("system/status")
-            return result is not None
-        except Exception as e:
-            logger.error(f"Error checking Sonarr status: {e}")
             return False
