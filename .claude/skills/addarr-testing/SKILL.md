@@ -82,3 +82,7 @@ Override values via `MockConfig._set()`. See [references/patterns.md#config](ref
 3. Using `aioresponses` for Transmission — it uses sync `requests`, not `aiohttp`. See [references/anti-patterns.md#transmission-mocking](references/anti-patterns.md#transmission-mocking).
 4. Testing translated text literally — mock returns keys, not translated strings. See [references/anti-patterns.md#translation-testing](references/anti-patterns.md#translation-testing).
 5. Creating real `aiohttp.ClientSession` in tests — use `aioresponses` instead. See [references/anti-patterns.md#real-sessions](references/anti-patterns.md#real-sessions).
+6. Patching services at source module instead of import site — patch where the handler imports it. See [references/anti-patterns.md#patching-at-wrong-import-path](references/anti-patterns.md#patching-at-wrong-import-path).
+7. Not cleaning up reusable sessions between tests — mock state leaks. See [references/anti-patterns.md#not-cleaning-up-sessions-between-tests](references/anti-patterns.md#not-cleaning-up-sessions-between-tests).
+8. Registering too few mocks for retry scenarios — need N+1 mocks for N retries. See [references/anti-patterns.md#insufficient-retry-mocks](references/anti-patterns.md#insufficient-retry-mocks).
+9. Mocking `sys.exit` without stopping execution — use `pytest.raises(SystemExit)`. See [references/anti-patterns.md#mocking-sysexit-without-stopping-execution](references/anti-patterns.md#mocking-sysexit-without-stopping-execution).

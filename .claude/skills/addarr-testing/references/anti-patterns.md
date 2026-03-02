@@ -149,3 +149,115 @@ data["radarr"]["enable"] = False
 ```
 
 **Why**: Python creates separate name bindings for each `from X import Y`. Patching `src.config.settings.config` doesn't affect `src.services.media.config` if media.py did `from src.config.settings import config`. The `sys.modules` injection in conftest solves this by replacing the entire module before any imports happen.
+
+---
+
+## Patching at Wrong Import Path
+
+**Don't** patch a service at its source module when testing code that imports it:
+
+```python
+# BAD - patches the source, not where it's used
+with patch("src.services.media.MediaService"):
+    from src.bot.handlers.media import MediaHandler
+    handler = MediaHandler()  # Still gets the real MediaService!
+```
+
+**Instead**, patch at the import site — where the module under test imports it:
+
+```python
+# GOOD - patch where the handler imports it from
+with patch("src.bot.handlers.media.MediaService", return_value=mock_media_service):
+    from src.bot.handlers.media import MediaHandler
+    handler = MediaHandler()
+```
+
+**Why**: Python name bindings are per-module. When `media.py` does `from src.services.media import MediaService`, it creates a local binding. Patching the source module doesn't affect that local binding. You must patch at `src.bot.handlers.media.MediaService`. This applies to all services, not just config — three separate issues (#17, #67, #78) independently hit this.
+
+---
+
+## Not Cleaning Up Sessions Between Tests
+
+**Don't** skip session cleanup when testing API clients with reusable sessions:
+
+```python
+# BAD - session persists, mock state leaks to next test
+async def test_one(radarr_client, aio_mock, radarr_url):
+    aio_mock.get(f"{radarr_url}/api/v3/system/status", payload={"version": "5.0"})
+    await radarr_client.check_status()
+    # Session stays open with stale mock state
+```
+
+**Instead**, use an autouse cleanup fixture or close explicitly:
+
+```python
+# GOOD - autouse fixture closes session after each test
+@pytest.fixture(autouse=True)
+async def cleanup_session(radarr_client):
+    yield
+    await radarr_client.close()
+
+# GOOD - explicit cleanup for ad-hoc clients
+async def test_custom_client():
+    client = RadarrClient()
+    try:
+        result = await client.some_method()
+    finally:
+        await client.close()
+```
+
+**Why**: `BaseApiClient._get_session()` returns the existing session if one is open. Without cleanup, the next test inherits a session with stale mock state, causing mysterious failures. Two issues (#21, #76) hit this independently.
+
+---
+
+## Mocking sys.exit Without Stopping Execution
+
+**Don't** mock `sys.exit` as a simple MagicMock — execution continues past the exit call:
+
+```python
+# BAD - code after sys.exit() still runs
+@patch("sys.exit")
+def test_reset_config(mock_exit):
+    wizard._reset_config()
+    mock_exit.assert_called_once_with(0)
+    # But all code after sys.exit(0) in the function also executed!
+```
+
+**Instead**, use `pytest.raises(SystemExit)` to catch the real exit:
+
+```python
+# GOOD - actually stops execution at the exit point
+def test_reset_config():
+    with pytest.raises(SystemExit) as exc_info:
+        wizard._reset_config()
+    assert exc_info.value.code == 0
+```
+
+**Why**: `MagicMock()` replaces `sys.exit` with a no-op that returns `None`. The function's code after the exit call keeps running, which can trigger errors or false positives. `pytest.raises(SystemExit)` catches the actual exception that `sys.exit` raises.
+
+---
+
+## Insufficient Retry Mocks
+
+**Don't** register only one failure mock when the client has retry logic:
+
+```python
+# BAD - only 1 mock but client retries 2 times (needs 3 total)
+aio_mock.get(url, exception=aiohttp.ClientError("fail"))
+result = await client.check_status()
+# Raises ConnectionError on second attempt because no mock is registered
+```
+
+**Instead**, register one mock per attempt (initial + retries):
+
+```python
+# GOOD - 3 mocks for initial + 2 retries
+for _ in range(3):
+    aio_mock.get(url, exception=aiohttp.ClientError("fail"))
+
+with patch("asyncio.sleep", new_callable=AsyncMock):
+    result = await client.check_status()
+    assert result is False
+```
+
+**Why**: `aioresponses` mocks are consumed in FIFO order per URL. Each request consumes one mock. If the client retries twice after the initial failure, you need 3 mocks total. Also remember to patch `asyncio.sleep` to avoid real delays during retries.

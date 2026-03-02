@@ -327,3 +327,155 @@ mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
 ```
 
 This way assertions check for translation keys, not locale-specific text.
+
+---
+
+## Retry and Timeout Testing
+
+API clients inherit retry logic from `BaseApiClient`. Testing retries requires specific mock setup.
+
+### aioresponses FIFO Ordering
+
+`aioresponses` mocks are consumed in FIFO order per URL. Register one mock per attempt:
+
+```python
+async def test_retry_then_succeed(radarr_client, aio_mock, radarr_url):
+    url = f"{radarr_url}/api/v3/system/status"
+    # First attempt: failure (consumed first)
+    aio_mock.get(url, exception=aiohttp.ClientError("fail"))
+    # Second attempt: success (consumed second)
+    aio_mock.get(url, payload={"version": "5.0"})
+
+    result = await radarr_client.check_status()
+    assert result is True
+```
+
+For N retries, register N+1 mocks (1 initial + N retries). Example with 2 retries configured:
+
+```python
+async def test_all_retries_exhausted(radarr_client, aio_mock, radarr_url):
+    url = f"{radarr_url}/api/v3/system/status"
+    # Initial + 2 retries = 3 mocks
+    for _ in range(3):
+        aio_mock.get(url, exception=aiohttp.ClientError("fail"))
+
+    result = await radarr_client.check_status()
+    assert result is False
+```
+
+### Patching asyncio.sleep for Backoff
+
+Retry logic uses `asyncio.sleep` for backoff delays. Patch at module level to avoid real delays and verify backoff values:
+
+```python
+async def test_retry_backoff(radarr_client, aio_mock, radarr_url):
+    url = f"{radarr_url}/api/v3/system/status"
+    aio_mock.get(url, exception=aiohttp.ClientError("fail"))
+    aio_mock.get(url, payload={"version": "5.0"})
+
+    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        await radarr_client.check_status()
+        mock_sleep.assert_called_once_with(1)  # First backoff = 1s
+```
+
+### TimeoutError Handling
+
+`asyncio.TimeoutError` does NOT inherit from `aiohttp.ClientError` — they require separate handling but both are retryable:
+
+```python
+async def test_timeout_triggers_retry(radarr_client, aio_mock, radarr_url):
+    url = f"{radarr_url}/api/v3/system/status"
+    aio_mock.get(url, exception=asyncio.TimeoutError())
+    aio_mock.get(url, payload={"version": "5.0"})
+
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        result = await radarr_client.check_status()
+        assert result is True
+```
+
+### Updating Existing Tests for Retry
+
+When retry logic is added to a client, existing error tests need more mocks. A test that previously registered 1 failure mock now needs initial + retries:
+
+```python
+# BEFORE retry logic: 1 mock
+aio_mock.get(url, exception=aiohttp.ClientError("fail"))
+
+# AFTER retry logic (2 retries): 3 mocks
+for _ in range(3):
+    aio_mock.get(url, exception=aiohttp.ClientError("fail"))
+```
+
+---
+
+## Session Cleanup
+
+API clients reuse `aiohttp.ClientSession` for performance. Tests must close sessions to prevent mock state leaking across test boundaries.
+
+### Autouse Cleanup Fixture
+
+```python
+@pytest.fixture(autouse=True)
+async def cleanup_session(radarr_client):
+    yield
+    await radarr_client.close()
+```
+
+### Ad-hoc Client Instances
+
+Tests that create their own client instances (bypassing the shared fixture) must close explicitly:
+
+```python
+async def test_custom_client():
+    client = RadarrClient()
+    try:
+        result = await client.some_method()
+        assert result is not None
+    finally:
+        await client.close()
+```
+
+### Why This Matters
+
+`_get_session()` returns an existing session if one is open. If a previous test's session is still open with stale mock state, the next test inherits that state. The `cleanup_session` fixture ensures each test starts with a fresh session.
+
+---
+
+## API Client vs Service Layer Conventions
+
+The codebase has two distinct patterns for API interaction. Tests must match the convention of the layer under test.
+
+### API Client Layer
+
+- URLs built with f-strings and inline query params
+- Returns raw responses: `response.status == 200`
+- Error handling: catches `aiohttp.ClientError`
+- Mock with: `aioresponses` matching exact URL strings (including query params)
+
+```python
+# API client code style
+url = f"{self.base_url}/api/v3/movie/lookup?term={query}"
+async with self._session.get(url) as response:
+    if response.status == 200:
+        return await response.json()
+```
+
+### Service Layer
+
+- Uses params dicts passed to `session.get(url, params=...)`
+- Returns normalized shapes: `data.get('status', False)`
+- Error handling: checks parsed data structure, returns domain-specific defaults
+- Service tests often define their own response dicts inline (not from `sample_data.py`)
+
+```python
+# Service layer code style
+params = {"mode": "queue", "apikey": self._api_key, "output": "json"}
+data = await self._make_request(params=params)
+return {"total": data.get("noofslots", 0), "items": data.get("slots", [])}
+```
+
+### Testing Implications
+
+- API tests: mock exact URLs with `aioresponses`, assert on raw return values
+- Service tests: inject mock clients via class attributes, assert on normalized return shapes
+- SABnzbd API uses `mode=config&name=speedlimit&value=<pct>` query params — spaces in values become `+` encoding in mock URLs
