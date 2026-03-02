@@ -46,10 +46,7 @@ class SettingsHandler:
         self.translation = TranslationService()
         self.media_service = MediaService()
         self.transmission_service = TransmissionService()
-        try:
-            self.sabnzbd_service = SABnzbdService()
-        except ValueError:
-            self.sabnzbd_service = None
+        self.sabnzbd_service = SABnzbdService()
 
     def get_handler(self):
         """Get command handlers for settings operations"""
@@ -576,7 +573,7 @@ class SettingsHandler:
             )
         else:
             speed = int(query.data.replace("dl_sab_speed_", ""))
-            if self.sabnzbd_service:
+            if self.sabnzbd_service.is_enabled():
                 await self.sabnzbd_service.set_speed_limit(speed)
             enabled = config.get("sabnzbd", {}).get("enable", False)
             keyboard = get_sabnzbd_settings_keyboard(enabled)
@@ -593,10 +590,10 @@ class SettingsHandler:
         query = update.callback_query
         await query.answer()
 
-        if query.data == "dl_sab_pause" and self.sabnzbd_service:
+        if query.data == "dl_sab_pause" and self.sabnzbd_service.is_enabled():
             await self.sabnzbd_service.pause_queue()
             text = "⏸ Queue paused"
-        elif query.data == "dl_sab_resume" and self.sabnzbd_service:
+        elif query.data == "dl_sab_resume" and self.sabnzbd_service.is_enabled():
             await self.sabnzbd_service.resume_queue()
             text = "▶️ Queue resumed"
         else:

@@ -16,10 +16,20 @@ logger = get_logger("addarr.services.transmission")
 class TransmissionService:
     """Service class for Transmission operations"""
 
-    def __init__(self):
-        """Initialize Transmission service"""
-        self._client = None
-        self._config = config.get("transmission", {})
+    _instance = None
+
+    def __new__(cls):
+        """Ensure only one instance of TransmissionService exists"""
+        if cls._instance is None:
+            cls._instance = super(TransmissionService, cls).__new__(cls)
+            cls._initialize()
+        return cls._instance
+
+    @classmethod
+    def _initialize(cls):
+        """Initialize service state on first instantiation."""
+        cls._client = None
+        cls._config = config.get("transmission", {})
 
     @property
     def client(self) -> Optional[TransmissionClient]:

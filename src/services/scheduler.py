@@ -19,9 +19,20 @@ logger = get_logger("addarr.scheduler")
 class JobScheduler:
     """Service for scheduling and managing jobs"""
 
-    def __init__(self):
-        self.jobs: Dict[str, aiocron.Cron] = {}
-        self.running = False
+    _instance = None
+
+    def __new__(cls):
+        """Ensure only one instance of JobScheduler exists"""
+        if cls._instance is None:
+            cls._instance = super(JobScheduler, cls).__new__(cls)
+            cls._initialize()
+        return cls._instance
+
+    @classmethod
+    def _initialize(cls):
+        """Initialize scheduler state on first instantiation."""
+        cls.jobs: Dict[str, aiocron.Cron] = {}
+        cls.running = False
 
     def add_job(
         self,
