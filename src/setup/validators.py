@@ -53,8 +53,11 @@ async def validate_service_connection(
     endpoint = endpoints[service]
     full_url = f"{base_url}{endpoint['path']}"
 
+    # Log without sensitive data — apikey is only sent in headers, never printed
+    safe_url = f"{protocol}://{url}:{port}{endpoint['path']}"
+
     try:
-        print(f"{Fore.YELLOW}Testing connection to {full_url}...")
+        print(f"{Fore.YELLOW}Testing connection to {safe_url}...")
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 full_url,
@@ -98,14 +101,14 @@ async def validate_service_connection(
                     )
                     return False
 
-    except aiohttp.ClientError as e:
-        print(f"{Fore.RED}❌ Connection error: {str(e)}")
+    except aiohttp.ClientError:
+        print(f"{Fore.RED}❌ Connection error for {service}")
         return False
     except asyncio.TimeoutError:
         print(f"{Fore.RED}❌ Connection timed out")
         return False
-    except Exception as e:
-        print(f"{Fore.RED}❌ Unexpected error: {str(e)}")
+    except Exception:
+        print(f"{Fore.RED}❌ Unexpected error connecting to {service}")
         return False
 
 
