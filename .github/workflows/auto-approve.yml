@@ -48,8 +48,8 @@ jobs:
               mediaType: { format: 'diff' }
             });
             const fs = require('fs');
-            // Truncate diff to ~100KB to stay within model context limits
-            const diffText = diff.data.substring(0, 100000);
+            // Truncate diff to ~50KB — further trimmed later to fit 8K TPM limit
+            const diffText = diff.data.substring(0, 50000);
             fs.writeFileSync('pr_diff.txt', diffText);
 
             // Get PR details
@@ -157,7 +157,7 @@ jobs:
           PR_TITLE: ${{ steps.pr.outputs.title }}
           PR_BODY: ${{ steps.pr.outputs.body }}
         run: |
-          # Build request with Python — use code-only diff, cap at 32KB for token limits
+          # Build request with Python — use code-only diff, cap to stay within 8K TPM
           python3 << 'PYEOF'
           import json, os
 
@@ -166,18 +166,19 @@ jobs:
           with open(diff_file, 'r') as f:
               diff = f.read()
 
-          # Cap diff size to ~80KB to stay within Groq token limits
-          if len(diff) > 80000:
-              diff = diff[:80000] + "\n\n... (diff truncated for token limit)"
+          # Token budget: 8K TPM limit on Groq free tier
+          # ~2K output + ~425 prompt overhead = ~5,500 tokens for diff (~20K chars)
+          if len(diff) > 20000:
+              diff = diff[:20000] + "\n\n... (diff truncated to stay within 8K TPM limit)"
 
           title = os.environ.get('PR_TITLE', 'PR Review')
           pr_body = os.environ.get('PR_BODY', '').strip()
           description = f"\n\nPR Description:\n{pr_body}" if pr_body else ""
 
           request = {
-              "model": "llama-3.3-70b-versatile",
+              "model": "openai/gpt-oss-120b",
               "temperature": 0.3,
-              "max_tokens": 4096,
+              "max_tokens": 2048,
               "messages": [
                   {
                       "role": "system",

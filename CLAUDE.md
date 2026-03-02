@@ -107,7 +107,7 @@ Handlers are registered in `AddarrBot._add_handlers()` in this order: Start, Aut
 GitHub Actions workflows in `.github/workflows/`:
 
 - **`ci.yml`** — Runs on PRs to `main`/`development`. Jobs: flake8 lint, pytest with coverage, translation validation (`--validate-i18n`), Docker build test.
-- **`auto-approve.yml`** — Triggered after CI succeeds. Performs AI-powered PR review via Groq (Qwen3-32B) plus rule-based checks (TODOs, print statements, large files, hardcoded secrets, bare excepts). Posts review comment and auto-approves. Requires `GROQ_API_KEY` and `REVIEWER_BOT_TOKEN` secrets.
+- **`auto-approve.yml`** — Triggered after CI succeeds. Performs AI-powered PR review via Groq (GPT-OSS-120B) plus rule-based checks (TODOs, print statements, large files, hardcoded secrets, bare excepts). Posts review comment and auto-approves. Requires `GROQ_API_KEY` and `REVIEWER_BOT_TOKEN` secrets.
 - **`codeql-analysis.yml`** — CodeQL security scanning on push/PR.
 - **`docker-hub-push.yml`** — Publishes Docker image to Docker Hub.
 
