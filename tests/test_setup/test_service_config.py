@@ -98,6 +98,16 @@ class TestGetDefaultServiceConfig:
             assert config["tags"]["default"] == ["telegram"]
             assert config["adminRestrictions"] is False
 
+    def test_unknown_service_fallthrough(self):
+        """Unknown arr service gets base config without service-specific fields."""
+        config = get_default_service_config("bazarr")
+        assert config["enable"] is False
+        assert config["server"]["addr"] == "localhost"
+        assert config["server"]["port"] == "8090"
+        assert "metadataProfileId" not in config
+        assert "minimumAvailability" not in config.get("features", {})
+        assert "seasonFolder" not in config.get("features", {})
+
 
 # ---------------------------------------------------------------------------
 # get_valid_service_config tests
@@ -248,3 +258,57 @@ class TestGetValidServiceConfig:
         assert result["auth"]["apikey"] == ""
         # password should not have been called
         mock_q.password.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sabnzbd_retry_then_skip(self):
+        """SABnzbd validation fails, user declines retry, returns disabled config."""
+        with patch("src.setup.service_config.questionary") as mock_q, \
+             patch("src.setup.service_config.validate_service_connection",
+                   new_callable=AsyncMock, return_value=False), \
+             patch("src.setup.service_config.get_valid_port",
+                   new_callable=AsyncMock, return_value=8090):
+
+            mock_q.text.return_value = _mock_questionary_ask("myserver")
+            confirm_mock = MagicMock()
+            confirm_mock.ask_async = AsyncMock(side_effect=[False, False])
+            mock_q.confirm.return_value = confirm_mock
+            mock_q.password.return_value = _mock_questionary_ask("sab-key")
+
+            result = await get_valid_service_config("sabnzbd")
+
+        assert result["enable"] is False
+        assert result["onlyAdmin"] is True
+        assert result["server"]["addr"] == "myserver"
+        assert result["server"]["port"] == 8090
+        assert result["server"]["ssl"] is False
+        assert result["auth"]["apikey"] == "sab-key"
+
+    @pytest.mark.asyncio
+    async def test_validation_fail_retry_then_succeed(self):
+        """Validation fails, user retries, succeeds on second attempt."""
+        with patch("src.setup.service_config.questionary") as mock_q, \
+             patch("src.setup.service_config.validate_service_connection",
+                   new_callable=AsyncMock, side_effect=[False, True]), \
+             patch("src.setup.service_config.get_valid_port",
+                   new_callable=AsyncMock, return_value=7878):
+
+            text_mock = MagicMock()
+            text_mock.ask_async = AsyncMock(
+                side_effect=["localhost", "localhost"]
+            )
+            mock_q.text.return_value = text_mock
+            confirm_mock = MagicMock()
+            confirm_mock.ask_async = AsyncMock(
+                side_effect=[False, True, False]
+            )
+            mock_q.confirm.return_value = confirm_mock
+            password_mock = MagicMock()
+            password_mock.ask_async = AsyncMock(
+                side_effect=["key", "key"]
+            )
+            mock_q.password.return_value = password_mock
+
+            result = await get_valid_service_config("radarr")
+
+        assert result["server"]["addr"] == "localhost"
+        assert result["auth"]["apikey"] == "key"
