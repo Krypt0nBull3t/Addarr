@@ -4,7 +4,7 @@ omit =
     # Root — entry points, no unit tests
     src/__init__.py
     src/main.py
-    src/setup.py
+    src/setup/wizard.py
     # Config — reads from disk at import time
     src/config/settings.py
     # Utils — interactive/display, no unit tests
