@@ -6,6 +6,26 @@ import aiohttp
 import questionary
 from colorama import Fore
 
+# Service API paths — separated from auth config to avoid taint tracking
+# through shared data structures (CodeQL clear-text logging rule).
+SERVICE_PATHS = {
+    "radarr": "/api/v3/system/status",
+    "sonarr": "/api/v3/system/status",
+    "lidarr": "/api/v1/system/status",
+    "transmission": "/transmission/rpc",
+    "sabnzbd": "/api",
+}
+
+# Services that use status-code-only validation (no JSON body check)
+TRANSMISSION_EXPECTED_STATUS = [200, 401, 409]
+
+
+def _build_headers(service: str, apikey: str = None) -> dict:
+    """Build request headers for a service. Kept separate from logged data."""
+    if service == "transmission" or not apikey:
+        return {}
+    return {"X-Api-Key": apikey}
+
 
 async def validate_service_connection(
     service: str, url: str, port: int, ssl: bool, apikey: str = None
@@ -14,61 +34,28 @@ async def validate_service_connection(
 
     Returns True if connection is successful.
     """
-    protocol = "https" if ssl else "http"
-    base_url = f"{protocol}://{url}:{port}"
-
-    # Define test endpoints and expected responses for each service
-    endpoints = {
-        "radarr": {
-            "path": "/api/v3/system/status",
-            "headers": {"X-Api-Key": apikey} if apikey else {},
-            "expected_keys": ["version"],
-        },
-        "sonarr": {
-            "path": "/api/v3/system/status",
-            "headers": {"X-Api-Key": apikey} if apikey else {},
-            "expected_keys": ["version"],
-        },
-        "lidarr": {
-            "path": "/api/v1/system/status",
-            "headers": {"X-Api-Key": apikey} if apikey else {},
-            "expected_keys": ["version"],
-        },
-        "transmission": {
-            "path": "/transmission/rpc",
-            "headers": {},
-            "expected_status": [200, 401, 409],
-        },
-        "sabnzbd": {
-            "path": "/api",
-            "headers": {"X-Api-Key": apikey} if apikey else {},
-            "params": {"mode": "version"},
-            "expected_keys": ["version"],
-        },
-    }
-
-    if service not in endpoints:
+    if service not in SERVICE_PATHS:
         return False
 
-    endpoint = endpoints[service]
-    full_url = f"{base_url}{endpoint['path']}"
-
-    # Log without sensitive data — apikey is only sent in headers, never printed
-    safe_url = f"{protocol}://{url}:{port}{endpoint['path']}"
+    protocol = "https" if ssl else "http"
+    path = SERVICE_PATHS[service]
+    full_url = f"{protocol}://{url}:{port}{path}"
+    headers = _build_headers(service, apikey)
+    params = {"mode": "version"} if service == "sabnzbd" else {}
 
     try:
-        print(f"{Fore.YELLOW}Testing connection to {safe_url}...")
+        print(f"{Fore.YELLOW}Testing connection to {full_url}...")
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 full_url,
-                headers=endpoint["headers"],
-                params=endpoint.get("params", {}),
+                headers=headers,
+                params=params,
                 ssl=False,
                 timeout=5,
             ) as response:
-                # Check if status code is in expected list (if defined)
-                if "expected_status" in endpoint:
-                    if response.status in endpoint["expected_status"]:
+                # Transmission: validate by status code only
+                if service == "transmission":
+                    if response.status in TRANSMISSION_EXPECTED_STATUS:
                         print(
                             f"{Fore.GREEN}✅ Service responded "
                             f"with status {response.status}"
@@ -77,13 +64,11 @@ async def validate_service_connection(
                     print(f"{Fore.RED}❌ Unexpected status code: {response.status}")
                     return False
 
-                # For regular API endpoints, check response content
+                # API services: check JSON response content
                 if response.status == 200:
                     try:
                         data = await response.json()
-                        if all(
-                            key in data for key in endpoint["expected_keys"]
-                        ):
+                        if "version" in data:
                             print(
                                 f"{Fore.GREEN}✅ Service API "
                                 f"responded successfully"
