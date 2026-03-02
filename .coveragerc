@@ -1,16 +1,9 @@
 [run]
 source = src
 omit =
-    # Root — entry points, no unit tests
     src/__init__.py
-    src/main.py
-    src/setup/wizard.py
-    # Config — reads from disk at import time
+    # Config — reads from disk at import time, mocked at sys.modules level
     src/config/settings.py
-    # Utils — interactive/display, no unit tests
-    src/utils/config_handler.py
-    src/utils/prerun.py
-    src/utils/splash.py
 
 [report]
 fail_under = 100
