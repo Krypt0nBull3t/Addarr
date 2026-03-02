@@ -26,6 +26,15 @@ def _make_mock_cron():
 # ---------------------------------------------------------------------------
 
 
+class TestJobSchedulerSingleton:
+    def test_singleton(self):
+        from src.services.scheduler import JobScheduler
+
+        a = JobScheduler()
+        b = JobScheduler()
+        assert a is b
+
+
 class TestAddJob:
     @patch("src.services.scheduler.aiocron")
     def test_add_job(self, mock_aiocron):

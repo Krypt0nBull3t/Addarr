@@ -54,6 +54,10 @@ DOMAINS = {
         "test_path": "tests/test_config/",
         "cov_source": "src/config/",
     },
+    "setup": {
+        "test_path": "tests/test_setup/",
+        "cov_source": "src/setup/",
+    },
     "all": {
         "test_path": "tests/",
         "cov_source": "src/",

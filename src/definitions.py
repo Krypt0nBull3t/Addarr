@@ -30,6 +30,9 @@ ALLOWLIST_PATH = os.path.join(ROOT_DIR, "allowlist.txt")
 # Data directory for persistent storage
 DATA_PATH = os.path.join(ROOT_DIR, "data")
 
+# User preferences file
+PREFERENCES_PATH = os.path.join(ROOT_DIR, "user_preferences.json")
+
 
 def load_config():
     config_path = Path("config.yaml")

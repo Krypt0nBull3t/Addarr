@@ -18,20 +18,47 @@ logger = get_logger("addarr.services.sabnzbd")
 class SABnzbdService:
     """Service for handling SABnzbd operations"""
 
-    def __init__(self):
-        self.config = config
-        if not self.config.get('sabnzbd', {}).get('enable', False):
-            raise ValueError("SABnzbd is not enabled")
+    _instance = None
 
-        server_config = self.config['sabnzbd']['server']
-        auth_config = self.config['sabnzbd']['auth']
+    def __new__(cls):
+        """Ensure only one instance of SABnzbdService exists"""
+        if cls._instance is None:
+            cls._instance = super(SABnzbdService, cls).__new__(cls)
+            cls._initialize()
+        return cls._instance
 
-        protocol = "https" if server_config.get('ssl', False) else "http"
-        self.base_url = f"{protocol}://{server_config['addr']}:{server_config['port']}{server_config['path']}"
-        self.api_key = auth_config.get('apikey')
+    @classmethod
+    def _initialize(cls):
+        """Initialize service state on first instantiation."""
+        cls._enabled = False
+        cls.base_url = None
+        cls.api_key = None
 
-        if not self.api_key:
-            raise ValueError("SABnzbd API key not configured")
+        sabnzbd_config = config.get('sabnzbd', {})
+        if not sabnzbd_config.get('enable', False):
+            return
+
+        try:
+            server_config = sabnzbd_config['server']
+            auth_config = sabnzbd_config['auth']
+
+            protocol = "https" if server_config.get('ssl', False) else "http"
+            cls.base_url = f"{protocol}://{server_config['addr']}:{server_config['port']}{server_config['path']}"
+            cls.api_key = auth_config.get('apikey')
+
+            if not cls.api_key:
+                logger.error("SABnzbd API key not configured")
+                cls._enabled = False
+                return
+
+            cls._enabled = True
+        except Exception as e:
+            logger.error(f"Failed to initialize SABnzbd: {e}")
+            cls._enabled = False
+
+    def is_enabled(self) -> bool:
+        """Check if SABnzbd is enabled and properly configured."""
+        return bool(self._enabled)
 
     async def get_status(self) -> Dict[str, Any]:
         """Get SABnzbd queue status"""

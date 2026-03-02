@@ -20,8 +20,10 @@ from telegram.ext import (
 from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
+from src.bot.keyboards import get_search_results_list_keyboard, get_list_detail_keyboard
 from src.services.media import MediaService
 from src.services.translation import TranslationService
+from src.services.preferences import PreferencesService
 
 logger = get_logger("addarr.media")
 
@@ -68,6 +70,22 @@ class MediaHandler:
                         CallbackQueryHandler(
                             self.handle_navigation,
                             pattern="^nav_"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_list_select,
+                            pattern="^listsel_"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_list_back,
+                            pattern="^listback$"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_list_page,
+                            pattern="^listpage_"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_view_toggle,
+                            pattern="^viewtoggle$"
                         ),
                         CallbackQueryHandler(
                             self.handle_menu_callback,
@@ -276,8 +294,18 @@ class MediaHandler:
             context.user_data["search_results"] = results
             context.user_data["current_index"] = 0
 
-            # Show first result
-            await self._show_result(update.message, results[0], 0, len(results))
+            # Branch on user's view preference
+            user_id = update.effective_user.id
+            view_mode = PreferencesService().get_view_mode(user_id)
+            if view_mode == "list":
+                context.user_data["list_page"] = 0
+                await self._show_list(
+                    update.message, results, 0, search_type
+                )
+            else:
+                await self._show_result(
+                    update.message, results[0], 0, len(results)
+                )
 
             return SELECTING
 
@@ -289,74 +317,83 @@ class MediaHandler:
             )
             return ConversationHandler.END
 
-    async def _show_result(self, message, result, index: int, total: int):
-        """Show a single search result with navigation buttons"""
-        try:
-            # Create message text - limit overview length to avoid caption too long error
-            overview = result.get('overview', 'No overview available')
-            if len(overview) > 300:  # Telegram caption limit is 1024 chars
-                overview = overview[:297] + "..."
+    def _build_result_caption(self, result, index=None, total=None):
+        """Build caption text for a search result.
 
-            caption = (
-                f"*{result['title']}*\n\n"
-                f"_{overview}_\n\n"
-            )
+        Args:
+            result: Search result dict.
+            index: 0-based index (optional, for card view counter).
+            total: Total results count (optional, for card view counter).
 
-            # Add media-specific details (keep them concise)
-            if "year" in result:
-                caption += f"📅 Year: {result.get('year', 'N/A')}\n"
+        Returns:
+            Formatted caption string.
+        """
+        overview = result.get('overview', 'No overview available')
+        if len(overview) > 300:
+            overview = overview[:297] + "..."
 
-            # Add ratings based on media type
-            if "ratings" in result:
-                ratings = result["ratings"]
-                if "imdb" in ratings:  # Movie ratings
-                    imdb_rating = ratings["imdb"]
-                    if imdb_rating != "N/A":
-                        imdb_rating = f"{float(imdb_rating):.1f}/10"
-                    caption += f"🎭 IMDB: {imdb_rating}\n"
+        caption = (
+            f"*{result['title']}*\n\n"
+            f"_{overview}_\n\n"
+        )
 
-                    rt_rating = ratings.get("rottenTomatoes")
-                    if rt_rating and rt_rating != "N/A":
-                        rt_rating = f"{rt_rating}%"
-                        caption += f"🍅 Rotten Tomatoes: {rt_rating}\n"
-                elif "tmdb" in ratings:  # Series ratings
-                    tmdb_rating = ratings["tmdb"]
-                    if tmdb_rating != "N/A":
-                        rating_value = f"{float(tmdb_rating):.1f}/10"
-                        votes = ratings.get("votes", 0)
-                        caption += f"📊 TMDB: {rating_value} ({votes:,} votes)\n"
+        if "year" in result:
+            caption += f"📅 Year: {result.get('year', 'N/A')}\n"
 
-            # Add studio/network info
-            if "studio" in result:
-                studio = result.get("studio", "N/A")
-                if "network" in result:  # For TV shows
-                    network = result.get("network", "N/A")
-                    if studio and studio != network:
-                        caption += f"📺 Network: {network} ({studio})\n"
-                    else:
-                        caption += f"📺 Network: {network}\n"
-                else:  # For movies
-                    caption += f"🎬 Studio: {studio}\n"
+        if "ratings" in result:
+            ratings = result["ratings"]
+            if "imdb" in ratings:
+                imdb_rating = ratings["imdb"]
+                if imdb_rating != "N/A":
+                    imdb_rating = f"{float(imdb_rating):.1f}/10"
+                caption += f"🎭 IMDB: {imdb_rating}\n"
 
-            # Add runtime if available
-            if "runtime" in result and result["runtime"] != "N/A":
-                caption += f"⏱️ Runtime: {result['runtime']} minutes\n"
+                rt_rating = ratings.get("rottenTomatoes")
+                if rt_rating and rt_rating != "N/A":
+                    rt_rating = f"{rt_rating}%"
+                    caption += f"🍅 Rotten Tomatoes: {rt_rating}\n"
+            elif "tmdb" in ratings:
+                tmdb_rating = ratings["tmdb"]
+                if tmdb_rating != "N/A":
+                    rating_value = f"{float(tmdb_rating):.1f}/10"
+                    votes = ratings.get("votes", 0)
+                    caption += f"📊 TMDB: {rating_value} ({votes:,} votes)\n"
 
-            # Add genres
-            if "genres" in result:
-                genres = result.get("genres", [])
-                if genres:
-                    caption += f"🎭 Genres: {', '.join(genres[:3])}"  # Show first 3 genres
-                    if len(genres) > 3:
-                        caption += f" +{len(genres) - 3} more"
-                    caption += "\n"
+        if "studio" in result:
+            studio = result.get("studio", "N/A")
+            if "network" in result:
+                network = result.get("network", "N/A")
+                if studio and studio != network:
+                    caption += f"📺 Network: {network} ({studio})\n"
+                else:
+                    caption += f"📺 Network: {network}\n"
+            else:
+                caption += f"🎬 Studio: {studio}\n"
 
+        if "runtime" in result and result["runtime"] != "N/A":
+            caption += f"⏱️ Runtime: {result['runtime']} minutes\n"
+
+        if "genres" in result:
+            genres = result.get("genres", [])
+            if genres:
+                caption += f"🎭 Genres: {', '.join(genres[:3])}"
+                if len(genres) > 3:
+                    caption += f" +{len(genres) - 3} more"
+                caption += "\n"
+
+        if index is not None and total is not None:
             caption += f"\n📊 Result {index + 1} of {total}"
+
+        return caption
+
+    async def _show_result(self, message, result, index: int, total: int):
+        """Show a single search result with navigation buttons (card view)"""
+        try:
+            caption = self._build_result_caption(result, index=index, total=total)
 
             # Create navigation keyboard
             keyboard = []
 
-            # Add navigation buttons
             nav_buttons = []
             if index > 0:
                 nav_buttons.append(
@@ -369,32 +406,29 @@ class MediaHandler:
             if nav_buttons:
                 keyboard.append(nav_buttons)
 
-            # Add action buttons
+            # Action buttons
             keyboard.extend([
                 [InlineKeyboardButton("✅ Add to Library", callback_data=f"select_{result['id']}")],
+                [InlineKeyboardButton("📋 Switch to List View", callback_data="viewtoggle")],
                 [InlineKeyboardButton("❌ Cancel", callback_data="select_cancel")]
             ])
 
             reply_markup = InlineKeyboardMarkup(keyboard)
 
-            # Get poster URL
             poster_url = result.get("poster")
 
             if poster_url:
                 try:
-                    # Create new message with photo
                     new_message = await message.reply_photo(
                         photo=poster_url,
                         caption=caption,
                         parse_mode='Markdown',
                         reply_markup=reply_markup
                     )
-                    # Delete old message
                     await message.delete()
                     return new_message
                 except Exception as e:
                     logger.error(f"Error sending photo: {e}")
-                    # Fallback to text-only message
                     new_message = await message.reply_text(
                         caption,
                         parse_mode='Markdown',
@@ -403,7 +437,6 @@ class MediaHandler:
                     await message.delete()
                     return new_message
             else:
-                # Send text-only message
                 new_message = await message.reply_text(
                     caption,
                     parse_mode='Markdown',
@@ -414,7 +447,6 @@ class MediaHandler:
 
         except Exception as e:
             logger.error(f"Error showing result: {e}")
-            # Fallback to simple error message
             try:
                 new_message = await message.reply_text(
                     "❌ Error displaying result. Please try your search again.",
@@ -427,6 +459,154 @@ class MediaHandler:
             except Exception as e2:
                 logger.error(f"Error in fallback message: {e2}")
                 return message
+
+    async def _show_list(self, message, results, page, search_type):
+        """Show paginated list view of search results.
+
+        Args:
+            message: Telegram message to reply to / delete.
+            results: Full list of search results.
+            page: Current page (0-indexed).
+            search_type: "movie", "series", or "music".
+        """
+        reply_markup = get_search_results_list_keyboard(
+            results, page, page_size=5, search_type=search_type
+        )
+        header = f"📋 Search results ({len(results)} found):"
+        new_message = await message.reply_text(
+            header,
+            reply_markup=reply_markup
+        )
+        await message.delete()
+        return new_message
+
+    async def _show_list_detail(self, message, result):
+        """Show detail view for a single result from list view.
+
+        Args:
+            message: Telegram message to reply to / delete.
+            result: The selected search result dict.
+        """
+        caption = self._build_result_caption(result)
+        reply_markup = get_list_detail_keyboard(result["id"])
+        poster_url = result.get("poster")
+
+        if poster_url:
+            try:
+                new_message = await message.reply_photo(
+                    photo=poster_url,
+                    caption=caption,
+                    parse_mode='Markdown',
+                    reply_markup=reply_markup
+                )
+                await message.delete()
+                return new_message
+            except Exception as e:
+                logger.error(f"Error sending photo in list detail: {e}")
+                new_message = await message.reply_text(
+                    caption,
+                    parse_mode='Markdown',
+                    reply_markup=reply_markup
+                )
+                await message.delete()
+                return new_message
+        else:
+            new_message = await message.reply_text(
+                caption,
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            await message.delete()
+            return new_message
+
+    async def handle_list_select(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle list item selection — show detail view."""
+        if not update.callback_query:
+            return ConversationHandler.END
+
+        query = update.callback_query
+        await query.answer()
+
+        idx = int(query.data.replace("listsel_", ""))
+        results = context.user_data.get("search_results", [])
+
+        if 0 <= idx < len(results):
+            context.user_data["current_index"] = idx
+            await self._show_list_detail(query.message, results[idx])
+
+        return SELECTING
+
+    async def handle_list_back(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle back to list from detail view."""
+        if not update.callback_query:
+            return ConversationHandler.END
+
+        query = update.callback_query
+        await query.answer()
+
+        results = context.user_data.get("search_results", [])
+        page = context.user_data.get("list_page", 0)
+        search_type = context.user_data.get("search_type", "movie")
+
+        await self._show_list(query.message, results, page, search_type)
+        return SELECTING
+
+    async def handle_list_page(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle list page navigation."""
+        if not update.callback_query:
+            return ConversationHandler.END
+
+        query = update.callback_query
+        await query.answer()
+
+        page_data = query.data.replace("listpage_", "")
+        if page_data == "noop":
+            return SELECTING
+
+        page = int(page_data)
+        context.user_data["list_page"] = page
+        results = context.user_data.get("search_results", [])
+        search_type = context.user_data.get("search_type", "movie")
+
+        await self._show_list(query.message, results, page, search_type)
+        return SELECTING
+
+    async def handle_view_toggle(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle view toggle between card and list."""
+        if not update.callback_query:
+            return ConversationHandler.END
+
+        query = update.callback_query
+        await query.answer()
+
+        user_id = update.effective_user.id
+        new_mode = PreferencesService().toggle_view_mode(user_id)
+
+        results = context.user_data.get("search_results", [])
+        search_type = context.user_data.get("search_type", "movie")
+
+        if new_mode == "list":
+            current_index = context.user_data.get("current_index", 0)
+            page = current_index // 5
+            context.user_data["list_page"] = page
+            await self._show_list(
+                query.message, results, page, search_type
+            )
+        else:
+            index = context.user_data.get("current_index", 0)
+            await self._show_result(
+                query.message, results[index], index, len(results)
+            )
+
+        return SELECTING
 
     async def handle_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle result selection"""

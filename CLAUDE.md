@@ -129,6 +129,20 @@ Imports were cleaned up during a lint pass. If implementing the following, re-ad
 - **Exception-based service checks**: `src/bot/handlers/transmission.py` checks `is_enabled()` and sends a reply directly. `ServiceNotEnabledError` from `src/utils/error_handler` was removed but may be needed if refactoring to exception-based handling.
 - **Scheduler enhancements**: `src/services/scheduler.py` uses `aiocron` for scheduling. `asyncio`, `datetime`/`timedelta`, and `typing.Optional`/`Any` were removed but may be needed for time-based scheduling features beyond cron expressions.
 
+## Planning & Task Conventions
+
+All issue work follows a two-file workflow stored in `docs/issues/issue-<N>/`:
+
+1. **`plan.md`** — Written first. Contains context, target structure, design decisions, phased approach, and verification steps. Always write plans here, never to the repo root or `docs/plans/`.
+2. **`TASKS.md`** — Converted from plan.md using `/task-writer`. Contains sized, TDD-ordered tasks with full context blocks. This is the executable work breakdown.
+
+**Workflow:**
+1. Write plan → `docs/issues/issue-<N>/plan.md`
+2. Convert plan → `docs/issues/issue-<N>/TASKS.md` (via `/task-writer`)
+3. Implement tasks in order, checking off as completed
+
+**Existing examples:** issues 12, 17, 20, 21, 22, 67, 76, 77, 78, 79.
+
 ## Docker
 
 ```bash
