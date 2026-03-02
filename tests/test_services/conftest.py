@@ -45,6 +45,8 @@ def mock_sonarr_client():
 def mock_lidarr_client():
     client = AsyncMock()
     client.search = AsyncMock(return_value=[])
+    client.search_albums = AsyncMock(return_value=[])
+    client.get_album_tracks = AsyncMock(return_value=[])
     client.get_artist = AsyncMock(return_value=None)
     client.add_artist = AsyncMock(return_value=(True, "Success"))
     client.get_root_folders = AsyncMock(return_value=["/music"])

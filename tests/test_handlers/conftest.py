@@ -28,6 +28,7 @@ def mock_media_service():
     service.get_lidarr_status = AsyncMock(return_value=True)
     service.get_transmission_status = AsyncMock(return_value=False)
     service.get_sabnzbd_status = AsyncMock(return_value=False)
+    service.get_artist_albums = AsyncMock(return_value=[])
     service.get_movies = AsyncMock(return_value=[])
     service.get_series = AsyncMock(return_value=[])
     service.get_music = AsyncMock(return_value=[])

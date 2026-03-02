@@ -59,6 +59,63 @@ class LidarrClient(BaseApiClient):
             logger.error(Fore.RED + f"❌ Search failed: {str(e)}")
             return []
 
+    async def search_albums(self, term: str) -> List[Dict]:
+        """Search for albums"""
+        try:
+            logger.info(Fore.BLUE + f"🔍 Searching Lidarr albums for: {term}")
+            results = await self._request(f"album/lookup?term={term}")
+
+            if not results:
+                logger.warning(
+                    Fore.YELLOW + f"⚠️ No album results found for: {term}"
+                )
+                return []
+
+            logger.info(
+                Fore.GREEN + f"✅ Found {len(results)} album results for: {term}"
+            )
+            return results
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Album search failed: {str(e)}")
+            return []
+
+    async def get_album_tracks(self, foreign_album_id: str) -> List[Dict]:
+        """Get track data from an album's media array.
+
+        Looks up the album by foreignAlbumId and extracts track info
+        from the media array. Returns [] if album not found or no
+        track data available (best-effort).
+        """
+        try:
+            logger.info(f"🔍 Looking up tracks for album: {foreign_album_id}")
+            results = await self._request(
+                f"album/lookup?term=lidarr:{foreign_album_id}"
+            )
+
+            if not results or not isinstance(results, list) or not results[0]:
+                logger.warning(
+                    f"⚠️ No album found for track lookup: {foreign_album_id}"
+                )
+                return []
+
+            album = results[0]
+            tracks = []
+            for medium in album.get("media", []):
+                for track in medium.get("tracks", []):
+                    tracks.append(track)
+
+            if not tracks:
+                logger.info(
+                    f"ℹ️ No track data in album: {foreign_album_id}"
+                )
+
+            return tracks
+
+        except Exception as e:
+            logger.error(f"❌ Failed to get album tracks: {str(e)}")
+            return []
+
     async def get_artist(self, artist_id: str) -> Optional[Dict]:
         """Get artist by ID"""
         try:
@@ -91,7 +148,7 @@ class LidarrClient(BaseApiClient):
             logger.error(f"❌ Failed to get artist: {str(e)}")
             return None
 
-    async def add_artist(self, artist_id: str, root_folder: str = None, quality_profile_id: int = None) -> tuple[bool, str]:
+    async def add_artist(self, artist_id: str, root_folder: str = None, quality_profile_id: int = None, albums_to_monitor: List[str] = None, future_albums: bool = False) -> tuple[bool, str]:
         """Add an artist to Lidarr"""
         try:
             # Get artist details from search results
@@ -123,6 +180,20 @@ class LidarrClient(BaseApiClient):
             monitor_option = lidarr_features.get("monitorOption", "all")
             album_folder = lidarr_features.get("albumFolder", False)
 
+            add_options = {
+                "searchForMissingAlbums": True
+            }
+
+            if future_albums:
+                add_options["monitor"] = "future"
+                if albums_to_monitor is not None:
+                    add_options["albumsToMonitor"] = albums_to_monitor
+            elif albums_to_monitor is not None:
+                add_options["monitor"] = "none"
+                add_options["albumsToMonitor"] = albums_to_monitor
+            else:
+                add_options["monitor"] = monitor_option
+
             data = {
                 "foreignArtistId": artist["foreignArtistId"],
                 "artistName": artist["artistName"],
@@ -131,10 +202,7 @@ class LidarrClient(BaseApiClient):
                 "rootFolderPath": root_folder or "/music",  # Default path if not specified
                 "albumFolder": album_folder,
                 "monitored": True,
-                "addOptions": {
-                    "monitor": monitor_option,
-                    "searchForMissingAlbums": True
-                }
+                "addOptions": add_options
             }
 
             try:
