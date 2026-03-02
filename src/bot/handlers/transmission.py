@@ -6,13 +6,13 @@ Description: Telegram command handler for Transmission operations.
 """
 
 from telegram import Update
-from telegram.ext import CommandHandler, CallbackContext, CallbackQueryHandler
+from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 from telegram.constants import ParseMode
 from typing import List
 
 
-from ...services.transmission import transmission_service
-from ...utils.logger import get_logger
+from src.services.transmission import transmission_service
+from src.utils.logger import get_logger
 from src.bot.keyboards import get_yes_no_keyboard
 
 logger = get_logger("addarr.handlers.transmission")
@@ -36,7 +36,7 @@ class TransmissionHandler:
             CallbackQueryHandler(self.handle_callback, pattern=r"^transmission_.*")
         ]
 
-    async def transmission_command(self, update: Update, context: CallbackContext) -> None:
+    async def transmission_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /transmission command
 
         Shows Transmission status and turtle mode options
@@ -78,7 +78,7 @@ class TransmissionHandler:
             parse_mode=ParseMode.MARKDOWN
         )
 
-    async def handle_callback(self, update: Update, context: CallbackContext) -> None:
+    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle callback queries for Transmission commands"""
         query = update.callback_query
         await query.answer()
