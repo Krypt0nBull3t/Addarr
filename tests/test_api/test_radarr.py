@@ -708,3 +708,45 @@ class TestDeleteMovie:
         )
         result = await radarr_client.delete_movie(1)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_calendar
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetCalendar:
+    @pytest.mark.asyncio
+    async def test_get_calendar_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of upcoming movies."""
+        calendar_data = [
+            {"id": 1, "title": "Movie One", "inCinemas": "2026-03-10T00:00:00Z"},
+            {"id": 2, "title": "Movie Two", "digitalRelease": "2026-03-15T00:00:00Z"},
+        ]
+        aio_mock.get(
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            payload=calendar_data,
+            status=200,
+        )
+        results = await radarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert len(results) == 2
+        assert results[0]["title"] == "Movie One"
+        assert results[1]["title"] == "Movie Two"
+
+    @pytest.mark.asyncio
+    async def test_get_calendar_empty(self, aio_mock, radarr_client):
+        """No upcoming movies returns empty list."""
+        aio_mock.get(
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            payload=[],
+            status=200,
+        )
+        results = await radarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_calendar_exception(self, radarr_client):
+        """Exception during get_calendar returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert results == []

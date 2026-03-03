@@ -193,6 +193,23 @@ class RadarrClient(BaseApiClient):
             logger.error(f"❌ Error in add_movie: {str(e)}")
             return False, str(e)
 
+    async def get_calendar(self, start: str, end: str) -> List[Dict]:
+        """Get upcoming movie releases within a date range"""
+        try:
+            logger.info(Fore.BLUE + f"🔍 Getting Radarr calendar: {start} to {end}")
+            results = await self._request(f"calendar?start={start}&end={end}")
+
+            if not results:
+                logger.warning(Fore.YELLOW + "⚠️ No upcoming movies found")
+                return []
+
+            logger.info(Fore.GREEN + f"✅ Found {len(results)} upcoming movies")
+            return results
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get calendar: {str(e)}")
+            return []
+
     async def get_movies(self) -> List[Dict]:
         """Get all movies in the library"""
         try:
