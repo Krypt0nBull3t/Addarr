@@ -11,7 +11,7 @@ Addarr Refresh is a Telegram bot for managing media collections through Radarr (
 These patterns avoid triggering permission prompts in Claude Code:
 
 - **Avoid combining `cd` with `git`** — prefer `git -C <path>` instead
-- **Avoid `$()` command substitution** — prefer running the inner command first, then use the result in the next command
+- **Avoid `$()` and backtick command substitution** — prefer writing content to a temp file first, then referencing it (e.g., `gh issue create --body-file /tmp/body.md` instead of inline `--body`)
 - **Avoid shell glob expansion in paths** (e.g., `translations/addarr.*.yml`) — prefer listing files explicitly
 - **Avoid backslash escapes in commands** — prefer quotes over escaping spaces/special characters
 - **Use `PYTHONIOENCODING=utf-8`** when running `python run.py --validate-i18n` (Windows emoji encoding)
