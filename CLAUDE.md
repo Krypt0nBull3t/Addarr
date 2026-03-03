@@ -74,6 +74,21 @@ Tests live in `tests/` mirroring `src/` structure. Key patterns:
 - **Translation mock**: `autouse=True` fixture patches `TranslationService._load_translations` so tests don't need YAML files.
 - **Config patching gotcha**: Module-level `from src.config.settings import config` binds at import time. To override in tests, patch at the import site: `patch("src.the_module.config", mock_config)` — replacing `sys.modules` won't affect modules that already imported `config`.
 
+### Architecture Tests
+
+Automated architecture tests in `tests/test_architecture/` enforce conventions at CI time:
+
+- **Layer boundaries** (`test_layer_boundaries.py`): PyTestArch import-direction rules. Services must not import handlers, API clients must not import handlers or services, utils/config must not import handlers or services, handlers must not import API clients directly.
+- **Structural conventions** (`test_conventions.py`): AST-based checks. All `*Handler` classes must have `get_handler()`, all service singletons must have `__new__()`, all `BaseApiClient` subclasses must have `search()`, no `config["key"]` bracket access in business logic (use `config.get()` instead).
+
+**When adding new services:** Update `SINGLETON_CLASSES` set in `tests/test_architecture/test_conventions.py`.
+
+**When adding new API clients inheriting `BaseApiClient`:** They must implement `search()` or the convention test will fail.
+
+**Config access rule:** `config["key"]` bracket access is banned in `src/` business logic (enforced by test). Use `config.get("key", default)` instead. Excluded from this rule: `src/setup/` (interactive config building), `src/api/base.py` (`self.config` service dict), `src/config/settings.py` (`__getitem__` definition).
+
+**PyTestArch on Windows:** The conftest monkey-patches PyTestArch's file parser to use UTF-8 encoding (upstream defaults to cp1252 on Windows, fails on emoji in source files).
+
 ## Lint Configuration
 
 Flake8 with max line length 88. Ignored rules: E203, E501, W503 (configured in `.flake8`).
@@ -160,7 +175,7 @@ All issue work follows a two-file workflow stored in `docs/issues/issue-<N>/`:
 2. Convert plan → `docs/issues/issue-<N>/TASKS.md` (via `/task-writer`)
 3. Implement tasks in order, checking off as completed
 
-**Existing examples:** issues 12, 17, 20, 21, 22, 67, 76, 77, 78, 79.
+**Existing examples:** issues 12, 17, 20, 21, 22, 67, 76, 77, 78, 79, 127.
 
 ## Docker
 
