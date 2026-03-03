@@ -14,7 +14,10 @@ import subprocess
 from typing import Any, Dict, List, Optional, Set
 from colorama import Fore, Style
 from .error_handler import ValidationError
+from .logger import get_logger
 from ..config.settings import config
+
+logger = get_logger("addarr.validation")
 
 
 def check_dependencies() -> bool:
@@ -160,20 +163,20 @@ def _check_security_settings():
     # Check admin mode
     if security.get("enableAdmin"):
         if config.get("admins"):
-            print(f"{Fore.GREEN}✅ Admin mode enabled with {len(config.get('admins', []))} admin(s)")
+            logger.info("✅ Admin mode enabled with %d admin(s)", len(config.get("admins", [])))
         else:
-            print(f"{Fore.YELLOW}⚠️ Admin mode enabled but no admins configured")
+            logger.warning("⚠️ Admin mode enabled but no admins configured")
     else:
-        print(f"{Fore.BLUE}ℹ️ Admin mode disabled")
+        logger.info("ℹ️ Admin mode disabled")
 
     # Check allowlist
     if security.get("enableAllowlist"):
         if config.get("allow_list"):
-            print(f"{Fore.GREEN}✅ Allowlist enabled with {len(config.get('allow_list', []))} user(s)")
+            logger.info("✅ Allowlist enabled with %d user(s)", len(config.get("allow_list", [])))
         else:
-            print(f"{Fore.YELLOW}⚠️ Allowlist enabled but no users configured")
+            logger.warning("⚠️ Allowlist enabled but no users configured")
     else:
-        print(f"{Fore.BLUE}ℹ️ Allowlist disabled")
+        logger.info("ℹ️ Allowlist disabled")
 
 
 def parse_requirements(filename: str = "requirements.txt") -> List[str]:
