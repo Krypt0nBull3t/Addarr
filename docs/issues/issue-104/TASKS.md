@@ -141,7 +141,7 @@
 
 **Goal:** Working `/upcoming` command with inline navigation, pagination, and Add to Library.
 
-- [ ] **4.1** Implement CalendarHandler
+- [x] **4.1** Implement CalendarHandler
     - **Context:**
         - **Why:** This is the core feature — the Telegram handler that ties everything together.
         - **Architecture:** Follows `SystemHandler` pattern (`src/bot/handlers/system.py`): `CommandHandler` for `/upcoming` + `CallbackQueryHandler` for `cal_*` callbacks. No conversation states needed. Uses `context.user_data` to cache calendar items (avoids re-fetching on pagination) and store current period.
@@ -164,6 +164,17 @@
         - [RED] Write test: unauthenticated user — blocked by @require_auth
         - [GREEN] Implement CalendarHandler class with all methods
     - **Success:** `pytest tests/test_handlers/test_calendar_handler.py --tb=short -q` passes, all handler paths covered
+    - **Completed:** 2026-03-03
+    - **Learnings:**
+        - CalendarHandler follows SystemHandler pattern (CommandHandler + CallbackQueryHandler, no ConversationHandler states)
+        - `_build_response()` helper eliminates duplicated text/keyboard building across show, period, refresh
+        - Quick-add uses first root folder + first quality profile from the respective API client
+        - Sonarr episode "add" actually calls `add_series_with_profile` with the tvdbId
+    - **Key Changes:**
+        - Created `src/bot/handlers/calendar.py` with CalendarHandler class (97 statements)
+        - Created `tests/test_handlers/test_calendar_handler.py` with 17 tests
+        - Updated `tests/test_handlers/conftest.py` — added keyboard patches to calendar_handler fixture
+    - **Notes:** 100% coverage on calendar.py. Handler not yet wired into bot (task 4.2)
 
 - [ ] **4.2** Register CalendarHandler and wire into bot
     - **Context:**
