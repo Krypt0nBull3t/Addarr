@@ -193,6 +193,67 @@ class RadarrClient(BaseApiClient):
             logger.error(f"❌ Error in add_movie: {str(e)}")
             return False, str(e)
 
+    async def get_missing(self) -> List[Dict]:
+        """Get movies that are wanted but not yet downloaded."""
+        try:
+            logger.info(Fore.BLUE + "📭 Getting missing movies from Radarr")
+            result = await self._request(
+                "wanted/missing?sortKey=title&sortDirection=ascending&pageSize=1000"
+            )
+
+            if not result or not isinstance(result, dict):
+                logger.warning(Fore.YELLOW + "⚠️ No missing movies found")
+                return []
+
+            records = result.get("records", [])
+            logger.info(Fore.GREEN + f"✅ Found {len(records)} missing movies")
+            return records
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get missing movies: {str(e)}")
+            return []
+
+    async def get_cutoff_unmet(self) -> List[Dict]:
+        """Get movies that are below the quality cutoff."""
+        try:
+            logger.info(Fore.BLUE + "⚠️ Getting cutoff unmet movies from Radarr")
+            result = await self._request(
+                "wanted/cutoff?sortKey=title&sortDirection=ascending&pageSize=1000"
+            )
+
+            if not result or not isinstance(result, dict):
+                logger.warning(Fore.YELLOW + "⚠️ No cutoff unmet movies found")
+                return []
+
+            records = result.get("records", [])
+            logger.info(Fore.GREEN + f"✅ Found {len(records)} cutoff unmet movies")
+            return records
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get cutoff unmet movies: {str(e)}")
+            return []
+
+    async def search_command(self, movie_id: int) -> bool:
+        """Trigger a manual search for a specific movie."""
+        try:
+            logger.info(Fore.BLUE + f"🔍 Triggering search for movie ID: {movie_id}")
+            success, data, error = await self._make_request(
+                "command",
+                method="POST",
+                data={"name": "MoviesSearch", "movieIds": [movie_id]},
+            )
+
+            if success:
+                logger.info(Fore.GREEN + f"✅ Search triggered for movie ID: {movie_id}")
+                return True
+
+            logger.error(Fore.RED + f"❌ Failed to trigger search: {error}")
+            return False
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to trigger search: {str(e)}")
+            return False
+
     async def get_calendar(self, start: str, end: str) -> List[Dict]:
         """Get upcoming movie releases within a date range"""
         try:
