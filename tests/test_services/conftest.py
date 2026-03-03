@@ -21,6 +21,9 @@ def mock_radarr_client():
     client.get_movie_by_id = AsyncMock(return_value=None)
     client.delete_movie = AsyncMock(return_value=True)
     client.check_status = AsyncMock(return_value=True)
+    client.get_missing = AsyncMock(return_value=[])
+    client.get_cutoff_unmet = AsyncMock(return_value=[])
+    client.search_command = AsyncMock(return_value=True)
     return client
 
 
@@ -40,6 +43,9 @@ def mock_sonarr_client():
     client.get_series_by_id = AsyncMock(return_value=None)
     client.delete_series = AsyncMock(return_value=True)
     client.check_status = AsyncMock(return_value=True)
+    client.get_missing = AsyncMock(return_value=[])
+    client.get_cutoff_unmet = AsyncMock(return_value=[])
+    client.search_command = AsyncMock(return_value=True)
     return client
 
 

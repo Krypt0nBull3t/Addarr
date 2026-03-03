@@ -10,7 +10,7 @@
 
 **Goal:** Add `get_missing()`, `get_cutoff_unmet()`, and `search_command()` to both RadarrClient and SonarrClient.
 
-- [ ] **1.1** Add missing/cutoff/search methods to RadarrClient
+- [x] **1.1** Add missing/cutoff/search methods to RadarrClient
     - **Context:**
         - **Why:** Radarr exposes `GET /api/v3/wanted/missing` and `GET /api/v3/wanted/cutoff` for tracking wanted media, plus `POST /api/v3/command` for triggering manual searches. No client methods exist for these yet.
         - **Architecture:** Follow existing method patterns in `RadarrClient` — use `self._request()` for GETs (returns data or None), `self._make_request()` for POSTs (returns `(success, data, error)` tuple). The wanted endpoints return paginated `{"page":N, "pageSize":N, "totalRecords":N, "records":[...]}` — we request `pageSize=1000` and extract `records`.
@@ -28,7 +28,7 @@
         - [GREEN] Implement `search_command()` in `RadarrClient`
     - **Success:** `python -m pytest tests/test_api/test_radarr.py -v` all pass, `python -m flake8 src/api/radarr.py` clean
 
-- [ ] **1.2** Add missing/cutoff/search methods to SonarrClient
+- [x] **1.2** Add missing/cutoff/search methods to SonarrClient
     - **Context:**
         - **Why:** Sonarr has the same `wanted/missing`, `wanted/cutoff`, and `command` endpoints. Sonarr returns *episodes* (not series), so each record has `seriesId`, `seasonNumber`, `episodeNumber`, `title`, and a nested `series` object.
         - **Architecture:** Identical pattern to RadarrClient methods. The only differences: Sonarr sort key is `series.title` instead of `title`, and the search command is `{"name": "EpisodeSearch", "episodeIds": [id]}` instead of `MoviesSearch`.
@@ -52,7 +52,7 @@
 
 **Goal:** Add aggregation methods to MediaService that merge results from Radarr and Sonarr, normalize them, and dispatch search commands.
 
-- [ ] **2.1** Add missing media aggregation and search trigger to MediaService
+- [x] **2.1** Add missing media aggregation and search trigger to MediaService
     - **Context:**
         - **Why:** The handler needs a single call to get all missing media across services, normalized into a unified schema. It also needs a way to trigger a search for a specific item without knowing which service it came from.
         - **Architecture:** Follow the `get_upcoming()` pattern in `MediaService` (lines 515-554): build task list from enabled services, `asyncio.gather` with `return_exceptions=True`, normalize per-service results, sort, return. Add static `_normalize_radarr_missing()` and `_normalize_sonarr_missing()` methods following the existing `_normalize_radarr_calendar()` pattern.
@@ -72,6 +72,16 @@
         - [GREEN] Implement `get_cutoff_unmet_media()`
         - [GREEN] Implement `trigger_missing_search()`
     - **Success:** `python -m pytest tests/test_services/test_media.py -v` all pass, `python -m flake8 src/services/media.py` clean
+    - **Completed:** 2026-03-03
+    - **Learnings:**
+        - Extracted `_fetch_wanted_media(method, label)` to DRY `get_missing_media` and `get_cutoff_unmet_media` — they differ only in which client method to call
+        - Sonarr missing `internal_id` is the episode ID (not series ID) — critical for search dispatch routing
+        - `trigger_missing_search` uses dict lookup `{"radarr": self.radarr, "sonarr": self.sonarr}.get(service)` for clean dispatch
+    - **Key Changes:**
+        - `src/services/media.py`: Added `get_missing_media()`, `get_cutoff_unmet_media()`, `_fetch_wanted_media()`, `trigger_missing_search()`, `_normalize_radarr_missing()`, `_normalize_sonarr_missing()`
+        - `tests/test_services/test_media_service.py`: 16 new tests across 5 test classes (normalizers, missing, cutoff, search)
+        - `tests/test_services/conftest.py`: Added `get_missing`, `get_cutoff_unmet`, `search_command` to mock clients
+    - **Notes:** 100% coverage on `src/services/media.py`
 
 ---
 

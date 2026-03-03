@@ -1883,3 +1883,338 @@ class TestGetUpcoming:
         assert item["in_library"] is True
         assert item["media_id"] == "9000"
         assert item["internal_id"] == 10
+
+
+# ---------------------------------------------------------------------------
+# Missing/Wanted — sample data
+# ---------------------------------------------------------------------------
+
+RADARR_MISSING_MOVIE_1 = {
+    "id": 1,
+    "title": "Fight Club",
+    "year": 1999,
+    "tmdbId": 550,
+    "monitored": True,
+}
+
+RADARR_MISSING_MOVIE_2 = {
+    "id": 2,
+    "title": "Pulp Fiction",
+    "year": 1994,
+    "tmdbId": 680,
+    "monitored": True,
+}
+
+RADARR_CUTOFF_MOVIE = {
+    "id": 3,
+    "title": "Inception",
+    "year": 2010,
+    "tmdbId": 27205,
+    "monitored": True,
+}
+
+SONARR_MISSING_EPISODE_1 = {
+    "id": 101,
+    "seriesId": 42,
+    "seasonNumber": 1,
+    "episodeNumber": 5,
+    "title": "Pilot",
+    "monitored": True,
+    "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+}
+
+SONARR_MISSING_EPISODE_2 = {
+    "id": 102,
+    "seriesId": 42,
+    "seasonNumber": 1,
+    "episodeNumber": 6,
+    "title": "Crazy Handful of Nothin'",
+    "monitored": True,
+    "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+}
+
+SONARR_CUTOFF_EPISODE = {
+    "id": 201,
+    "seriesId": 50,
+    "seasonNumber": 2,
+    "episodeNumber": 1,
+    "title": "Hello, Ms. Cobel",
+    "monitored": True,
+    "series": {"id": 50, "title": "Severance", "year": 2022, "tvdbId": 295759},
+}
+
+
+# ---------------------------------------------------------------------------
+# _normalize_radarr_missing / _normalize_sonarr_missing
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizeRadarrMissing:
+    def test_standard_movie(self):
+        """Standard Radarr missing movie normalizes to unified schema."""
+        result = MediaService._normalize_radarr_missing(RADARR_MISSING_MOVIE_1)
+
+        assert result["type"] == "movie"
+        assert result["title"] == "Fight Club"
+        assert result["series_title"] is None
+        assert result["year"] == 1999
+        assert result["season"] is None
+        assert result["episode"] is None
+        assert result["media_id"] == "550"
+        assert result["internal_id"] == 1
+        assert result["service"] == "radarr"
+
+    def test_missing_fields(self):
+        """Movie with missing optional fields gets safe defaults."""
+        movie = {"id": 99, "monitored": True}
+        result = MediaService._normalize_radarr_missing(movie)
+
+        assert result["type"] == "movie"
+        assert result["title"] == ""
+        assert result["year"] is None
+        assert result["media_id"] == ""
+        assert result["internal_id"] == 99
+        assert result["service"] == "radarr"
+
+
+class TestNormalizeSonarrMissing:
+    def test_episode_with_full_info(self):
+        """Sonarr missing episode with full series info normalizes correctly."""
+        result = MediaService._normalize_sonarr_missing(SONARR_MISSING_EPISODE_1)
+
+        assert result["type"] == "episode"
+        assert result["title"] == "Pilot"
+        assert result["series_title"] == "Breaking Bad"
+        assert result["year"] == 2008
+        assert result["season"] == 1
+        assert result["episode"] == 5
+        assert result["media_id"] == "81189"
+        assert result["internal_id"] == 101
+        assert result["service"] == "sonarr"
+
+    def test_missing_season_episode(self):
+        """Episode with missing season/episode numbers gets None defaults."""
+        ep = {
+            "id": 999,
+            "title": "Unknown Episode",
+            "monitored": True,
+            "series": {"id": 1, "title": "Some Show"},
+        }
+        result = MediaService._normalize_sonarr_missing(ep)
+
+        assert result["type"] == "episode"
+        assert result["title"] == "Unknown Episode"
+        assert result["series_title"] == "Some Show"
+        assert result["season"] is None
+        assert result["episode"] is None
+        assert result["media_id"] == ""
+        assert result["internal_id"] == 999
+        assert result["service"] == "sonarr"
+
+
+# ---------------------------------------------------------------------------
+# get_missing_media
+# ---------------------------------------------------------------------------
+
+
+class TestGetMissingMedia:
+    @pytest.mark.asyncio
+    async def test_both_services_merged_sorted(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Both services enabled — returns combined, title-sorted list."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_missing.return_value = [
+            RADARR_MISSING_MOVIE_1,
+            RADARR_MISSING_MOVIE_2,
+        ]
+        mock_sonarr_client.get_missing.return_value = [
+            SONARR_MISSING_EPISODE_1,
+        ]
+
+        results = await service.get_missing_media()
+
+        assert len(results) == 3
+        # All items should have service tags
+        services = {r["service"] for r in results}
+        assert services == {"radarr", "sonarr"}
+        # Sorted by title
+        titles = [r["title"] for r in results]
+        assert titles == sorted(titles, key=str.lower)
+
+    @pytest.mark.asyncio
+    async def test_radarr_only(self, mock_radarr_client):
+        """Only Radarr enabled — returns only movies."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_missing.return_value = [
+            RADARR_MISSING_MOVIE_1,
+        ]
+
+        results = await service.get_missing_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "movie"
+        assert results[0]["service"] == "radarr"
+
+    @pytest.mark.asyncio
+    async def test_sonarr_only(self, mock_sonarr_client):
+        """Only Sonarr enabled — returns only episodes."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_missing.return_value = [
+            SONARR_MISSING_EPISODE_1,
+        ]
+
+        results = await service.get_missing_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+        assert results[0]["service"] == "sonarr"
+
+    @pytest.mark.asyncio
+    async def test_no_services_enabled(self):
+        """Neither enabled — returns empty list."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+
+        results = await service.get_missing_media()
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_one_service_errors(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Error from one service — still returns results from the other."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_missing.side_effect = Exception("Radarr down")
+        mock_sonarr_client.get_missing.return_value = [
+            SONARR_MISSING_EPISODE_1,
+        ]
+
+        results = await service.get_missing_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+
+
+# ---------------------------------------------------------------------------
+# get_cutoff_unmet_media
+# ---------------------------------------------------------------------------
+
+
+class TestGetCutoffUnmetMedia:
+    @pytest.mark.asyncio
+    async def test_both_services(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Both services return cutoff unmet items — merged and sorted."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_cutoff_unmet.return_value = [
+            RADARR_CUTOFF_MOVIE,
+        ]
+        mock_sonarr_client.get_cutoff_unmet.return_value = [
+            SONARR_CUTOFF_EPISODE,
+        ]
+
+        results = await service.get_cutoff_unmet_media()
+
+        assert len(results) == 2
+        services = {r["service"] for r in results}
+        assert services == {"radarr", "sonarr"}
+
+    @pytest.mark.asyncio
+    async def test_one_service_only(self, mock_radarr_client):
+        """Only one service has cutoff unmet items."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_cutoff_unmet.return_value = [
+            RADARR_CUTOFF_MOVIE,
+        ]
+
+        results = await service.get_cutoff_unmet_media()
+
+        assert len(results) == 1
+        assert results[0]["title"] == "Inception"
+
+    @pytest.mark.asyncio
+    async def test_error_returns_other(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Error from one service — still returns results from the other."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_cutoff_unmet.side_effect = Exception("down")
+        mock_sonarr_client.get_cutoff_unmet.return_value = [
+            SONARR_CUTOFF_EPISODE,
+        ]
+
+        results = await service.get_cutoff_unmet_media()
+
+        assert len(results) == 1
+        assert results[0]["service"] == "sonarr"
+
+
+# ---------------------------------------------------------------------------
+# trigger_missing_search
+# ---------------------------------------------------------------------------
+
+
+class TestTriggerMissingSearch:
+    @pytest.mark.asyncio
+    async def test_radarr_dispatch(self, mock_radarr_client):
+        """Dispatches search to Radarr for service='radarr'."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.search_command.return_value = True
+
+        result = await service.trigger_missing_search("radarr", 1)
+
+        assert result is True
+        mock_radarr_client.search_command.assert_awaited_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_sonarr_dispatch(self, mock_sonarr_client):
+        """Dispatches search to Sonarr for service='sonarr'."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search_command.return_value = True
+
+        result = await service.trigger_missing_search("sonarr", 101)
+
+        assert result is True
+        mock_sonarr_client.search_command.assert_awaited_once_with(101)
+
+    @pytest.mark.asyncio
+    async def test_unavailable_service(self):
+        """Returns False when the requested service is not enabled."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+
+        result = await service.trigger_missing_search("radarr", 1)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_exception(self, mock_radarr_client):
+        """Returns False on exception from client."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.search_command.side_effect = Exception("boom")
+
+        result = await service.trigger_missing_search("radarr", 1)
+
+        assert result is False
