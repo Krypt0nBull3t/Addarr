@@ -73,6 +73,14 @@ MOCK_CONFIG_DATA = {
     "logging": {"toConsole": False, "debug": False, "adminNotifyId": None},
     "admins": [], "allow_list": [], "chat_id": [],
     "authenticated_users": [12345],
+    "rateLimit": {
+        "enable": False,
+        "limits": {
+            "search": {"maxRequests": 10, "windowSeconds": 60},
+            "modify": {"maxRequests": 5, "windowSeconds": 60},
+            "auth": {"maxRequests": 3, "windowSeconds": 300},
+        },
+    },
     "enableAllowlist": False, "logToConsole": False, "debugLogging": False,
 }
 
@@ -201,6 +209,7 @@ def reset_singletons():
     from src.services.transmission import TransmissionService
     from src.services.sabnzbd import SABnzbdService
     from src.services.preferences import PreferencesService
+    from src.services.rate_limit import RateLimitService
     from src.bot.handlers.auth import AuthHandler
 
     # Reset singletons
@@ -225,6 +234,9 @@ def reset_singletons():
 
     PreferencesService._instance = None
     PreferencesService._preferences = {}
+
+    RateLimitService._instance = None
+    RateLimitService._records = {}
 
     AuthHandler._authenticated_users = set()
 

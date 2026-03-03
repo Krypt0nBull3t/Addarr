@@ -216,3 +216,6 @@ ru-ru:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+
+  # Rate limiting
+  RateLimitExceeded: "Podozhdite %(seconds)s sekund pered povtornoj popytkoj."

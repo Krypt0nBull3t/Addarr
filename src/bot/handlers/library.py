@@ -14,6 +14,7 @@ from src.utils.logger import get_logger, log_user_interaction
 from src.services.media import MediaService
 from src.services.translation import TranslationService
 from src.bot.handlers.auth import require_auth
+from src.services.rate_limit import rate_limit
 
 logger = get_logger("addarr.library")
 
@@ -46,16 +47,19 @@ class LibraryHandler:
         ]
 
     @require_auth
+    @rate_limit("search")
     async def handle_all_movies(self, update, context):
         """Handle /allMovies command."""
         await self._fetch_and_show(update, context, "m")
 
     @require_auth
+    @rate_limit("search")
     async def handle_all_series(self, update, context):
         """Handle /allSeries command."""
         await self._fetch_and_show(update, context, "s")
 
     @require_auth
+    @rate_limit("search")
     async def handle_all_music(self, update, context):
         """Handle /allMusic command."""
         await self._fetch_and_show(update, context, "a")

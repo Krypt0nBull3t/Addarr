@@ -216,3 +216,6 @@ fr-fr:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+
+  # Rate limiting
+  RateLimitExceeded: "Doucement ! Veuillez patienter %(seconds)s secondes avant de reessayer."

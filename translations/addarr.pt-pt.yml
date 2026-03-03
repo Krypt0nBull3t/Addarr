@@ -216,3 +216,6 @@ pt-pt:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+
+  # Rate limiting
+  RateLimitExceeded: "Devagar! Por favor aguarde %(seconds)s segundos antes de tentar novamente."
