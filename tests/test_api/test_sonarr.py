@@ -12,6 +12,8 @@ from tests.fixtures.sample_data import (
     SONARR_SERIES_DETAIL,
     SONARR_LIBRARY_SERIES,
     SONARR_LIBRARY_SERIES_DETAIL,
+    SONARR_WANTED_MISSING,
+    SONARR_WANTED_CUTOFF,
 )
 
 
@@ -732,3 +734,140 @@ class TestSonarrGetCalendar:
         with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
             results = await sonarr_client.get_calendar("2026-03-01", "2026-03-08")
         assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_missing
+# ---------------------------------------------------------------------------
+
+
+class TestSonarrGetMissing:
+    @pytest.mark.asyncio
+    async def test_get_missing_success(self, aio_mock, sonarr_client):
+        """Happy path: returns list of missing episode records."""
+        aio_mock.get(
+            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            payload=SONARR_WANTED_MISSING,
+            status=200,
+        )
+        results = await sonarr_client.get_missing()
+        assert len(results) == 2
+        assert results[0]["title"] == "Pilot"
+        assert results[0]["series"]["title"] == "Breaking Bad"
+
+    @pytest.mark.asyncio
+    async def test_get_missing_empty(self, aio_mock, sonarr_client):
+        """No missing episodes returns empty list."""
+        aio_mock.get(
+            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await sonarr_client.get_missing()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_missing_connection_error(self, aio_mock, sonarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await sonarr_client.get_missing()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_missing_exception(self, sonarr_client):
+        """Exception during get_missing returns empty list."""
+        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await sonarr_client.get_missing()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_cutoff_unmet
+# ---------------------------------------------------------------------------
+
+
+class TestSonarrGetCutoffUnmet:
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_success(self, aio_mock, sonarr_client):
+        """Happy path: returns list of cutoff unmet episode records."""
+        aio_mock.get(
+            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            payload=SONARR_WANTED_CUTOFF,
+            status=200,
+        )
+        results = await sonarr_client.get_cutoff_unmet()
+        assert len(results) == 1
+        assert results[0]["title"] == "Hello, Ms. Cobel"
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_empty(self, aio_mock, sonarr_client):
+        """No cutoff unmet episodes returns empty list."""
+        aio_mock.get(
+            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await sonarr_client.get_cutoff_unmet()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_connection_error(self, aio_mock, sonarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await sonarr_client.get_cutoff_unmet()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_exception(self, sonarr_client):
+        """Exception during get_cutoff_unmet returns empty list."""
+        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await sonarr_client.get_cutoff_unmet()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# search_command
+# ---------------------------------------------------------------------------
+
+
+class TestSonarrSearchCommand:
+    @pytest.mark.asyncio
+    async def test_search_command_success(self, aio_mock, sonarr_client):
+        """POST command triggers episode search and returns True."""
+        aio_mock.post(
+            f"{BASE}/command",
+            payload={"id": 1, "name": "EpisodeSearch", "status": "queued"},
+            status=201,
+        )
+        result = await sonarr_client.search_command(101)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_search_command_failure(self, aio_mock, sonarr_client):
+        """POST command returns error, returns False."""
+        for _ in range(3):
+            aio_mock.post(
+                f"{BASE}/command",
+                status=500,
+                body="Internal Server Error",
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await sonarr_client.search_command(101)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_search_command_exception(self, sonarr_client):
+        """Exception during search_command returns False."""
+        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await sonarr_client.search_command(101)
+        assert result is False
