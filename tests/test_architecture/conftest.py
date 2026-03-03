@@ -23,8 +23,6 @@ SRC_ROOT = os.path.join(PROJECT_ROOT, "src")
 # The upstream _parse_file opens files without specifying encoding, which
 # defaults to cp1252 on Windows and chokes on emoji characters in source.
 if sys.platform == "win32":
-    _original_parse_file = Parser._parse_file
-
     def _parse_file_utf8(self, path):
         absolute_path = path.resolve()
         if self._file_should_be_parsed(absolute_path):

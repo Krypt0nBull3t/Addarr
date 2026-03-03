@@ -151,7 +151,7 @@ def test_all_api_clients_implement_search():
 def _is_excluded_from_bracket_check(filepath):
     """Check if a filepath is excluded from the bracket access rule."""
     for excluded in BRACKET_ACCESS_EXCLUDED:
-        if filepath.startswith(excluded):
+        if filepath == excluded or filepath.startswith(excluded + os.sep):
             return True
     return False
 
