@@ -126,7 +126,7 @@
 
 **Goal:** Wire MissingHandler into the bot, register the `/missing` command, add translation keys, and verify everything works end-to-end.
 
-- [ ] **4.1** Register handler, command, translations, and update test fixtures
+- [x] **4.1** Register handler, command, translations, and update test fixtures
     - **Context:**
         - **Why:** The handler exists but isn't connected to the bot application, the `/missing` command isn't in Telegram's command menu, and translation keys are missing.
         - **Architecture:** Handler registration follows the pattern in `src/main.py:103-170` — import, instantiate, iterate `get_handler()`, call `add_handler()`. Command registration follows `src/bot/commands.py:57-58` — conditional on Radarr/Sonarr enabled. Translation keys are flat top-level (not nested) per the `TranslationService.get_text()` single-level lookup convention.
@@ -143,3 +143,17 @@
         - [GREEN] Run `python -m flake8 .` to verify lint
         - [GREEN] Run `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` to verify translations
     - **Success:** Full test suite passes, flake8 clean, i18n validation passes, architecture tests pass (handler convention auto-discovers `missing.py` and verifies `get_handler()` exists)
+    - **Completed:** 2026-03-03
+    - **Learnings:**
+        - `missing` command uses same conditional as `upcoming` (radarr OR sonarr enabled)
+        - Handler count assertions in test_main.py must be updated when adding new always-on handlers (10→11)
+        - Command count assertions in test_commands.py must also be updated (16→17 for all-services)
+        - Translation validation requires `PYTHONIOENCODING=utf-8` on Windows
+    - **Key Changes:**
+        - `src/main.py`: Import + register MissingHandler after CalendarHandler
+        - `src/bot/commands.py`: Added `missing` command in radarr/sonarr conditional block
+        - All 10 translation files: Added 8 keys (Missing, CommandMissing, MissingTitle, MissingEmpty, MissingSearching, MissingSearchSuccess, MissingSearchFailed, MissingSearchNow)
+        - `tests/test_handlers/conftest.py`: Added 3 missing methods to mock_media_service
+        - `tests/test_main.py`: Added MissingHandler to patches, updated handler counts
+        - `tests/test_bot/test_commands.py`: Updated command counts and expected names
+    - **Notes:** 1552 tests pass, flake8 clean, i18n valid, architecture tests auto-discover missing.py

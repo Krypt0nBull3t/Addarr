@@ -85,7 +85,7 @@ class TestBuildAuthenticatedCommands:
         ]
 
     def test_radarr_adds_movie_and_allmovies(self, mock_config):
-        """Radarr enabled adds movie + allmovies + upcoming commands."""
+        """Radarr enabled adds movie + allmovies + upcoming + missing."""
         cfg = self._make_config(mock_config, radarr={"enable": True})
 
         with patch("src.bot.commands.config", cfg):
@@ -95,10 +95,10 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "movie" in names
         assert "allmovies" in names
-        assert len(commands) == 10  # 7 base + 2 + upcoming
+        assert len(commands) == 11  # 7 base + 2 + upcoming + missing
 
     def test_sonarr_adds_series_and_allseries(self, mock_config):
-        """Sonarr enabled adds series + allseries + upcoming commands."""
+        """Sonarr enabled adds series + allseries + upcoming + missing."""
         cfg = self._make_config(mock_config, sonarr={"enable": True})
 
         with patch("src.bot.commands.config", cfg):
@@ -108,7 +108,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "series" in names
         assert "allseries" in names
-        assert len(commands) == 10  # 7 base + 2 + upcoming
+        assert len(commands) == 11  # 7 base + 2 + upcoming + missing
 
     def test_lidarr_adds_music_and_allmusic(self, mock_config):
         """Lidarr enabled adds music + allmusic commands."""
@@ -147,8 +147,8 @@ class TestBuildAuthenticatedCommands:
         assert "sabnzbd" in names
         assert len(commands) == 8  # 7 base + 1
 
-    def test_radarr_adds_upcoming(self, mock_config):
-        """Radarr enabled adds upcoming command."""
+    def test_radarr_adds_upcoming_and_missing(self, mock_config):
+        """Radarr enabled adds upcoming and missing commands."""
         cfg = self._make_config(mock_config, radarr={"enable": True})
 
         with patch("src.bot.commands.config", cfg):
@@ -157,9 +157,10 @@ class TestBuildAuthenticatedCommands:
 
         names = [c.command for c in commands]
         assert "upcoming" in names
+        assert "missing" in names
 
-    def test_sonarr_adds_upcoming(self, mock_config):
-        """Sonarr enabled adds upcoming command."""
+    def test_sonarr_adds_upcoming_and_missing(self, mock_config):
+        """Sonarr enabled adds upcoming and missing commands."""
         cfg = self._make_config(mock_config, sonarr={"enable": True})
 
         with patch("src.bot.commands.config", cfg):
@@ -168,9 +169,10 @@ class TestBuildAuthenticatedCommands:
 
         names = [c.command for c in commands]
         assert "upcoming" in names
+        assert "missing" in names
 
-    def test_no_upcoming_when_neither_radarr_nor_sonarr(self, mock_config):
-        """Upcoming command absent when neither Radarr nor Sonarr enabled."""
+    def test_no_upcoming_missing_when_neither_radarr_nor_sonarr(self, mock_config):
+        """Upcoming and missing commands absent when neither Radarr nor Sonarr enabled."""
         cfg = self._make_config(mock_config)
 
         with patch("src.bot.commands.config", cfg):
@@ -179,9 +181,10 @@ class TestBuildAuthenticatedCommands:
 
         names = [c.command for c in commands]
         assert "upcoming" not in names
+        assert "missing" not in names
 
     def test_all_services_enabled(self, mock_config):
-        """All services enabled returns all 16 commands."""
+        """All services enabled returns all 17 commands."""
         cfg = self._make_config(
             mock_config,
             radarr={"enable": True},
@@ -195,13 +198,13 @@ class TestBuildAuthenticatedCommands:
             from src.bot.commands import build_authenticated_commands
             commands = build_authenticated_commands()
 
-        assert len(commands) == 16
+        assert len(commands) == 17
         names = [c.command for c in commands]
         expected = [
             "start", "auth", "help", "status", "settings",
             "preferences", "delete", "movie", "allmovies",
             "series", "allseries", "music", "allmusic",
-            "upcoming", "transmission", "sabnzbd",
+            "upcoming", "missing", "transmission", "sabnzbd",
         ]
         assert names == expected
 

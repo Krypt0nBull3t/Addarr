@@ -15,6 +15,7 @@ from telegram.error import InvalidToken, NetworkError
 
 from src.bot.handlers.auth import AuthHandler
 from src.bot.handlers.calendar import CalendarHandler
+from src.bot.handlers.missing import MissingHandler
 from src.bot.handlers.delete import DeleteHandler
 from src.bot.handlers.library import LibraryHandler
 from src.bot.handlers.media import MediaHandler
@@ -136,6 +137,11 @@ class AddarrBot:
             # Calendar handler
             calendar_handler = CalendarHandler()
             for handler in calendar_handler.get_handler():
+                self.application.add_handler(handler)
+
+            # Missing/Wanted handler
+            missing_handler = MissingHandler()
+            for handler in missing_handler.get_handler():
                 self.application.add_handler(handler)
 
             # Transmission handler (if enabled)

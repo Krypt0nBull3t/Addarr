@@ -237,3 +237,13 @@ fr-fr:
   CalendarAddSuccess: "✅ Added to library!"
   CalendarAddFailed: "❌ Failed to add."
   CalendarAlreadyInLibrary: "Already in your library."
+
+  # Missing / Wanted media
+  Missing: "📭 Missing"
+  CommandMissing: "Browse missing/wanted media"
+  MissingTitle: "📭 Missing / Wanted"
+  MissingEmpty: "No missing media found."
+  MissingSearching: "🔍 Searching..."
+  MissingSearchSuccess: "✅ Search triggered!"
+  MissingSearchFailed: "❌ Search failed."
+  MissingSearchNow: "Search Now"
