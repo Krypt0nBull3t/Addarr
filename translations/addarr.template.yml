@@ -240,3 +240,6 @@ template:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+
+  # Rate limiting
+  RateLimitExceeded: "Slow down! Please wait %(seconds)s seconds before trying again."

@@ -216,3 +216,6 @@ es-es:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+
+  # Rate limiting
+  RateLimitExceeded: "Demasiado rapido! Por favor espera %(seconds)s segundos antes de intentarlo de nuevo."

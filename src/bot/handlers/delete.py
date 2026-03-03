@@ -12,6 +12,7 @@ from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
 from src.services.media import MediaService
 from src.bot.handlers.auth import require_auth
+from src.services.rate_limit import rate_limit
 from src.services.translation import TranslationService
 
 logger = get_logger("addarr.delete")
@@ -32,6 +33,7 @@ class DeleteHandler:
         ]
 
     @require_auth
+    @rate_limit("modify")
     async def handle_delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle delete command"""
         if not update.effective_message or not update.effective_user:

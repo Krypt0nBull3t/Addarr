@@ -55,7 +55,7 @@
         - [GREEN] Add `"RateLimitService"` to `SINGLETON_CLASSES` in `tests/test_architecture/test_conventions.py`
     - **Success:** `pytest tests/test_services/test_rate_limit_service.py -v` all green, architecture tests pass, `python -m flake8 src/services/rate_limit.py` clean
 
-- [~] **1.2** Implement `@rate_limit` decorator with DummyHandler tests
+- [x] **1.2** Implement `@rate_limit` decorator with DummyHandler tests
     - **Context:**
         - **Why:** The decorator is the integration point between the service and handlers — it wraps handler methods to check limits before the handler body runs, returning a cooldown message when the limit is exceeded.
         - **Architecture:** Decorator factory `rate_limit(category: str)` returns a decorator that wraps `async def method(self, update, context)`. Follows `@require_auth` pattern exactly (see `src/bot/handlers/auth.py:36-50`). Lives in `src/services/rate_limit.py` alongside the service (not in handlers — the decorator is tightly coupled to the service, and handler→service imports are the correct layer direction).
@@ -89,7 +89,7 @@
 
 **Goal:** Wire the decorator into real handler methods, add translation keys, and verify everything works end-to-end.
 
-- [ ] **2.1** Add translation keys and apply `@rate_limit` to handler methods
+- [~] **2.1** Add translation keys and apply `@rate_limit` to handler methods
     - **Context:**
         - **Why:** The service and decorator are built — now wire them into the actual bot handlers and add the user-facing cooldown message in all supported languages.
         - **Architecture:** Import `rate_limit` from `src.services.rate_limit` in each handler. Stack BELOW `@require_auth` (auth runs first as outermost). For `auth.py`, `start_auth` has no `@require_auth` (it IS the auth flow) — apply `@rate_limit("auth")` directly. Translation key `RateLimitExceeded` uses `%(seconds)s` %-formatting (matches `TranslationService.get_text()` line 98).

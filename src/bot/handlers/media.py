@@ -20,6 +20,7 @@ from telegram.ext import (
 from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
+from src.services.rate_limit import rate_limit
 from src.bot.keyboards import (
     get_search_results_list_keyboard,
     get_list_detail_keyboard,
@@ -185,6 +186,7 @@ class MediaHandler:
         return SEARCHING
 
     @require_auth
+    @rate_limit("search")
     async def handle_movie(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start movie search conversation"""
         if not update.effective_message or not update.effective_user:
@@ -216,6 +218,7 @@ class MediaHandler:
         return SEARCHING
 
     @require_auth
+    @rate_limit("search")
     async def handle_series(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start series search conversation"""
         if not update.effective_message or not update.effective_user:
@@ -247,6 +250,7 @@ class MediaHandler:
         return SEARCHING
 
     @require_auth
+    @rate_limit("search")
     async def handle_music(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start music search conversation"""
         if not update.effective_message or not update.effective_user:

@@ -216,3 +216,6 @@ nl-be:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+
+  # Rate limiting
+  RateLimitExceeded: "Rustig aan! Wacht %(seconds)s seconden voor je het opnieuw probeert."

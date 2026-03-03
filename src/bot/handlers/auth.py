@@ -25,6 +25,7 @@ from src.config.settings import config
 from src.definitions import CONFIG_PATH
 from src.bot.commands import register_commands_for_chat
 from src.services.translation import TranslationService
+from src.services.rate_limit import rate_limit
 
 # Get logger instance
 logger = get_logger("addarr.auth")
@@ -98,6 +99,7 @@ class AuthHandler:
             )
         ]
 
+    @rate_limit("auth")
     async def start_auth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start the authentication process"""
         if not update.effective_message or not update.effective_user:
