@@ -6,8 +6,6 @@ using an in-memory sliding window. It enforces configurable rate limits
 per command category (search, modify, auth).
 """
 
-import time
-import pytest
 from unittest.mock import patch
 
 

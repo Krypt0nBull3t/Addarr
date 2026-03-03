@@ -24,7 +24,7 @@ async def test_rate_limit_allows_when_under_limit(
     mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
     mock_ts_class.return_value = mock_ts
 
-    from src.services.rate_limit import rate_limit, RateLimitService
+    from src.services.rate_limit import rate_limit
 
     # Enable rate limiting
     with patch("src.services.rate_limit.config") as mock_cfg:
@@ -53,7 +53,7 @@ async def test_rate_limit_blocks_when_over_limit(
     mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
     mock_ts_class.return_value = mock_ts
 
-    from src.services.rate_limit import rate_limit, RateLimitService
+    from src.services.rate_limit import rate_limit
 
     with patch("src.services.rate_limit.config") as mock_cfg:
         mock_cfg.get.return_value = {
@@ -145,7 +145,7 @@ async def test_rate_limit_shows_retry_seconds(
     mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
     mock_ts_class.return_value = mock_ts
 
-    from src.services.rate_limit import rate_limit, RateLimitService
+    from src.services.rate_limit import rate_limit
 
     with patch("src.services.rate_limit.config") as mock_cfg:
         mock_cfg.get.return_value = {
