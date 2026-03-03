@@ -160,7 +160,7 @@ def _check_security_settings():
     # Check admin mode
     if security.get("enableAdmin"):
         if config.get("admins"):
-            print(f"{Fore.GREEN}✅ Admin mode enabled with {len(config['admins'])} admin(s)")
+            print(f"{Fore.GREEN}✅ Admin mode enabled with {len(config.get('admins', []))} admin(s)")
         else:
             print(f"{Fore.YELLOW}⚠️ Admin mode enabled but no admins configured")
     else:
@@ -169,7 +169,7 @@ def _check_security_settings():
     # Check allowlist
     if security.get("enableAllowlist"):
         if config.get("allow_list"):
-            print(f"{Fore.GREEN}✅ Allowlist enabled with {len(config['allow_list'])} user(s)")
+            print(f"{Fore.GREEN}✅ Allowlist enabled with {len(config.get('allow_list', []))} user(s)")
         else:
             print(f"{Fore.YELLOW}⚠️ Allowlist enabled but no users configured")
     else:
