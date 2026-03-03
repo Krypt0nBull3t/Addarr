@@ -5,6 +5,8 @@ Created Date: 2026-03-03
 Description: Calendar/upcoming releases handler module.
 """
 
+import asyncio
+
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -47,8 +49,7 @@ class CalendarHandler:
 
         log_user_interaction(logger, update.effective_user, "/upcoming")
 
-        days = context.user_data.get("cal_days", 7)
-        context.user_data["cal_days"] = days
+        days = context.user_data.setdefault("cal_days", 7)
 
         items = await self.media_service.get_upcoming(days)
         context.user_data["cal_items"] = items
@@ -88,17 +89,20 @@ class CalendarHandler:
         else:
             await query.answer()
 
-    async def _handle_period(self, query, context):
-        """Change the calendar period and re-fetch."""
-        days = int(query.data.split("_")[-1])
+    async def _fetch_and_display(self, query, context, days):
+        """Fetch calendar data, cache it, and update the message."""
         context.user_data["cal_days"] = days
-
         items = await self.media_service.get_upcoming(days)
         context.user_data["cal_items"] = items
 
         text, keyboard = self._build_response(items, days)
         await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
+
+    async def _handle_period(self, query, context):
+        """Change the calendar period and re-fetch."""
+        days = int(query.data.split("_")[-1])
+        await self._fetch_and_display(query, context, days)
 
     async def _handle_page(self, query, context):
         """Show a different page of cached calendar items."""
@@ -113,13 +117,7 @@ class CalendarHandler:
     async def _handle_refresh(self, query, context):
         """Clear cache and re-fetch calendar data."""
         days = context.user_data.get("cal_days", 7)
-
-        items = await self.media_service.get_upcoming(days)
-        context.user_data["cal_items"] = items
-
-        text, keyboard = self._build_response(items, days)
-        await query.message.edit_text(text, reply_markup=keyboard)
-        await query.answer()
+        await self._fetch_and_display(query, context, days)
 
     async def _handle_back(self, query):
         """Return to the main menu."""
@@ -138,14 +136,18 @@ class CalendarHandler:
 
         try:
             if media_type == "movie":
-                root_folders = await self.media_service.radarr.get_root_folders()
-                profiles = await self.media_service.radarr.get_quality_profiles()
+                root_folders, profiles = await asyncio.gather(
+                    self.media_service.radarr.get_root_folders(),
+                    self.media_service.radarr.get_quality_profiles(),
+                )
                 success, msg = await self.media_service.add_movie_with_profile(
                     media_id, profiles[0]["id"], root_folders[0]
                 )
             elif media_type == "episode":
-                root_folders = await self.media_service.sonarr.get_root_folders()
-                profiles = await self.media_service.sonarr.get_quality_profiles()
+                root_folders, profiles = await asyncio.gather(
+                    self.media_service.sonarr.get_root_folders(),
+                    self.media_service.sonarr.get_quality_profiles(),
+                )
                 success, msg = await self.media_service.add_series_with_profile(
                     media_id, profiles[0]["id"], root_folders[0]
                 )

@@ -475,6 +475,27 @@ def get_album_selection_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
+def _build_period_row(days: int, translation) -> list:
+    """Build the calendar period button row.
+
+    Args:
+        days: Currently selected period (7, 14, or 30).
+        translation: TranslationService instance.
+    """
+    periods = [
+        (7, translation.get_text("CalendarDays7", default="7 days")),
+        (14, translation.get_text("CalendarDays14", default="14 days")),
+        (30, translation.get_text("CalendarDays30", default="30 days")),
+    ]
+    row = []
+    for period_days, label in periods:
+        text = f"\u2705 {label}" if period_days == days else label
+        row.append(
+            InlineKeyboardButton(text, callback_data=f"cal_period_{period_days}")
+        )
+    return row
+
+
 def get_calendar_keyboard(days: int) -> InlineKeyboardMarkup:
     """Get calendar period/navigation keyboard.
 
@@ -482,19 +503,8 @@ def get_calendar_keyboard(days: int) -> InlineKeyboardMarkup:
         days: Currently selected period (7, 14, or 30).
     """
     translation = TranslationService()
-    periods = [
-        (7, translation.get_text("CalendarDays7", default="7 days")),
-        (14, translation.get_text("CalendarDays14", default="14 days")),
-        (30, translation.get_text("CalendarDays30", default="30 days")),
-    ]
-    period_row = []
-    for period_days, label in periods:
-        text = f"\u2705 {label}" if period_days == days else label
-        period_row.append(
-            InlineKeyboardButton(text, callback_data=f"cal_period_{period_days}")
-        )
     keyboard = [
-        period_row,
+        _build_period_row(days, translation),
         [InlineKeyboardButton(
             "\U0001f504 Refresh", callback_data="cal_refresh"
         )],
@@ -559,7 +569,7 @@ def get_calendar_items_keyboard(
             )
         nav_row.append(
             InlineKeyboardButton(
-                f"{page + 1}/{total_pages}", callback_data="cal_page_noop"
+                f"{page + 1}/{total_pages}", callback_data="cal_noop"
             )
         )
         if page < total_pages - 1:
@@ -571,18 +581,7 @@ def get_calendar_items_keyboard(
         keyboard.append(nav_row)
 
     # Period / refresh / back row
-    periods = [
-        (7, translation.get_text("CalendarDays7", default="7d")),
-        (14, translation.get_text("CalendarDays14", default="14d")),
-        (30, translation.get_text("CalendarDays30", default="30d")),
-    ]
-    period_row = []
-    for period_days, label in periods:
-        text = f"\u2705{label}" if period_days == days else label
-        period_row.append(
-            InlineKeyboardButton(text, callback_data=f"cal_period_{period_days}")
-        )
-    keyboard.append(period_row)
+    keyboard.append(_build_period_row(days, translation))
     keyboard.append([
         InlineKeyboardButton(
             "\U0001f504 Refresh", callback_data="cal_refresh"

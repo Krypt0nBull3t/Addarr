@@ -518,8 +518,9 @@ class MediaService:
         Returns a normalized, date-sorted list of upcoming items.
         Skips disabled services and handles errors gracefully.
         """
-        start = datetime.date.today().isoformat()
-        end = (datetime.date.today() + datetime.timedelta(days=days)).isoformat()
+        today = datetime.date.today()
+        start = today.isoformat()
+        end = (today + datetime.timedelta(days=days)).isoformat()
 
         items = []
 
