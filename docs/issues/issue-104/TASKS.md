@@ -41,7 +41,7 @@
 
 **Goal:** `MediaService.get_upcoming()` aggregates calendar data from both services into a normalized, sorted list.
 
-- [ ] **2.1** Add `get_upcoming()` to MediaService
+- [x] **2.1** Add `get_upcoming()` to MediaService
     - **Context:**
         - **Why:** The handler needs a single call to get all upcoming releases across services. MediaService already aggregates Radarr/Sonarr for search — calendar follows the same pattern.
         - **Architecture:** MediaService is a singleton (`src/services/media.py`). New method calls `self.radarr.get_calendar()` and `self.sonarr.get_calendar()` concurrently via `asyncio.gather`, then normalizes into a unified schema. Skips disabled services (checks `self.radarr is None`).
@@ -73,6 +73,18 @@
         - [RED] Write test: API error on one service — still returns results from the other (use `asyncio.gather(return_exceptions=True)` or try/except)
         - [GREEN] Implement `get_upcoming()` with date computation, concurrent fetch, normalization, sorting
     - **Success:** `pytest tests/test_services/test_media_service.py --tb=short -q` passes, all normalization and edge cases covered
+    - **Completed:** 2026-03-03
+    - **Learnings:**
+        - `asyncio.gather(return_exceptions=True)` returns exceptions as values — check `isinstance(result, Exception)` to handle gracefully
+        - Radarr calendar movies have three date fields (inCinemas, digitalRelease, physicalRelease) — pick earliest non-null, sort by string since ISO format sorts correctly
+        - Sonarr calendar returns episode-level objects with nested `series` dict containing `tvdbId` and series `id`
+        - `"id" in movie` is the reliable way to detect in-library items
+    - **Key Changes:**
+        - Added `get_upcoming(days)` to `MediaService` (`src/services/media.py`)
+        - Added `_normalize_radarr_calendar()` and `_normalize_sonarr_calendar()` static methods
+        - Added `get_calendar` to mock fixtures in `tests/test_services/conftest.py`
+        - Added `TestGetUpcoming` class with 11 tests covering all edge cases
+    - **Notes:** 100% coverage on media.py (373 statements)
 
 ---
 

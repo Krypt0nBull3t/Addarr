@@ -8,6 +8,7 @@ This module handles interactions with media services (Radarr, Sonarr, Lidarr).
 """
 
 import asyncio
+import datetime
 from typing import List, Dict, Optional
 
 from src.utils.logger import get_logger
@@ -510,6 +511,100 @@ class MediaService:
         except Exception as e:
             logger.error(f"Error getting artist albums: {e}")
             return []
+
+    async def get_upcoming(self, days: int = 7) -> List[Dict]:
+        """Get upcoming releases from Radarr and Sonarr calendars.
+
+        Returns a normalized, date-sorted list of upcoming items.
+        Skips disabled services and handles errors gracefully.
+        """
+        start = datetime.date.today().isoformat()
+        end = (datetime.date.today() + datetime.timedelta(days=days)).isoformat()
+
+        items = []
+
+        # Fetch from both services concurrently
+        tasks = []
+        if self.radarr:
+            tasks.append(("radarr", self.radarr.get_calendar(start, end)))
+        if self.sonarr:
+            tasks.append(("sonarr", self.sonarr.get_calendar(start, end)))
+
+        if not tasks:
+            return []
+
+        results = await asyncio.gather(
+            *(t[1] for t in tasks), return_exceptions=True
+        )
+
+        for (service_name, _), result in zip(tasks, results):
+            if isinstance(result, Exception):
+                logger.error(f"Calendar fetch failed for {service_name}: {result}")
+                continue
+
+            if service_name == "radarr":
+                for movie in result:
+                    items.append(self._normalize_radarr_calendar(movie))
+            else:
+                for episode in result:
+                    items.append(self._normalize_sonarr_calendar(episode))
+
+        items.sort(key=lambda x: x["date"])
+        return items
+
+    @staticmethod
+    def _normalize_radarr_calendar(movie: Dict) -> Dict:
+        """Normalize a Radarr calendar movie into the unified schema."""
+        # Pick earliest non-null date
+        date_candidates = []
+        for field, label in [
+            ("inCinemas", "Cinema"),
+            ("digitalRelease", "Digital"),
+            ("physicalRelease", "Physical"),
+        ]:
+            val = movie.get(field)
+            if val:
+                date_candidates.append((val[:10], label))
+
+        if date_candidates:
+            date_candidates.sort(key=lambda x: x[0])
+            date, date_label = date_candidates[0]
+        else:
+            date, date_label = "", "Unknown"
+
+        return {
+            "type": "movie",
+            "title": movie.get("title", ""),
+            "series_title": None,
+            "date": date,
+            "date_label": date_label,
+            "year": movie.get("year"),
+            "season": None,
+            "episode": None,
+            "in_library": "id" in movie,
+            "media_id": str(movie.get("tmdbId", "")),
+            "internal_id": movie.get("id"),
+        }
+
+    @staticmethod
+    def _normalize_sonarr_calendar(ep: Dict) -> Dict:
+        """Normalize a Sonarr calendar episode into the unified schema."""
+        series = ep.get("series", {})
+        air_date = ep.get("airDateUtc", "")
+
+        return {
+            "type": "episode",
+            "title": ep.get("title", ""),
+            "series_title": series.get("title"),
+            "date": air_date[:10] if air_date else "",
+            "date_label": "Airing",
+            "year": None,
+            "season": ep.get("seasonNumber"),
+            "episode": ep.get("episodeNumber"),
+            "in_library": "id" in ep,
+            "media_id": str(series.get("tvdbId", "")),
+            "internal_id": series.get("id"),
+        }
 
     async def get_movies(self) -> List[Dict]:
         """Get all movies from Radarr library"""

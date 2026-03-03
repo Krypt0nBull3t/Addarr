@@ -16,6 +16,7 @@ def mock_radarr_client():
     client.get_quality_profiles = AsyncMock(
         return_value=[{"id": 1, "name": "HD-1080p"}]
     )
+    client.get_calendar = AsyncMock(return_value=[])
     client.get_movies = AsyncMock(return_value=[])
     client.get_movie_by_id = AsyncMock(return_value=None)
     client.delete_movie = AsyncMock(return_value=True)
@@ -34,6 +35,7 @@ def mock_sonarr_client():
         return_value=[{"id": 1, "name": "HD-1080p"}]
     )
     client.get_seasons = AsyncMock(return_value=[])
+    client.get_calendar = AsyncMock(return_value=[])
     client.get_all_series = AsyncMock(return_value=[])
     client.get_series_by_id = AsyncMock(return_value=None)
     client.delete_series = AsyncMock(return_value=True)
