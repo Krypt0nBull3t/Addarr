@@ -37,6 +37,10 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                f"📅 {translation.get_text('Upcoming')}",
+                callback_data="menu_upcoming"
+            ),
+            InlineKeyboardButton(
                 f"🗑 {translation.get_text('Delete')}",
                 callback_data="menu_delete"
             ),

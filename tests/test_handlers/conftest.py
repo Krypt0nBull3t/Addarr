@@ -119,6 +119,7 @@ def start_handler(mock_media_service, mock_translation_service):
     """Create a StartHandler with patched services."""
     with (
         patch("src.bot.handlers.start.MediaHandler") as mock_mh_class,
+        patch("src.bot.handlers.start.CalendarHandler") as mock_ch_class,
         patch("src.bot.handlers.start.HelpHandler") as mock_hh_class,
         patch("src.bot.handlers.start.SystemHandler") as mock_sh_class,
         patch("src.bot.handlers.start.TranslationService") as mock_ts_class,
@@ -135,6 +136,9 @@ def start_handler(mock_media_service, mock_translation_service):
         mock_media_handler.handle_view_toggle = AsyncMock()
         mock_media_handler.cancel_search = AsyncMock()
         mock_mh_class.return_value = mock_media_handler
+        mock_calendar_handler = MagicMock()
+        mock_calendar_handler.show_upcoming = AsyncMock()
+        mock_ch_class.return_value = mock_calendar_handler
         mock_help_handler = MagicMock()
         mock_help_handler.show_help = AsyncMock()
         mock_hh_class.return_value = mock_help_handler
@@ -149,6 +153,7 @@ def start_handler(mock_media_service, mock_translation_service):
         AuthHandler._authenticated_users = {12345}
         handler = StartHandler()
         handler._mock_media_handler = mock_media_handler
+        handler._mock_calendar_handler = mock_calendar_handler
         handler._mock_help_handler = mock_help_handler
         handler._mock_system_handler = mock_system_handler
         handler._mock_ts = mock_translation_service

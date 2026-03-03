@@ -19,6 +19,7 @@ from telegram.ext import (
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.bot.handlers.media import MediaHandler, SEARCHING, SELECTING
+from src.bot.handlers.calendar import CalendarHandler
 from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.system import SystemHandler
 from src.bot.keyboards import get_main_menu_keyboard
@@ -33,6 +34,7 @@ class StartHandler:
 
     def __init__(self):
         self.media_handler = MediaHandler()
+        self.calendar_handler = CalendarHandler()
         self.help_handler = HelpHandler()
         self.system_handler = SystemHandler()
         self.translation = TranslationService()
@@ -180,6 +182,10 @@ class StartHandler:
             )
 
             return SEARCHING
+
+        if action == "upcoming":
+            await self.calendar_handler.show_upcoming(update, context)
+            return ConversationHandler.END
 
         # For commands that end the conversation
         if action in ["status", "help", "delete"]:

@@ -176,7 +176,7 @@
         - Updated `tests/test_handlers/conftest.py` — added keyboard patches to calendar_handler fixture
     - **Notes:** 100% coverage on calendar.py. Handler not yet wired into bot (task 4.2)
 
-- [ ] **4.2** Register CalendarHandler and wire into bot
+- [x] **4.2** Register CalendarHandler and wire into bot
     - **Context:**
         - **Why:** Handler exists but isn't wired into the bot yet. Need to register it, add the command to Telegram's menu, add it to the main menu keyboard, and route the main menu callback.
         - **Architecture:** Handler registration in `src/main.py:_add_handlers()`. Command registration in `src/bot/commands.py:build_authenticated_commands()`. Main menu keyboard in `src/bot/keyboards.py:get_main_menu_keyboard()`. StartHandler routes `menu_*` callbacks to handlers.
@@ -195,3 +195,17 @@
         - [GREEN] Handle `menu_upcoming` callback in StartHandler
         - [GREEN] Run architecture tests to verify no violations: `pytest tests/test_architecture/ --tb=short -q`
     - **Success:** `pytest --tb=short -q` all pass, `python -m flake8 .` clean, `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` passes, architecture tests pass
+    - **Completed:** 2026-03-03
+    - **Learnings:**
+        - CalendarHandler is always-on (not conditional) — registered like other handlers in `_add_handlers()`
+        - The `/upcoming` command is conditional on Radarr OR Sonarr in `build_authenticated_commands()`
+        - StartHandler routes `menu_upcoming` to `calendar_handler.show_upcoming()` and returns `ConversationHandler.END` so the standalone `cal_*` CallbackQueryHandler can pick up further interactions
+        - Existing command count tests needed updating since Radarr/Sonarr now also trigger the `upcoming` command
+    - **Key Changes:**
+        - Registered CalendarHandler in `src/main.py:_add_handlers()` (after Library, before Transmission)
+        - Exported from `src/bot/handlers/__init__.py`
+        - Added `/upcoming` to `build_authenticated_commands()` (conditional on Radarr/Sonarr)
+        - Added "📅 Upcoming" button to `get_main_menu_keyboard()`
+        - Added `menu_upcoming` routing in `StartHandler.handle_menu_selection()`
+        - Updated test counts and added new tests in test_commands.py, test_keyboards.py, test_main.py, test_start_handler.py
+    - **Notes:** 100% coverage on all changed modules. Handler count is now 10 always-on (was 9)
