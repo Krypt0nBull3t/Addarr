@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+**GitHub Repository**: `Krypt0nBull3t/Addarr` — always use this for `gh` CLI commands.
+
 Addarr Refresh is a Telegram bot for managing media collections through Radarr (movies), Sonarr (TV shows), and Lidarr (music). Users search and add media via Telegram with quality profile selection, season picking, and inline keyboard navigation. It also supports Transmission and SABnzbd download client management.
 
 ## Shell Conventions
