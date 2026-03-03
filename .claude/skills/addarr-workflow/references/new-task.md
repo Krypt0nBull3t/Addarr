@@ -1,8 +1,8 @@
-# New Task Flow
+# New Task Flow — Step Details
 
-Full workflow: issue -> branch -> analyze -> plan -> execute
+Sequence is defined in SKILL.md. This file provides implementation details per step.
 
-## 1. Issue Selection
+## Step 1: Issue Selection
 
 Fetch open issues assigned to the user:
 ```bash
@@ -14,7 +14,7 @@ If no assigned issues, fetch unassigned issues:
 gh issue list --state open --limit 10
 ```
 
-Ask with AskUserQuestion:
+`ASK` with AskUserQuestion:
 - Header: "Task"
 - Question: "Which issue do you want to work on?"
 - Options: First 4 issues (format: `#123: Summary`)
@@ -23,7 +23,7 @@ If "Other": ask for a task description (no issue context).
 
 Store issue context for session.
 
-## 2. Branch Management
+## Step 2: Branch Management
 
 Get current state:
 ```bash
@@ -31,11 +31,11 @@ git branch --show-current
 ```
 
 **If on a feature/fix branch already:**
-- Ask if they want to continue here or create a new branch
+- `ASK` if they want to continue here or create a new branch
 
 **If on `development`:**
 
-Ask with AskUserQuestion:
+`ASK` with AskUserQuestion:
 - Header: "Branch"
 - Question: "What type of change is this?"
 - Options:
@@ -52,7 +52,7 @@ git checkout -b <prefix>/<short-description>
 
 Short description is derived from the issue title (lowercase, hyphens, max 40 chars).
 
-## 3. Analyze Task
+## Step 3: Analyze Task
 
 Read the issue details:
 ```bash
@@ -66,29 +66,31 @@ Analyze what's needed (do NOT explore codebase yet):
 - Translation keys to add/modify
 - Docker/Helm impact
 
-Create summary and confirm with user before proceeding.
+**Complexity check:** If the task involves multiple valid approaches, unclear requirements, or 3+ layers — proceed to step 3b (`@superpowers:brainstorming`). Otherwise skip to step 3c.
 
-## 4. Plan
+`ASK` — present analysis summary and confirm before planning.
 
-Use `EnterPlanMode` to explore codebase and create plan.
+## Step 4: Plan
+
+`INVOKE` @superpowers:writing-plans — explore the codebase and write a comprehensive implementation plan.
+
+Do NOT use `EnterPlanMode`. Stay in the normal conversation flow and use Glob, Grep, Read to explore.
 
 The plan should cover:
-- Implementation steps
+- Implementation steps with exact file paths
 - Files to create/modify
 - Test file locations and what tests to write for each implementation step (use @addarr-testing patterns)
 - Translation keys if applicable
+- Complete code snippets (not placeholders)
 
-Use `ExitPlanMode` for approval.
+Write the plan to `docs/issues/issue-<N>/plan.md`.
 
-If approved: create TASKS.md with implementation tasks.
+`ASK` — present the plan to the user for review. Wait for approval before continuing.
 
-## 5. Execute
+## Step 4c: Convert Plan to Tasks
 
-Work through TASKS.md tasks using TDD (red-green-refactor):
+`INVOKE` @task-writer — read `docs/issues/issue-<N>/plan.md` and convert it into sized, TDD-ordered tasks. Write output to `docs/issues/issue-<N>/TASKS.md`.
 
-1. **RED**: Write a failing test — use @addarr-testing patterns for the target layer
-2. **Verify RED**: Run `pytest tests/path/test_file.py::test_name -v` — confirm it fails for the right reason
-3. **GREEN**: Write minimal implementation to make the test pass
-4. **Verify GREEN**: Run `pytest --tb=short -q` — confirm pass with no regressions
-5. **REFACTOR**: Clean up if needed, keeping tests green
-6. Repeat for next behavior
+## Step 5: Execute
+
+Follows the Execution Loop defined in SKILL.md. No additional details needed here — the loop is self-contained.

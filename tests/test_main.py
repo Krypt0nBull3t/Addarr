@@ -36,6 +36,8 @@ def _make_mock_application():
     app.stop = AsyncMock()
     app.shutdown = AsyncMock()
     app.add_handler = MagicMock()
+    app.bot = AsyncMock()
+    app.bot.set_my_commands = AsyncMock()
     app.updater = MagicMock()
     app.updater.start_polling = AsyncMock()
     app.updater.stop = AsyncMock()
@@ -605,3 +607,104 @@ class TestRunBot:
         with pytest.raises(SystemExit) as exc_info:
             run_bot()
         assert exc_info.value.code == 1
+
+
+# ---- AddarrBot._register_commands ----
+
+
+class TestRegisterCommands:
+    """Tests for AddarrBot._register_commands()."""
+
+    @pytest.mark.asyncio
+    @patch("src.main.show_welcome_screen")
+    @patch("src.main.check_config")
+    @patch("src.main.health_service")
+    @patch("src.main.display_health_status", return_value=True)
+    @patch("src.main.Application")
+    async def test_register_commands_called_during_initialize(
+        self, mock_app_cls, mock_display, mock_hs, mock_cc, mock_sw
+    ):
+        """_register_commands is called after application.initialize()."""
+        mock_hs.run_health_checks = AsyncMock(return_value={})
+        app = _make_mock_application()
+        app.bot = AsyncMock()
+        app.bot.set_my_commands = AsyncMock()
+        mock_app_cls.builder.return_value.token.return_value.build.return_value = app
+
+        bot = AddarrBot()
+        with patch.multiple("src.main", **_make_handler_patches()):
+            await bot.initialize()
+
+        # set_my_commands should have been called at least once (default scope)
+        app.bot.set_my_commands.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_sets_default_scope_commands(self, bot, mock_app):
+        """Sets default (unauthenticated) commands via BotCommandScopeDefault."""
+        from telegram import BotCommandScopeDefault
+
+        mock_app.bot = AsyncMock()
+        mock_app.bot.set_my_commands = AsyncMock()
+        bot.application = mock_app
+
+        from src.bot.handlers.auth import AuthHandler
+        AuthHandler._authenticated_users = set()  # No authenticated users
+
+        await bot._register_commands()
+
+        # Called once for default scope (no authenticated users)
+        mock_app.bot.set_my_commands.assert_called_once()
+        call_args = mock_app.bot.set_my_commands.call_args
+        scope = call_args.kwargs.get("scope")
+        assert isinstance(scope, BotCommandScopeDefault)
+
+    @pytest.mark.asyncio
+    async def test_sets_per_user_commands_for_authenticated(self, bot, mock_app):
+        """Sets per-user commands for each authenticated user."""
+        from telegram import BotCommandScopeChat
+
+        mock_app.bot = AsyncMock()
+        mock_app.bot.set_my_commands = AsyncMock()
+        bot.application = mock_app
+
+        from src.bot.handlers.auth import AuthHandler
+        AuthHandler._authenticated_users = {111, 222}
+
+        await bot._register_commands()
+
+        # 1 default + 2 per-user = 3 calls
+        assert mock_app.bot.set_my_commands.call_count == 3
+
+        # Check that at least one call used BotCommandScopeChat
+        scopes = [
+            c.kwargs.get("scope")
+            for c in mock_app.bot.set_my_commands.call_args_list
+        ]
+        chat_scopes = [s for s in scopes if isinstance(s, BotCommandScopeChat)]
+        assert len(chat_scopes) == 2
+
+    @pytest.mark.asyncio
+    async def test_per_user_failure_does_not_block_others(self, bot, mock_app):
+        """If one user's set_my_commands fails, others still get commands."""
+        mock_app.bot = AsyncMock()
+
+        call_count = 0
+
+        async def side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            # Fail on second call (first per-user), succeed on others
+            if call_count == 2:
+                raise Exception("Chat not found")
+
+        mock_app.bot.set_my_commands = AsyncMock(side_effect=side_effect)
+        bot.application = mock_app
+
+        from src.bot.handlers.auth import AuthHandler
+        AuthHandler._authenticated_users = {111, 222}
+
+        # Should not raise
+        await bot._register_commands()
+
+        # All 3 calls were attempted (1 default + 2 per-user)
+        assert call_count == 3

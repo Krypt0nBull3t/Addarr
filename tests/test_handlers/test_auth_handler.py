@@ -346,3 +346,35 @@ def test_get_handler_returns_list(mock_ts_class):
 
     assert isinstance(handlers, list)
     assert len(handlers) > 0
+
+
+# ---------------------------------------------------------------------------
+# check_password triggers command registration
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+@patch("src.bot.handlers.auth.register_commands_for_chat")
+async def test_successful_auth_registers_commands(
+    mock_register, mock_ts_class, make_update, make_context
+):
+    """Successful auth calls register_commands_for_chat with chat_id and bot."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.auth import AuthHandler
+
+    handler = AuthHandler()
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(text="test-pass")
+    context = make_context()
+
+    with patch.object(handler, "_save_authenticated_users"):
+        await handler.check_password(update, context)
+
+    mock_register.assert_awaited_once_with(
+        context.bot, update.effective_message.chat.id
+    )

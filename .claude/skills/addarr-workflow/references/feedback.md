@@ -1,8 +1,8 @@
-# Feedback Flow
+# Feedback Flow — Step Details
 
-Process PR review comments and address feedback.
+Sequence is defined in SKILL.md. This file provides implementation details per step.
 
-## 1. Find the PR
+## Step 1: Find the PR
 
 Detect the PR for the current branch:
 ```bash
@@ -11,7 +11,7 @@ gh pr list --head $(git branch --show-current) --state open --json number,title,
 
 If no PR found: report and stop.
 
-## 2. Fetch Review Comments
+## Step 2: Fetch Review Comments
 
 Get all review comments:
 ```bash
@@ -25,16 +25,16 @@ gh api repos/{owner}/{repo}/pulls/<number>/comments
 
 Also check the automated review bot comment (posted by the auto-approve workflow) for any warnings or suggestions.
 
-## 3. Categorize Feedback
+## Step 3: Categorize Feedback
 
 Group comments into:
 - **Must fix**: Bugs, security issues, breaking changes
 - **Should fix**: Code quality, error handling, naming
 - **Consider**: Style suggestions, optional improvements
 
-Present the categorized list to the user and ask which items to address.
+`ASK` — present the categorized list and ask which items to address.
 
-## 4. Create Tasks
+## Step 4: Create Tasks
 
 For each item to address, create a task in TASKS.md:
 ```markdown
@@ -42,11 +42,22 @@ For each item to address, create a task in TASKS.md:
 - [ ] [should-fix] Update <description> (from @reviewer)
 ```
 
-## 5. Execute
+## Step 5: Execute
 
-Work through the feedback tasks. After completing all:
-1. Run preflight checks (`/addarr check`)
-2. Push changes
+Follows the Execution Loop defined in SKILL.md, with one addition:
+
+- **Bug fixes from feedback:** `INVOKE` @superpowers:systematic-debugging to investigate root cause before fixing. Don't apply surface-level patches.
+
+All other changes follow the standard execution loop (TDD, verification).
+
+## Steps 6-7: Wrap Up
+
+After completing all feedback tasks:
+1. Run the preflight flow (SKILL.md "Flow: preflight")
+2. Push changes:
+   ```bash
+   git push
+   ```
 3. Report what was addressed
 
 The CI pipeline will re-run and the AI reviewer will post an updated review.

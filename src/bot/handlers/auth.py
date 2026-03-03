@@ -23,6 +23,7 @@ from src.utils.chat import get_chat_name
 from src.utils.logger import get_logger, log_user_interaction
 from src.config.settings import config
 from src.definitions import CONFIG_PATH
+from src.bot.commands import register_commands_for_chat
 from src.services.translation import TranslationService
 
 # Get logger instance
@@ -140,6 +141,7 @@ class AuthHandler:
             # Add user to authenticated users and save
             AuthHandler._authenticated_users.add(user.id)
             self._save_authenticated_users()
+            await register_commands_for_chat(context.bot, chat.id)
 
             log_user_interaction(logger, user, "auth_success")
 

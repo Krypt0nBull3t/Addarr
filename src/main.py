@@ -34,6 +34,7 @@ from src.utils.error_handler import (
     handle_network_error,
     handle_initialization_error
 )
+from src.bot.commands import build_default_commands, register_commands_for_chat
 from src.services.health import health_service, display_health_status
 
 # Initialize colorama
@@ -77,6 +78,7 @@ class AddarrBot:
 
             try:
                 await self.application.initialize()
+                await self._register_commands()
                 logger.info("🚀 Bot initialized successfully")
             except InvalidToken:
                 if handle_token_error(token):
@@ -160,6 +162,22 @@ class AddarrBot:
         except Exception as e:
             logger.error(f"❌ Error adding handlers: {str(e)}", exc_info=True)
             raise
+
+    async def _register_commands(self):
+        """Register bot commands with Telegram for the / menu."""
+        from telegram import BotCommandScopeDefault
+
+        bot = self.application.bot
+
+        # Default scope: unauthenticated users see minimal commands
+        default_commands = build_default_commands()
+        await bot.set_my_commands(
+            default_commands, scope=BotCommandScopeDefault()
+        )
+
+        # Set full commands for already-authenticated users
+        for user_id in AuthHandler._authenticated_users:
+            await register_commands_for_chat(bot, user_id)
 
     async def start(self):
         """Start the bot"""
