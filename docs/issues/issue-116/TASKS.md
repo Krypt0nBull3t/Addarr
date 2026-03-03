@@ -10,7 +10,7 @@
 
 **Goal:** Build the complete `RateLimitService` singleton with sliding window logic, config integration, and all supporting test infrastructure.
 
-- [~] **1.1** Implement RateLimitService core with sliding window and singleton pattern
+- [x] **1.1** Implement RateLimitService core with sliding window and singleton pattern
     - **Context:**
         - **Why:** No rate limiting exists — users can spam commands and overwhelm *arr APIs. This service tracks per-user request timestamps to enforce limits.
         - **Architecture:** Singleton service in `src/services/` following `TranslationService` pattern (`__new__` override, class-level state). In-memory sliding window: `{user_id: {category: [timestamps]}}`. `check(user_id, category)` prunes expired timestamps, checks count, records new timestamp if allowed. Returns `(allowed: bool, retry_after: int)`.
@@ -55,7 +55,7 @@
         - [GREEN] Add `"RateLimitService"` to `SINGLETON_CLASSES` in `tests/test_architecture/test_conventions.py`
     - **Success:** `pytest tests/test_services/test_rate_limit_service.py -v` all green, architecture tests pass, `python -m flake8 src/services/rate_limit.py` clean
 
-- [ ] **1.2** Implement `@rate_limit` decorator with DummyHandler tests
+- [~] **1.2** Implement `@rate_limit` decorator with DummyHandler tests
     - **Context:**
         - **Why:** The decorator is the integration point between the service and handlers — it wraps handler methods to check limits before the handler body runs, returning a cooldown message when the limit is exceeded.
         - **Architecture:** Decorator factory `rate_limit(category: str)` returns a decorator that wraps `async def method(self, update, context)`. Follows `@require_auth` pattern exactly (see `src/bot/handlers/auth.py:36-50`). Lives in `src/services/rate_limit.py` alongside the service (not in handlers — the decorator is tightly coupled to the service, and handler→service imports are the correct layer direction).

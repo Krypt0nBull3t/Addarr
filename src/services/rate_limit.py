@@ -9,8 +9,13 @@ Uses an in-memory sliding window algorithm to track request timestamps.
 """
 
 import time
+from functools import wraps
+
+from telegram import Update
+from telegram.ext import ContextTypes
 
 from src.config.settings import config
+from src.services.translation import TranslationService
 from src.utils.logger import get_logger
 
 logger = get_logger("addarr.ratelimit")
@@ -102,3 +107,46 @@ class RateLimitService:
     def reset(cls):
         """Clear all rate limit records."""
         cls._records = {}
+
+
+def rate_limit(category):
+    """Decorator to enforce rate limiting on handler methods.
+
+    Args:
+        category: Rate limit category (search, modify, auth).
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapped(
+            self, update: Update,
+            context: ContextTypes.DEFAULT_TYPE,
+            *args, **kwargs
+        ):
+            service = RateLimitService()
+
+            if not service.is_enabled:
+                return await func(self, update, context, *args, **kwargs)
+
+            if not update.effective_user:
+                return
+
+            user_id = update.effective_user.id
+            allowed, retry_after = service.check(user_id, category)
+
+            if not allowed:
+                translation = TranslationService()
+                await update.effective_message.reply_text(
+                    translation.get_text(
+                        "RateLimitExceeded",
+                        default=(
+                            f"Slow down! Please wait {retry_after} "
+                            "seconds before trying again."
+                        ),
+                        seconds=retry_after,
+                    )
+                )
+                return
+
+            return await func(self, update, context, *args, **kwargs)
+        return wrapped
+    return decorator
