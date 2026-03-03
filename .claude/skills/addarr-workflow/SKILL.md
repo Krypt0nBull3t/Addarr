@@ -114,7 +114,7 @@ Step 1  RUN     pytest --tb=short -q
                 On failure: INVOKE @superpowers:systematic-debugging, fix, re-run
 Step 2  RUN     flake8 .
                 On failure: auto-fix formatting, report logic issues
-Step 3  RUN     python run.py --validate-i18n
+Step 3  RUN     PYTHONIOENCODING=utf-8 python run.py --validate-i18n
                 On failure: report missing/malformed keys
 Step 4  RUN     Report results summary
 ```

@@ -23,7 +23,7 @@ flake8 .
 ## Step 3: Translation Validation
 
 ```bash
-python run.py --validate-i18n
+PYTHONIOENCODING=utf-8 python run.py --validate-i18n
 ```
 
 **On failure:** Report which translation files have problems and what keys are missing/malformed. Fix if possible, otherwise report.
