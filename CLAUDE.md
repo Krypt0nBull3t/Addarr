@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Addarr Refresh is a Telegram bot for managing media collections through Radarr (movies), Sonarr (TV shows), and Lidarr (music). Users search and add media via Telegram with quality profile selection, season picking, and inline keyboard navigation. It also supports Transmission and SABnzbd download client management.
 
+## Shell Conventions
+
+These patterns avoid triggering permission prompts in Claude Code:
+
+- **Avoid combining `cd` with `git`** — prefer `git -C <path>` instead
+- **Avoid `$()` command substitution** — prefer running the inner command first, then use the result in the next command
+- **Avoid shell glob expansion in paths** (e.g., `translations/addarr.*.yml`) — prefer listing files explicitly
+- **Avoid backslash escapes in commands** — prefer quotes over escaping spaces/special characters
+- **Use `PYTHONIOENCODING=utf-8`** when running `python run.py --validate-i18n` (Windows emoji encoding)
+
 ## Commands
 
 ```bash
@@ -36,7 +46,7 @@ flake8 .
 # Run tests
 pytest                                      # All tests
 pytest --tb=short -q                        # Quick summary
-pytest --cov=src --cov-report=term-missing  # With coverage
+pytest --cov=src --cov-report=term-missing  # With coverage (use dotted module paths for --cov, not file paths)
 pytest -k "test_name"                       # Specific test
 pytest -x                                   # Stop on first failure
 
@@ -61,6 +71,7 @@ Tests live in `tests/` mirroring `src/` structure. Key patterns:
 - **Telegram factories**: Factory fixtures (`make_user`, `make_message`, `make_update`, `make_context`) return callables for per-test customization.
 - **API mocking**: `aioresponses` for async HTTP clients (Radarr, Sonarr, Lidarr, SABnzbd). `unittest.mock.patch("requests.post")` for Transmission (uses sync `requests`).
 - **Translation mock**: `autouse=True` fixture patches `TranslationService._load_translations` so tests don't need YAML files.
+- **Config patching gotcha**: Module-level `from src.config.settings import config` binds at import time. To override in tests, patch at the import site: `patch("src.the_module.config", mock_config)` — replacing `sys.modules` won't affect modules that already imported `config`.
 
 ## Lint Configuration
 
@@ -92,7 +103,7 @@ All configuration lives in `config.yaml` (YAML). `config_example.yaml` serves as
 
 ### Internationalization
 
-Translation files in `translations/addarr.<locale>.yml` (9 languages). Access via `TranslationService().get_text(key, default=...)`. Template for new languages: `translations/addarr.template.yml`.
+Translation files in `translations/addarr.<locale>.yml` (9 languages). Access via `TranslationService().get_text(key, default=...)`. Template for new languages: `translations/addarr.template.yml`. **Important:** `get_text()` does a single-level `.get(key)` lookup — nested keys like `Commands.start` don't resolve. Always use flat top-level keys (e.g., `CommandStart`).
 
 ### Entry Point Flow
 
@@ -107,6 +118,7 @@ Handlers are registered in `AddarrBot._add_handlers()` in this order: Start, Aut
 - **`main`** is the production branch. Never target `main` with a feature/fix PR.
 - **`development`** is the integration branch. All feature and fix PRs target `development`.
 - The only PRs that target `main` are merge PRs from `development` → `main` (releases).
+- **Merge strategy**: Use `--merge` (regular merge commit, same as GitHub's "Merge pull request" button). Do not squash or rebase.
 
 ## CI/CD
 

@@ -1,11 +1,6 @@
 ---
 name: addarr-workflow
-description: |
-  Development workflow for Addarr. Invoke via /addarr command.
-
-  Triggers: /addarr, /addarr new, /addarr continue, /addarr feedback, /addarr pr, /addarr check
-
-  Handles: issue selection, branch management, planning, PR creation, preflight validation, PR feedback.
+description: "Development workflow for Addarr. Invoke via /addarr command. Triggers: /addarr, /addarr new, /addarr continue, /addarr feedback, /addarr pr, /addarr check. Handles: issue selection, branch management, planning, PR creation, preflight validation, PR feedback."
 ---
 
 # Addarr Workflow
