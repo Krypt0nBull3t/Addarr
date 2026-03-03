@@ -89,7 +89,7 @@
 
 **Goal:** Create MissingHandler with `/missing` command, filter tabs, pagination, "Search Now" action, and the keyboard builders that support it.
 
-- [ ] **3.1** Implement MissingHandler and keyboard builders
+- [x] **3.1** Implement MissingHandler and keyboard builders
     - **Context:**
         - **Why:** Users need a Telegram UI to browse missing/wanted media, filter by type, page through results, and trigger manual searches per item.
         - **Architecture:** Follow CalendarHandler pattern exactly (see `src/bot/handlers/calendar.py`): callback-driven (no ConversationHandler states), cache items in `context.user_data["missing_items"]`, filter state in `context.user_data["missing_filter"]`, stateless pagination via callback data. Keyboard builder follows `get_calendar_items_keyboard()` pattern with filter tabs at top, item+action buttons, pagination, refresh/back at bottom. All callbacks use `missing_` prefix.
@@ -106,6 +106,19 @@
         - [GREEN] Implement `get_missing_items_keyboard()` and `get_missing_empty_keyboard()` in `keyboards.py`
         - [GREEN] Implement `MissingHandler` class in `src/bot/handlers/missing.py`
     - **Success:** `python -m pytest tests/test_handlers/test_missing_handler.py -v` all pass, `python -m flake8 src/bot/handlers/missing.py src/bot/keyboards.py` clean
+    - **Completed:** 2026-03-03
+    - **Learnings:**
+        - MissingHandler follows CalendarHandler pattern almost exactly — callback-driven, no ConversationHandler states
+        - Filter tabs need both local filtering (movie/episode) and data re-fetch (cutoff/all) — mixed concern handled in `_handle_filter`
+        - Refresh must respect current filter mode (cutoff vs all) to call the right service method
+        - Keyboard tests need dedicated test class in `tests/test_bot/test_keyboards.py` since handler tests mock keyboards
+    - **Key Changes:**
+        - Created `src/bot/handlers/missing.py` with MissingHandler class (show_missing, handle_missing_action, filter/page/refresh/back/search handlers)
+        - Added `get_missing_items_keyboard()`, `get_missing_empty_keyboard()`, `_build_missing_filter_row()` to `src/bot/keyboards.py`
+        - Added `missing_handler` fixture to `tests/test_handlers/conftest.py`
+        - Created `tests/test_handlers/test_missing_handler.py` with 17 tests
+        - Added 13 keyboard tests to `tests/test_bot/test_keyboards.py`
+    - **Notes:** 100% coverage on `src/bot/handlers/missing.py`. Handler and keyboard functions are fully tested independently.
 
 ---
 

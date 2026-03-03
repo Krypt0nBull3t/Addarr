@@ -595,6 +595,122 @@ def get_calendar_items_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_missing_empty_keyboard() -> InlineKeyboardMarkup:
+    """Get keyboard for empty missing/wanted state (refresh + back)."""
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="missing_refresh"
+        )],
+        [InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="missing_back"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_missing_items_keyboard(
+    items: list, page: int, active_filter: str, page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    """Get paginated missing/wanted items keyboard.
+
+    Args:
+        items: Full list of normalized missing items.
+        page: Current page (0-indexed).
+        active_filter: Currently active filter tab.
+        page_size: Number of items per page.
+    """
+    translation = TranslationService()
+    type_emoji = {
+        "movie": "\U0001f3ac",
+        "episode": "\U0001f4fa",
+    }
+
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    keyboard = []
+
+    # Filter tabs
+    keyboard.append(_build_missing_filter_row(active_filter, translation))
+
+    # Item buttons
+    for item in page_items:
+        emoji = type_emoji.get(item["type"], "\U0001f3ac")
+        title = item["title"]
+        series = item.get("series_title")
+        label = f"{emoji} {series} - {title}" if series else f"{emoji} {title}"
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="missing_noop")
+        ])
+        # Search button per item
+        keyboard.append([
+            InlineKeyboardButton(
+                f"\U0001f50d {translation.get_text('MissingSearchNow')}",
+                callback_data=(
+                    f"missing_search_{item['service']}_{item['internal_id']}"
+                ),
+            )
+        ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev",
+                    callback_data=f"missing_page_{page - 1}",
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"{page + 1}/{total_pages}", callback_data="missing_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f",
+                    callback_data=f"missing_page_{page + 1}",
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Refresh / back row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="missing_refresh"
+        ),
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="missing_back",
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def _build_missing_filter_row(active_filter, translation):
+    """Build filter tab row for missing keyboard."""
+    filters = [
+        ("all", "\U0001f4cb All", "missing_filter_all"),
+        ("movie", "\U0001f3ac Movies", "missing_filter_movie"),
+        ("episode", "\U0001f4fa Series", "missing_filter_series"),
+        ("cutoff", "\u26a0\ufe0f Cutoff", "missing_filter_cutoff"),
+    ]
+    row = []
+    for key, label, cb_data in filters:
+        marker = "\u2713 " if key == active_filter else ""
+        row.append(
+            InlineKeyboardButton(f"{marker}{label}", callback_data=cb_data)
+        )
+    return row
+
+
 def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: str = "No") -> InlineKeyboardMarkup:
     """Create a Yes/No inline keyboard
 

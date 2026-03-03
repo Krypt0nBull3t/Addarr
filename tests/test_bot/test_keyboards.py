@@ -1123,3 +1123,208 @@ class TestListDetailKeyboard:
 
         cancel_btn = buttons[2][0]
         assert cancel_btn.callback_data == "select_cancel"
+
+
+class TestMissingEmptyKeyboard:
+    """Tests for get_missing_empty_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_empty_keyboard
+
+        result = get_missing_empty_keyboard()
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_empty_keyboard
+
+        result = get_missing_empty_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_empty_keyboard
+
+        result = get_missing_empty_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_back" in callbacks
+
+
+class TestMissingItemsKeyboard:
+    """Tests for get_missing_items_keyboard"""
+
+    SAMPLE_ITEMS = [
+        {"type": "movie", "title": "Fight Club", "series_title": None,
+         "internal_id": 1, "service": "radarr", "media_id": "550"},
+        {"type": "episode", "title": "Pilot", "series_title": "Breaking Bad",
+         "internal_id": 101, "service": "sonarr", "media_id": "81189"},
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_item_buttons_present(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Fight Club" in text_joined
+        assert "Pilot" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_episode_shows_series_title(self, mock_ts):
+        """Episode items show series_title - episode_title format."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Breaking Bad" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_search_buttons_per_item(self, mock_ts):
+        """Each item has a search button with service and ID."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_search_radarr_1" in callbacks
+        assert "missing_search_sonarr_101" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_filter_tabs_present(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_filter_all" in callbacks
+        assert "missing_filter_movie" in callbacks
+        assert "missing_filter_series" in callbacks
+        assert "missing_filter_cutoff" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_active_filter_highlighted(self, mock_ts):
+        """Active filter tab should have a checkmark."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="movie"
+        )
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "missing_filter_movie":
+                    assert "\u2713" in btn.text
+                elif btn.callback_data == "missing_filter_all":
+                    assert "\u2713" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_when_items_exceed_page_size(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}", "series_title": None,
+             "internal_id": i, "service": "radarr", "media_id": str(i)}
+            for i in range(8)
+        ]
+        result = get_missing_items_keyboard(
+            items, page=0, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_page_1" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_prev_on_page_1(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}", "series_title": None,
+             "internal_id": i, "service": "radarr", "media_id": str(i)}
+            for i in range(8)
+        ]
+        result = get_missing_items_keyboard(
+            items, page=1, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_page_0" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_pagination_for_single_page(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert not any(cb.startswith("missing_page_") for cb in callbacks)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_and_back_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_refresh" in callbacks
+        assert "missing_back" in callbacks
