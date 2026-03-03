@@ -680,3 +680,55 @@ class TestDeleteSeries:
         )
         result = await sonarr_client.delete_series(1)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_calendar
+# ---------------------------------------------------------------------------
+
+
+class TestSonarrGetCalendar:
+    @pytest.mark.asyncio
+    async def test_get_calendar_success(self, aio_mock, sonarr_client):
+        """Happy path: returns list of upcoming episodes."""
+        calendar_data = [
+            {
+                "id": 101,
+                "title": "Episode One",
+                "airDateUtc": "2026-03-10T20:00:00Z",
+                "series": {"title": "Breaking Bad", "tvdbId": 81189},
+            },
+            {
+                "id": 102,
+                "title": "Episode Two",
+                "airDateUtc": "2026-03-12T20:00:00Z",
+                "series": {"title": "Severance", "tvdbId": 371980},
+            },
+        ]
+        aio_mock.get(
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            payload=calendar_data,
+            status=200,
+        )
+        results = await sonarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert len(results) == 2
+        assert results[0]["title"] == "Episode One"
+        assert results[1]["series"]["title"] == "Severance"
+
+    @pytest.mark.asyncio
+    async def test_get_calendar_empty(self, aio_mock, sonarr_client):
+        """No upcoming episodes returns empty list."""
+        aio_mock.get(
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            payload=[],
+            status=200,
+        )
+        results = await sonarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_calendar_exception(self, sonarr_client):
+        """Exception during get_calendar returns empty list."""
+        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await sonarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert results == []

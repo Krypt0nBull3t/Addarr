@@ -199,6 +199,23 @@ class SonarrClient(BaseApiClient):
             logger.error(f"❌ Failed to get series: {str(e)}")
             return None
 
+    async def get_calendar(self, start: str, end: str) -> List[Dict]:
+        """Get upcoming episode airings within a date range"""
+        try:
+            logger.info(Fore.BLUE + f"🔍 Getting Sonarr calendar: {start} to {end}")
+            results = await self._request(f"calendar?start={start}&end={end}")
+
+            if not results:
+                logger.warning(Fore.YELLOW + "⚠️ No upcoming episodes found")
+                return []
+
+            logger.info(Fore.GREEN + f"✅ Found {len(results)} upcoming episodes")
+            return results
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get calendar: {str(e)}")
+            return []
+
     async def get_all_series(self) -> List[Dict]:
         """Get all series in the library"""
         try:

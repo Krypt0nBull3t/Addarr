@@ -119,6 +119,7 @@ def start_handler(mock_media_service, mock_translation_service):
     """Create a StartHandler with patched services."""
     with (
         patch("src.bot.handlers.start.MediaHandler") as mock_mh_class,
+        patch("src.bot.handlers.start.CalendarHandler") as mock_ch_class,
         patch("src.bot.handlers.start.HelpHandler") as mock_hh_class,
         patch("src.bot.handlers.start.SystemHandler") as mock_sh_class,
         patch("src.bot.handlers.start.TranslationService") as mock_ts_class,
@@ -135,6 +136,9 @@ def start_handler(mock_media_service, mock_translation_service):
         mock_media_handler.handle_view_toggle = AsyncMock()
         mock_media_handler.cancel_search = AsyncMock()
         mock_mh_class.return_value = mock_media_handler
+        mock_calendar_handler = MagicMock()
+        mock_calendar_handler.show_upcoming = AsyncMock()
+        mock_ch_class.return_value = mock_calendar_handler
         mock_help_handler = MagicMock()
         mock_help_handler.show_help = AsyncMock()
         mock_hh_class.return_value = mock_help_handler
@@ -149,6 +153,7 @@ def start_handler(mock_media_service, mock_translation_service):
         AuthHandler._authenticated_users = {12345}
         handler = StartHandler()
         handler._mock_media_handler = mock_media_handler
+        handler._mock_calendar_handler = mock_calendar_handler
         handler._mock_help_handler = mock_help_handler
         handler._mock_system_handler = mock_system_handler
         handler._mock_ts = mock_translation_service
@@ -338,6 +343,56 @@ def settings_handler(mock_media_service, mock_translation_service):
         handler._mock_is_admin = mock_is_admin
         handler._mock_trans = mock_trans
         handler._mock_sab = mock_sab
+        yield handler
+
+
+@pytest.fixture
+def calendar_handler(mock_media_service, mock_translation_service):
+    """Create a CalendarHandler with patched services."""
+    with (
+        patch("src.bot.handlers.calendar.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.calendar.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.calendar.get_calendar_keyboard") as mock_cal_kbd,
+        patch("src.bot.handlers.calendar.get_calendar_items_keyboard") as mock_items_kbd,
+        patch("src.bot.handlers.calendar.get_main_menu_keyboard") as mock_menu_kbd,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        mock_media_service.get_upcoming = AsyncMock(return_value=[])
+        mock_media_service.add_movie_with_profile = AsyncMock(
+            return_value=(True, "Added!")
+        )
+        mock_media_service.add_series_with_profile = AsyncMock(
+            return_value=(True, "Added!")
+        )
+        mock_media_service.radarr = MagicMock()
+        mock_media_service.radarr.get_root_folders = AsyncMock(
+            return_value=["/movies"]
+        )
+        mock_media_service.radarr.get_quality_profiles = AsyncMock(
+            return_value=[{"id": 1, "name": "HD"}]
+        )
+        mock_media_service.sonarr = MagicMock()
+        mock_media_service.sonarr.get_root_folders = AsyncMock(
+            return_value=["/tv"]
+        )
+        mock_media_service.sonarr.get_quality_profiles = AsyncMock(
+            return_value=[{"id": 1, "name": "HD"}]
+        )
+        mock_cal_kbd.return_value = MagicMock()
+        mock_items_kbd.return_value = MagicMock()
+        mock_menu_kbd.return_value = MagicMock()
+
+        from src.bot.handlers.calendar import CalendarHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = CalendarHandler()
+        handler._mock_service = mock_media_service
+        handler._mock_ts = mock_translation_service
+        handler._mock_cal_kbd = mock_cal_kbd
+        handler._mock_items_kbd = mock_items_kbd
+        handler._mock_menu_kbd = mock_menu_kbd
         yield handler
 
 

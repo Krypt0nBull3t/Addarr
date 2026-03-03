@@ -42,6 +42,7 @@ class TestMainMenuKeyboard:
             "menu_series",
             "menu_music",
             "menu_status",
+            "menu_upcoming",
             "menu_delete",
             "menu_help",
             "menu_cancel",
@@ -895,6 +896,195 @@ class TestAlbumSelectionKeyboard:
             for row in result.inline_keyboard for btn in row
         ]
         assert "menu_cancel" in callbacks
+
+
+# ---------------------------------------------------------------------------
+# Calendar keyboards
+# ---------------------------------------------------------------------------
+
+
+class TestCalendarKeyboard:
+    """Tests for get_calendar_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=7)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_period_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_period_7" in callbacks
+        assert "cal_period_14" in callbacks
+        assert "cal_period_30" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_current_period_highlighted(self, mock_ts):
+        """Current period button should have a checkmark."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=14)
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "cal_period_14":
+                    assert "\u2705" in btn.text
+                elif btn.callback_data in ("cal_period_7", "cal_period_30"):
+                    assert "\u2705" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_back" in callbacks
+
+
+class TestCalendarItemsKeyboard:
+    """Tests for get_calendar_items_keyboard"""
+
+    SAMPLE_ITEMS = [
+        {"type": "movie", "title": "Movie A", "in_library": True,
+         "media_id": "100", "date": "2026-03-10", "date_label": "Cinema"},
+        {"type": "movie", "title": "Movie B", "in_library": False,
+         "media_id": "200", "date": "2026-03-12", "date_label": "Digital"},
+        {"type": "episode", "title": "Pilot", "in_library": False,
+         "media_id": "9000", "series_title": "New Show",
+         "date": "2026-03-15", "date_label": "Airing"},
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_item_buttons_present(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Movie A" in text_joined
+        assert "Movie B" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_add_buttons_only_for_non_library(self, mock_ts):
+        """Non-library items get cal_add_* callback, library items don't."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        # Movie B (not in library, movie) should have add button
+        assert "cal_add_movie_200" in callbacks
+        # Pilot (not in library, episode) should have add button
+        assert "cal_add_episode_9000" in callbacks
+        # Movie A (in library) should NOT have add button
+        assert "cal_add_movie_100" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_when_items_exceed_page_size(self, mock_ts):
+        """Pagination buttons appear when items > page_size."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}", "in_library": True,
+             "media_id": str(i), "date": "2026-03-10", "date_label": "Cinema"}
+            for i in range(8)
+        ]
+        result = get_calendar_items_keyboard(items, page=0, days=7, page_size=5)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_page_1" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_prev_button_on_page_1(self, mock_ts):
+        """Page 1 should have a Prev button pointing to page 0."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}", "in_library": True,
+             "media_id": str(i), "date": "2026-03-10", "date_label": "Cinema"}
+            for i in range(8)
+        ]
+        result = get_calendar_items_keyboard(items, page=1, days=7, page_size=5)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_page_0" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_pagination_for_single_page(self, mock_ts):
+        """No pagination buttons when items fit in one page."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, days=7, page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert not any(cb.startswith("cal_page_") for cb in callbacks)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_period_refresh_back_buttons(self, mock_ts):
+        """Bottom row has period, refresh, and back buttons."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_period_7" in callbacks
+        assert "cal_refresh" in callbacks
+        assert "cal_back" in callbacks
 
 
 class TestListDetailKeyboard:

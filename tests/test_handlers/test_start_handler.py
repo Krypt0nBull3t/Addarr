@@ -120,6 +120,20 @@ async def test_handle_menu_selection_help(
 
 
 @pytest.mark.asyncio
+async def test_handle_menu_selection_upcoming(
+    start_handler, make_update, make_context
+):
+    """menu_upcoming delegates to calendar_handler.show_upcoming and ends."""
+    update = make_update(callback_data="menu_upcoming")
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == ConversationHandler.END
+    start_handler._mock_calendar_handler.show_upcoming.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_menu_selection_settings(
     start_handler, make_update, make_context
 ):

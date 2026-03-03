@@ -37,6 +37,10 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                f"📅 {translation.get_text('Upcoming')}",
+                callback_data="menu_upcoming"
+            ),
+            InlineKeyboardButton(
                 f"🗑 {translation.get_text('Delete')}",
                 callback_data="menu_delete"
             ),
@@ -468,6 +472,126 @@ def get_album_selection_keyboard(
             callback_data="menu_cancel"
         )],
     ])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def _build_period_row(days: int, translation) -> list:
+    """Build the calendar period button row.
+
+    Args:
+        days: Currently selected period (7, 14, or 30).
+        translation: TranslationService instance.
+    """
+    periods = [
+        (7, translation.get_text("CalendarDays7", default="7 days")),
+        (14, translation.get_text("CalendarDays14", default="14 days")),
+        (30, translation.get_text("CalendarDays30", default="30 days")),
+    ]
+    row = []
+    for period_days, label in periods:
+        text = f"\u2705 {label}" if period_days == days else label
+        row.append(
+            InlineKeyboardButton(text, callback_data=f"cal_period_{period_days}")
+        )
+    return row
+
+
+def get_calendar_keyboard(days: int) -> InlineKeyboardMarkup:
+    """Get calendar period/navigation keyboard.
+
+    Args:
+        days: Currently selected period (7, 14, or 30).
+    """
+    translation = TranslationService()
+    keyboard = [
+        _build_period_row(days, translation),
+        [InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="cal_refresh"
+        )],
+        [InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="cal_back"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_calendar_items_keyboard(
+    items: list, page: int, days: int, page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    """Get paginated calendar items keyboard.
+
+    Args:
+        items: Full list of normalized calendar items.
+        page: Current page (0-indexed).
+        days: Currently selected period for period buttons.
+        page_size: Number of items per page.
+    """
+    translation = TranslationService()
+    type_emoji = {
+        "movie": "\U0001f3ac",
+        "episode": "\U0001f4fa",
+    }
+
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    keyboard = []
+
+    # Item buttons
+    for item in page_items:
+        emoji = type_emoji.get(item["type"], "\U0001f3ac")
+        title = item["title"]
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{emoji} {title}", callback_data="cal_noop"
+            )
+        ])
+        # Add button for non-library items
+        if not item.get("in_library"):
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"\u2795 {translation.get_text('Add')}",
+                    callback_data=f"cal_add_{item['type']}_{item['media_id']}"
+                )
+            ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev", callback_data=f"cal_page_{page - 1}"
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"{page + 1}/{total_pages}", callback_data="cal_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f", callback_data=f"cal_page_{page + 1}"
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Period / refresh / back row
+    keyboard.append(_build_period_row(days, translation))
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="cal_refresh"
+        ),
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="cal_back"
+        ),
+    ])
+
     return InlineKeyboardMarkup(keyboard)
 
 

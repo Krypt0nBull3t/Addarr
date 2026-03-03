@@ -1624,3 +1624,262 @@ class TestGetArtistAlbums:
         albums = await service.get_artist_albums("some-mbid-123")
 
         assert albums == []
+
+
+# ---------------------------------------------------------------------------
+# get_upcoming — calendar aggregation
+# ---------------------------------------------------------------------------
+
+
+# Sample Radarr calendar data
+RADARR_CALENDAR_MOVIE_CINEMA = {
+    "id": 1,
+    "title": "Movie A",
+    "tmdbId": 100,
+    "year": 2026,
+    "inCinemas": "2026-03-10T00:00:00Z",
+    "digitalRelease": "2026-04-10T00:00:00Z",
+    "physicalRelease": "2026-05-10T00:00:00Z",
+}
+
+RADARR_CALENDAR_MOVIE_DIGITAL = {
+    "id": 2,
+    "title": "Movie B",
+    "tmdbId": 200,
+    "year": 2026,
+    "digitalRelease": "2026-03-15T00:00:00Z",
+}
+
+RADARR_CALENDAR_MOVIE_NO_ID = {
+    "title": "Movie C",
+    "tmdbId": 300,
+    "year": 2026,
+    "physicalRelease": "2026-03-05T00:00:00Z",
+}
+
+# Sample Sonarr calendar data
+SONARR_CALENDAR_EPISODE = {
+    "id": 501,
+    "title": "Pilot",
+    "airDateUtc": "2026-03-08T20:00:00Z",
+    "seasonNumber": 1,
+    "episodeNumber": 1,
+    "series": {"title": "New Show", "tvdbId": 9000, "id": 10},
+}
+
+SONARR_CALENDAR_EPISODE_NO_ID = {
+    "title": "Unmonitored Ep",
+    "airDateUtc": "2026-03-12T20:00:00Z",
+    "seasonNumber": 2,
+    "episodeNumber": 5,
+    "series": {"title": "Another Show", "tvdbId": 9001},
+}
+
+
+class TestGetUpcoming:
+    @pytest.mark.asyncio
+    async def test_both_services_combined_sorted(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Both services enabled — returns combined, date-sorted list."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_DIGITAL,  # 2026-03-15
+        ]
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,  # 2026-03-08
+        ]
+
+        results = await service.get_upcoming(days=14)
+
+        assert len(results) == 2
+        # Sonarr episode (03-08) should come before Radarr movie (03-15)
+        assert results[0]["type"] == "episode"
+        assert results[0]["title"] == "Pilot"
+        assert results[1]["type"] == "movie"
+        assert results[1]["title"] == "Movie B"
+
+    @pytest.mark.asyncio
+    async def test_only_radarr_enabled(self, mock_radarr_client):
+        """Only Radarr enabled — returns only movies."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_CINEMA,
+        ]
+
+        results = await service.get_upcoming(days=7)
+
+        assert len(results) == 1
+        assert results[0]["type"] == "movie"
+        assert results[0]["title"] == "Movie A"
+
+    @pytest.mark.asyncio
+    async def test_only_sonarr_enabled(self, mock_sonarr_client):
+        """Only Sonarr enabled — returns only episodes."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,
+        ]
+
+        results = await service.get_upcoming(days=7)
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+        assert results[0]["series_title"] == "New Show"
+
+    @pytest.mark.asyncio
+    async def test_neither_enabled(self):
+        """Neither enabled — returns empty list."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+
+        results = await service.get_upcoming(days=7)
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_radarr_movie_date_selection_earliest(
+        self, mock_radarr_client
+    ):
+        """Picks earliest of inCinemas/digitalRelease/physicalRelease."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_CINEMA,
+        ]
+
+        results = await service.get_upcoming(days=30)
+
+        assert results[0]["date"] == "2026-03-10"
+        assert results[0]["date_label"] == "Cinema"
+
+    @pytest.mark.asyncio
+    async def test_radarr_movie_digital_only(self, mock_radarr_client):
+        """Movie with only digitalRelease uses that date."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_DIGITAL,
+        ]
+
+        results = await service.get_upcoming(days=30)
+
+        assert results[0]["date"] == "2026-03-15"
+        assert results[0]["date_label"] == "Digital"
+
+    @pytest.mark.asyncio
+    async def test_in_library_flag(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Items with 'id' field have in_library=True, without have False."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_CINEMA,   # has id=1
+            RADARR_CALENDAR_MOVIE_NO_ID,    # no id
+        ]
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,        # has id=501
+            SONARR_CALENDAR_EPISODE_NO_ID,  # no id
+        ]
+
+        results = await service.get_upcoming(days=30)
+
+        by_title = {r["title"]: r for r in results}
+        assert by_title["Movie A"]["in_library"] is True
+        assert by_title["Movie C"]["in_library"] is False
+        assert by_title["Pilot"]["in_library"] is True
+        assert by_title["Unmonitored Ep"]["in_library"] is False
+
+    @pytest.mark.asyncio
+    async def test_api_error_one_service_still_returns_other(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """API error on one service still returns results from the other."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_calendar.side_effect = Exception("Radarr down")
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,
+        ]
+
+        results = await service.get_upcoming(days=7)
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+
+    @pytest.mark.asyncio
+    async def test_radarr_movie_no_dates(self, mock_radarr_client):
+        """Movie with no date fields gets empty date and Unknown label."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            {"title": "No Dates", "tmdbId": 999, "year": 2026},
+        ]
+
+        results = await service.get_upcoming(days=7)
+
+        assert results[0]["date"] == ""
+        assert results[0]["date_label"] == "Unknown"
+
+    @pytest.mark.asyncio
+    async def test_normalized_schema_movie(self, mock_radarr_client):
+        """Movie items have all expected schema fields."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_CINEMA,
+        ]
+
+        results = await service.get_upcoming(days=30)
+        item = results[0]
+
+        assert item["type"] == "movie"
+        assert item["title"] == "Movie A"
+        assert item["series_title"] is None
+        assert item["date"] == "2026-03-10"
+        assert item["date_label"] == "Cinema"
+        assert item["year"] == 2026
+        assert item["season"] is None
+        assert item["episode"] is None
+        assert item["in_library"] is True
+        assert item["media_id"] == "100"
+        assert item["internal_id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_normalized_schema_episode(self, mock_sonarr_client):
+        """Episode items have all expected schema fields."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,
+        ]
+
+        results = await service.get_upcoming(days=30)
+        item = results[0]
+
+        assert item["type"] == "episode"
+        assert item["title"] == "Pilot"
+        assert item["series_title"] == "New Show"
+        assert item["date"] == "2026-03-08"
+        assert item["date_label"] == "Airing"
+        assert item["year"] is None
+        assert item["season"] == 1
+        assert item["episode"] == 1
+        assert item["in_library"] is True
+        assert item["media_id"] == "9000"
+        assert item["internal_id"] == 10
