@@ -1,52 +1,40 @@
-# Preflight Checks
+# Preflight Flow — Step Details
 
-Run the same checks locally that CI runs on PRs. This catches issues before pushing.
+Sequence is defined in SKILL.md. This file provides implementation details per step.
 
-## Checks
+Run sequentially. Stop on first failure. Fix automatically where possible, then re-run.
 
-Run these sequentially, stopping on first failure:
-
-### 1. Tests
+## Step 1: Tests
 
 ```bash
 pytest --tb=short -q
 ```
 
-If failures found: report which tests failed and offer to investigate.
+**On failure:** `INVOKE` @superpowers:systematic-debugging — investigate root cause, fix, re-run. Do not proceed until all tests pass.
 
-### 2. Flake8 Lint
+## Step 2: Flake8 Lint
 
 ```bash
 flake8 .
 ```
 
-If issues found: report them and offer to auto-fix (autopep8 for formatting, manual for logic).
+**On failure:** Auto-fix formatting issues (line length, whitespace). Report logic-level lint issues that need manual review. Re-run after fixes.
 
-### 3. Translation Validation
+## Step 3: Translation Validation
 
 ```bash
 python run.py --validate-i18n
 ```
 
-If issues found: report which translation files have problems and what keys are missing/malformed.
+**On failure:** Report which translation files have problems and what keys are missing/malformed. Fix if possible, otherwise report.
 
-### 4. Docker Build Test
+## Step 4: Report Results
 
-```bash
-docker build -t addarr-test .
-```
-
-This is optional — skip if Docker is not available. Ask the user if they want to include it.
-
-## Reporting
-
-After all checks pass:
 ```
 Preflight passed:
   - Tests: X passed
   - Flake8: clean
   - Translations: valid
-  - Docker build: success (or skipped)
 ```
 
-If any check fails, report clearly which one and what the errors are. Do NOT proceed to PR creation until all required checks pass.
+If any check failed and could not be fixed, report clearly which one and what the errors are. Do NOT proceed to PR creation until all required checks pass.
