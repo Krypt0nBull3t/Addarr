@@ -10,6 +10,7 @@ from src.utils.error_handler import (
     ConfigError,
     ValidationError,
     ServiceNotEnabledError,
+    RateLimitExceededError,
     handle_token_error,
     handle_missing_token_error,
     handle_network_error,
@@ -55,6 +56,15 @@ class TestExceptionSubclasses:
         """ServiceNotEnabledError is a subclass of AddarrError."""
         err = ServiceNotEnabledError("radarr disabled")
         assert isinstance(err, AddarrError)
+
+    def test_rate_limit_exceeded_error_attributes(self):
+        """RateLimitExceededError stores category and retry_after."""
+        err = RateLimitExceededError("search", 23)
+        assert isinstance(err, AddarrError)
+        assert err.category == "search"
+        assert err.retry_after == 23
+        assert "search" in str(err)
+        assert "23" in str(err)
 
 
 # ---- handle_token_error ----

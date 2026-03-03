@@ -38,6 +38,15 @@ class ServiceNotEnabledError(AddarrError):
     """Raised when trying to use a service that is not enabled"""
     pass
 
+
+class RateLimitExceededError(AddarrError):
+    """Raised when a user exceeds the rate limit for an action."""
+    def __init__(self, category, retry_after):
+        message = f"Rate limit exceeded for {category}. Retry after {retry_after}s."
+        super().__init__(message)
+        self.category = category
+        self.retry_after = retry_after
+
 # Error Handlers
 
 

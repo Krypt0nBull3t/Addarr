@@ -137,6 +137,20 @@ security:
   enableAdmin: false  # Enable admin features
   enableAllowlist: false  # Enable allowlist restriction
 
+# Rate Limiting Configuration
+rateLimit:
+  enable: false  # Set to true to enable rate limiting
+  limits:
+    search:
+      maxRequests: 10  # Max search requests per window
+      windowSeconds: 60  # Window duration in seconds
+    modify:
+      maxRequests: 5  # Max add/delete requests per window
+      windowSeconds: 60
+    auth:
+      maxRequests: 3  # Max auth attempts per window
+      windowSeconds: 300  # 5 minutes
+
 # Localization
 language: en-us  # Available: de-de, en-us, es-es, fr-fr, it-it, nl-be, pl-pl, pt-pt, ru-ru
 

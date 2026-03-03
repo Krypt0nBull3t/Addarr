@@ -25,6 +25,7 @@ SINGLETON_CLASSES = {
     "SABnzbdService",
     "PreferencesService",
     "NotificationService",
+    "RateLimitService",
     "JobScheduler",
 }
 
