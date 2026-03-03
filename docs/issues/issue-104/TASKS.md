@@ -92,7 +92,7 @@
 
 **Goal:** Calendar keyboard functions and translation keys are ready for the handler to use.
 
-- [ ] **3.1** Add calendar keyboards and translation keys
+- [x] **3.1** Add calendar keyboards and translation keys
     - **Context:**
         - **Why:** CalendarHandler (next task) needs keyboard layouts and translated strings. Building these first means the handler can focus on logic.
         - **Architecture:** Keyboards in `src/bot/keyboards.py` follow the pattern of `get_system_keyboard()` (simple buttons) and `get_search_results_list_keyboard()` (paginated). Translations use flat top-level keys in YAML files (NOT nested — `get_text()` does single-level lookup).
@@ -124,6 +124,16 @@
         - [GREEN] Implement `get_calendar_items_keyboard()`
         - [GREEN] Add translation keys to all 10 YAML files (9 locales + template)
     - **Success:** `pytest tests/test_bot/test_keyboards.py --tb=short -q` passes, `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` passes
+    - **Completed:** 2026-03-03
+    - **Learnings:**
+        - Translation keys must be flat top-level (e.g., `CalendarTitle` not `Calendar.Title`) — `get_text()` does single-level lookup
+        - Calendar items keyboard needs both display buttons and add buttons as separate rows — display shows the item, add button triggers the action
+        - Pagination in calendar follows same ceil-division pattern as search results list
+    - **Key Changes:**
+        - Added `get_calendar_keyboard(days)` and `get_calendar_items_keyboard(items, page, days)` to `src/bot/keyboards.py`
+        - Added 16 calendar translation keys to all 10 YAML files
+        - Added `TestCalendarKeyboard` (5 tests) and `TestCalendarItemsKeyboard` (7 tests) to `tests/test_bot/test_keyboards.py`
+    - **Notes:** 100% coverage on keyboards.py, all i18n validation passes
 
 ---
 

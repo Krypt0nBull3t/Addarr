@@ -219,3 +219,21 @@ es-es:
 
   # Rate limiting
   RateLimitExceeded: "Demasiado rapido! Por favor espera %(seconds)s segundos antes de intentarlo de nuevo."
+
+  # Calendar / Upcoming releases
+  Upcoming: "📅 Upcoming"
+  CommandUpcoming: "Browse upcoming releases"
+  CalendarTitle: "📅 Upcoming Releases"
+  CalendarEmpty: "No upcoming releases found."
+  CalendarMovie: "🎬 Movie"
+  CalendarEpisode: "📺 Episode"
+  CalendarCinema: "Cinema"
+  CalendarDigital: "Digital"
+  CalendarPhysical: "Physical"
+  CalendarAiring: "Airing"
+  CalendarDays7: "7 days"
+  CalendarDays14: "14 days"
+  CalendarDays30: "30 days"
+  CalendarAddSuccess: "✅ Added to library!"
+  CalendarAddFailed: "❌ Failed to add."
+  CalendarAlreadyInLibrary: "Already in your library."
