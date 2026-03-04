@@ -13,6 +13,7 @@ from src.services.translation import TranslationService
 _MEDIA_TYPE_EMOJI = {
     "movie": "\U0001f3ac",
     "episode": "\U0001f4fa",
+    "album": "\U0001f3b5",
 }
 
 
@@ -698,6 +699,136 @@ def _build_missing_filter_row(active_filter, translation):
         ("movie", "\U0001f3ac Movies", "missing_filter_movie"),
         ("episode", "\U0001f4fa Series", "missing_filter_series"),
         ("cutoff", "\u26a0\ufe0f Cutoff", "missing_filter_cutoff"),
+    ]
+    row = []
+    for key, label, cb_data in filters:
+        marker = "\u2713 " if key == active_filter else ""
+        row.append(
+            InlineKeyboardButton(f"{marker}{label}", callback_data=cb_data)
+        )
+    return row
+
+
+def get_queue_empty_keyboard() -> InlineKeyboardMarkup:
+    """Get keyboard for empty queue state (refresh + back)."""
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="queue_refresh"
+        )],
+        [InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="queue_back"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_queue_items_keyboard(
+    items: list, page: int, active_filter: str, page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    """Get paginated queue items keyboard.
+
+    Args:
+        items: Full list of normalized queue items.
+        page: Current page (0-indexed).
+        active_filter: Currently active filter tab.
+        page_size: Number of items per page.
+    """
+    translation = TranslationService()
+
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    keyboard = []
+
+    # Filter tabs
+    keyboard.append(_build_queue_filter_row(active_filter, translation))
+
+    # Item buttons
+    for item in page_items:
+        emoji = _MEDIA_TYPE_EMOJI.get(item["type"], "\U0001f3ac")
+        title = item["title"]
+        series = item.get("series_title")
+        year = item.get("year")
+
+        if series:
+            season = item.get("season")
+            episode = item.get("episode")
+            if season is not None and episode is not None:
+                label = f"{emoji} {series} - S{season:02d}E{episode:02d} {title}"
+            else:
+                label = f"{emoji} {series} - {title}"
+        elif year:
+            label = f"{emoji} {title} ({year})"
+        else:
+            label = f"{emoji} {title}"
+
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="queue_noop")
+        ])
+
+        # Status line per item
+        progress = item.get("progress", 0)
+        timeleft = item.get("timeleft", "")
+        protocol = item.get("protocol", "")
+        status_parts = [f"{progress}%"]
+        if timeleft and timeleft != "00:00:00":
+            status_parts.append(f"{timeleft} remaining")
+        if protocol:
+            status_parts.append(protocol)
+        status_text = " \u2022 ".join(status_parts)
+        keyboard.append([
+            InlineKeyboardButton(status_text, callback_data="queue_noop")
+        ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev",
+                    callback_data=f"queue_page_{page - 1}",
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"{page + 1}/{total_pages}", callback_data="queue_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f",
+                    callback_data=f"queue_page_{page + 1}",
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Refresh / back row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="queue_refresh"
+        ),
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="queue_back",
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def _build_queue_filter_row(active_filter, translation):
+    """Build filter tab row for queue keyboard."""
+    filters = [
+        ("all", "\U0001f4cb All", "queue_filter_all"),
+        ("movie", "\U0001f3ac Movies", "queue_filter_movie"),
+        ("episode", "\U0001f4fa Series", "queue_filter_episode"),
+        ("album", "\U0001f3b5 Music", "queue_filter_album"),
     ]
     row = []
     for key, label, cb_data in filters:
