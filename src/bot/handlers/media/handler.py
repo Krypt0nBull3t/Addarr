@@ -22,8 +22,6 @@ from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.services.rate_limit import rate_limit
 from src.bot.keyboards import (
-    get_search_results_list_keyboard,
-    get_list_detail_keyboard,
     get_album_monitor_mode_keyboard,
     get_album_selection_keyboard,
 )
@@ -37,6 +35,12 @@ from .dispatch import (
     QUALITY_SELECT,
     SEASON_SELECT,
     ALBUM_SELECT,
+)
+from .formatters import (
+    show_result,
+    show_list,
+    show_list_detail,
+    send_response,
 )
 
 logger = get_logger("addarr.media")
@@ -324,11 +328,11 @@ class MediaHandler:
             view_mode = PreferencesService().get_view_mode(user_id)
             if view_mode == "list":
                 context.user_data["list_page"] = 0
-                await self._show_list(
+                await show_list(
                     update.message, results, 0, search_type
                 )
             else:
-                await self._show_result(
+                await show_result(
                     update.message, results[0], 0, len(results)
                 )
 
@@ -341,237 +345,6 @@ class MediaHandler:
                 "Please try again later."
             )
             return ConversationHandler.END
-
-    def _build_result_caption(self, result, index=None, total=None):
-        """Build caption text for a search result.
-
-        Args:
-            result: Search result dict.
-            index: 0-based index (optional, for card view counter).
-            total: Total results count (optional, for card view counter).
-
-        Returns:
-            Formatted caption string.
-        """
-        music_type = result.get("music_type")
-
-        # Album-specific caption
-        if music_type == "album":
-            caption = f"*💿 {result['title']}*\n\n"
-            if result.get("artist_name"):
-                caption += f"🎤 Artist: {result['artist_name']}\n"
-            if result.get("release_date"):
-                caption += f"📅 Released: {result['release_date'][:10]}\n"
-            if result.get("overview", "No overview available") != "No overview available":
-                overview = result["overview"]
-                if len(overview) > 300:
-                    overview = overview[:297] + "..."
-                caption += f"\n_{overview}_\n"
-            if index is not None and total is not None:
-                caption += f"\n📊 Result {index + 1} of {total}"
-            return caption
-
-        # Song-specific caption
-        if music_type == "song":
-            caption = f"*🎵 {result['title']}*\n\n"
-            if result.get("album_title"):
-                caption += f"💿 Album: {result['album_title']}\n"
-            if result.get("artist_name"):
-                caption += f"🎤 Artist: {result['artist_name']}\n"
-            if index is not None and total is not None:
-                caption += f"\n📊 Result {index + 1} of {total}"
-            return caption
-
-        overview = result.get('overview', 'No overview available')
-        if len(overview) > 300:
-            overview = overview[:297] + "..."
-
-        caption = (
-            f"*{result['title']}*\n\n"
-            f"_{overview}_\n\n"
-        )
-
-        if "year" in result:
-            caption += f"📅 Year: {result.get('year', 'N/A')}\n"
-
-        if "ratings" in result:
-            ratings = result["ratings"]
-            if "imdb" in ratings:
-                imdb_rating = ratings["imdb"]
-                if imdb_rating != "N/A":
-                    imdb_rating = f"{float(imdb_rating):.1f}/10"
-                caption += f"🎭 IMDB: {imdb_rating}\n"
-
-                rt_rating = ratings.get("rottenTomatoes")
-                if rt_rating and rt_rating != "N/A":
-                    rt_rating = f"{rt_rating}%"
-                    caption += f"🍅 Rotten Tomatoes: {rt_rating}\n"
-            elif "tmdb" in ratings:
-                tmdb_rating = ratings["tmdb"]
-                if tmdb_rating != "N/A":
-                    rating_value = f"{float(tmdb_rating):.1f}/10"
-                    votes = ratings.get("votes", 0)
-                    caption += f"📊 TMDB: {rating_value} ({votes:,} votes)\n"
-
-        if "studio" in result:
-            studio = result.get("studio", "N/A")
-            if "network" in result:
-                network = result.get("network", "N/A")
-                if studio and studio != network:
-                    caption += f"📺 Network: {network} ({studio})\n"
-                else:
-                    caption += f"📺 Network: {network}\n"
-            else:
-                caption += f"🎬 Studio: {studio}\n"
-
-        if "runtime" in result and result["runtime"] != "N/A":
-            caption += f"⏱️ Runtime: {result['runtime']} minutes\n"
-
-        if "genres" in result:
-            genres = result.get("genres", [])
-            if genres:
-                caption += f"🎭 Genres: {', '.join(genres[:3])}"
-                if len(genres) > 3:
-                    caption += f" +{len(genres) - 3} more"
-                caption += "\n"
-
-        if index is not None and total is not None:
-            caption += f"\n📊 Result {index + 1} of {total}"
-
-        return caption
-
-    async def _show_result(self, message, result, index: int, total: int):
-        """Show a single search result with navigation buttons (card view)"""
-        try:
-            caption = self._build_result_caption(result, index=index, total=total)
-
-            # Create navigation keyboard
-            keyboard = []
-
-            nav_buttons = []
-            if index > 0:
-                nav_buttons.append(
-                    InlineKeyboardButton("⬅️ Previous", callback_data=f"nav_prev_{index}")
-                )
-            if index < total - 1:
-                nav_buttons.append(
-                    InlineKeyboardButton("➡️ Next", callback_data=f"nav_next_{index}")
-                )
-            if nav_buttons:
-                keyboard.append(nav_buttons)
-
-            # Action buttons
-            keyboard.extend([
-                [InlineKeyboardButton("✅ Add to Library", callback_data=f"select_{result['id']}")],
-                [InlineKeyboardButton("📋 Switch to List View", callback_data="viewtoggle")],
-                [InlineKeyboardButton("❌ Cancel", callback_data="select_cancel")]
-            ])
-
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
-            poster_url = result.get("poster")
-
-            if poster_url:
-                try:
-                    new_message = await message.reply_photo(
-                        photo=poster_url,
-                        caption=caption,
-                        parse_mode='Markdown',
-                        reply_markup=reply_markup
-                    )
-                    await message.delete()
-                    return new_message
-                except Exception as e:
-                    logger.error(f"Error sending photo: {e}")
-                    new_message = await message.reply_text(
-                        caption,
-                        parse_mode='Markdown',
-                        reply_markup=reply_markup
-                    )
-                    await message.delete()
-                    return new_message
-            else:
-                new_message = await message.reply_text(
-                    caption,
-                    parse_mode='Markdown',
-                    reply_markup=reply_markup
-                )
-                await message.delete()
-                return new_message
-
-        except Exception as e:
-            logger.error(f"Error showing result: {e}")
-            try:
-                new_message = await message.reply_text(
-                    "❌ Error displaying result. Please try your search again.",
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("❌ Cancel", callback_data="select_cancel")
-                    ]])
-                )
-                await message.delete()
-                return new_message
-            except Exception as e2:
-                logger.error(f"Error in fallback message: {e2}")
-                return message
-
-    async def _show_list(self, message, results, page, search_type):
-        """Show paginated list view of search results.
-
-        Args:
-            message: Telegram message to reply to / delete.
-            results: Full list of search results.
-            page: Current page (0-indexed).
-            search_type: "movie", "series", or "music".
-        """
-        reply_markup = get_search_results_list_keyboard(
-            results, page, page_size=5, search_type=search_type
-        )
-        header = f"📋 Search results ({len(results)} found):"
-        new_message = await message.reply_text(
-            header,
-            reply_markup=reply_markup
-        )
-        await message.delete()
-        return new_message
-
-    async def _show_list_detail(self, message, result):
-        """Show detail view for a single result from list view.
-
-        Args:
-            message: Telegram message to reply to / delete.
-            result: The selected search result dict.
-        """
-        caption = self._build_result_caption(result)
-        reply_markup = get_list_detail_keyboard(result["id"])
-        poster_url = result.get("poster")
-
-        if poster_url:
-            try:
-                new_message = await message.reply_photo(
-                    photo=poster_url,
-                    caption=caption,
-                    parse_mode='Markdown',
-                    reply_markup=reply_markup
-                )
-                await message.delete()
-                return new_message
-            except Exception as e:
-                logger.error(f"Error sending photo in list detail: {e}")
-                new_message = await message.reply_text(
-                    caption,
-                    parse_mode='Markdown',
-                    reply_markup=reply_markup
-                )
-                await message.delete()
-                return new_message
-        else:
-            new_message = await message.reply_text(
-                caption,
-                parse_mode='Markdown',
-                reply_markup=reply_markup
-            )
-            await message.delete()
-            return new_message
 
     async def handle_list_select(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -588,7 +361,7 @@ class MediaHandler:
 
         if 0 <= idx < len(results):
             context.user_data["current_index"] = idx
-            await self._show_list_detail(query.message, results[idx])
+            await show_list_detail(query.message, results[idx])
 
         return SELECTING
 
@@ -606,7 +379,7 @@ class MediaHandler:
         page = context.user_data.get("list_page", 0)
         search_type = context.user_data.get("search_type", "movie")
 
-        await self._show_list(query.message, results, page, search_type)
+        await show_list(query.message, results, page, search_type)
         return SELECTING
 
     async def handle_list_page(
@@ -628,7 +401,7 @@ class MediaHandler:
         results = context.user_data.get("search_results", [])
         search_type = context.user_data.get("search_type", "movie")
 
-        await self._show_list(query.message, results, page, search_type)
+        await show_list(query.message, results, page, search_type)
         return SELECTING
 
     async def handle_view_toggle(
@@ -651,12 +424,12 @@ class MediaHandler:
             current_index = context.user_data.get("current_index", 0)
             page = current_index // 5
             context.user_data["list_page"] = page
-            await self._show_list(
+            await show_list(
                 query.message, results, page, search_type
             )
         else:
             index = context.user_data.get("current_index", 0)
-            await self._show_result(
+            await show_result(
                 query.message, results[index], index, len(results)
             )
 
@@ -693,7 +466,7 @@ class MediaHandler:
                 )
 
                 if not selected:
-                    await self._send_response(
+                    await send_response(
                         query.message,
                         "❌ Error: Selection not found.\nPlease try your search again."
                     )
@@ -761,7 +534,7 @@ class MediaHandler:
                     return QUALITY_SELECT
                 else:
                     success, message = result
-                    await self._send_response(
+                    await send_response(
                         query.message,
                         f"{'✅' if success else '❌'} {message}"
                     )
@@ -769,7 +542,7 @@ class MediaHandler:
 
             except Exception as e:
                 logger.error(f"Error adding media: {e}")
-                await self._send_response(
+                await send_response(
                     query.message,
                     f"❌ An error occurred: {str(e)}"
                 )
@@ -784,7 +557,7 @@ class MediaHandler:
         await query.answer()
 
         if query.data == "quality_cancel":
-            await self._send_response(
+            await send_response(
                 query.message,
                 "🚫 Operation cancelled.\nUse /start to see the main menu."
             )
@@ -797,7 +570,7 @@ class MediaHandler:
             search_type = context.user_data.get("search_type")
 
             if not quality_data or not selected:
-                await self._send_response(
+                await send_response(
                     query.message,
                     "❌ Error: Selection data not found.\nPlease try your search again."
                 )
@@ -840,7 +613,7 @@ class MediaHandler:
                 context.user_data["future_mode"] = None  # Track future mode
                 context.user_data["monitor_all"] = False  # Track monitor all mode
 
-                await self._send_response(
+                await send_response(
                     query.message,
                     f"Adding: {selected['title']}\n\n"
                     "Select seasons to download:",
@@ -854,7 +627,7 @@ class MediaHandler:
 
                 if music_type == "artist":
                     # Artist: show album monitor mode prompt
-                    await self._send_response(
+                    await send_response(
                         query.message,
                         f"Adding: {selected['title']}\n\n"
                         "How would you like to monitor albums?",
@@ -872,7 +645,7 @@ class MediaHandler:
                     albums_to_monitor=albums_to_monitor,
                 )
 
-                await self._send_response(
+                await send_response(
                     query.message,
                     f"{'✅' if success else '❌'} {message}"
                 )
@@ -883,7 +656,7 @@ class MediaHandler:
                 search_type, selected, profile_id, quality_data["root_folder"]
             )
 
-            await self._send_response(
+            await send_response(
                 query.message,
                 f"{'✅' if success else '❌'} {message}"
             )
@@ -891,7 +664,7 @@ class MediaHandler:
 
         except Exception as e:
             logger.error(f"Error handling quality selection: {e}")
-            await self._send_response(
+            await send_response(
                 query.message,
                 "❌ An error occurred while processing your selection.\n"
                 "Please try again."
@@ -907,7 +680,7 @@ class MediaHandler:
         await query.answer()
 
         if query.data == "select_cancel":
-            await self._send_response(
+            await send_response(
                 query.message,
                 "🚫 Search cancelled.\nUse /start to see the main menu."
             )
@@ -1065,7 +838,7 @@ class MediaHandler:
                 seasons_data
             )
 
-            await self._send_response(
+            await send_response(
                 query.message,
                 f"{'✅' if success else '❌'} {message}"
             )
@@ -1073,7 +846,7 @@ class MediaHandler:
 
         except Exception as e:
             logger.error(f"Error confirming season selection: {e}")
-            await self._send_response(
+            await send_response(
                 query.message,
                 "❌ An error occurred while processing your selection.\n"
                 "Please try again."
@@ -1100,13 +873,13 @@ class MediaHandler:
                 success, message = await self.media_service.add_music_with_profile(
                     selected["id"], profile_id, root_folder
                 )
-                await self._send_response(
+                await send_response(
                     query.message,
                     f"{'✅' if success else '❌'} {message}"
                 )
             except Exception as e:
                 logger.error(f"Error adding artist: {e}")
-                await self._send_response(
+                await send_response(
                     query.message,
                     "❌ An error occurred while adding the artist."
                 )
@@ -1122,7 +895,7 @@ class MediaHandler:
                 context.user_data["future_albums"] = False
 
                 keyboard = get_album_selection_keyboard(albums, set(), False)
-                await self._send_response(
+                await send_response(
                     query.message,
                     f"Adding: {selected['title']}\n\n"
                     "Select albums to monitor:",
@@ -1131,7 +904,7 @@ class MediaHandler:
                 return ALBUM_SELECT
             except Exception as e:
                 logger.error(f"Error fetching albums: {e}")
-                await self._send_response(
+                await send_response(
                     query.message,
                     "❌ An error occurred while fetching albums."
                 )
@@ -1153,7 +926,7 @@ class MediaHandler:
         future_albums = context.user_data.get("future_albums", False)
 
         if action == "cancel":
-            await self._send_response(
+            await send_response(
                 query.message,
                 "🚫 Search cancelled.\nUse /start to see the main menu."
             )
@@ -1172,13 +945,13 @@ class MediaHandler:
                 success, message = await self.media_service.add_music_with_profile(
                     selected["id"], profile_id, root_folder
                 )
-                await self._send_response(
+                await send_response(
                     query.message,
                     f"{'✅' if success else '❌'} {message}"
                 )
             except Exception as e:
                 logger.error(f"Error adding artist: {e}")
-                await self._send_response(
+                await send_response(
                     query.message,
                     "❌ An error occurred while adding the artist."
                 )
@@ -1239,7 +1012,7 @@ class MediaHandler:
                 **kwargs,
             )
 
-            await self._send_response(
+            await send_response(
                 query.message,
                 f"{'✅' if success else '❌'} {message}"
             )
@@ -1247,7 +1020,7 @@ class MediaHandler:
 
         except Exception as e:
             logger.error(f"Error confirming album selection: {e}")
-            await self._send_response(
+            await send_response(
                 query.message,
                 "❌ An error occurred while processing your selection.\n"
                 "Please try again."
@@ -1270,31 +1043,13 @@ class MediaHandler:
             )
         return False, "Invalid media type"
 
-    async def _send_response(self, message, text: str, reply_markup=None):
-        """Send or edit a message based on message type"""
-        try:
-            if message.photo:
-                await message.edit_caption(
-                    caption=text,
-                    reply_markup=reply_markup
-                )
-            else:
-                await message.edit_text(
-                    text=text,
-                    reply_markup=reply_markup
-                )
-        except Exception as e:
-            logger.error(f"Error updating message: {e}")
-            # Fallback: send new message
-            await message.reply_text(text, reply_markup=reply_markup)
-
     async def cancel_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel the search process"""
         log_user_interaction(logger, update.effective_user, "cancel_search")
 
         # Handle both direct commands and callback queries
         if update.callback_query:
-            await self._send_response(
+            await send_response(
                 update.callback_query.message,
                 "🚫 Search cancelled.\nUse /start to see the main menu."
             )
@@ -1329,7 +1084,7 @@ class MediaHandler:
         if 0 <= new_index < len(results):
             context.user_data["current_index"] = new_index
             # Show the new result
-            await self._show_result(query.message, results[new_index], new_index, len(results))
+            await show_result(query.message, results[new_index], new_index, len(results))
             return SELECTING
         else:
             logger.error(f"Invalid navigation index: {new_index}")

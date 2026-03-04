@@ -51,7 +51,7 @@
 
 **Goal:** Move result display functions out of MediaHandler into standalone functions in `formatters.py`.
 
-- [ ] **2.1** Extract formatter and display functions to formatters.py
+- [x] **2.1** Extract formatter and display functions to formatters.py
     - **Context:**
         - **Why:** The display functions (`_build_result_caption`, `_show_result`, `_show_list`, `_show_list_detail`, `_send_response`) are ~200 lines that don't use `self.media_service` or `self.translation` — they operate purely on message objects and result dicts. Extracting them reduces MediaHandler and makes display logic independently testable.
         - **Architecture:** Standalone async functions (not a class). Handler imports them and calls directly: `await show_result(message, ...)` instead of `await self._show_result(message, ...)`. The `_build_result_caption` helper is also standalone since it only reads from the result dict.
@@ -94,6 +94,18 @@
         - [GREEN] Update test patches in `test_media_handler.py` — change `patch.object(media_handler, "_show_result", ...)` to `patch("src.bot.handlers.media.handler.show_result", ...)`
         - Run full test suite: `python -m pytest --tb=short -q`
     - **Success:** All existing tests pass. New formatter unit tests pass. `handler.py` is ~200 lines shorter.
+    - **Completed:** 2026-03-04
+    - **Learnings:**
+        - `patch.object(instance, "_method")` patterns come in multiple line formats — single-line and multi-line with different indentation. Must check for both when doing replace_all.
+        - When moving functions from handler.py to formatters.py, patch targets for keyboard imports also need updating (e.g., `get_search_results_list_keyboard` patch must target `formatters` module, not `handler`).
+        - `build_result_caption` is only called within other formatter functions, not directly from handler.py — no need to import it in handler.py.
+    - **Key Changes:**
+        - Created `src/bot/handlers/media/formatters.py` with 5 standalone functions (273 lines)
+        - Reduced `handler.py` from 1336 to 1091 lines (~245 lines removed)
+        - Created `tests/test_handlers/test_media_formatters.py` with 10 new tests
+        - Updated all `patch.object` and direct method calls in `test_media_handler.py`
+        - Removed unused `get_search_results_list_keyboard`/`get_list_detail_keyboard` imports from handler.py
+    - **Notes:** 100% coverage on entire media package. All 1636 tests pass. Flake8 clean.
 
 ---
 
