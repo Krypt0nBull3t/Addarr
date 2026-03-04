@@ -247,3 +247,9 @@ pt-pt:
   MissingSearchSuccess: "✅ Search triggered!"
   MissingSearchFailed: "❌ Search failed."
   MissingSearchNow: "Search Now"
+
+  # Download queue
+  Queue: "📥 Queue"
+  CommandQueue: "Browse download queue"
+  QueueTitle: "📥 Download Queue"
+  QueueEmpty: "No items in the download queue."
