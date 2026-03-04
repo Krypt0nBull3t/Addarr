@@ -39,6 +39,7 @@ def mock_media_service():
     service.get_missing_media = AsyncMock(return_value=[])
     service.get_cutoff_unmet_media = AsyncMock(return_value=[])
     service.trigger_missing_search = AsyncMock(return_value=True)
+    service.get_queue_media = AsyncMock(return_value=[])
     service.radarr = MagicMock()
     service.sonarr = MagicMock()
     service.lidarr = MagicMock()
