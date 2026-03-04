@@ -1,5 +1,5 @@
 """
-Filename: media.py
+Filename: handler.py
 Author: Christian Blank (https://github.com/Cyneric)
 Created Date: 2024-11-08
 Description: Media handler module.
@@ -31,14 +31,15 @@ from src.services.media import MediaService
 from src.services.translation import TranslationService
 from src.services.preferences import PreferencesService
 
-logger = get_logger("addarr.media")
+from .dispatch import (
+    SEARCHING,
+    SELECTING,
+    QUALITY_SELECT,
+    SEASON_SELECT,
+    ALBUM_SELECT,
+)
 
-# States
-SEARCHING = 1
-SELECTING = 2
-QUALITY_SELECT = 3
-SEASON_SELECT = 4
-ALBUM_SELECT = 5
+logger = get_logger("addarr.media")
 
 
 class MediaHandler:

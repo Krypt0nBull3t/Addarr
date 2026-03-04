@@ -46,12 +46,14 @@ BRACKET_ACCESS_EXCLUDED = {
 
 
 def _get_python_files(directory):
-    """Get all .py files in a directory, excluding __init__.py."""
-    return [
-        os.path.join(directory, f)
-        for f in sorted(os.listdir(directory))
-        if f.endswith(".py") and f != "__init__.py"
-    ]
+    """Get all .py files in a directory tree, excluding __init__.py."""
+    result = []
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for f in sorted(files):
+            if f.endswith(".py") and f != "__init__.py":
+                result.append(os.path.join(root, f))
+    return result
 
 
 def _get_classes_in_file(filepath):

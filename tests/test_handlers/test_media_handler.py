@@ -1711,7 +1711,7 @@ async def test_show_list_sends_text_message(media_handler, make_message):
     ]
 
     with patch(
-        "src.bot.handlers.media.get_search_results_list_keyboard"
+        "src.bot.handlers.media.handler.get_search_results_list_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
         await media_handler._show_list(
@@ -1731,7 +1731,7 @@ async def test_show_list_deletes_old_message(media_handler, make_message):
     results = [{"id": "1", "title": "M", "overview": "O"}]
 
     with patch(
-        "src.bot.handlers.media.get_search_results_list_keyboard"
+        "src.bot.handlers.media.handler.get_search_results_list_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
         await media_handler._show_list(
@@ -1760,7 +1760,7 @@ async def test_show_list_detail_sends_photo_with_poster(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.handler.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
         await media_handler._show_list_detail(message, result)
@@ -1783,7 +1783,7 @@ async def test_show_list_detail_sends_text_without_poster(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.handler.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
         await media_handler._show_list_detail(message, result)
@@ -1805,7 +1805,7 @@ async def test_show_list_detail_deletes_old_message(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.handler.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
         await media_handler._show_list_detail(message, result)
@@ -1828,7 +1828,7 @@ async def test_show_list_detail_photo_failure_falls_back_to_text(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.handler.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
         await media_handler._show_list_detail(message, result)
