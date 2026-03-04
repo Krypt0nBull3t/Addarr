@@ -177,6 +177,12 @@ All issue work follows a two-file workflow stored in `docs/issues/issue-<N>/`:
 2. Convert plan → `docs/issues/issue-<N>/TASKS.md` (via `/task-writer`)
 3. Implement tasks in order, checking off as completed
 
+**Task completion metadata (REQUIRED):** When marking a task complete in TASKS.md, ALWAYS add these fields immediately below the task's existing content:
+- `**Completed:** <date>`
+- `**Learnings:** <key insights, gotchas, or discoveries>`
+- `**Key Changes:** <summary of files/functions modified>`
+- `**Notes:** <important context for future work>`
+
 **Existing examples:** issues 12, 17, 20, 21, 22, 67, 76, 77, 78, 79, 127.
 
 ## Docker
