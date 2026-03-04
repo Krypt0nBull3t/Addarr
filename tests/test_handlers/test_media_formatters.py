@@ -10,9 +10,6 @@ from unittest.mock import MagicMock, AsyncMock
 
 from src.bot.handlers.media.formatters import (
     build_result_caption,
-    show_result,
-    show_list,
-    show_list_detail,
     send_response,
 )
 
