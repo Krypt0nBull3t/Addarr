@@ -113,7 +113,7 @@
 
 **Goal:** Move season and album picker flows into mixin classes, reducing MediaHandler by ~300 lines.
 
-- [ ] **3.1** Extract SeasonPickerMixin and AlbumPickerMixin
+- [x] **3.1** Extract SeasonPickerMixin and AlbumPickerMixin
     - **Context:**
         - **Why:** Season picker (~120 lines, 2 methods) and album picker (~170 lines, 3 methods) are self-contained selection flows. As mixins, they reduce handler.py while keeping `self.method_name` calls unchanged in the ConversationHandler registration.
         - **Architecture:** Mixin classes that MediaHandler inherits from: `class MediaHandler(SeasonPickerMixin, AlbumPickerMixin)`. Mixins access `self.media_service` and `self.translation` (provided by MediaHandler's `__init__`). They import `send_response` from formatters and state constants from dispatch. Python MRO ensures MediaHandler methods take priority.
@@ -150,6 +150,18 @@
             - Remove the 5 moved methods
         - Run full test suite: `python -m pytest --tb=short -q`
     - **Success:** All existing tests pass. `handler.py` is ~300 lines shorter. ConversationHandler `self.handle_season_selection` calls resolve to mixin methods.
+    - **Completed:** 2026-03-04
+    - **Learnings:**
+        - Python MRO with mixins works seamlessly — `self.handle_season_selection` resolves correctly via `MediaHandler(SeasonPickerMixin, AlbumPickerMixin)` inheritance
+        - Mixin methods that call `self.handle_season_confirm` work because both methods live in the same mixin class
+        - `get_album_selection_keyboard` moved to album_picker.py but `get_album_monitor_mode_keyboard` stayed in handler.py (used in `handle_quality_selection`)
+    - **Key Changes:**
+        - Created `src/bot/handlers/media/season_picker.py` (207 lines) with `SeasonPickerMixin` (2 methods)
+        - Created `src/bot/handlers/media/album_picker.py` (200 lines) with `AlbumPickerMixin` (3 methods)
+        - Reduced `handler.py` from 1091 to 734 lines (~357 lines removed)
+        - Updated handler class declaration to inherit from both mixins
+        - Removed unused `get_album_selection_keyboard` import from handler.py
+    - **Notes:** No test changes needed — all mixin methods are accessed through MediaHandler instance. 1636 tests pass. Flake8 clean.
 
 ---
 
