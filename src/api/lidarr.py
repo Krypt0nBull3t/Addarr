@@ -301,6 +301,26 @@ class LidarrClient(BaseApiClient):
             logger.error(f"Failed to get metadata profiles: {str(e)}")
             return []
 
+    async def get_queue(self) -> List[Dict]:
+        """Get the current download queue from Lidarr."""
+        try:
+            logger.info(Fore.BLUE + "📥 Getting download queue from Lidarr")
+            result = await self._request(
+                "queue?sortKey=title&sortDirection=ascending&pageSize=1000"
+            )
+
+            if not result or not isinstance(result, dict):
+                logger.warning(Fore.YELLOW + "⚠️ No queue items found in Lidarr")
+                return []
+
+            records = result.get("records", [])
+            logger.info(Fore.GREEN + f"✅ Found {len(records)} queue items in Lidarr")
+            return records
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get Lidarr queue: {str(e)}")
+            return []
+
     async def get_artists(self) -> List[Dict]:
         """Get all artists in the library"""
         try:

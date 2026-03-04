@@ -219,6 +219,26 @@ class SonarrClient(BaseApiClient):
             logger.error(Fore.RED + f"❌ Failed to get missing episodes: {str(e)}")
             return []
 
+    async def get_queue(self) -> List[Dict]:
+        """Get the current download queue from Sonarr."""
+        try:
+            logger.info(Fore.BLUE + "📥 Getting download queue from Sonarr")
+            result = await self._request(
+                "queue?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+            )
+
+            if not result or not isinstance(result, dict):
+                logger.warning(Fore.YELLOW + "⚠️ No queue items found in Sonarr")
+                return []
+
+            records = result.get("records", [])
+            logger.info(Fore.GREEN + f"✅ Found {len(records)} queue items in Sonarr")
+            return records
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get Sonarr queue: {str(e)}")
+            return []
+
     async def get_cutoff_unmet(self) -> List[Dict]:
         """Get episodes that are below the quality cutoff."""
         try:
