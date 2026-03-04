@@ -108,7 +108,7 @@ class MissingHandler:
         active_filter = context.user_data.get("missing_filter", "all")
         filtered = self._apply_filter(items, active_filter)
 
-        text, keyboard = self._build_response(filtered)
+        text, keyboard = self._build_response(filtered, active_filter=active_filter)
         await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
 
@@ -119,7 +119,9 @@ class MissingHandler:
         active_filter = context.user_data.get("missing_filter", "all")
         filtered = self._apply_filter(items, active_filter)
 
-        text, keyboard = self._build_response(filtered, page)
+        text, keyboard = self._build_response(
+            filtered, page, active_filter=active_filter
+        )
         await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
 
@@ -135,7 +137,7 @@ class MissingHandler:
         context.user_data["missing_items"] = items
         filtered = self._apply_filter(items, active_filter)
 
-        text, keyboard = self._build_response(filtered)
+        text, keyboard = self._build_response(filtered, active_filter=active_filter)
         await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
 
@@ -173,7 +175,7 @@ class MissingHandler:
                 show_alert=True,
             )
 
-    def _build_response(self, items, page=0):
+    def _build_response(self, items, page=0, active_filter="all"):
         """Build missing text and keyboard from items."""
         if items:
             title = self.translation.get_text("MissingTitle")
@@ -181,7 +183,6 @@ class MissingHandler:
                 f"\U0001f4ed {title}\n\n"
                 f"{len(items)} wanted items"
             )
-            active_filter = "all"
             keyboard = get_missing_items_keyboard(items, page, active_filter)
         else:
             text = (

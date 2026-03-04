@@ -10,6 +10,11 @@ This module provides centralized keyboard layouts for the bot.
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from src.services.translation import TranslationService
 
+_MEDIA_TYPE_EMOJI = {
+    "movie": "\U0001f3ac",
+    "episode": "\U0001f4fa",
+}
+
 
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     """Get the main menu keyboard"""
@@ -528,10 +533,6 @@ def get_calendar_items_keyboard(
         page_size: Number of items per page.
     """
     translation = TranslationService()
-    type_emoji = {
-        "movie": "\U0001f3ac",
-        "episode": "\U0001f4fa",
-    }
 
     total_pages = max(1, -(-len(items) // page_size))
     start = page * page_size
@@ -542,7 +543,7 @@ def get_calendar_items_keyboard(
 
     # Item buttons
     for item in page_items:
-        emoji = type_emoji.get(item["type"], "\U0001f3ac")
+        emoji = _MEDIA_TYPE_EMOJI.get(item["type"], "\U0001f3ac")
         title = item["title"]
         keyboard.append([
             InlineKeyboardButton(
@@ -622,10 +623,6 @@ def get_missing_items_keyboard(
         page_size: Number of items per page.
     """
     translation = TranslationService()
-    type_emoji = {
-        "movie": "\U0001f3ac",
-        "episode": "\U0001f4fa",
-    }
 
     total_pages = max(1, -(-len(items) // page_size))
     start = page * page_size
@@ -639,7 +636,7 @@ def get_missing_items_keyboard(
 
     # Item buttons
     for item in page_items:
-        emoji = type_emoji.get(item["type"], "\U0001f3ac")
+        emoji = _MEDIA_TYPE_EMOJI.get(item["type"], "\U0001f3ac")
         title = item["title"]
         series = item.get("series_title")
         label = f"{emoji} {series} - {title}" if series else f"{emoji} {title}"
