@@ -1,5 +1,5 @@
 """
-Tests for src/bot/handlers/media.py - MediaHandler with full conversation flow.
+Tests for src/bot/handlers/media/ - MediaHandler with full conversation flow.
 
 MediaHandler.__init__ creates MediaService() and TranslationService().
 handle_movie/series/music set context.user_data["search_type"] and return SEARCHING.
@@ -11,6 +11,14 @@ cancel_search returns ConversationHandler.END.
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from telegram.ext import ConversationHandler
+
+from src.bot.handlers.media.formatters import (
+    build_result_caption,
+    show_result,
+    show_list,
+    show_list_detail,
+    send_response,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +136,7 @@ async def test_handle_search_with_results(media_handler, make_update, make_conte
     update = make_update(text="Test Movie")
     context = make_context(user_data={"search_type": "movie"})
 
-    with patch.object(media_handler, "_show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
         result = await media_handler.handle_search(update, context)
 
     assert result == SELECTING
@@ -155,7 +163,7 @@ async def test_handle_search_dispatches_by_type(
     update = make_update(text="Test")
     context = make_context(user_data={"search_type": search_type})
 
-    with patch.object(media_handler, "_show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
         result = await media_handler.handle_search(update, context)
 
     assert result == SELECTING
@@ -1117,7 +1125,7 @@ async def test_send_response_with_photo(media_handler, make_message):
     message = make_message()
     message.photo = [MagicMock()]
 
-    await media_handler._send_response(message, "Test text")
+    await send_response(message, "Test text")
 
     message.edit_caption.assert_called_once()
 
@@ -1128,7 +1136,7 @@ async def test_send_response_without_photo(media_handler, make_message):
     message = make_message()
     message.photo = None
 
-    await media_handler._send_response(message, "Test text")
+    await send_response(message, "Test text")
 
     message.edit_text.assert_called_once()
 
@@ -1140,7 +1148,7 @@ async def test_send_response_fallback_on_error(media_handler, make_message):
     message.photo = None
     message.edit_text = AsyncMock(side_effect=Exception("Edit failed"))
 
-    await media_handler._send_response(message, "Test text")
+    await send_response(message, "Test text")
 
     message.reply_text.assert_called_once()
 
@@ -1166,7 +1174,7 @@ async def test_show_result_with_poster(media_handler, make_message):
         "genres": ["Drama", "Thriller"],
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     message.reply_photo.assert_called_once()
 
@@ -1185,7 +1193,7 @@ async def test_show_result_without_poster(media_handler, make_message):
         "genres": [],
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     message.reply_text.assert_called_once()
 
@@ -1202,7 +1210,7 @@ async def test_show_result_long_overview(media_handler, make_message):
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1222,7 +1230,7 @@ async def test_show_result_poster_send_failure(media_handler, make_message):
         "poster": "https://example.com/poster.jpg",
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     message.reply_text.assert_called_once()
 
@@ -1247,7 +1255,7 @@ async def test_show_result_error_fallback_success(media_handler, make_message):
     )
     message.delete = AsyncMock()
 
-    ret = await media_handler._show_result(message, result, 0, 1)
+    ret = await show_result(message, result, 0, 1)
 
     # The first reply_text fails (outer except catches), fallback reply_text succeeds
     assert message.reply_text.call_count == 2
@@ -1271,7 +1279,7 @@ async def test_show_result_complete_failure(media_handler, make_message):
     }
 
     # Should not raise - returns the original message
-    ret = await media_handler._show_result(message, result, 0, 1)
+    ret = await show_result(message, result, 0, 1)
     assert ret is message
 
 
@@ -1287,7 +1295,7 @@ async def test_show_result_navigation_buttons(media_handler, make_message):
     }
 
     # Middle result (index 1 of 3)
-    await media_handler._show_result(message, result, 1, 3)
+    await show_result(message, result, 1, 3)
 
     call_args = message.reply_text.call_args
     reply_markup = call_args[1]["reply_markup"]
@@ -1308,7 +1316,7 @@ async def test_show_result_first_result(media_handler, make_message):
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 0, 3)
+    await show_result(message, result, 0, 3)
 
     call_args = message.reply_text.call_args
     reply_markup = call_args[1]["reply_markup"]
@@ -1330,7 +1338,7 @@ async def test_show_result_last_result(media_handler, make_message):
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 2, 3)
+    await show_result(message, result, 2, 3)
 
     call_args = message.reply_text.call_args
     reply_markup = call_args[1]["reply_markup"]
@@ -1353,7 +1361,7 @@ async def test_show_result_tmdb_rating(media_handler, make_message):
         "ratings": {"tmdb": "8.5", "votes": 1000},
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1373,7 +1381,7 @@ async def test_show_result_network_and_studio(media_handler, make_message):
         "network": "HBO",
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1393,7 +1401,7 @@ async def test_show_result_network_same_as_studio(media_handler, make_message):
         "network": "HBO",
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1412,7 +1420,7 @@ async def test_show_result_many_genres(media_handler, make_message):
         "genres": ["Drama", "Thriller", "Action", "Comedy", "Horror"],
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1431,7 +1439,7 @@ async def test_show_result_imdb_na_rating(media_handler, make_message):
         "ratings": {"imdb": "N/A"},
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1450,7 +1458,7 @@ async def test_show_result_rt_na_rating(media_handler, make_message):
         "ratings": {"imdb": "8.0", "rottenTomatoes": "N/A"},
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1469,7 +1477,7 @@ async def test_show_result_tmdb_na_rating(media_handler, make_message):
         "ratings": {"tmdb": "N/A"},
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1488,7 +1496,7 @@ async def test_show_result_runtime_na(media_handler, make_message):
         "runtime": "N/A",
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1514,7 +1522,7 @@ async def test_handle_navigation_next(media_handler, make_update, make_context):
         "current_index": 0,
     })
 
-    with patch.object(media_handler, "_show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
         result = await media_handler.handle_navigation(update, context)
 
     assert result == SELECTING
@@ -1535,7 +1543,7 @@ async def test_handle_navigation_prev(media_handler, make_update, make_context):
         "current_index": 1,
     })
 
-    with patch.object(media_handler, "_show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
         result = await media_handler.handle_navigation(update, context)
 
     assert result == SELECTING
@@ -1640,7 +1648,7 @@ async def test_build_result_caption_movie_with_year_and_ratings(
         "genres": ["Drama", "Thriller"],
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "Test Movie" in caption
     assert "2024" in caption
@@ -1661,7 +1669,7 @@ async def test_build_result_caption_series_with_tmdb(media_handler):
         "ratings": {"tmdb": "8.5", "votes": 1000},
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "TMDB" in caption
     assert "8.5" in caption
@@ -1677,7 +1685,7 @@ async def test_build_result_caption_with_index_total(media_handler):
         "overview": "Overview",
     }
 
-    caption = media_handler._build_result_caption(result, index=2, total=5)
+    caption = build_result_caption(result, index=2, total=5)
 
     assert "3 of 5" in caption
 
@@ -1691,7 +1699,7 @@ async def test_build_result_caption_without_index_total(media_handler):
         "overview": "Overview",
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "of" not in caption or "Result" not in caption
 
@@ -1711,10 +1719,10 @@ async def test_show_list_sends_text_message(media_handler, make_message):
     ]
 
     with patch(
-        "src.bot.handlers.media.get_search_results_list_keyboard"
+        "src.bot.handlers.media.formatters.get_search_results_list_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list(
+        await show_list(
             message, results, page=0, search_type="movie"
         )
 
@@ -1731,10 +1739,10 @@ async def test_show_list_deletes_old_message(media_handler, make_message):
     results = [{"id": "1", "title": "M", "overview": "O"}]
 
     with patch(
-        "src.bot.handlers.media.get_search_results_list_keyboard"
+        "src.bot.handlers.media.formatters.get_search_results_list_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list(
+        await show_list(
             message, results, page=0, search_type="movie"
         )
 
@@ -1760,10 +1768,10 @@ async def test_show_list_detail_sends_photo_with_poster(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.formatters.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list_detail(message, result)
+        await show_list_detail(message, result)
 
     message.reply_photo.assert_called_once()
     mock_kbd.assert_called_once_with("123")
@@ -1783,10 +1791,10 @@ async def test_show_list_detail_sends_text_without_poster(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.formatters.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list_detail(message, result)
+        await show_list_detail(message, result)
 
     message.reply_text.assert_called_once()
 
@@ -1805,10 +1813,10 @@ async def test_show_list_detail_deletes_old_message(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.formatters.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list_detail(message, result)
+        await show_list_detail(message, result)
 
     message.delete.assert_called_once()
 
@@ -1828,10 +1836,10 @@ async def test_show_list_detail_photo_failure_falls_back_to_text(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.formatters.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list_detail(message, result)
+        await show_list_detail(message, result)
 
     message.reply_text.assert_called_once()
     message.delete.assert_called_once()
@@ -1856,7 +1864,7 @@ async def test_show_result_still_shows_counter_after_refactor(
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 2, 5)
+    await show_result(message, result, 2, 5)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1876,7 +1884,7 @@ async def test_show_result_card_view_has_viewtoggle_button(
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     reply_markup = call_args[1]["reply_markup"]
@@ -1907,8 +1915,8 @@ async def test_handle_search_defaults_to_card_view(
     update = make_update(text="test movie")
     context = make_context(user_data={"search_type": "movie"})
 
-    with patch.object(
-        media_handler, "_show_result", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_result", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_search(update, context)
 
@@ -1931,8 +1939,8 @@ async def test_handle_search_uses_list_view_when_preference_set(
     update = make_update(text="test movie")
     context = make_context(user_data={"search_type": "movie"})
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_search(update, context)
 
@@ -1964,8 +1972,8 @@ async def test_handle_list_select_shows_detail(
         "search_type": "movie",
     })
 
-    with patch.object(
-        media_handler, "_show_list_detail", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list_detail", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_list_select(update, context)
 
@@ -2014,8 +2022,8 @@ async def test_handle_list_back_returns_to_list(
         "list_page": 1,
     })
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_list_back(update, context)
 
@@ -2040,8 +2048,8 @@ async def test_handle_list_back_defaults_page_zero(
         "search_type": "series",
     })
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_list_back(update, context)
 
@@ -2089,8 +2097,8 @@ async def test_handle_list_page_navigates_forward(
         "list_page": 0,
     })
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_list_page(update, context)
 
@@ -2162,8 +2170,8 @@ async def test_handle_view_toggle_card_to_list(
         "current_index": 0,
     })
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_view_toggle(update, context)
 
@@ -2192,8 +2200,8 @@ async def test_handle_view_toggle_list_to_card(
         "current_index": 1,
     })
 
-    with patch.object(
-        media_handler, "_show_result", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_result", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_view_toggle(update, context)
 
@@ -2234,7 +2242,7 @@ async def test_build_result_caption_album(media_handler):
         "overview": "No overview available",
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "Greatest Hits" in caption
     assert "Test Artist" in caption
@@ -2253,7 +2261,7 @@ async def test_build_result_caption_song(media_handler):
         "artist_name": "Test Artist",
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "My Song" in caption
     assert "Greatest Hits" in caption
@@ -2273,7 +2281,7 @@ async def test_build_result_caption_album_with_overview(media_handler):
         "overview": "A compilation of the best tracks.",
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "A compilation of the best tracks." in caption
 
@@ -2291,7 +2299,7 @@ async def test_build_result_caption_album_truncates_long_overview(media_handler)
         "overview": long_overview,
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "..." in caption
     assert long_overview not in caption
@@ -2309,7 +2317,7 @@ async def test_build_result_caption_album_with_index(media_handler):
         "overview": "No overview available",
     }
 
-    caption = media_handler._build_result_caption(result, index=2, total=5)
+    caption = build_result_caption(result, index=2, total=5)
 
     assert "Result 3 of 5" in caption
 
@@ -2325,7 +2333,7 @@ async def test_build_result_caption_song_with_index(media_handler):
         "artist_name": "Test Artist",
     }
 
-    caption = media_handler._build_result_caption(result, index=0, total=3)
+    caption = build_result_caption(result, index=0, total=3)
 
     assert "Result 1 of 3" in caption
 

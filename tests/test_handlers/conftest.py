@@ -75,9 +75,9 @@ def mock_notification_service():
 def media_handler(mock_media_service, mock_translation_service):
     """Create a MediaHandler with patched services."""
     with (
-        patch("src.bot.handlers.media.MediaService") as mock_ms_class,
-        patch("src.bot.handlers.media.TranslationService") as mock_ts_class,
-        patch("src.bot.handlers.media.PreferencesService") as mock_ps_class,
+        patch("src.bot.handlers.media.handler.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.media.handler.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.media.handler.PreferencesService") as mock_ps_class,
     ):
         mock_ts_class.return_value = mock_translation_service
         mock_ms_class.return_value = mock_media_service
