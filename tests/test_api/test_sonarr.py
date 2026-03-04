@@ -14,6 +14,7 @@ from tests.fixtures.sample_data import (
     SONARR_LIBRARY_SERIES_DETAIL,
     SONARR_WANTED_MISSING,
     SONARR_WANTED_CUTOFF,
+    SONARR_QUEUE,
 )
 
 
@@ -871,3 +872,53 @@ class TestSonarrSearchCommand:
         with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
             result = await sonarr_client.search_command(101)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_queue
+# ---------------------------------------------------------------------------
+
+
+class TestSonarrGetQueue:
+    @pytest.mark.asyncio
+    async def test_get_queue_success(self, aio_mock, sonarr_client):
+        """Happy path: returns list of queue records."""
+        aio_mock.get(
+            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            payload=SONARR_QUEUE,
+            status=200,
+        )
+        results = await sonarr_client.get_queue()
+        assert len(results) == 2
+        assert results[0]["title"] == "Pilot"
+        assert results[0]["series"]["title"] == "Breaking Bad"
+
+    @pytest.mark.asyncio
+    async def test_get_queue_empty(self, aio_mock, sonarr_client):
+        """No queue items returns empty list."""
+        aio_mock.get(
+            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await sonarr_client.get_queue()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_queue_connection_error(self, aio_mock, sonarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await sonarr_client.get_queue()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_queue_exception(self, sonarr_client):
+        """Exception during get_queue returns empty list."""
+        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await sonarr_client.get_queue()
+        assert results == []

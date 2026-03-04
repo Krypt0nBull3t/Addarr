@@ -330,3 +330,77 @@ SONARR_WANTED_CUTOFF = {
         },
     ],
 }
+
+
+# ---------------------------------------------------------------------------
+# Queue data
+# ---------------------------------------------------------------------------
+
+RADARR_QUEUE = {
+    "page": 1,
+    "pageSize": 1000,
+    "totalRecords": 2,
+    "records": [
+        {
+            "id": 1, "movieId": 10, "title": "Fight Club",
+            "status": "downloading", "trackedDownloadStatus": "ok",
+            "trackedDownloadState": "downloading",
+            "protocol": "usenet", "size": 1500000000, "sizeleft": 750000000,
+            "timeleft": "00:15:00", "downloadClient": "SABnzbd",
+            "movie": {"id": 10, "title": "Fight Club", "year": 1999, "tmdbId": 550},
+        },
+        {
+            "id": 2, "movieId": 11, "title": "Inception",
+            "status": "completed", "trackedDownloadStatus": "ok",
+            "trackedDownloadState": "importPending",
+            "protocol": "torrent", "size": 2000000000, "sizeleft": 0,
+            "timeleft": "00:00:00", "downloadClient": "qBittorrent",
+            "movie": {"id": 11, "title": "Inception", "year": 2010, "tmdbId": 27205},
+        },
+    ],
+}
+
+SONARR_QUEUE = {
+    "page": 1,
+    "pageSize": 1000,
+    "totalRecords": 2,
+    "records": [
+        {
+            "id": 101, "seriesId": 42, "episodeId": 201, "title": "Pilot",
+            "status": "downloading", "trackedDownloadStatus": "ok",
+            "trackedDownloadState": "downloading",
+            "protocol": "torrent", "size": 500000000, "sizeleft": 100000000,
+            "timeleft": "00:05:00", "downloadClient": "qBittorrent",
+            "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+            "episode": {"id": 201, "seasonNumber": 1, "episodeNumber": 5, "title": "Pilot"},
+        },
+        {
+            "id": 102, "seriesId": 42, "episodeId": 202,
+            "title": "Crazy Handful of Nothin'",
+            "status": "downloading", "trackedDownloadStatus": "ok",
+            "trackedDownloadState": "downloading",
+            "protocol": "torrent", "size": 450000000, "sizeleft": 225000000,
+            "timeleft": "00:10:00", "downloadClient": "qBittorrent",
+            "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+            "episode": {
+                "id": 202, "seasonNumber": 1, "episodeNumber": 6,
+                "title": "Crazy Handful of Nothin'",
+            },
+        },
+    ],
+}
+
+LIDARR_QUEUE = {
+    "page": 1,
+    "pageSize": 1000,
+    "totalRecords": 1,
+    "records": [
+        {
+            "id": 301, "artistId": 5, "albumId": 20, "title": "OK Computer",
+            "status": "downloading", "trackedDownloadStatus": "ok",
+            "trackedDownloadState": "downloading",
+            "protocol": "usenet", "size": 300000000, "sizeleft": 150000000,
+            "timeleft": "00:03:00", "downloadClient": "SABnzbd",
+        },
+    ],
+}

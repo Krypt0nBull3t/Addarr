@@ -15,6 +15,7 @@ from tests.fixtures.sample_data import (
     RADARR_LIBRARY_MOVIE_DETAIL,
     RADARR_WANTED_MISSING,
     RADARR_WANTED_CUTOFF,
+    RADARR_QUEUE,
 )
 
 
@@ -889,3 +890,53 @@ class TestRadarrSearchCommand:
         with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
             result = await radarr_client.search_command(1)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_queue
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetQueue:
+    @pytest.mark.asyncio
+    async def test_get_queue_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of queue records."""
+        aio_mock.get(
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload=RADARR_QUEUE,
+            status=200,
+        )
+        results = await radarr_client.get_queue()
+        assert len(results) == 2
+        assert results[0]["title"] == "Fight Club"
+        assert results[1]["title"] == "Inception"
+
+    @pytest.mark.asyncio
+    async def test_get_queue_empty(self, aio_mock, radarr_client):
+        """No queue items returns empty list."""
+        aio_mock.get(
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await radarr_client.get_queue()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_queue_connection_error(self, aio_mock, radarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await radarr_client.get_queue()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_queue_exception(self, radarr_client):
+        """Exception during get_queue returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_queue()
+        assert results == []

@@ -2218,3 +2218,219 @@ class TestTriggerMissingSearch:
         result = await service.trigger_missing_search("radarr", 1)
 
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Queue normalizers
+# ---------------------------------------------------------------------------
+
+RADARR_QUEUE_ITEM = {
+    "id": 1, "movieId": 10, "title": "Fight Club",
+    "status": "downloading", "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "protocol": "usenet", "size": 1500000000, "sizeleft": 750000000,
+    "timeleft": "00:15:00", "downloadClient": "SABnzbd",
+    "movie": {"id": 10, "title": "Fight Club", "year": 1999, "tmdbId": 550},
+}
+
+SONARR_QUEUE_ITEM = {
+    "id": 101, "seriesId": 42, "episodeId": 201, "title": "Pilot",
+    "status": "downloading", "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "protocol": "torrent", "size": 500000000, "sizeleft": 100000000,
+    "timeleft": "00:05:00", "downloadClient": "qBittorrent",
+    "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+    "episode": {"id": 201, "seasonNumber": 1, "episodeNumber": 5, "title": "Pilot"},
+}
+
+LIDARR_QUEUE_ITEM = {
+    "id": 301, "artistId": 5, "albumId": 20, "title": "OK Computer",
+    "status": "downloading", "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "protocol": "usenet", "size": 300000000, "sizeleft": 150000000,
+    "timeleft": "00:03:00", "downloadClient": "SABnzbd",
+}
+
+
+class TestNormalizeRadarrQueue:
+    def test_standard_item(self):
+        """Standard Radarr queue item normalizes to unified schema."""
+        result = MediaService._normalize_radarr_queue(RADARR_QUEUE_ITEM)
+
+        assert result["type"] == "movie"
+        assert result["title"] == "Fight Club"
+        assert result["year"] == 1999
+        assert result["series_title"] is None
+        assert result["status"] == "downloading"
+        assert result["progress"] == 50
+        assert result["timeleft"] == "00:15:00"
+        assert result["protocol"] == "usenet"
+        assert result["download_client"] == "SABnzbd"
+        assert result["media_id"] == "550"
+        assert result["internal_id"] == 1
+        assert result["service"] == "radarr"
+
+    def test_missing_fields(self):
+        """Item with missing movie/size defaults safely."""
+        item = {"id": 99, "status": "queued"}
+        result = MediaService._normalize_radarr_queue(item)
+
+        assert result["type"] == "movie"
+        assert result["title"] == ""
+        assert result["year"] is None
+        assert result["progress"] == 0
+        assert result["protocol"] == ""
+        assert result["download_client"] == ""
+        assert result["internal_id"] == 99
+        assert result["service"] == "radarr"
+
+
+class TestNormalizeSonarrQueue:
+    def test_standard_item(self):
+        """Standard Sonarr queue item normalizes to unified schema."""
+        result = MediaService._normalize_sonarr_queue(SONARR_QUEUE_ITEM)
+
+        assert result["type"] == "episode"
+        assert result["title"] == "Pilot"
+        assert result["series_title"] == "Breaking Bad"
+        assert result["year"] == 2008
+        assert result["season"] == 1
+        assert result["episode"] == 5
+        assert result["status"] == "downloading"
+        assert result["progress"] == 80
+        assert result["timeleft"] == "00:05:00"
+        assert result["protocol"] == "torrent"
+        assert result["download_client"] == "qBittorrent"
+        assert result["media_id"] == "81189"
+        assert result["internal_id"] == 101
+        assert result["service"] == "sonarr"
+
+    def test_missing_fields(self):
+        """Item with missing episode/series defaults safely."""
+        item = {"id": 999, "status": "queued"}
+        result = MediaService._normalize_sonarr_queue(item)
+
+        assert result["type"] == "episode"
+        assert result["title"] == ""
+        assert result["series_title"] is None
+        assert result["season"] is None
+        assert result["episode"] is None
+        assert result["progress"] == 0
+        assert result["internal_id"] == 999
+        assert result["service"] == "sonarr"
+
+
+class TestNormalizeLidarrQueue:
+    def test_standard_item(self):
+        """Standard Lidarr queue item normalizes to unified schema."""
+        result = MediaService._normalize_lidarr_queue(LIDARR_QUEUE_ITEM)
+
+        assert result["type"] == "album"
+        assert result["title"] == "OK Computer"
+        assert result["year"] is None
+        assert result["status"] == "downloading"
+        assert result["progress"] == 50
+        assert result["timeleft"] == "00:03:00"
+        assert result["protocol"] == "usenet"
+        assert result["download_client"] == "SABnzbd"
+        assert result["internal_id"] == 301
+        assert result["service"] == "lidarr"
+
+    def test_missing_fields(self):
+        """Item with missing size/title defaults safely."""
+        item = {"id": 500}
+        result = MediaService._normalize_lidarr_queue(item)
+
+        assert result["type"] == "album"
+        assert result["title"] == ""
+        assert result["progress"] == 0
+        assert result["protocol"] == ""
+        assert result["internal_id"] == 500
+        assert result["service"] == "lidarr"
+
+
+# ---------------------------------------------------------------------------
+# get_queue_media
+# ---------------------------------------------------------------------------
+
+
+class TestGetQueueMedia:
+    @pytest.mark.asyncio
+    async def test_all_services_merged_sorted(
+        self, mock_radarr_client, mock_sonarr_client, mock_lidarr_client
+    ):
+        """All three services enabled — returns combined, title-sorted list."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        MediaService._lidarr = mock_lidarr_client
+        mock_radarr_client.get_queue.return_value = [RADARR_QUEUE_ITEM]
+        mock_sonarr_client.get_queue.return_value = [SONARR_QUEUE_ITEM]
+        mock_lidarr_client.get_queue.return_value = [LIDARR_QUEUE_ITEM]
+
+        results = await service.get_queue_media()
+
+        assert len(results) == 3
+        services = {r["service"] for r in results}
+        assert services == {"radarr", "sonarr", "lidarr"}
+        titles = [r["title"] for r in results]
+        assert titles == sorted(titles, key=str.lower)
+
+    @pytest.mark.asyncio
+    async def test_radarr_only(self, mock_radarr_client):
+        """Only Radarr enabled — returns only movies."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        MediaService._lidarr = None
+        mock_radarr_client.get_queue.return_value = [RADARR_QUEUE_ITEM]
+
+        results = await service.get_queue_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "movie"
+        assert results[0]["service"] == "radarr"
+
+    @pytest.mark.asyncio
+    async def test_no_services_enabled(self):
+        """No services enabled — returns empty list."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+        MediaService._lidarr = None
+
+        results = await service.get_queue_media()
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_one_service_errors(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Error from one service — still returns results from the other."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        MediaService._lidarr = None
+        mock_radarr_client.get_queue.side_effect = Exception("Radarr down")
+        mock_sonarr_client.get_queue.return_value = [SONARR_QUEUE_ITEM]
+
+        results = await service.get_queue_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+
+    @pytest.mark.asyncio
+    async def test_lidarr_included(self, mock_lidarr_client):
+        """Lidarr items appear with type 'album'."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.get_queue.return_value = [LIDARR_QUEUE_ITEM]
+
+        results = await service.get_queue_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "album"
+        assert results[0]["service"] == "lidarr"

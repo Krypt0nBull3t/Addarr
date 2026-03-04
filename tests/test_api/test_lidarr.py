@@ -16,6 +16,7 @@ from tests.fixtures.sample_data import (
     LIDARR_METADATA_PROFILES,
     LIDARR_LIBRARY_ARTISTS,
     LIDARR_LIBRARY_ARTIST_DETAIL,
+    LIDARR_QUEUE,
 )
 
 
@@ -1072,3 +1073,52 @@ class TestLidarrAddArtistAlbumMonitor:
         assert success is True
         assert posted_data["addOptions"]["monitor"] == "future"
         assert "albumsToMonitor" not in posted_data["addOptions"]
+
+
+# ---------------------------------------------------------------------------
+# get_queue
+# ---------------------------------------------------------------------------
+
+
+class TestLidarrGetQueue:
+    @pytest.mark.asyncio
+    async def test_get_queue_success(self, aio_mock, lidarr_client):
+        """Happy path: returns list of queue records."""
+        aio_mock.get(
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload=LIDARR_QUEUE,
+            status=200,
+        )
+        results = await lidarr_client.get_queue()
+        assert len(results) == 1
+        assert results[0]["title"] == "OK Computer"
+
+    @pytest.mark.asyncio
+    async def test_get_queue_empty(self, aio_mock, lidarr_client):
+        """No queue items returns empty list."""
+        aio_mock.get(
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await lidarr_client.get_queue()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_queue_connection_error(self, aio_mock, lidarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await lidarr_client.get_queue()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_queue_exception(self, lidarr_client):
+        """Exception during get_queue returns empty list."""
+        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await lidarr_client.get_queue()
+        assert results == []

@@ -24,6 +24,7 @@ def mock_radarr_client():
     client.get_missing = AsyncMock(return_value=[])
     client.get_cutoff_unmet = AsyncMock(return_value=[])
     client.search_command = AsyncMock(return_value=True)
+    client.get_queue = AsyncMock(return_value=[])
     return client
 
 
@@ -46,6 +47,7 @@ def mock_sonarr_client():
     client.get_missing = AsyncMock(return_value=[])
     client.get_cutoff_unmet = AsyncMock(return_value=[])
     client.search_command = AsyncMock(return_value=True)
+    client.get_queue = AsyncMock(return_value=[])
     return client
 
 
@@ -68,4 +70,5 @@ def mock_lidarr_client():
     client.get_artist_by_id = AsyncMock(return_value=None)
     client.delete_artist = AsyncMock(return_value=True)
     client.check_status = AsyncMock(return_value=True)
+    client.get_queue = AsyncMock(return_value=[])
     return client

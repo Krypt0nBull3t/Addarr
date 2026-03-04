@@ -705,6 +705,117 @@ class MediaService:
             "service": "sonarr",
         }
 
+    async def get_queue_media(self) -> List[Dict]:
+        """Get download queue items from all enabled services.
+
+        Returns a normalized, title-sorted list of queue items.
+        """
+        normalizers = {
+            "radarr": self._normalize_radarr_queue,
+            "sonarr": self._normalize_sonarr_queue,
+            "lidarr": self._normalize_lidarr_queue,
+        }
+        tasks = []
+        if self.radarr:
+            tasks.append(("radarr", self.radarr.get_queue()))
+        if self.sonarr:
+            tasks.append(("sonarr", self.sonarr.get_queue()))
+        if self.lidarr:
+            tasks.append(("lidarr", self.lidarr.get_queue()))
+
+        if not tasks:
+            return []
+
+        results = await asyncio.gather(
+            *(t[1] for t in tasks), return_exceptions=True
+        )
+
+        items = []
+        for (service_name, _), result in zip(tasks, results):
+            if isinstance(result, Exception):
+                logger.error(
+                    f"queue fetch failed for {service_name}: {result}"
+                )
+                continue
+            normalize = normalizers[service_name]
+            for record in result:
+                items.append(normalize(record))
+
+        items.sort(key=lambda x: (x.get("title") or "").lower())
+        return items
+
+    @staticmethod
+    def _normalize_radarr_queue(item: Dict) -> Dict:
+        """Normalize a Radarr queue item into the unified schema."""
+        movie = item.get("movie", {})
+        size = item.get("size", 0)
+        sizeleft = item.get("sizeleft", 0)
+        progress = round((1 - sizeleft / size) * 100) if size > 0 else 0
+        return {
+            "type": "movie",
+            "title": movie.get("title", item.get("title", "")),
+            "year": movie.get("year"),
+            "series_title": None,
+            "season": None,
+            "episode": None,
+            "status": item.get("trackedDownloadState", item.get("status", "")),
+            "progress": progress,
+            "timeleft": item.get("timeleft", ""),
+            "protocol": item.get("protocol", ""),
+            "download_client": item.get("downloadClient", ""),
+            "media_id": str(movie.get("tmdbId", "")),
+            "internal_id": item.get("id"),
+            "service": "radarr",
+        }
+
+    @staticmethod
+    def _normalize_sonarr_queue(item: Dict) -> Dict:
+        """Normalize a Sonarr queue item into the unified schema."""
+        series = item.get("series", {})
+        ep = item.get("episode", {})
+        size = item.get("size", 0)
+        sizeleft = item.get("sizeleft", 0)
+        progress = round((1 - sizeleft / size) * 100) if size > 0 else 0
+        return {
+            "type": "episode",
+            "title": ep.get("title", item.get("title", "")),
+            "year": series.get("year"),
+            "series_title": series.get("title"),
+            "season": ep.get("seasonNumber"),
+            "episode": ep.get("episodeNumber"),
+            "status": item.get("trackedDownloadState", item.get("status", "")),
+            "progress": progress,
+            "timeleft": item.get("timeleft", ""),
+            "protocol": item.get("protocol", ""),
+            "download_client": item.get("downloadClient", ""),
+            "media_id": str(series.get("tvdbId", "")),
+            "internal_id": item.get("id"),
+            "service": "sonarr",
+        }
+
+    @staticmethod
+    def _normalize_lidarr_queue(item: Dict) -> Dict:
+        """Normalize a Lidarr queue item into the unified schema."""
+        size = item.get("size", 0)
+        sizeleft = item.get("sizeleft", 0)
+        progress = round((1 - sizeleft / size) * 100) if size > 0 else 0
+        return {
+            "type": "album",
+            "title": item.get("title", ""),
+            "year": None,
+            "series_title": None,
+            "season": None,
+            "episode": None,
+            "status": item.get("trackedDownloadState", item.get("status", "")),
+            "progress": progress,
+            "timeleft": item.get("timeleft", ""),
+            "protocol": item.get("protocol", ""),
+            "download_client": item.get("downloadClient", ""),
+            "media_id": "",
+            "internal_id": item.get("id"),
+            "service": "lidarr",
+        }
+
     async def get_movies(self) -> List[Dict]:
         """Get all movies from Radarr library"""
         if not self.radarr:

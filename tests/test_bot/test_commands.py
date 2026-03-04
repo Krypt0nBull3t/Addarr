@@ -95,7 +95,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "movie" in names
         assert "allmovies" in names
-        assert len(commands) == 11  # 7 base + 2 + upcoming + missing
+        assert len(commands) == 12  # 7 base + 2 + upcoming + missing + queue
 
     def test_sonarr_adds_series_and_allseries(self, mock_config):
         """Sonarr enabled adds series + allseries + upcoming + missing."""
@@ -108,7 +108,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "series" in names
         assert "allseries" in names
-        assert len(commands) == 11  # 7 base + 2 + upcoming + missing
+        assert len(commands) == 12  # 7 base + 2 + upcoming + missing + queue
 
     def test_lidarr_adds_music_and_allmusic(self, mock_config):
         """Lidarr enabled adds music + allmusic commands."""
@@ -121,7 +121,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "music" in names
         assert "allmusic" in names
-        assert len(commands) == 9  # 7 base + 2
+        assert len(commands) == 10  # 7 base + 2 + queue
 
     def test_transmission_adds_transmission(self, mock_config):
         """Transmission enabled adds transmission command."""
@@ -198,13 +198,13 @@ class TestBuildAuthenticatedCommands:
             from src.bot.commands import build_authenticated_commands
             commands = build_authenticated_commands()
 
-        assert len(commands) == 17
+        assert len(commands) == 18
         names = [c.command for c in commands]
         expected = [
             "start", "auth", "help", "status", "settings",
             "preferences", "delete", "movie", "allmovies",
             "series", "allseries", "music", "allmusic",
-            "upcoming", "missing", "transmission", "sabnzbd",
+            "upcoming", "missing", "queue", "transmission", "sabnzbd",
         ]
         assert names == expected
 
