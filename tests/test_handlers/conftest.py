@@ -36,6 +36,9 @@ def mock_media_service():
     service.delete_movie = AsyncMock(return_value=True)
     service.delete_series = AsyncMock(return_value=True)
     service.delete_music = AsyncMock(return_value=True)
+    service.get_missing_media = AsyncMock(return_value=[])
+    service.get_cutoff_unmet_media = AsyncMock(return_value=[])
+    service.trigger_missing_search = AsyncMock(return_value=True)
     service.radarr = MagicMock()
     service.sonarr = MagicMock()
     service.lidarr = MagicMock()
@@ -392,6 +395,42 @@ def calendar_handler(mock_media_service, mock_translation_service):
         handler._mock_ts = mock_translation_service
         handler._mock_cal_kbd = mock_cal_kbd
         handler._mock_items_kbd = mock_items_kbd
+        handler._mock_menu_kbd = mock_menu_kbd
+        yield handler
+
+
+@pytest.fixture
+def missing_handler(mock_media_service, mock_translation_service):
+    """Create a MissingHandler with patched services."""
+    with (
+        patch("src.bot.handlers.missing.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.missing.TranslationService") as mock_ts_class,
+        patch(
+            "src.bot.handlers.missing.get_missing_items_keyboard"
+        ) as mock_items_kbd,
+        patch(
+            "src.bot.handlers.missing.get_missing_empty_keyboard"
+        ) as mock_empty_kbd,
+        patch("src.bot.handlers.missing.get_main_menu_keyboard") as mock_menu_kbd,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        mock_media_service.get_missing_media = AsyncMock(return_value=[])
+        mock_media_service.get_cutoff_unmet_media = AsyncMock(return_value=[])
+        mock_media_service.trigger_missing_search = AsyncMock(return_value=True)
+        mock_items_kbd.return_value = MagicMock()
+        mock_empty_kbd.return_value = MagicMock()
+        mock_menu_kbd.return_value = MagicMock()
+
+        from src.bot.handlers.missing import MissingHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = MissingHandler()
+        handler._mock_service = mock_media_service
+        handler._mock_ts = mock_translation_service
+        handler._mock_items_kbd = mock_items_kbd
+        handler._mock_empty_kbd = mock_empty_kbd
         handler._mock_menu_kbd = mock_menu_kbd
         yield handler
 

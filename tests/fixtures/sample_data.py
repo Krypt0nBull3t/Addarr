@@ -276,3 +276,57 @@ LIDARR_LIBRARY_ARTIST_DETAIL = {
     "overview": "Linkin Park is an American rock band...",
     "path": "/music/Linkin Park",
 }
+
+# ---------------------------------------------------------------------------
+# Wanted/Missing items (used by /missing command)
+# ---------------------------------------------------------------------------
+
+RADARR_WANTED_MISSING = {
+    "page": 1,
+    "pageSize": 1000,
+    "totalRecords": 2,
+    "records": [
+        {"id": 1, "title": "Fight Club", "year": 1999, "tmdbId": 550, "monitored": True},
+        {"id": 2, "title": "Pulp Fiction", "year": 1994, "tmdbId": 680, "monitored": True},
+    ],
+}
+
+RADARR_WANTED_CUTOFF = {
+    "page": 1,
+    "pageSize": 1000,
+    "totalRecords": 1,
+    "records": [
+        {"id": 3, "title": "Inception", "year": 2010, "tmdbId": 27205, "monitored": True},
+    ],
+}
+
+SONARR_WANTED_MISSING = {
+    "page": 1,
+    "pageSize": 1000,
+    "totalRecords": 2,
+    "records": [
+        {
+            "id": 101, "seriesId": 42, "seasonNumber": 1, "episodeNumber": 5,
+            "title": "Pilot", "monitored": True,
+            "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+        },
+        {
+            "id": 102, "seriesId": 42, "seasonNumber": 1, "episodeNumber": 6,
+            "title": "Crazy Handful of Nothin'", "monitored": True,
+            "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+        },
+    ],
+}
+
+SONARR_WANTED_CUTOFF = {
+    "page": 1,
+    "pageSize": 1000,
+    "totalRecords": 1,
+    "records": [
+        {
+            "id": 201, "seriesId": 50, "seasonNumber": 2, "episodeNumber": 1,
+            "title": "Hello, Ms. Cobel", "monitored": True,
+            "series": {"id": 50, "title": "Severance", "year": 2022, "tvdbId": 295759},
+        },
+    ],
+}

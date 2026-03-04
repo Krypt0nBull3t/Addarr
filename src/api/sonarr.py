@@ -199,6 +199,67 @@ class SonarrClient(BaseApiClient):
             logger.error(f"❌ Failed to get series: {str(e)}")
             return None
 
+    async def get_missing(self) -> List[Dict]:
+        """Get episodes that are wanted but not yet downloaded."""
+        try:
+            logger.info(Fore.BLUE + "📭 Getting missing episodes from Sonarr")
+            result = await self._request(
+                "wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+            )
+
+            if not result or not isinstance(result, dict):
+                logger.warning(Fore.YELLOW + "⚠️ No missing episodes found")
+                return []
+
+            records = result.get("records", [])
+            logger.info(Fore.GREEN + f"✅ Found {len(records)} missing episodes")
+            return records
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get missing episodes: {str(e)}")
+            return []
+
+    async def get_cutoff_unmet(self) -> List[Dict]:
+        """Get episodes that are below the quality cutoff."""
+        try:
+            logger.info(Fore.BLUE + "⚠️ Getting cutoff unmet episodes from Sonarr")
+            result = await self._request(
+                "wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+            )
+
+            if not result or not isinstance(result, dict):
+                logger.warning(Fore.YELLOW + "⚠️ No cutoff unmet episodes found")
+                return []
+
+            records = result.get("records", [])
+            logger.info(Fore.GREEN + f"✅ Found {len(records)} cutoff unmet episodes")
+            return records
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get cutoff unmet episodes: {str(e)}")
+            return []
+
+    async def search_command(self, episode_id: int) -> bool:
+        """Trigger a manual search for a specific episode."""
+        try:
+            logger.info(Fore.BLUE + f"🔍 Triggering search for episode ID: {episode_id}")
+            success, data, error = await self._make_request(
+                "command",
+                method="POST",
+                data={"name": "EpisodeSearch", "episodeIds": [episode_id]},
+            )
+
+            if success:
+                logger.info(Fore.GREEN + f"✅ Search triggered for episode ID: {episode_id}")
+                return True
+
+            logger.error(Fore.RED + f"❌ Failed to trigger search: {error}")
+            return False
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to trigger search: {str(e)}")
+            return False
+
     async def get_calendar(self, start: str, end: str) -> List[Dict]:
         """Get upcoming episode airings within a date range"""
         try:

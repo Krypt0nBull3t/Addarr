@@ -13,6 +13,8 @@ from tests.fixtures.sample_data import (
     RADARR_SYSTEM_STATUS,
     RADARR_LIBRARY_MOVIES,
     RADARR_LIBRARY_MOVIE_DETAIL,
+    RADARR_WANTED_MISSING,
+    RADARR_WANTED_CUTOFF,
 )
 
 
@@ -750,3 +752,140 @@ class TestRadarrGetCalendar:
         with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
             results = await radarr_client.get_calendar("2026-03-01", "2026-03-08")
         assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_missing
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetMissing:
+    @pytest.mark.asyncio
+    async def test_get_missing_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of missing movie records."""
+        aio_mock.get(
+            f"{BASE}/wanted/missing?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload=RADARR_WANTED_MISSING,
+            status=200,
+        )
+        results = await radarr_client.get_missing()
+        assert len(results) == 2
+        assert results[0]["title"] == "Fight Club"
+        assert results[1]["title"] == "Pulp Fiction"
+
+    @pytest.mark.asyncio
+    async def test_get_missing_empty(self, aio_mock, radarr_client):
+        """No missing movies returns empty list."""
+        aio_mock.get(
+            f"{BASE}/wanted/missing?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await radarr_client.get_missing()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_missing_connection_error(self, aio_mock, radarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/wanted/missing?sortKey=title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await radarr_client.get_missing()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_missing_exception(self, radarr_client):
+        """Exception during get_missing returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_missing()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_cutoff_unmet
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetCutoffUnmet:
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of cutoff unmet movie records."""
+        aio_mock.get(
+            f"{BASE}/wanted/cutoff?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload=RADARR_WANTED_CUTOFF,
+            status=200,
+        )
+        results = await radarr_client.get_cutoff_unmet()
+        assert len(results) == 1
+        assert results[0]["title"] == "Inception"
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_empty(self, aio_mock, radarr_client):
+        """No cutoff unmet movies returns empty list."""
+        aio_mock.get(
+            f"{BASE}/wanted/cutoff?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await radarr_client.get_cutoff_unmet()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_connection_error(self, aio_mock, radarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/wanted/cutoff?sortKey=title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await radarr_client.get_cutoff_unmet()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_exception(self, radarr_client):
+        """Exception during get_cutoff_unmet returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_cutoff_unmet()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# search_command
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrSearchCommand:
+    @pytest.mark.asyncio
+    async def test_search_command_success(self, aio_mock, radarr_client):
+        """POST command triggers search and returns True."""
+        aio_mock.post(
+            f"{BASE}/command",
+            payload={"id": 1, "name": "MoviesSearch", "status": "queued"},
+            status=201,
+        )
+        result = await radarr_client.search_command(1)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_search_command_failure(self, aio_mock, radarr_client):
+        """POST command returns error, returns False."""
+        for _ in range(3):
+            aio_mock.post(
+                f"{BASE}/command",
+                status=500,
+                body="Internal Server Error",
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await radarr_client.search_command(1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_search_command_exception(self, radarr_client):
+        """Exception during search_command returns False."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await radarr_client.search_command(1)
+        assert result is False

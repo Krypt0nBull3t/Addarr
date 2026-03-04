@@ -607,6 +607,104 @@ class MediaService:
             "internal_id": series.get("id"),
         }
 
+    async def get_missing_media(self) -> List[Dict]:
+        """Get missing/wanted media from Radarr and Sonarr.
+
+        Returns a normalized, title-sorted list of missing items.
+        """
+        return await self._fetch_wanted_media("get_missing", "missing")
+
+    async def get_cutoff_unmet_media(self) -> List[Dict]:
+        """Get cutoff-unmet media from Radarr and Sonarr.
+
+        Returns a normalized, title-sorted list of cutoff-unmet items.
+        """
+        return await self._fetch_wanted_media("get_cutoff_unmet", "cutoff-unmet")
+
+    async def _fetch_wanted_media(
+        self, method: str, label: str
+    ) -> List[Dict]:
+        """Shared fetcher for missing and cutoff-unmet media.
+
+        Calls ``method`` on each enabled client, normalizes results,
+        and returns them sorted by title.
+        """
+        tasks = []
+        if self.radarr:
+            tasks.append(("radarr", getattr(self.radarr, method)()))
+        if self.sonarr:
+            tasks.append(("sonarr", getattr(self.sonarr, method)()))
+
+        if not tasks:
+            return []
+
+        results = await asyncio.gather(
+            *(t[1] for t in tasks), return_exceptions=True
+        )
+
+        items = []
+        for (service_name, _), result in zip(tasks, results):
+            if isinstance(result, Exception):
+                logger.error(
+                    f"{label} fetch failed for {service_name}: {result}"
+                )
+                continue
+
+            if service_name == "radarr":
+                for movie in result:
+                    items.append(self._normalize_radarr_missing(movie))
+            else:
+                for episode in result:
+                    items.append(self._normalize_sonarr_missing(episode))
+
+        items.sort(key=lambda x: (x.get("title") or "").lower())
+        return items
+
+    async def trigger_missing_search(self, service: str, item_id: int) -> bool:
+        """Trigger a manual search for a missing item."""
+        client = {"radarr": self.radarr, "sonarr": self.sonarr}.get(service)
+
+        if not client:
+            logger.warning(f"Service '{service}' not available for search")
+            return False
+
+        try:
+            return await client.search_command(item_id)
+        except Exception as e:
+            logger.error(f"Failed to trigger search on {service}: {e}")
+            return False
+
+    @staticmethod
+    def _normalize_radarr_missing(movie: Dict) -> Dict:
+        """Normalize a Radarr missing movie into the unified schema."""
+        return {
+            "type": "movie",
+            "title": movie.get("title", ""),
+            "series_title": None,
+            "year": movie.get("year"),
+            "season": None,
+            "episode": None,
+            "media_id": str(movie.get("tmdbId", "")),
+            "internal_id": movie.get("id"),
+            "service": "radarr",
+        }
+
+    @staticmethod
+    def _normalize_sonarr_missing(ep: Dict) -> Dict:
+        """Normalize a Sonarr missing episode into the unified schema."""
+        series = ep.get("series", {})
+        return {
+            "type": "episode",
+            "title": ep.get("title", ""),
+            "series_title": series.get("title"),
+            "year": series.get("year"),
+            "season": ep.get("seasonNumber"),
+            "episode": ep.get("episodeNumber"),
+            "media_id": str(series.get("tvdbId", "")),
+            "internal_id": ep.get("id"),
+            "service": "sonarr",
+        }
+
     async def get_movies(self) -> List[Dict]:
         """Get all movies from Radarr library"""
         if not self.radarr:
