@@ -169,7 +169,7 @@
 
 **Goal:** Collapse 3 duplicate entry points into 1 shared helper, replace if/elif chains with dispatch dict lookups.
 
-- [ ] **4.1** Parameterize entry points and replace dispatch chains
+- [x] **4.1** Parameterize entry points and replace dispatch chains
     - **Context:**
         - **Why:** `handle_movie`, `handle_series`, `handle_music` are 30 lines each with only the config key and search_type string differing. The if/elif chains in `handle_search`, `handle_selection`, and `_add_media_with_profile` branch on `search_type` to call the right service method. Dispatch tables make both patterns data-driven.
         - **Architecture:** `MEDIA_CONFIG` dict (already in `dispatch.py` from phase 1) maps search_type to method names. A shared `_start_search(self, update, context, search_type)` handles the common entry logic. The 3 public methods become one-liners delegating to `_start_search`. `getattr(self.media_service, method_name)` replaces if/elif chains.
@@ -229,3 +229,15 @@
         - Verify line count: `wc -l src/bot/handlers/media/handler.py` — should be ~750 or less
         - Run coverage: `python -m pytest tests/test_handlers/test_media_handler.py --cov=src.bot.handlers.media --cov-report=term-missing`
     - **Success:** All tests pass. Flake8 clean. `handler.py` is ~750 lines or less. Coverage on media package is equivalent to before refactor.
+    - **Completed:** 2026-03-04
+    - **Learnings:**
+        - `getattr(self.media_service, method_name)(args)` works cleanly for dispatching to different service methods — no special handling needed
+        - The `_start_search` shared method eliminated ~60 lines of near-identical code across the 3 entry points
+        - `MEDIA_CONFIG.get()` returning `None` for invalid types provides the same safety as the original if/elif `else` branch
+    - **Key Changes:**
+        - Added `MEDIA_CONFIG` import to handler.py from dispatch.py
+        - Created `_start_search(self, update, context, search_type)` shared entry point
+        - Simplified `handle_movie`, `handle_series`, `handle_music` to one-liner delegates
+        - Replaced if/elif chains in `handle_search`, `handle_selection`, `_add_media_with_profile` with `MEDIA_CONFIG` dispatch + `getattr`
+        - Reduced `handler.py` from 734 to 672 lines (~62 lines removed)
+    - **Notes:** 100% coverage maintained. All 1636 tests pass. handler.py now at 672 lines total across the full refactor (down from original 1336).

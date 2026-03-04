@@ -32,6 +32,7 @@ from .dispatch import (
     QUALITY_SELECT,
     SEASON_SELECT,
     ALBUM_SELECT,
+    MEDIA_CONFIG,
 )
 from .formatters import (
     show_result,
@@ -189,24 +190,22 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
 
         return SEARCHING
 
-    @require_auth
-    @rate_limit("search")
-    async def handle_movie(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Start movie search conversation"""
+    async def _start_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE, search_type: str):
+        """Shared entry point for movie/series/music search"""
         if not update.effective_message or not update.effective_user:
             return ConversationHandler.END
 
-        if config.get("radarr", {}).get("adminRestrictions", False):
+        media_cfg = MEDIA_CONFIG[search_type]
+        if config.get(media_cfg["config_key"], {}).get("adminRestrictions", False):
             if update.effective_user.id not in config.get("admins", []):
                 await update.message.reply_text("Access restricted to admins only.")
                 return ConversationHandler.END
 
-        log_user_interaction(logger, update.effective_user, "/movie")
+        log_user_interaction(logger, update.effective_user, f"/{search_type}")
 
-        context.user_data["search_type"] = "movie"
+        context.user_data["search_type"] = search_type
         prompt = self.translation.get_text("Title")
 
-        # Create keyboard with cancel button
         keyboard = [
             [InlineKeyboardButton(
                 f"❌ {self.translation.get_text('Cancel')}",
@@ -220,70 +219,24 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             reply_markup=reply_markup
         )
         return SEARCHING
+
+    @require_auth
+    @rate_limit("search")
+    async def handle_movie(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Start movie search conversation"""
+        return await self._start_search(update, context, "movie")
 
     @require_auth
     @rate_limit("search")
     async def handle_series(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start series search conversation"""
-        if not update.effective_message or not update.effective_user:
-            return ConversationHandler.END
-
-        if config.get("sonarr", {}).get("adminRestrictions", False):
-            if update.effective_user.id not in config.get("admins", []):
-                await update.message.reply_text("Access restricted to admins only.")
-                return ConversationHandler.END
-
-        log_user_interaction(logger, update.effective_user, "/series")
-
-        context.user_data["search_type"] = "series"
-        prompt = self.translation.get_text("Title")
-
-        # Create keyboard with cancel button
-        keyboard = [
-            [InlineKeyboardButton(
-                f"❌ {self.translation.get_text('Cancel')}",
-                callback_data="menu_cancel"
-            )]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await update.message.reply_text(
-            prompt,
-            reply_markup=reply_markup
-        )
-        return SEARCHING
+        return await self._start_search(update, context, "series")
 
     @require_auth
     @rate_limit("search")
     async def handle_music(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start music search conversation"""
-        if not update.effective_message or not update.effective_user:
-            return ConversationHandler.END
-
-        if config.get("lidarr", {}).get("adminRestrictions", False):
-            if update.effective_user.id not in config.get("admins", []):
-                await update.message.reply_text("Access restricted to admins only.")
-                return ConversationHandler.END
-
-        log_user_interaction(logger, update.effective_user, "/music")
-
-        context.user_data["search_type"] = "music"
-        prompt = self.translation.get_text("Title")
-
-        # Create keyboard with cancel button
-        keyboard = [
-            [InlineKeyboardButton(
-                f"❌ {self.translation.get_text('Cancel')}",
-                callback_data="menu_cancel"
-            )]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await update.message.reply_text(
-            prompt,
-            reply_markup=reply_markup
-        )
-        return SEARCHING
+        return await self._start_search(update, context, "music")
 
     async def handle_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle search query"""
@@ -301,16 +254,12 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         )
 
         try:
-            # Use the appropriate service based on search type
-            if search_type == "movie":
-                results = await self.media_service.search_movies(query)
-            elif search_type == "series":
-                results = await self.media_service.search_series(query)
-            elif search_type == "music":
-                results = await self.media_service.search_music(query)
-            else:
+            media_cfg = MEDIA_CONFIG.get(search_type)
+            if not media_cfg:
                 await update.message.reply_text("❌ Invalid search type")
                 return ConversationHandler.END
+
+            results = await getattr(self.media_service, media_cfg["search"])(query)
 
             if not results:
                 await update.message.reply_text(
@@ -491,12 +440,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                     # Album/song selections use the artist_id for add_music
                     media_id = selected.get("artist_id", media_id[6:])
 
-                if search_type == "movie":
-                    result = await self.media_service.add_movie(media_id)
-                elif search_type == "series":
-                    result = await self.media_service.add_series(media_id)
-                elif search_type == "music":
-                    result = await self.media_service.add_music(media_id)
+                add_fn = MEDIA_CONFIG[search_type]["add"]
+                result = await getattr(self.media_service, add_fn)(media_id)
 
                 # Handle quality profile selection
                 if isinstance(result, dict) and result.get("type") == "quality_selection":
@@ -672,19 +617,12 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
 
     async def _add_media_with_profile(self, media_type: str, selected: dict, profile_id: int, root_folder: str) -> tuple[bool, str]:
         """Add media with selected profile"""
-        if media_type == "movie":
-            return await self.media_service.add_movie_with_profile(
-                selected["id"], profile_id, root_folder
-            )
-        elif media_type == "series":
-            return await self.media_service.add_series_with_profile(
-                selected["id"], profile_id, root_folder
-            )
-        elif media_type == "music":
-            return await self.media_service.add_music_with_profile(
-                selected["id"], profile_id, root_folder
-            )
-        return False, "Invalid media type"
+        media_cfg = MEDIA_CONFIG.get(media_type)
+        if not media_cfg:
+            return False, "Invalid media type"
+        return await getattr(self.media_service, media_cfg["add_with_profile"])(
+            selected["id"], profile_id, root_folder
+        )
 
     async def cancel_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel the search process"""
