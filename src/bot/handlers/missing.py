@@ -42,9 +42,6 @@ class MissingHandler:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Show missing/wanted media with inline keyboard."""
-        if not update.effective_user:  # pragma: no cover
-            return
-
         log_user_interaction(logger, update.effective_user, "/missing")
 
         context.user_data.setdefault("missing_filter", "all")

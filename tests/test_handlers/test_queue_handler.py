@@ -112,11 +112,12 @@ async def test_show_queue_via_callback(
 async def test_show_queue_no_user(
     queue_handler, make_update, make_context
 ):
-    """show_queue returns None when effective_user is None."""
+    """@require_auth returns None when effective_user is None."""
     update = make_update(text="/queue")
     update.effective_user = None
     context = make_context()
 
+    # @require_auth guards before handler body runs
     result = await queue_handler.show_queue(update, context)
     assert result is None
 

@@ -42,9 +42,6 @@ class QueueHandler:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Show download queue with inline keyboard."""
-        if not update.effective_user:
-            return
-
         log_user_interaction(logger, update.effective_user, "/queue")
 
         context.user_data.setdefault("queue_filter", "all")
