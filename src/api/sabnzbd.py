@@ -117,6 +117,28 @@ class SabnzbdClient:
             logger.error(f"Error resuming SABnzbd queue: {e}")
             return False
 
+    async def pause_item(self, nzo_id: str) -> bool:
+        """Pause an individual queue item"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=queue&name=pause&value={nzo_id}&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Error pausing SABnzbd item {nzo_id}: {e}")
+            return False
+
+    async def resume_item(self, nzo_id: str) -> bool:
+        """Resume an individual queue item"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=queue&name=resume&value={nzo_id}&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Error resuming SABnzbd item {nzo_id}: {e}")
+            return False
+
     async def get_history(self, limit: int = 10) -> dict:
         """Get SABnzbd download history"""
         try:

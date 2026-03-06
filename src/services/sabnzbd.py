@@ -195,6 +195,108 @@ class SABnzbdService:
             logger.error(f"Error resuming SABnzbd queue: {e}")
             return False
 
+    async def pause_item(self, nzo_id: str) -> bool:
+        """Pause an individual queue item"""
+        try:
+            params = {
+                'mode': 'queue',
+                'name': 'pause',
+                'value': nzo_id,
+                'output': 'json',
+                'apikey': self.api_key
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.base_url}/api", params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data.get('status', False)
+                    else:
+                        logger.error(f"SABnzbd API returned status {response.status}")
+                        return False
+
+        except Exception as e:
+            logger.error(f"Error pausing SABnzbd item {nzo_id}: {e}")
+            return False
+
+    async def resume_item(self, nzo_id: str) -> bool:
+        """Resume an individual queue item"""
+        try:
+            params = {
+                'mode': 'queue',
+                'name': 'resume',
+                'value': nzo_id,
+                'output': 'json',
+                'apikey': self.api_key
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.base_url}/api", params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data.get('status', False)
+                    else:
+                        logger.error(f"SABnzbd API returned status {response.status}")
+                        return False
+
+        except Exception as e:
+            logger.error(f"Error resuming SABnzbd item {nzo_id}: {e}")
+            return False
+
+    async def get_queue_details(self) -> Dict[str, Any]:
+        """Get detailed SABnzbd queue data for dashboard display"""
+        empty = {
+            'paused': False,
+            'speed': '0 KB/s',
+            'size_remaining': '0 MB',
+            'items_count': 0,
+            'items': []
+        }
+        try:
+            params = {
+                'mode': 'queue',
+                'output': 'json',
+                'apikey': self.api_key
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.base_url}/api", params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        queue = data.get('queue', {})
+
+                        items = []
+                        for slot in queue.get('slots', []):
+                            percentage = slot.get('percentage', '0')
+                            try:
+                                progress = int(percentage)
+                            except (ValueError, TypeError):
+                                progress = 0
+
+                            items.append({
+                                'nzo_id': slot.get('nzo_id', ''),
+                                'title': slot.get('filename', ''),
+                                'status': slot.get('status', ''),
+                                'progress': progress,
+                                'size': slot.get('size', ''),
+                                'timeleft': slot.get('timeleft', ''),
+                            })
+
+                        return {
+                            'paused': bool(queue.get('paused', False)),
+                            'speed': queue.get('speed', '0 KB/s'),
+                            'size_remaining': queue.get('size', '0 MB'),
+                            'items_count': int(queue.get('noofslots', 0)),
+                            'items': items,
+                        }
+                    else:
+                        logger.error(f"SABnzbd API returned status {response.status}")
+                        return empty
+
+        except Exception as e:
+            logger.error(f"Error getting SABnzbd queue details: {e}")
+            return empty
+
     async def get_history(self, limit: int = 10) -> Dict[str, Any]:
         """Get SABnzbd download history"""
         try:
