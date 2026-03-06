@@ -96,4 +96,3 @@ class SabnzbdHandler:
             await query.message.edit_text(
                 self.translation.get_text("Sabnzbd.Error")
             )
-

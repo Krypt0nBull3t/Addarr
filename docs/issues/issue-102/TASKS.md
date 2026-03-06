@@ -137,7 +137,7 @@
     - **Key Changes:** Stripped all `dl_*` methods from `SabnzbdHandler` (kept only speed commands), registered `DownloadsHandler` in `main.py`, updated `commands.py` to register `/downloads` when either client is enabled, rewrote `test_sabnzbd_handler.py`, updated `test_commands.py`
     - **Notes:** SabnzbdHandler.get_handler() now returns only 2 handlers (command + speed callback)
 
-- [ ] **3.3** Final integration, coverage, and cleanup
+- [x] **3.3** Final integration, coverage, and cleanup
     - **Scope:** Full test suite, coverage check on all changed files, lint, i18n
     - **Action items:**
         - [GREEN] Run `pytest --cov=src.api.transmission --cov=src.services.transmission --cov=src.bot.handlers.downloads --cov=src.bot.handlers.sabnzbd --cov=src.bot.keyboards --cov=src.bot.commands --cov-report=term-missing`
@@ -145,3 +145,7 @@
         - [GREEN] `python -m flake8 .`
         - [GREEN] `PYTHONIOENCODING=utf-8 python run.py --validate-i18n`
     - **Success:** 100% coverage on new/modified code, all checks pass
+    - **Completed:** 2026-03-06
+    - **Learnings:** One trailing blank line lint issue in sabnzbd.py after removing methods
+    - **Key Changes:** Fixed lint, verified 100% coverage on all 6 changed modules, validated i18n
+    - **Notes:** 1744 tests passing, 0 lint errors, all translations valid
