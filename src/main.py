@@ -23,6 +23,7 @@ from src.bot.handlers.media import MediaHandler
 from src.bot.handlers.settings import SettingsHandler
 from src.bot.handlers.transmission import TransmissionHandler
 from src.bot.handlers.sabnzbd import SabnzbdHandler
+from src.bot.handlers.downloads import DownloadsHandler
 from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.preferences import PreferencesHandler
 from src.bot.handlers.start import StartHandler
@@ -161,6 +162,11 @@ class AddarrBot:
                 sabnzbd_handler = SabnzbdHandler()
                 for handler in sabnzbd_handler.get_handler():
                     self.application.add_handler(handler)
+
+            # Downloads handler (if either client enabled)
+            downloads_handler = DownloadsHandler()
+            for handler in downloads_handler.get_handler():
+                self.application.add_handler(handler)
 
             # Help handler
             help_handler = HelpHandler()

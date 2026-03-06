@@ -119,7 +119,7 @@
     - **Key Changes:** Created `src/bot/handlers/downloads.py` (DownloadsHandler class) and `tests/test_handlers/test_downloads_handler.py` (29 tests)
     - **Notes:** Handler delegates to active service based on `context.user_data["dl_client"]`. History tab only shown for SABnzbd.
 
-- [ ] **3.2** Remove /downloads from SabnzbdHandler, wire up DownloadsHandler
+- [x] **3.2** Remove /downloads from SabnzbdHandler, wire up DownloadsHandler
     - **Context:** See plan.md Phase 3. Key refs: `src/bot/handlers/sabnzbd.py:38-46` (handler list to trim), `src/main.py:153-157` (Transmission registration pattern), `src/bot/commands.py:69-71` (`/downloads` registration)
     - **Watch out:** Keep `/sabnzbd` speed command and its callback in SabnzbdHandler. Remove all `dl_*` callbacks and `/downloads` command. Update `get_handler()` return list. Update existing SabnzbdHandler tests that test /downloads. Register DownloadsHandler in main.py when EITHER client is enabled. Update `commands.py` to register `/downloads` when either client is enabled.
     - **Scope:** Trim SabnzbdHandler, register DownloadsHandler, update commands
@@ -132,6 +132,10 @@
         - [GREEN] Add DownloadsHandler import and registration in main.py
         - [GREEN] Update commands.py to register `/downloads` when either client is enabled
     - **Success:** `pytest --tb=short -q` all pass, no regressions
+    - **Completed:** 2026-03-06
+    - **Learnings:** Existing test_commands.py had a hardcoded count (8) that broke when /downloads was added for transmission-only mode. Always assert membership rather than exact counts where possible.
+    - **Key Changes:** Stripped all `dl_*` methods from `SabnzbdHandler` (kept only speed commands), registered `DownloadsHandler` in `main.py`, updated `commands.py` to register `/downloads` when either client is enabled, rewrote `test_sabnzbd_handler.py`, updated `test_commands.py`
+    - **Notes:** SabnzbdHandler.get_handler() now returns only 2 handlers (command + speed callback)
 
 - [ ] **3.3** Final integration, coverage, and cleanup
     - **Scope:** Full test suite, coverage check on all changed files, lint, i18n
