@@ -839,6 +839,179 @@ def _build_queue_filter_row(active_filter, translation):
     return row
 
 
+def get_downloads_queue_keyboard(
+    items: list, page: int, paused: bool = False, page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    """Get keyboard for SABnzbd downloads queue view.
+
+    Args:
+        items: List of queue item dicts with nzo_id, title, status, progress.
+        page: Current page (0-indexed).
+        paused: Whether the entire queue is paused.
+        page_size: Number of items per page.
+    """
+    keyboard = []
+
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    for item in page_items:
+        nzo_id = item.get("nzo_id", "")
+        title = item.get("title", "")
+        status = item.get("status", "")
+        progress = item.get("progress", 0)
+
+        status_icon = "\u2b07\ufe0f" if status == "Downloading" else (
+            "\u23f8" if status == "Paused" else "\u23f3"
+        )
+        label = f"{status_icon} {title} — {progress}%"
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="dl_noop")
+        ])
+
+        if status == "Paused":
+            keyboard.append([
+                InlineKeyboardButton(
+                    "\u25b6\ufe0f Resume",
+                    callback_data=f"dl_resume_{nzo_id}"
+                )
+            ])
+        else:
+            keyboard.append([
+                InlineKeyboardButton(
+                    "\u23f8 Pause",
+                    callback_data=f"dl_pause_{nzo_id}"
+                )
+            ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"{page + 1}/{total_pages}", callback_data="dl_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Tab row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\u2713 \U0001f4cb Queue", callback_data="dl_tab_queue"
+        ),
+        InlineKeyboardButton(
+            "\U0001f4dc History", callback_data="dl_tab_history"
+        ),
+    ])
+
+    # Action row
+    action_row = []
+    if paused:
+        action_row.append(
+            InlineKeyboardButton(
+                "\u25b6\ufe0f Resume All", callback_data="dl_resumeall"
+            )
+        )
+    else:
+        action_row.append(
+            InlineKeyboardButton(
+                "\u23f8 Pause All", callback_data="dl_pauseall"
+            )
+        )
+    action_row.append(
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="dl_refresh"
+        )
+    )
+    keyboard.append(action_row)
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_downloads_history_keyboard(
+    items: list, page: int, page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    """Get keyboard for SABnzbd downloads history view.
+
+    Args:
+        items: List of history item dicts with name, status, size.
+        page: Current page (0-indexed).
+        page_size: Number of items per page.
+    """
+    keyboard = []
+
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    for item in page_items:
+        name = item.get("name", "")
+        status = item.get("status", "")
+        size = item.get("size", "")
+
+        icon = "\u2705" if status == "Completed" else "\u274c"
+        label = f"{icon} {name} \u2014 {size}"
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="dl_noop")
+        ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"{page + 1}/{total_pages}", callback_data="dl_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Tab row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f4cb Queue", callback_data="dl_tab_queue"
+        ),
+        InlineKeyboardButton(
+            "\u2713 \U0001f4dc History", callback_data="dl_tab_history"
+        ),
+    ])
+
+    # Action row (refresh only — no pause/resume in history)
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="dl_refresh"
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: str = "No") -> InlineKeyboardMarkup:
     """Create a Yes/No inline keyboard
 

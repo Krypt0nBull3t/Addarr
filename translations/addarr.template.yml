@@ -223,6 +223,22 @@ template:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+  CommandDownloads: "SABnzbd download queue"
+
+  # Downloads dashboard
+  DownloadsTitle: "SABnzbd Downloads"
+  DownloadsEmpty: "No items in the download queue."
+  DownloadsHistoryTitle: "SABnzbd History"
+  DownloadsHistoryEmpty: "No download history available."
+  DownloadsSpeed: "Speed"
+  DownloadsRemaining: "Remaining"
+  DownloadsItems: "Items"
+  DownloadsPaused: "Queue paused"
+  DownloadsItemPaused: "Item paused."
+  DownloadsItemResumed: "Item resumed."
+  DownloadsPauseError: "Failed to pause item."
+  DownloadsResumeError: "Failed to resume item."
+  DownloadsNotEnabled: "SABnzbd is not enabled or configured."
 
   # Bot command descriptions (for Telegram /menu)
   CommandStart: "Start the bot"
@@ -240,6 +256,7 @@ template:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+  CommandDownloads: "SABnzbd download queue"
 
   # Rate limiting
   RateLimitExceeded: "Slow down! Please wait %(seconds)s seconds before trying again."

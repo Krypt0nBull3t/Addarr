@@ -53,7 +53,7 @@ Add a `/downloads` command that displays a SABnzbd queue dashboard with active d
 
 **Goal:** Add keyboard builders for the downloads dashboard and all required translation keys.
 
-- [ ] **2.1** Add downloads dashboard keyboards and translation keys
+- [x] **2.1** Add downloads dashboard keyboards and translation keys
     - **Context:**
         - **Why:** The handler needs keyboard functions for the queue view (with per-item pause/resume buttons, pagination, tab switching) and history view (pagination, tab switching, refresh). Translation keys needed for all user-facing strings.
         - **Architecture:** Follow existing keyboard patterns in `src/bot/keyboards.py`. Each function returns `InlineKeyboardMarkup`. Pagination follows the `get_queue_items_keyboard` pattern (ceil division, nav_row with Prev/Next). Callback data convention: `dl_` prefix for all downloads dashboard buttons.
@@ -67,6 +67,10 @@ Add a `/downloads` command that displays a SABnzbd queue dashboard with active d
         - [GREEN] Implement both keyboard functions
         - [GREEN] Add translation keys to `translations/addarr.en-us.yml`: `CommandDownloads`, `DownloadsTitle`, `DownloadsEmpty`, `DownloadsHistoryTitle`, `DownloadsHistoryEmpty`, `DownloadsSpeed`, `DownloadsRemaining`, `DownloadsItems`, `DownloadsPaused`, `DownloadsItemPaused`, `DownloadsItemResumed`, `DownloadsPauseError`, `DownloadsResumeError`, `DownloadsNotEnabled`
     - **Success:** Keyboard tests pass, translation keys present in en-us file
+    - **Completed:** 2026-03-06
+    - **Learnings:** Template file has duplicated command sections — need to add keys to both. Other locales will show warnings for missing new keys, which is expected.
+    - **Key Changes:** Added `get_downloads_queue_keyboard()` and `get_downloads_history_keyboard()` to `src/bot/keyboards.py`. 14 new tests. 16 new translation keys in en-us and template files.
+    - **Notes:** Translation warnings for other locales are expected — keys need to be added when translators update.
 
 ---
 

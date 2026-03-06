@@ -6,6 +6,8 @@ from telegram import InlineKeyboardMarkup
 
 from src.bot.keyboards import (
     get_confirmation_keyboard,
+    get_downloads_history_keyboard,
+    get_downloads_queue_keyboard,
     get_main_menu_keyboard,
     get_settings_keyboard,
     get_system_keyboard,
@@ -1640,3 +1642,211 @@ class TestQueueItemsKeyboard:
         ]
         assert "queue_refresh" in callbacks
         assert "queue_back" in callbacks
+
+
+# ---------------------------------------------------------------------------
+# Downloads Queue Keyboard
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadsQueueKeyboard:
+    SAMPLE_ITEMS = [
+        {
+            "nzo_id": "nzo_abc",
+            "title": "Movie.2024.1080p",
+            "status": "Downloading",
+            "progress": 72,
+            "size": "4.2 GB",
+            "timeleft": "0:15:30",
+        },
+        {
+            "nzo_id": "nzo_def",
+            "title": "TV.Show.S03E05",
+            "status": "Queued",
+            "progress": 0,
+            "size": "1.1 GB",
+            "timeleft": "0:45:00",
+        },
+        {
+            "nzo_id": "nzo_ghi",
+            "title": "Another.Movie",
+            "status": "Paused",
+            "progress": 12,
+            "size": "3.5 GB",
+            "timeleft": "",
+        },
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_tab_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_queue" in callbacks
+        assert "dl_tab_history" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_per_item_pause_resume_buttons(self, mock_ts):
+        """Downloading/Queued items get pause button, Paused gets resume."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_pause_nzo_abc" in callbacks
+        assert "dl_pause_nzo_def" in callbacks
+        assert "dl_resume_nzo_ghi" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_pause_all_when_not_paused(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, paused=False
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_pauseall" in callbacks
+        assert "dl_resumeall" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_resume_all_when_paused(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, paused=True
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_resumeall" in callbacks
+        assert "dl_pauseall" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_on_second_page(self, mock_ts):
+        _mock_translation(mock_ts)
+        # Create 8 items to force 2 pages (page_size=5)
+        items = self.SAMPLE_ITEMS * 3  # 9 items
+        result = get_downloads_queue_keyboard(items, page=1)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_page_0" in callbacks  # Prev button
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_queue_has_tabs_and_refresh(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard([], page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_queue" in callbacks
+        assert "dl_tab_history" in callbacks
+        assert "dl_refresh" in callbacks
+
+
+# ---------------------------------------------------------------------------
+# Downloads History Keyboard
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadsHistoryKeyboard:
+    SAMPLE_ITEMS = [
+        {
+            "name": "Movie.2024",
+            "status": "Completed",
+            "size": "4.2 GB",
+            "download_time": 8100,
+        },
+        {
+            "name": "Failed.Download",
+            "status": "Failed",
+            "size": "0 B",
+            "download_time": 0,
+        },
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(self.SAMPLE_ITEMS, page=0)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_tab_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_queue" in callbacks
+        assert "dl_tab_history" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_pause_resume_buttons(self, mock_ts):
+        """History view should not have any pause/resume buttons."""
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert not any(cb.startswith("dl_pause") for cb in callbacks)
+        assert not any(cb.startswith("dl_resume") for cb in callbacks)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_history_has_tabs_and_refresh(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard([], page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_queue" in callbacks
+        assert "dl_tab_history" in callbacks
+        assert "dl_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination(self, mock_ts):
+        _mock_translation(mock_ts)
+        items = self.SAMPLE_ITEMS * 4  # 8 items
+        result = get_downloads_history_keyboard(items, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_page_1" in callbacks  # Next button
