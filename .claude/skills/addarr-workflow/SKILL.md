@@ -11,6 +11,17 @@ Self-driving development workflow for Addarr. Entry point: `/addarr [argument]`
 
 **Execution model:** Each flow is an ordered sequence. Execute every step automatically. Only pause for user input at steps marked `ASK`. All other steps execute without waiting.
 
+## Token Discipline
+
+**This is a hard requirement for all automated execution.**
+
+- Go straight from tool result to next tool call. No narration between steps.
+- Only output text when: reporting a blocker, asking for user input, or summarizing a completed phase.
+- Never restate what a tool result already shows (test counts, lint output, etc.).
+- Never explain what you're about to do — just do it.
+- Phase/task summaries: 1-2 sentences max.
+- Agent prompts: instruct agents to return only actionable findings. "Skip items consistent with existing codebase patterns. Only report issues you would actually fix."
+
 ## Entry Points
 
 | Command | Flow | Description |
@@ -84,18 +95,18 @@ Step 7  RUN     Push changes, report what was addressed
 See [references/create-pr.md](references/create-pr.md) for detailed instructions.
 
 ```
-Step 1  INVOKE  @find-bugs on all branch changes — fix any findings
-Step 2  INVOKE  @simplify on changed files — quick pass for reuse, quality, efficiency
-Step 2b INVOKE  @code-simplifier on changed files — deeper focused refactoring
-Step 3  INVOKE  @superpowers:verification-before-completion — run pytest, confirm green
-Step 3b RUN     Coverage check: run pytest with --cov on all changed source modules
+Step 1  RUN     Pre-PR review: single consolidated pass over branch diff
+                covering bugs, security, code quality, and efficiency.
+                Run directly (not via skill invocation) — see create-pr.md.
+                Fix any actionable findings. Skip pre-existing patterns.
+Step 2  RUN     Coverage check: run pytest with --cov on all changed source modules
                 and --cov-report=term-missing. Target 100% on all new/modified code.
                 Fix any gaps by adding tests for uncovered lines.
-Step 4  RUN     Flow: preflight (all checks must pass)
-Step 5  RUN     Verify readiness (not on main/development, all committed, push if needed)
-Step 6  RUN     Generate PR title + body from commits and issue context
-Step 7  RUN     gh pr create --base development
-Step 8  RUN     Report PR URL and CI expectations
+Step 3  RUN     Flow: preflight (all checks must pass)
+Step 4  RUN     Verify readiness (not on main/development, all committed, push if needed)
+Step 5  RUN     Generate PR title + body from commits and issue context
+Step 6  RUN     gh pr create --base development
+Step 7  RUN     Report PR URL
 ```
 
 ## Flow: preflight
@@ -111,7 +122,7 @@ Step 2  RUN     flake8 .
                 On failure: auto-fix formatting, report logic issues
 Step 3  RUN     PYTHONIOENCODING=utf-8 python run.py --validate-i18n
                 On failure: report missing/malformed keys
-Step 4  RUN     Report results summary
+Step 4  RUN     Report results summary (1-2 lines)
 ```
 
 ---
@@ -120,44 +131,52 @@ Step 4  RUN     Report results summary
 
 This is the core implementation cycle used by new-task, continue, and feedback flows.
 
+**Skill loading — on-demand, not per-loop:**
+
+All skills below are mandatory (must be available) but should only be invoked
+when the specific trigger condition is met — never routinely per task or per behavior.
+
+| Skill | Trigger (invoke ONLY when this happens) |
+|-------|----------------------------------------|
+| `@addarr-handlers` | First task in a session that touches `src/bot/handlers/` |
+| `@addarr-services` | First task in a session that touches `src/services/` or `src/api/` |
+| `@addarr-testing` | First task in a session that touches `tests/` |
+| `@python-testing-pro` | Facing a non-trivial test design question (parametrize strategy, complex mock setup, fixture architecture) |
+| `@superpowers:test-driven-development` | First task in a session (load once to set TDD discipline) |
+| `@superpowers:verification-before-completion` | After all tasks complete, before create-pr flow |
+| `@code-simplifier` | Refactor step produces code that feels overly complex |
+| `@superpowers:systematic-debugging` | Unexpected test failure (not a simple typo/import fix) |
+
+"First task in a session" means: invoke once when the trigger first applies, then
+the skill stays in context for the rest of the session. Do not re-invoke.
+
 **For each task in TASKS.md:**
 
 ```
 1  RUN     Mark task in-progress
-2  CHECK   Determine if task touches handlers or services based on:
-           - Task scope, file paths, and action items mentioning handlers/services
-           - Issue context (e.g., "new command", "API client", "service layer")
-           If task touches src/bot/handlers/ → INVOKE @addarr-handlers
-           If task touches src/services/ or src/api/ → INVOKE @addarr-services
-           (Skip if task is pure config, translations, or utilities)
-3  INVOKE  @superpowers:test-driven-development (governs the entire cycle below)
 
-   For each behavior in the task:
-   a  RED     Write failing test — use @python-testing-pro for strategy,
-              @addarr-testing for project-specific patterns
+2  RUN     TDD cycle — for each behavior in the task:
+   a  RED     Write failing test
    b  RUN     pytest tests/path/test_file.py::test_name -v — confirm fails correctly
-   c  GREEN   Write minimal implementation — follow @addarr-handlers / @addarr-services
-              patterns if those skills were loaded in step 2
-   d  RUN     pytest --tb=short -q — confirm all pass
-   e  INVOKE  @code-simplifier on changed code (refactor phase)
-   f  RUN     pytest --tb=short -q — confirm still green after refactor
+   c  GREEN   Write minimal implementation
+   d  RUN     pytest tests/path/test_file.py -v — confirm relevant tests pass
 
-   On unexpected test failure at any point:
+   On unexpected test failure:
    -> INVOKE @superpowers:systematic-debugging — find root cause before fixing
 
-4  INVOKE  @superpowers:verification-before-completion — run full test suite, confirm output
-5  RUN     Coverage check: run pytest with --cov on changed source modules
+3  RUN     Full suite check: pytest --tb=short -q (once per task, not per behavior)
+4  RUN     Coverage check: run pytest with --cov on changed source modules
            and --cov-report=term-missing. Target 100% on all new/modified code.
            Fix any gaps by adding tests for uncovered lines.
-6  RUN     Mark task complete in TASKS.md and add completion metadata:
+5  RUN     Mark task complete in TASKS.md and add completion metadata:
            - **Completed:** <date>
            - **Learnings:** Key insights, gotchas, or discoveries from this task
            - **Key Changes:** Summary of what was modified (files, functions, patterns)
            - **Notes:** Any important context for future work
-7  RUN     Commit changes for this task — creates a restore point in case
+6  RUN     Commit changes for this task — creates a restore point in case
            later tasks break something. Use a descriptive message referencing
            the task number (e.g., "feat: add command builder module (task 1.1)")
-8  RUN     Next task (loop back to 1)
+7  RUN     Next task (loop back to 1)
 ```
 
 **Completion metadata example:**
@@ -180,19 +199,19 @@ This is the core implementation cycle used by new-task, continue, and feedback f
 
 ## Skill Reference
 
-Skills invoked during workflow execution and their roles:
+All skills are mandatory but invoke only when the trigger applies — see the
+on-demand table in the Execution Loop section for per-task triggers.
 
-| Skill | Role | Invoked during |
-|-------|------|---------------|
-| `@superpowers:brainstorming` | Explore design space for complex tasks | new-task step 3b |
+| Skill | Role | Invoked when |
+|-------|------|-------------|
+| `@superpowers:brainstorming` | Explore design space | new-task step 3b (only if complex/ambiguous) |
+| `@superpowers:writing-plans` | Guide plan creation | new-task step 4 |
 | `@task-writer` | Convert plan into sized TASKS.md | new-task step 4c |
-| `@superpowers:test-driven-development` | Govern red-green-refactor cycle | Execution loop |
-| `@python-testing-pro` | Pytest strategies, mocking, parametrization | Execution loop (RED phase) |
-| `@addarr-testing` | Project-specific test patterns and fixtures | Execution loop (RED phase) |
-| `@addarr-handlers` | Handler class patterns and conventions | Execution loop (GREEN phase, handler work) |
-| `@addarr-services` | Service/API client patterns | Execution loop (GREEN phase, service work) |
-| `@code-simplifier` | Clean up changed code | Execution loop (refactor) + create-pr step 2b |
-| `@simplify` | Quick pass for reuse, quality, efficiency | create-pr step 2 |
-| `@superpowers:systematic-debugging` | Investigate unexpected failures | Execution loop (on failure) + feedback step 5 |
-| `@superpowers:verification-before-completion` | Verify before claiming done | Execution loop step 3 + create-pr step 3 |
-| `@find-bugs` | Review branch for bugs/security | create-pr step 1 |
+| `@superpowers:test-driven-development` | Enforce TDD discipline | First task in session (once) |
+| `@superpowers:verification-before-completion` | Final verification gate | After all tasks, before create-pr |
+| `@superpowers:systematic-debugging` | Investigate unexpected failures | On unexpected test failure |
+| `@addarr-handlers` | Handler class patterns | First handler task in session |
+| `@addarr-services` | Service/API client patterns | First service/API task in session |
+| `@addarr-testing` | Project-specific test patterns | First test-writing task in session |
+| `@python-testing-pro` | Advanced pytest strategies | Non-trivial test design questions |
+| `@code-simplifier` | Focused refactoring | When refactor step produces complex code |

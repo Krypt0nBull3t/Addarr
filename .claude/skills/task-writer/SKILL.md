@@ -73,6 +73,22 @@ Phase: [Large Feature] (3-4 tasks)
 - Action items MUST list [RED] test-writing steps BEFORE [GREEN] implementation steps
 - **Context block is REQUIRED** for every implementation task
 
+**Compact mode:** When tasks will be executed sequentially in the same session
+(i.e., immediately after planning), use compact context blocks:
+
+```markdown
+- [ ] **N.1** Implement [feature/layer]
+    - **Context:** See plan.md Phase N. Key refs: `file.py:line` (pattern template)
+    - **Watch out:** [Only non-obvious gotchas not in the plan]
+    - **Scope:** Brief description
+    - **Touches:** Key files
+    - **Action items:** ...
+    - **Success:** ...
+```
+
+Use full context blocks only when tasks may be picked up after context loss
+(e.g., across sessions, by a different person, or when plan.md doesn't exist).
+
 ## What Goes IN a Single Task
 
 Bundle these together (one logical unit):
