@@ -13,6 +13,7 @@ class BaseMockHelper:
 
     SERVICE = ""
     PORT = 0
+    API_VERSION = "v3"
     SEARCH_ENDPOINT = ""
     QUALITY_ENDPOINT = "qualityProfile"
     ROOT_FOLDER_ENDPOINT = "rootfolder"
@@ -23,7 +24,7 @@ class BaseMockHelper:
         self.base_url = f"http://localhost:{self.PORT}"
 
     def _url(self, endpoint):
-        return f"{self.base_url}/api/v3/{endpoint}"
+        return f"{self.base_url}/api/{self.API_VERSION}/{endpoint}"
 
     def _url_pattern(self, endpoint):
         """Build a regex pattern matching the endpoint (with optional query string)."""
@@ -81,6 +82,7 @@ class SonarrMockHelper(BaseMockHelper):
 class LidarrMockHelper(BaseMockHelper):
     SERVICE = "lidarr"
     PORT = 8686
+    API_VERSION = "v1"
     SEARCH_ENDPOINT = "artist/lookup"
     QUALITY_ENDPOINT = "qualityprofile"
     ADD_ENDPOINT = "artist"
