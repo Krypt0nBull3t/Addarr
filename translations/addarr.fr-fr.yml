@@ -216,6 +216,24 @@ fr-fr:
   CommandAllMusic: "Lister toute la musique"
   CommandTransmission: "Gérer Transmission"
   CommandSabnzbd: "Gérer SABnzbd"
+  CommandDownloads: "Download queue"
+
+  # Downloads dashboard
+  DownloadsTitle: "Downloads"
+  DownloadsEmpty: "No items in the download queue."
+  DownloadsHistoryTitle: "Download History"
+  DownloadsHistoryEmpty: "No download history available."
+  DownloadsSpeed: "Speed"
+  DownloadsRemaining: "Remaining"
+  DownloadsItems: "Items"
+  DownloadsPaused: "Queue paused"
+  DownloadsItemPaused: "Item paused."
+  DownloadsItemResumed: "Item resumed."
+  DownloadsPauseError: "Failed to pause item."
+  DownloadsResumeError: "Failed to resume item."
+  DownloadsNotEnabled: "No download clients are enabled."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "Doucement ! Veuillez patienter %(seconds)s secondes avant de réessayer."

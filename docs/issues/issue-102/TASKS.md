@@ -77,7 +77,7 @@
     - **Key Changes:** Added `client` and `show_history_tab` params to `get_downloads_queue_keyboard()` and `client` param to `get_downloads_history_keyboard()` in `src/bot/keyboards.py`; 7 new tests
     - **Notes:** Client tab row uses `dl_client_sab`/`dl_client_tx` callback data, checkmark on active client
 
-- [ ] **2.2** Add and update translation keys
+- [x] **2.2** Add and update translation keys
     - **Context:** See plan.md Phase 2. Key refs: `translations/addarr.en-us.yml:224-237` (current Downloads keys)
     - **Watch out:** Update `DownloadsTitle` from "SABnzbd Downloads" to "Downloads", `CommandDownloads` from "SABnzbd download queue" to "Download queue", `DownloadsNotEnabled` to generic message. Must update `addarr.template.yml` too.
     - **Scope:** Update generic keys, add `DownloadsClientSabnzbd`, `DownloadsClientTransmission`
@@ -87,6 +87,10 @@
         - [GREEN] Add new client label keys
         - [GREEN] Run `PYTHONIOENCODING=utf-8 python run.py --validate-i18n`
     - **Success:** i18n validation passes
+    - **Completed:** 2026-03-06
+    - **Learnings:** Non-English locales didn't have any Downloads keys from issue 101 — all had to be added fresh with English fallback text
+    - **Key Changes:** Updated 4 keys (DownloadsTitle, DownloadsHistoryTitle, CommandDownloads, DownloadsNotEnabled) to be client-generic; added 2 new keys (DownloadsClientSabnzbd, DownloadsClientTransmission) across all 10 translation files
+    - **Notes:** All locale files now use English fallback text for Downloads keys
 
 ---
 
