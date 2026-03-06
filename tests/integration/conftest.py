@@ -30,6 +30,8 @@ from src.bot.handlers.queue import QueueHandler
 from src.bot.handlers.downloads import DownloadsHandler
 from src.bot.handlers.preferences import PreferencesHandler
 from src.config.settings import config
+from src.services.transmission import TransmissionService
+from src.services.sabnzbd import SABnzbdService
 
 
 # ---- Response capture -------------------------------------------------------
@@ -371,5 +373,32 @@ async def harness():
     ):
         await app.initialize()
         yield h
+
+    await app.shutdown()
+
+
+@pytest.fixture
+async def downloads_harness():
+    """Provide a BotHarness with downloads handlers enabled.
+
+    Patches TransmissionService.is_enabled and SABnzbdService.is_enabled
+    to return True *before* handler registration so DownloadsHandler
+    registers its handlers.
+    """
+    AuthHandler._authenticated_users.add(12345)
+
+    with (
+        patch.object(TransmissionService, "is_enabled", return_value=True),
+        patch.object(SABnzbdService, "is_enabled", return_value=True),
+    ):
+        app = _build_application()
+        h = BotHarness(app)
+
+        with patch(
+            "telegram.request.HTTPXRequest.do_request",
+            side_effect=h._fake_do_request,
+        ):
+            await app.initialize()
+            yield h
 
     await app.shutdown()

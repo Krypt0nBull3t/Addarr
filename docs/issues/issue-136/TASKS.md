@@ -205,7 +205,7 @@
 
 **Goal:** Test the `/downloads` unified dashboard with Transmission and SABnzbd.
 
-- [ ] **5.1** Downloads dashboard integration tests
+- [x] **5.1** Downloads dashboard integration tests
     - **Context:** `DownloadsHandler` (`src/bot/handlers/downloads.py`) uses `CommandHandler` + multiple `CallbackQueryHandler`s (not a ConversationHandler). It checks `is_enabled()` on both Transmission and SABnzbd services. Callbacks: `dl_client_*` (tab switch), `dl_tab_*` (queue/history), `dl_page_*` (pagination), `dl_pause_*`/`dl_resume_*` (item control), `dl_pauseall`/`dl_resumeall`, `dl_refresh`. Transmission uses sync `requests.post` (not aiohttp). SABnzbd uses aiohttp via `BaseApiClient`.
     - **Watch out:**
         - Transmission uses `requests.post` (sync) — mock with `unittest.mock.patch("requests.post")`, not aioresponses
@@ -224,3 +224,12 @@
         - [GREEN] Mock SABnzbd aiohttp responses (queue, history)
         - [GREEN] Build harness variant that re-registers handlers with download-enabled config
     - **Success:** Downloads dashboard works with both clients, tab switching and refresh verified
+    - **Completed:** 2026-03-06
+    - **Learnings:**
+        - `DownloadsHandler.__init__` calls `is_enabled()` at construction time — must patch before `_build_application()`, not during test
+        - Created `downloads_harness` fixture that patches both services' `is_enabled` before handler registration
+        - Downloads handler is NOT a ConversationHandler — uses standalone CommandHandler + CallbackQueryHandlers
+    - **Key Changes:**
+        - Created `tests/integration/test_downloads_flow.py` with 4 tests (queue, sabnzbd switch, client toggle, refresh)
+        - Added `downloads_harness` fixture to `tests/integration/conftest.py`
+    - **Notes:** `_multi_client` mode tested (both clients enabled) which activates client switch buttons
