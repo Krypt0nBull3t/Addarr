@@ -145,7 +145,8 @@ class TestBuildAuthenticatedCommands:
 
         names = [c.command for c in commands]
         assert "sabnzbd" in names
-        assert len(commands) == 8  # 7 base + 1
+        assert "downloads" in names
+        assert len(commands) == 9  # 7 base + sabnzbd + downloads
 
     def test_radarr_adds_upcoming_and_missing(self, mock_config):
         """Radarr enabled adds upcoming and missing commands."""
@@ -198,13 +199,14 @@ class TestBuildAuthenticatedCommands:
             from src.bot.commands import build_authenticated_commands
             commands = build_authenticated_commands()
 
-        assert len(commands) == 18
+        assert len(commands) == 19
         names = [c.command for c in commands]
         expected = [
             "start", "auth", "help", "status", "settings",
             "preferences", "delete", "movie", "allmovies",
             "series", "allseries", "music", "allmusic",
-            "upcoming", "missing", "queue", "transmission", "sabnzbd",
+            "upcoming", "missing", "queue", "transmission",
+            "sabnzbd", "downloads",
         ]
         assert names == expected
 

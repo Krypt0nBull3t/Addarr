@@ -7,6 +7,7 @@ Description: SABnzbd API client module.
 
 import aiohttp
 from colorama import Fore
+from urllib.parse import quote
 
 from src.config.settings import config
 from src.utils.logger import get_logger
@@ -115,6 +116,28 @@ class SabnzbdClient:
                     return response.status == 200
         except Exception as e:
             logger.error(f"Error resuming SABnzbd queue: {e}")
+            return False
+
+    async def pause_item(self, nzo_id: str) -> bool:
+        """Pause an individual queue item"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=queue&name=pause&value={quote(nzo_id, safe='')}&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Error pausing SABnzbd item {nzo_id}: {e}")
+            return False
+
+    async def resume_item(self, nzo_id: str) -> bool:
+        """Resume an individual queue item"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.api_url}/api?mode=queue&name=resume&value={quote(nzo_id, safe='')}&output=json&apikey={self.api_key}"
+                async with session.get(url) as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Error resuming SABnzbd item {nzo_id}: {e}")
             return False
 
     async def get_history(self, limit: int = 10) -> dict:
