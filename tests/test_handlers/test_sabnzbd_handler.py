@@ -829,3 +829,22 @@ async def test_resume_item_failure(
 
     answer_call = update.callback_query.answer.call_args
     assert answer_call[1].get("show_alert") is True
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.sabnzbd.TranslationService")
+@patch("src.bot.handlers.sabnzbd.SABnzbdService")
+async def test_noop_handler_answers_query(
+    mock_sab_class, mock_ts_class, make_update, make_context
+):
+    """dl_noop handler dismisses loading spinner without side effects."""
+    handler, _, _ = _make_handler_with_mocks(
+        mock_sab_class, mock_ts_class
+    )
+
+    update = make_update(callback_data="dl_noop")
+    context = make_context()
+
+    await handler.handle_downloads_noop(update, context)
+
+    update.callback_query.answer.assert_called_once()

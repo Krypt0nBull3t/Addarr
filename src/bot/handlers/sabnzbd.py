@@ -43,6 +43,7 @@ class SabnzbdHandler:
             CallbackQueryHandler(self.handle_downloads_pauseall, pattern=r"^dl_pauseall$"),
             CallbackQueryHandler(self.handle_downloads_resumeall, pattern=r"^dl_resumeall$"),
             CallbackQueryHandler(self.handle_downloads_refresh, pattern=r"^dl_refresh$"),
+            CallbackQueryHandler(self.handle_downloads_noop, pattern=r"^dl_noop$"),
         ]
 
     @require_auth
@@ -145,48 +146,19 @@ class SabnzbdHandler:
         query = update.callback_query
         await query.answer()
 
-        tab = query.data.replace("dl_tab_", "")
-        context.user_data["dl_tab"] = tab
+        context.user_data["dl_tab"] = query.data.replace("dl_tab_", "")
         context.user_data["dl_page"] = 0
 
-        if tab == "history":
-            history = await self.sabnzbd_service.get_history()
-            text = self._format_history_text(history)
-            keyboard = get_downloads_history_keyboard(
-                history["items"], page=0
-            )
-        else:
-            queue = await self.sabnzbd_service.get_queue_details()
-            text = self._format_queue_text(queue)
-            keyboard = get_downloads_queue_keyboard(
-                queue["items"], page=0, paused=queue["paused"]
-            )
-
-        await query.message.edit_text(text, reply_markup=keyboard)
+        await self._refresh_current_view(query, context)
 
     async def handle_downloads_page(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle pagination."""
         query = update.callback_query
         await query.answer()
 
-        page = int(query.data.replace("dl_page_", ""))
-        context.user_data["dl_page"] = page
-        tab = context.user_data.get("dl_tab", "queue")
+        context.user_data["dl_page"] = int(query.data.replace("dl_page_", ""))
 
-        if tab == "history":
-            history = await self.sabnzbd_service.get_history()
-            text = self._format_history_text(history)
-            keyboard = get_downloads_history_keyboard(
-                history["items"], page=page
-            )
-        else:
-            queue = await self.sabnzbd_service.get_queue_details()
-            text = self._format_queue_text(queue)
-            keyboard = get_downloads_queue_keyboard(
-                queue["items"], page=page, paused=queue["paused"]
-            )
-
-        await query.message.edit_text(text, reply_markup=keyboard)
+        await self._refresh_current_view(query, context)
 
     async def handle_downloads_pause_item(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle per-item pause."""
@@ -246,6 +218,10 @@ class SabnzbdHandler:
         await query.answer()
 
         await self._refresh_current_view(query, context)
+
+    async def handle_downloads_noop(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle display-only button presses (dismiss loading spinner)."""
+        await update.callback_query.answer()
 
     # -----------------------------------------------------------------
     # Private helpers

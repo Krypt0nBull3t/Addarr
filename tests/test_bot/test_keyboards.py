@@ -1756,6 +1756,17 @@ class TestDownloadsQueueKeyboard:
         assert "dl_page_0" in callbacks  # Prev button
 
     @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_first_page_has_next(self, mock_ts):
+        _mock_translation(mock_ts)
+        items = self.SAMPLE_ITEMS * 3  # 9 items → 2 pages
+        result = get_downloads_queue_keyboard(items, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_page_1" in callbacks  # Next button
+
+    @patch("src.bot.keyboards.TranslationService")
     def test_empty_queue_has_tabs_and_refresh(self, mock_ts):
         _mock_translation(mock_ts)
         result = get_downloads_queue_keyboard([], page=0)
@@ -1841,7 +1852,7 @@ class TestDownloadsHistoryKeyboard:
         assert "dl_refresh" in callbacks
 
     @patch("src.bot.keyboards.TranslationService")
-    def test_pagination(self, mock_ts):
+    def test_pagination_first_page_has_next(self, mock_ts):
         _mock_translation(mock_ts)
         items = self.SAMPLE_ITEMS * 4  # 8 items
         result = get_downloads_history_keyboard(items, page=0)
@@ -1850,3 +1861,14 @@ class TestDownloadsHistoryKeyboard:
             for row in result.inline_keyboard for btn in row
         ]
         assert "dl_page_1" in callbacks  # Next button
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_second_page_has_prev(self, mock_ts):
+        _mock_translation(mock_ts)
+        items = self.SAMPLE_ITEMS * 4  # 8 items → 2 pages
+        result = get_downloads_history_keyboard(items, page=1)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_page_0" in callbacks  # Prev button

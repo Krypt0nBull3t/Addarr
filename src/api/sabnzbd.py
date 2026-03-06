@@ -7,6 +7,7 @@ Description: SABnzbd API client module.
 
 import aiohttp
 from colorama import Fore
+from urllib.parse import quote
 
 from src.config.settings import config
 from src.utils.logger import get_logger
@@ -121,7 +122,7 @@ class SabnzbdClient:
         """Pause an individual queue item"""
         try:
             async with aiohttp.ClientSession() as session:
-                url = f"{self.api_url}/api?mode=queue&name=pause&value={nzo_id}&output=json&apikey={self.api_key}"
+                url = f"{self.api_url}/api?mode=queue&name=pause&value={quote(nzo_id, safe='')}&output=json&apikey={self.api_key}"
                 async with session.get(url) as response:
                     return response.status == 200
         except Exception as e:
@@ -132,7 +133,7 @@ class SabnzbdClient:
         """Resume an individual queue item"""
         try:
             async with aiohttp.ClientSession() as session:
-                url = f"{self.api_url}/api?mode=queue&name=resume&value={nzo_id}&output=json&apikey={self.api_key}"
+                url = f"{self.api_url}/api?mode=queue&name=resume&value={quote(nzo_id, safe='')}&output=json&apikey={self.api_key}"
                 async with session.get(url) as response:
                     return response.status == 200
         except Exception as e:
