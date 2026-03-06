@@ -25,7 +25,7 @@
     - **Key Changes:** Added `get_torrents()`, `pause_torrent()`, `resume_torrent()`, `stop_all()`, `start_all()` to `src/api/transmission.py`; 6 new tests in `tests/test_api/test_transmission_api.py`
     - **Notes:** All methods delegate to `_make_request()` which handles session ID negotiation
 
-- [ ] **1.2** Add queue management methods to TransmissionService
+- [x] **1.2** Add queue management methods to TransmissionService
     - **Context:** See plan.md Phase 1. Key refs: `src/services/transmission.py:77` (`get_status` pattern), `src/services/sabnzbd.py:246` (`get_queue_details` return shape to match)
     - **Watch out:** Must return same dict shape as SABnzbd: `{paused, speed, size_remaining, items_count, items}` with items having `{nzo_id, title, status, progress, size, timeleft}`. Use torrent `id` (int) as `nzo_id`. Format bytes to human-readable strings. `paused` = True when all torrents are stopped.
     - **Scope:** `get_queue_details()`, `pause_item(id)`, `resume_item(id)`, `pause_queue()`, `resume_queue()`
@@ -38,6 +38,10 @@
         - [RED] Write tests for all methods returning False when client is None
         - [GREEN] Implement all methods with format helpers for speed/size/eta
     - **Success:** `pytest tests/test_services/test_transmission_service.py -v` all pass
+    - **Completed:** 2026-03-06
+    - **Learnings:** Format helpers (_format_speed, _format_size, _format_eta) as @staticmethod makes them easily testable without needing a full service instance
+    - **Key Changes:** Added `get_queue_details()`, `pause_item()`, `resume_item()`, `pause_queue()`, `resume_queue()` + 3 format helpers to `src/services/transmission.py`; 30 new tests
+    - **Notes:** Return shape matches SABnzbd exactly — `nzo_id` is torrent int ID, `progress` is 0-100 int
 
 - [ ] **1.3** Phase 1 integration check
     - **Scope:** Run full suite, lint, verify no regressions
