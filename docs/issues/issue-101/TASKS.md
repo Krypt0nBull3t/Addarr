@@ -78,7 +78,7 @@ Add a `/downloads` command that displays a SABnzbd queue dashboard with active d
 
 **Goal:** Wire everything together — `/downloads` command, callback handlers for all interactions, command registration.
 
-- [ ] **3.1** Implement downloads handler and register command
+- [x] **3.1** Implement downloads handler and register command
     - **Context:**
         - **Why:** This is the user-facing integration: `/downloads` sends the dashboard message, callbacks handle tab switching, pagination, per-item pause/resume, pause/resume all, and refresh.
         - **Architecture:** Extend `SabnzbdHandler` in `src/bot/handlers/sabnzbd.py`. Add `handle_downloads` command method (with `@require_auth`), and callback methods for each action. Register callbacks with `pattern=r"^dl_"` prefix. Store current view state (tab, page) in `context.user_data`. Register `/downloads` command in `src/bot/commands.py` under the `sabnzbd.enable` conditional.
@@ -100,3 +100,7 @@ Add a `/downloads` command that displays a SABnzbd queue dashboard with active d
         - [GREEN] Add `CommandHandler("downloads", self.handle_downloads)` and callback handlers to `get_handler()`
         - [GREEN] Register `/downloads` in `build_authenticated_commands()` under sabnzbd conditional
     - **Success:** `python -m pytest tests/test_handlers/test_sabnzbd_handler.py -v` all pass, `python -m pytest --tb=short -q` full suite green, `python -m flake8 .` clean
+    - **Completed:** 2026-03-06
+    - **Learnings:** Callback pattern `^dl_pause_(?!all)` needed negative lookahead to avoid matching `dl_pauseall`. Existing command count tests had hardcoded numbers that needed updating. Edge case tests for empty queue, paused state, history-tab pagination, and resume failure were needed for 100% coverage.
+    - **Key Changes:** Rewrote `src/bot/handlers/sabnzbd.py` with full `/downloads` command, 7 callback handlers, and text formatters. Added `/downloads` to `src/bot/commands.py`. Updated command count expectations in `tests/test_bot/test_commands.py`. 32 handler tests total (17 new).
+    - **Notes:** Handler uses `context.user_data["dl_tab"]` and `context.user_data["dl_page"]` for state between callbacks. No ConversationHandler needed.

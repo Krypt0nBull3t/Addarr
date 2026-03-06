@@ -466,6 +466,30 @@ class TestGetQueueDetails:
         assert result["paused"] is False
 
     @pytest.mark.asyncio
+    async def test_get_queue_details_invalid_percentage(self, sabnzbd_service):
+        bad_queue = {
+            "queue": {
+                "paused": False,
+                "speed": "1 MB/s",
+                "size": "500 MB",
+                "noofslots": 1,
+                "slots": [{
+                    "nzo_id": "nzo_bad",
+                    "filename": "Bad.Percentage",
+                    "status": "Downloading",
+                    "percentage": "not-a-number",
+                    "size": "1 GB",
+                    "timeleft": "1:00:00",
+                }],
+            }
+        }
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload=bad_queue, status=200)
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result["items"][0]["progress"] == 0
+
+    @pytest.mark.asyncio
     async def test_get_queue_details_http_error(self, sabnzbd_service):
         with aioresponses() as m:
             m.get(SABNZBD_API_PATTERN, status=500)
