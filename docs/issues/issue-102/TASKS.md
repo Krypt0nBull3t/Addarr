@@ -43,12 +43,16 @@
     - **Key Changes:** Added `get_queue_details()`, `pause_item()`, `resume_item()`, `pause_queue()`, `resume_queue()` + 3 format helpers to `src/services/transmission.py`; 30 new tests
     - **Notes:** Return shape matches SABnzbd exactly — `nzo_id` is torrent int ID, `progress` is 0-100 int
 
-- [ ] **1.3** Phase 1 integration check
+- [x] **1.3** Phase 1 integration check
     - **Scope:** Run full suite, lint, verify no regressions
     - **Action items:**
         - [GREEN] `pytest --tb=short -q`
         - [GREEN] `python -m flake8 .`
     - **Success:** All pass, no new lint errors
+    - **Completed:** 2026-03-06
+    - **Learnings:** No issues — clean integration
+    - **Key Changes:** None (verification only)
+    - **Notes:** 1728 tests passing, 0 lint errors
 
 ---
 
@@ -56,7 +60,7 @@
 
 **Goal:** Make existing download keyboards client-aware and add translation keys.
 
-- [ ] **2.1** Add client tab support to download keyboards
+- [x] **2.1** Add client tab support to download keyboards
     - **Context:** See plan.md Phase 2. Key refs: `src/bot/keyboards.py:842` (`get_downloads_queue_keyboard`), `src/bot/keyboards.py:945` (`get_downloads_history_keyboard`)
     - **Watch out:** `client=None` means single-client mode (no client tabs) — must be backward compatible. Transmission has no history, so hide History tab when `show_history_tab=False`. Callback data: `dl_client_sab`, `dl_client_tx`.
     - **Scope:** Add `client` and `show_history_tab` params to both keyboard functions, add client tab row
@@ -68,6 +72,10 @@
         - [RED] Write tests for `show_history_tab=False` hides History tab in queue keyboard
         - [GREEN] Add parameters and client tab row logic to both keyboard functions
     - **Success:** All keyboard tests pass, existing behavior preserved
+    - **Completed:** 2026-03-06
+    - **Learnings:** Default params (client=None, show_history_tab=True) preserve backward compatibility perfectly — all 17 existing tests pass unchanged
+    - **Key Changes:** Added `client` and `show_history_tab` params to `get_downloads_queue_keyboard()` and `client` param to `get_downloads_history_keyboard()` in `src/bot/keyboards.py`; 7 new tests
+    - **Notes:** Client tab row uses `dl_client_sab`/`dl_client_tx` callback data, checkmark on active client
 
 - [ ] **2.2** Add and update translation keys
     - **Context:** See plan.md Phase 2. Key refs: `translations/addarr.en-us.yml:224-237` (current Downloads keys)
