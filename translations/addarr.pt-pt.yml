@@ -216,6 +216,25 @@ pt-pt:
   CommandAllMusic: "Listar toda a música"
   CommandTransmission: "Gerir Transmission"
   CommandSabnzbd: "Gerir SABnzbd"
+  CommandDownloads: "Fila de downloads"
+
+  # Downloads dashboard
+  DownloadsTitle: "Downloads"
+  DownloadsEmpty: "Sem itens na fila de downloads."
+  DownloadsHistoryTitle: "Histórico de downloads"
+  DownloadsHistoryEmpty: "Nenhum histórico de downloads disponível."
+  DownloadsSpeed: "Velocidade"
+  DownloadsRemaining: "Restante"
+  DownloadsItems: "Itens"
+  DownloadsPaused: "Fila em pausa"
+  DownloadsResumed: "Fila retomada"
+  DownloadsItemPaused: "Item em pausa."
+  DownloadsItemResumed: "Item retomado."
+  DownloadsPauseError: "Falha ao pausar o item."
+  DownloadsResumeError: "Falha ao retomar o item."
+  DownloadsNotEnabled: "Nenhum cliente de download está ativado."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "Devagar! Por favor aguarde %(seconds)s segundos antes de tentar novamente."

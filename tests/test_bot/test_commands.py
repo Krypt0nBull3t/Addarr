@@ -133,7 +133,8 @@ class TestBuildAuthenticatedCommands:
 
         names = [c.command for c in commands]
         assert "transmission" in names
-        assert len(commands) == 8  # 7 base + 1
+        assert "downloads" in names
+        assert len(commands) == 9  # 7 base + transmission + downloads
 
     def test_sabnzbd_adds_sabnzbd(self, mock_config):
         """SABnzbd enabled adds sabnzbd command."""

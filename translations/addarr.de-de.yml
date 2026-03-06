@@ -216,6 +216,25 @@ de-de:
   CommandAllMusic: "Alle Musik auflisten"
   CommandTransmission: "Transmission verwalten"
   CommandSabnzbd: "SABnzbd verwalten"
+  CommandDownloads: "Download-Warteschlange"
+
+  # Downloads dashboard
+  DownloadsTitle: "Downloads"
+  DownloadsEmpty: "Keine Elemente in der Download-Warteschlange."
+  DownloadsHistoryTitle: "Download-Verlauf"
+  DownloadsHistoryEmpty: "Kein Download-Verlauf verfügbar."
+  DownloadsSpeed: "Geschwindigkeit"
+  DownloadsRemaining: "Verbleibend"
+  DownloadsItems: "Elemente"
+  DownloadsPaused: "Warteschlange pausiert"
+  DownloadsResumed: "Warteschlange fortgesetzt"
+  DownloadsItemPaused: "Element pausiert."
+  DownloadsItemResumed: "Element fortgesetzt."
+  DownloadsPauseError: "Fehler beim Pausieren des Elements."
+  DownloadsResumeError: "Fehler beim Fortsetzen des Elements."
+  DownloadsNotEnabled: "Keine Download-Clients aktiviert."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "Langsam! Bitte warte %(seconds)s Sekunden, bevor du es erneut versuchst."

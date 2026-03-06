@@ -1872,3 +1872,117 @@ class TestDownloadsHistoryKeyboard:
             for row in result.inline_keyboard for btn in row
         ]
         assert "dl_page_0" in callbacks  # Prev button
+
+
+# ---------------------------------------------------------------------------
+# Downloads Queue Keyboard — Client Tab Support
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadsQueueKeyboardClientTabs:
+    SAMPLE_ITEMS = TestDownloadsQueueKeyboard.SAMPLE_ITEMS
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_client_tabs_when_client_none(self, mock_ts):
+        """client=None (single-client mode) shows no client tab row."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, client=None
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_client_sab" not in callbacks
+        assert "dl_client_tx" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_client_tabs_when_sabnzbd(self, mock_ts):
+        """client='sabnzbd' shows client tab row with SABnzbd checked."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, client="sabnzbd"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_client_sab" in callbacks
+        assert "dl_client_tx" in callbacks
+
+        # SABnzbd button should have checkmark
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "dl_client_sab":
+                    assert "\u2713" in btn.text
+                if btn.callback_data == "dl_client_tx":
+                    assert "\u2713" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_client_tabs_when_transmission(self, mock_ts):
+        """client='transmission' shows client tab row with Transmission checked."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, client="transmission"
+        )
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "dl_client_tx":
+                    assert "\u2713" in btn.text
+                if btn.callback_data == "dl_client_sab":
+                    assert "\u2713" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_show_history_tab_false_hides_history(self, mock_ts):
+        """show_history_tab=False removes history tab button."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, show_history_tab=False
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_history" not in callbacks
+        assert "dl_tab_queue" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_show_history_tab_true_default(self, mock_ts):
+        """Default (show_history_tab=True) shows history tab."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_history" in callbacks
+
+
+class TestDownloadsHistoryKeyboardClientTabs:
+    SAMPLE_ITEMS = TestDownloadsHistoryKeyboard.SAMPLE_ITEMS
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_client_tabs_when_client_none(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(
+            self.SAMPLE_ITEMS, page=0, client=None
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_client_sab" not in callbacks
+        assert "dl_client_tx" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_client_tabs_when_sabnzbd(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(
+            self.SAMPLE_ITEMS, page=0, client="sabnzbd"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_client_sab" in callbacks
+        assert "dl_client_tx" in callbacks

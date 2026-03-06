@@ -216,6 +216,25 @@ fr-fr:
   CommandAllMusic: "Lister toute la musique"
   CommandTransmission: "Gérer Transmission"
   CommandSabnzbd: "Gérer SABnzbd"
+  CommandDownloads: "File de téléchargement"
+
+  # Downloads dashboard
+  DownloadsTitle: "Téléchargements"
+  DownloadsEmpty: "Aucun élément dans la file de téléchargement."
+  DownloadsHistoryTitle: "Historique des téléchargements"
+  DownloadsHistoryEmpty: "Aucun historique de téléchargement disponible."
+  DownloadsSpeed: "Vitesse"
+  DownloadsRemaining: "Restant"
+  DownloadsItems: "Éléments"
+  DownloadsPaused: "File en pause"
+  DownloadsResumed: "File reprise"
+  DownloadsItemPaused: "Élément mis en pause."
+  DownloadsItemResumed: "Élément repris."
+  DownloadsPauseError: "Échec de la mise en pause de l'élément."
+  DownloadsResumeError: "Échec de la reprise de l'élément."
+  DownloadsNotEnabled: "Aucun client de téléchargement n'est activé."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "Doucement ! Veuillez patienter %(seconds)s secondes avant de réessayer."

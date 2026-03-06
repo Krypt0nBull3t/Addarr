@@ -216,6 +216,25 @@ pl-pl:
   CommandAllMusic: "Wyświetl całą muzykę"
   CommandTransmission: "Zarządzaj Transmission"
   CommandSabnzbd: "Zarządzaj SABnzbd"
+  CommandDownloads: "Kolejka pobierania"
+
+  # Downloads dashboard
+  DownloadsTitle: "Pobieranie"
+  DownloadsEmpty: "Brak elementów w kolejce pobierania."
+  DownloadsHistoryTitle: "Historia pobierania"
+  DownloadsHistoryEmpty: "Brak historii pobierania."
+  DownloadsSpeed: "Prędkość"
+  DownloadsRemaining: "Pozostało"
+  DownloadsItems: "Elementy"
+  DownloadsPaused: "Kolejka wstrzymana"
+  DownloadsResumed: "Kolejka wznowiona"
+  DownloadsItemPaused: "Element wstrzymany."
+  DownloadsItemResumed: "Element wznowiony."
+  DownloadsPauseError: "Nie udało się wstrzymać elementu."
+  DownloadsResumeError: "Nie udało się wznowić elementu."
+  DownloadsNotEnabled: "Żaden klient pobierania nie jest włączony."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "Zwolnij! Poczekaj %(seconds)s sekund przed ponowną próbą."

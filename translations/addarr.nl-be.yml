@@ -216,6 +216,25 @@ nl-be:
   CommandAllMusic: "Alle muziek weergeven"
   CommandTransmission: "Beheer Transmission"
   CommandSabnzbd: "Beheer SABnzbd"
+  CommandDownloads: "Downloadwachtrij"
+
+  # Downloads dashboard
+  DownloadsTitle: "Downloads"
+  DownloadsEmpty: "Geen items in de downloadwachtrij."
+  DownloadsHistoryTitle: "Downloadgeschiedenis"
+  DownloadsHistoryEmpty: "Geen downloadgeschiedenis beschikbaar."
+  DownloadsSpeed: "Snelheid"
+  DownloadsRemaining: "Resterend"
+  DownloadsItems: "Items"
+  DownloadsPaused: "Wachtrij gepauzeerd"
+  DownloadsResumed: "Wachtrij hervat"
+  DownloadsItemPaused: "Item gepauzeerd."
+  DownloadsItemResumed: "Item hervat."
+  DownloadsPauseError: "Kan item niet pauzeren."
+  DownloadsResumeError: "Kan item niet hervatten."
+  DownloadsNotEnabled: "Geen downloadclients ingeschakeld."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "Rustig aan! Wacht %(seconds)s seconden voor je het opnieuw probeert."

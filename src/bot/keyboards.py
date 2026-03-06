@@ -839,16 +839,58 @@ def _build_queue_filter_row(active_filter, translation):
     return row
 
 
+def _build_dl_pagination_row(page: int, total_pages: int) -> list:
+    """Build pagination nav row for downloads keyboards."""
+    if total_pages <= 1:
+        return []
+    nav_row = []
+    if page > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
+            )
+        )
+    nav_row.append(
+        InlineKeyboardButton(
+            f"{page + 1}/{total_pages}", callback_data="dl_noop"
+        )
+    )
+    if page < total_pages - 1:
+        nav_row.append(
+            InlineKeyboardButton(
+                "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
+            )
+        )
+    return nav_row
+
+
+def _build_dl_client_tab_row(client: str) -> list:
+    """Build client switcher row for multi-client downloads keyboards."""
+    sab_mark = "\u2713 " if client == "sabnzbd" else ""
+    tx_mark = "\u2713 " if client == "transmission" else ""
+    return [
+        InlineKeyboardButton(
+            f"{sab_mark}SABnzbd", callback_data="dl_client_sab"
+        ),
+        InlineKeyboardButton(
+            f"{tx_mark}Transmission", callback_data="dl_client_tx"
+        ),
+    ]
+
+
 def get_downloads_queue_keyboard(
     items: list, page: int, paused: bool = False, page_size: int = 5,
+    client: str = None, show_history_tab: bool = True,
 ) -> InlineKeyboardMarkup:
-    """Get keyboard for SABnzbd downloads queue view.
+    """Get keyboard for downloads queue view.
 
     Args:
         items: List of queue item dicts with nzo_id, title, status, progress.
         page: Current page (0-indexed).
         paused: Whether the entire queue is paused.
         page_size: Number of items per page.
+        client: Active client name ('sabnzbd'/'transmission') or None for single-client.
+        show_history_tab: Whether to show the History tab (False for Transmission-only).
     """
     keyboard = []
 
@@ -887,36 +929,27 @@ def get_downloads_queue_keyboard(
             ])
 
     # Pagination row
-    if total_pages > 1:
-        nav_row = []
-        if page > 0:
-            nav_row.append(
-                InlineKeyboardButton(
-                    "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
-                )
-            )
-        nav_row.append(
-            InlineKeyboardButton(
-                f"{page + 1}/{total_pages}", callback_data="dl_noop"
-            )
-        )
-        if page < total_pages - 1:
-            nav_row.append(
-                InlineKeyboardButton(
-                    "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
-                )
-            )
+    nav_row = _build_dl_pagination_row(page, total_pages)
+    if nav_row:
         keyboard.append(nav_row)
 
+    # Client tab row (multi-client mode only)
+    if client is not None:
+        keyboard.append(_build_dl_client_tab_row(client))
+
     # Tab row
-    keyboard.append([
+    tab_row = [
         InlineKeyboardButton(
             "\u2713 \U0001f4cb Queue", callback_data="dl_tab_queue"
         ),
-        InlineKeyboardButton(
-            "\U0001f4dc History", callback_data="dl_tab_history"
-        ),
-    ])
+    ]
+    if show_history_tab:
+        tab_row.append(
+            InlineKeyboardButton(
+                "\U0001f4dc History", callback_data="dl_tab_history"
+            )
+        )
+    keyboard.append(tab_row)
 
     # Action row
     action_row = []
@@ -944,13 +977,15 @@ def get_downloads_queue_keyboard(
 
 def get_downloads_history_keyboard(
     items: list, page: int, page_size: int = 5,
+    client: str = None,
 ) -> InlineKeyboardMarkup:
-    """Get keyboard for SABnzbd downloads history view.
+    """Get keyboard for downloads history view.
 
     Args:
         items: List of history item dicts with name, status, size.
         page: Current page (0-indexed).
         page_size: Number of items per page.
+        client: Active client name ('sabnzbd'/'transmission') or None for single-client.
     """
     keyboard = []
 
@@ -971,26 +1006,13 @@ def get_downloads_history_keyboard(
         ])
 
     # Pagination row
-    if total_pages > 1:
-        nav_row = []
-        if page > 0:
-            nav_row.append(
-                InlineKeyboardButton(
-                    "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
-                )
-            )
-        nav_row.append(
-            InlineKeyboardButton(
-                f"{page + 1}/{total_pages}", callback_data="dl_noop"
-            )
-        )
-        if page < total_pages - 1:
-            nav_row.append(
-                InlineKeyboardButton(
-                    "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
-                )
-            )
+    nav_row = _build_dl_pagination_row(page, total_pages)
+    if nav_row:
         keyboard.append(nav_row)
+
+    # Client tab row (multi-client mode only)
+    if client is not None:
+        keyboard.append(_build_dl_client_tab_row(client))
 
     # Tab row
     keyboard.append([

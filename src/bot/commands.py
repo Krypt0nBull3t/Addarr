@@ -68,6 +68,9 @@ def build_authenticated_commands() -> list:
 
     if config.get("sabnzbd", {}).get("enable", False):
         commands.append(BotCommand("sabnzbd", translation.get_text("CommandSabnzbd")))
+
+    if (config.get("sabnzbd", {}).get("enable", False)
+            or config.get("transmission", {}).get("enable", False)):
         commands.append(BotCommand("downloads", translation.get_text("CommandDownloads")))
 
     return commands

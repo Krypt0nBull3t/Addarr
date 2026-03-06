@@ -39,12 +39,12 @@ class TransmissionClient:
         """Make RPC request with session ID negotiation (max 1 retry on 409)."""
         payload = {"method": method, "arguments": arguments or {}}
 
-        for attempt in range(2):
-            headers = {}
-            if self._session_id:
-                headers["X-Transmission-Session-Id"] = self._session_id
+        async with aiohttp.ClientSession() as session:
+            for attempt in range(2):
+                headers = {}
+                if self._session_id:
+                    headers["X-Transmission-Session-Id"] = self._session_id
 
-            async with aiohttp.ClientSession() as session:
                 async with session.post(
                     self.rpc_url,
                     json=payload,
@@ -72,6 +72,34 @@ class TransmissionClient:
         return await self._make_request(
             "session-set", {"alt-speed-enabled": enabled}
         )
+
+    async def get_torrents(self) -> Dict[str, Any]:
+        """Get all torrents with key fields."""
+        return await self._make_request(
+            "torrent-get",
+            {
+                "fields": [
+                    "id", "name", "status", "percentDone",
+                    "rateDownload", "eta", "sizeWhenDone", "totalSize",
+                ]
+            },
+        )
+
+    async def pause_torrent(self, torrent_id: int) -> Dict[str, Any]:
+        """Pause a single torrent by ID."""
+        return await self._make_request("torrent-stop", {"ids": [torrent_id]})
+
+    async def resume_torrent(self, torrent_id: int) -> Dict[str, Any]:
+        """Resume a single torrent by ID."""
+        return await self._make_request("torrent-start", {"ids": [torrent_id]})
+
+    async def stop_all(self) -> Dict[str, Any]:
+        """Stop all torrents."""
+        return await self._make_request("torrent-stop")
+
+    async def start_all(self) -> Dict[str, Any]:
+        """Start all torrents."""
+        return await self._make_request("torrent-start")
 
     async def test_connection(self) -> bool:
         """Test connection to Transmission."""

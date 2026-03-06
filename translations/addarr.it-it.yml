@@ -216,6 +216,25 @@ it-it:
   CommandAllMusic: "Elenca tutta la musica"
   CommandTransmission: "Gestisci Transmission"
   CommandSabnzbd: "Gestisci SABnzbd"
+  CommandDownloads: "Coda di download"
+
+  # Downloads dashboard
+  DownloadsTitle: "Download"
+  DownloadsEmpty: "Nessun elemento nella coda di download."
+  DownloadsHistoryTitle: "Cronologia download"
+  DownloadsHistoryEmpty: "Nessuna cronologia di download disponibile."
+  DownloadsSpeed: "Velocità"
+  DownloadsRemaining: "Rimanente"
+  DownloadsItems: "Elementi"
+  DownloadsPaused: "Coda in pausa"
+  DownloadsResumed: "Coda ripresa"
+  DownloadsItemPaused: "Elemento in pausa."
+  DownloadsItemResumed: "Elemento ripreso."
+  DownloadsPauseError: "Impossibile mettere in pausa l'elemento."
+  DownloadsResumeError: "Impossibile riprendere l'elemento."
+  DownloadsNotEnabled: "Nessun client di download abilitato."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "Rallenta! Attendi %(seconds)s secondi prima di riprovare."

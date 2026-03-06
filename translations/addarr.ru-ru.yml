@@ -216,6 +216,25 @@ ru-ru:
   CommandAllMusic: "Список всей музыки"
   CommandTransmission: "Управление Transmission"
   CommandSabnzbd: "Управление SABnzbd"
+  CommandDownloads: "Очередь загрузок"
+
+  # Downloads dashboard
+  DownloadsTitle: "Загрузки"
+  DownloadsEmpty: "В очереди загрузок нет элементов."
+  DownloadsHistoryTitle: "История загрузок"
+  DownloadsHistoryEmpty: "История загрузок недоступна."
+  DownloadsSpeed: "Скорость"
+  DownloadsRemaining: "Осталось"
+  DownloadsItems: "Элементы"
+  DownloadsPaused: "Очередь приостановлена"
+  DownloadsResumed: "Очередь возобновлена"
+  DownloadsItemPaused: "Элемент приостановлен."
+  DownloadsItemResumed: "Элемент возобновлён."
+  DownloadsPauseError: "Не удалось приостановить элемент."
+  DownloadsResumeError: "Не удалось возобновить элемент."
+  DownloadsNotEnabled: "Ни один клиент загрузок не включён."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "Подождите %(seconds)s секунд перед повторной попыткой."

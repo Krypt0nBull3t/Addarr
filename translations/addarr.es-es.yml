@@ -216,6 +216,25 @@ es-es:
   CommandAllMusic: "Listar toda la música"
   CommandTransmission: "Gestionar Transmission"
   CommandSabnzbd: "Gestionar SABnzbd"
+  CommandDownloads: "Cola de descargas"
+
+  # Downloads dashboard
+  DownloadsTitle: "Descargas"
+  DownloadsEmpty: "No hay elementos en la cola de descargas."
+  DownloadsHistoryTitle: "Historial de descargas"
+  DownloadsHistoryEmpty: "No hay historial de descargas disponible."
+  DownloadsSpeed: "Velocidad"
+  DownloadsRemaining: "Restante"
+  DownloadsItems: "Elementos"
+  DownloadsPaused: "Cola en pausa"
+  DownloadsResumed: "Cola reanudada"
+  DownloadsItemPaused: "Elemento en pausa."
+  DownloadsItemResumed: "Elemento reanudado."
+  DownloadsPauseError: "Error al pausar el elemento."
+  DownloadsResumeError: "Error al reanudar el elemento."
+  DownloadsNotEnabled: "No hay clientes de descarga habilitados."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
 
   # Rate limiting
   RateLimitExceeded: "¡Demasiado rápido! Por favor espera %(seconds)s segundos antes de intentarlo de nuevo."
