@@ -170,7 +170,7 @@
 
 **Goal:** Test the authentication conversation flow and systematic cancel-at-every-stage coverage.
 
-- [ ] **4.1** Auth flow and comprehensive cancel tests
+- [x] **4.1** Auth flow and comprehensive cancel tests
     - **Context:** Auth flow: `AuthHandler` (`src/bot/handlers/auth.py:54`) uses ConversationHandler with PASSWORD state. Entry via `/auth` command. User types password, checked against `config["telegram"]["password"]` (mock: "test-pass"). On success, user ID added to `_authenticated_users` and persisted to config.yaml (mocked via MockConfig.save()). Cancel tests: every ConversationHandler state should handle `menu_cancel` callback or `/cancel` command gracefully.
     - **Watch out:**
         - Auth handler writes to `config.yaml` via `yaml.dump` — must mock file I/O or the `CONFIG_PATH` constant
@@ -188,6 +188,16 @@
         - [GREEN] Mock `register_commands_for_chat` to prevent bot API calls during auth
         - [GREEN] Implement any missing harness helpers discovered during these tests
     - **Success:** Full auth round-trip works, cancel is tested at every conversation stage
+    - **Completed:** 2026-03-06
+    - **Learnings:**
+        - `_save_authenticated_users` must be patched to avoid config.yaml file I/O during tests
+        - `check_password` calls `message.delete()` first (deleteMessage endpoint), then `chat.send_message` — both handled by fake transport
+        - `register_commands_for_chat` calls `bot.set_my_commands` which goes through fake transport returning True for unknown endpoints
+        - Parametrized cancel test cleanly covers all 3 media conversation stages
+    - **Key Changes:**
+        - Created `tests/integration/test_auth_flow.py` — 3 tests (correct password, wrong password, auth-then-movie)
+        - Created `tests/integration/test_cancel_flow.py` — parametrized cancel at every stage + /cancel command fallback
+    - **Notes:** Auth flow tests require discarding pre-seeded user (12345) and re-adding after password check
 
 ---
 
