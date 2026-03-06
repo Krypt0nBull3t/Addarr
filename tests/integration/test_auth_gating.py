@@ -10,6 +10,7 @@ Validates that:
 import pytest
 
 from src.bot.handlers.auth import AuthHandler
+from src.bot.handlers.media.dispatch import SEARCHING
 
 
 @pytest.mark.asyncio
@@ -38,5 +39,4 @@ async def test_conversation_state_after_command(harness):
     """After /movie, harness reports conversation is in SEARCHING state."""
     await harness.send_command("/movie")
     state = harness.get_conversation_state("media_conversation", 12345, 12345)
-    # SEARCHING = 1 (from dispatch.py)
-    assert state == 1
+    assert state == SEARCHING

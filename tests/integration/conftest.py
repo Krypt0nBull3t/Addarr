@@ -109,6 +109,11 @@ _FAKE_RESULTS = {
 _update_counter = 0
 
 
+def _reset_update_counter():
+    global _update_counter
+    _update_counter = 0
+
+
 def _next_update_id():
     global _update_counter
     _update_counter += 1
@@ -356,35 +361,32 @@ def aio_mock():
         yield m
 
 
-@pytest.fixture
-async def harness():
-    """Provide a BotHarness with a fully wired Application."""
-    # Pre-seed authenticated user so most tests pass auth checks
-    AuthHandler._authenticated_users.add(12345)
-
-    app = _build_application()
+async def _make_harness(app):
+    """Shared helper: patch transport, initialize, yield, shutdown."""
+    _reset_update_counter()
     h = BotHarness(app)
 
-    # Patch do_request on BOTH HTTPXRequest instances (regular + getUpdates)
-    # This must happen BEFORE initialize() so getMe doesn't hit the network
     with patch(
         "telegram.request.HTTPXRequest.do_request",
         side_effect=h._fake_do_request,
     ):
         await app.initialize()
         yield h
+        await app.shutdown()
 
-    await app.shutdown()
+
+@pytest.fixture
+async def harness():
+    """Provide a BotHarness with a fully wired Application."""
+    AuthHandler._authenticated_users.add(12345)
+    app = _build_application()
+    async for h in _make_harness(app):
+        yield h
 
 
 @pytest.fixture
 async def downloads_harness():
-    """Provide a BotHarness with downloads handlers enabled.
-
-    Patches TransmissionService.is_enabled and SABnzbdService.is_enabled
-    to return True *before* handler registration so DownloadsHandler
-    registers its handlers.
-    """
+    """Provide a BotHarness with downloads handlers enabled."""
     AuthHandler._authenticated_users.add(12345)
 
     with (
@@ -392,13 +394,5 @@ async def downloads_harness():
         patch.object(SABnzbdService, "is_enabled", return_value=True),
     ):
         app = _build_application()
-        h = BotHarness(app)
-
-        with patch(
-            "telegram.request.HTTPXRequest.do_request",
-            side_effect=h._fake_do_request,
-        ):
-            await app.initialize()
+        async for h in _make_harness(app):
             yield h
-
-    await app.shutdown()

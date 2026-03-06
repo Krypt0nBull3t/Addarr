@@ -8,6 +8,7 @@ import pytest
 from unittest.mock import patch
 
 from src.bot.handlers.auth import AuthHandler
+from src.bot.handlers.media.dispatch import SEARCHING
 
 
 @pytest.mark.asyncio
@@ -58,4 +59,4 @@ async def test_auth_then_movie(harness):
     assert resp is not None
     assert "Title" in resp.text
     state = harness.get_conversation_state("media_conversation", 12345, 12345)
-    assert state == 1  # SEARCHING
+    assert state == SEARCHING
