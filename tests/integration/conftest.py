@@ -12,6 +12,7 @@ from typing import Optional
 from unittest.mock import patch
 
 import pytest
+from aioresponses import aioresponses
 from telegram import Update
 from telegram.ext import Application, ConversationHandler
 
@@ -345,6 +346,13 @@ def _build_application() -> Application:
 
 
 # ---- Fixtures ----------------------------------------------------------------
+
+@pytest.fixture
+def aio_mock():
+    """Provide aioresponses mock for async HTTP requests."""
+    with aioresponses() as m:
+        yield m
+
 
 @pytest.fixture
 async def harness():

@@ -73,7 +73,7 @@
 
 **Goal:** Friendly `aioresponses` wrappers for Radarr, Sonarr, and Lidarr APIs that make test setup concise and readable.
 
-- [ ] **2.1** Build API mock helpers for Radarr, Sonarr, Lidarr
+- [x] **2.1** Build API mock helpers for Radarr, Sonarr, Lidarr
     - **Context:** See plan.md section 4. API clients use `BaseApiClient._make_request()` (`src/api/base.py:131`) which calls `session.request(method, url)` via `aiohttp`. URL pattern: `http://localhost:{port}/api/v3/{endpoint}` with `X-Api-Key` header. Each mock helper wraps `aioresponses` to register URL patterns for search, quality profiles, root folders, and add endpoints. Radarr port 7878, Sonarr 8989, Lidarr 8686 (from `conftest.py` mock config).
     - **Watch out:**
         - `aioresponses` must be installed as test dependency — check if it's already in requirements or test deps
@@ -94,6 +94,16 @@
         - [GREEN] Implement `SonarrMockHelper` and `LidarrMockHelper` following same pattern
         - [GREEN] Add `mock_radarr`, `mock_sonarr`, `mock_lidarr` fixtures to integration conftest
     - **Success:** API mock helpers correctly intercept aiohttp calls, tests pass without network access
+    - **Completed:** 2026-03-06
+    - **Learnings:**
+        - Search endpoints use URL pattern matching (regex) because query params vary — `_url_pattern()` wraps base URL with optional `?` suffix
+        - Radarr/Sonarr use `qualityProfile` (camelCase) but Lidarr uses `qualityprofile` (lowercase) — mock helpers must match per-service
+        - `aioresponses` fixture added directly to integration conftest since test_api conftest is directory-scoped
+    - **Key Changes:**
+        - Created `tests/integration/api_mocks.py` with `BaseMockHelper`, `RadarrMockHelper`, `SonarrMockHelper`, `LidarrMockHelper`
+        - Created `tests/integration/test_api_mocks.py` with 3 tests
+        - Added `aio_mock` fixture to `tests/integration/conftest.py`
+    - **Notes:** `add_returns()` method at 98% coverage — will be exercised by Phase 3 media flow tests
 
 ---
 
