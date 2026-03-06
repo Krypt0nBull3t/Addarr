@@ -240,38 +240,6 @@ SESSION_RESPONSE = {
 
 
 class TestTransmissionFormatHelpers:
-    def test_format_speed_bytes(self):
-        from src.services.transmission import TransmissionService
-        assert TransmissionService._format_speed(500) == "500 B/s"
-
-    def test_format_speed_kb(self):
-        from src.services.transmission import TransmissionService
-        assert TransmissionService._format_speed(2048) == "2.0 KB/s"
-
-    def test_format_speed_mb(self):
-        from src.services.transmission import TransmissionService
-        assert TransmissionService._format_speed(1048576) == "1.0 MB/s"
-
-    def test_format_speed_gb(self):
-        from src.services.transmission import TransmissionService
-        assert TransmissionService._format_speed(1073741824) == "1.0 GB/s"
-
-    def test_format_size_bytes(self):
-        from src.services.transmission import TransmissionService
-        assert TransmissionService._format_size(500) == "500 B"
-
-    def test_format_size_kb(self):
-        from src.services.transmission import TransmissionService
-        assert TransmissionService._format_size(2048) == "2.0 KB"
-
-    def test_format_size_mb(self):
-        from src.services.transmission import TransmissionService
-        assert TransmissionService._format_size(1048576) == "1.0 MB"
-
-    def test_format_size_gb(self):
-        from src.services.transmission import TransmissionService
-        assert TransmissionService._format_size(4294967296) == "4.00 GB"
-
     def test_format_eta_unknown(self):
         from src.services.transmission import TransmissionService
         assert TransmissionService._format_eta(-1) == "Unknown"
@@ -322,7 +290,7 @@ class TestTransmissionQueueDetails:
 
     @pytest.mark.asyncio
     async def test_get_queue_details_maps_status_codes(self):
-        """Status codes mapped: 0=Stopped, 4=Downloading, 6=Seeding."""
+        """Status codes mapped: 0=Paused, 4=Downloading, 6=Seeding."""
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
@@ -334,11 +302,11 @@ class TestTransmissionQueueDetails:
         result = await service.get_queue_details()
 
         assert result["items"][0]["status"] == "Downloading"
-        assert result["items"][1]["status"] == "Stopped"
+        assert result["items"][1]["status"] == "Paused"
 
     @pytest.mark.asyncio
     async def test_get_queue_details_paused_when_all_stopped(self):
-        """paused=True when all torrents have status 0 (Stopped)."""
+        """paused=True when all torrents have status 0 (Paused)."""
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()

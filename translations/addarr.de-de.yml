@@ -227,6 +227,7 @@ de-de:
   DownloadsRemaining: "Verbleibend"
   DownloadsItems: "Elemente"
   DownloadsPaused: "Warteschlange pausiert"
+  DownloadsResumed: "Warteschlange fortgesetzt"
   DownloadsItemPaused: "Element pausiert."
   DownloadsItemResumed: "Element fortgesetzt."
   DownloadsPauseError: "Fehler beim Pausieren des Elements."

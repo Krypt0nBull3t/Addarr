@@ -227,6 +227,7 @@ es-es:
   DownloadsRemaining: "Restante"
   DownloadsItems: "Elementos"
   DownloadsPaused: "Cola en pausa"
+  DownloadsResumed: "Cola reanudada"
   DownloadsItemPaused: "Elemento en pausa."
   DownloadsItemResumed: "Elemento reanudado."
   DownloadsPauseError: "Error al pausar el elemento."

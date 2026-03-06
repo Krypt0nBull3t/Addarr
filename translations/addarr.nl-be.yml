@@ -227,6 +227,7 @@ nl-be:
   DownloadsRemaining: "Resterend"
   DownloadsItems: "Items"
   DownloadsPaused: "Wachtrij gepauzeerd"
+  DownloadsResumed: "Wachtrij hervat"
   DownloadsItemPaused: "Item gepauzeerd."
   DownloadsItemResumed: "Item hervat."
   DownloadsPauseError: "Kan item niet pauzeren."

@@ -8,6 +8,7 @@ Description: Transmission service for Addarr. Handles business logic for Transmi
 from typing import Any, Dict, Optional
 from ..api.transmission import TransmissionClient
 from ..config.settings import config
+from ..utils.helpers import format_bytes
 from ..utils.logger import get_logger
 
 logger = get_logger("addarr.services.transmission")
@@ -79,7 +80,7 @@ class TransmissionService:
     # ------------------------------------------------------------------
 
     _STATUS_MAP = {
-        0: "Stopped",
+        0: "Paused",
         1: "Check Wait",
         2: "Checking",
         3: "Queued",
@@ -87,28 +88,6 @@ class TransmissionService:
         5: "Seed Wait",
         6: "Seeding",
     }
-
-    @staticmethod
-    def _format_speed(bytes_per_sec: int) -> str:
-        """Format bytes/sec to human-readable speed string."""
-        if bytes_per_sec < 1024:
-            return f"{bytes_per_sec} B/s"
-        elif bytes_per_sec < 1048576:
-            return f"{bytes_per_sec / 1024:.1f} KB/s"
-        elif bytes_per_sec < 1073741824:
-            return f"{bytes_per_sec / 1048576:.1f} MB/s"
-        return f"{bytes_per_sec / 1073741824:.1f} GB/s"
-
-    @staticmethod
-    def _format_size(size_bytes: int) -> str:
-        """Format bytes to human-readable size string."""
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        elif size_bytes < 1048576:
-            return f"{size_bytes / 1024:.1f} KB"
-        elif size_bytes < 1073741824:
-            return f"{size_bytes / 1048576:.1f} MB"
-        return f"{size_bytes / 1073741824:.2f} GB"
 
     @staticmethod
     def _format_eta(eta_seconds: int) -> str:
@@ -162,14 +141,14 @@ class TransmissionService:
                     "title": t.get("name", ""),
                     "status": self._STATUS_MAP.get(status_code, "Unknown"),
                     "progress": int(percent_done * 100),
-                    "size": self._format_size(size_when_done),
+                    "size": format_bytes(size_when_done),
                     "timeleft": self._format_eta(t.get("eta", -1)),
                 })
 
             return {
                 "paused": all_stopped and len(torrents) > 0,
-                "speed": self._format_speed(total_download_speed),
-                "size_remaining": self._format_size(total_remaining),
+                "speed": format_bytes(total_download_speed) + "/s",
+                "size_remaining": format_bytes(total_remaining),
                 "items_count": len(items),
                 "items": items,
             }

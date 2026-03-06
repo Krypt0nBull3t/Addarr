@@ -227,6 +227,7 @@ fr-fr:
   DownloadsRemaining: "Restant"
   DownloadsItems: "Éléments"
   DownloadsPaused: "File en pause"
+  DownloadsResumed: "File reprise"
   DownloadsItemPaused: "Élément mis en pause."
   DownloadsItemResumed: "Élément repris."
   DownloadsPauseError: "Échec de la mise en pause de l'élément."

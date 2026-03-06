@@ -39,12 +39,12 @@ class TransmissionClient:
         """Make RPC request with session ID negotiation (max 1 retry on 409)."""
         payload = {"method": method, "arguments": arguments or {}}
 
-        for attempt in range(2):
-            headers = {}
-            if self._session_id:
-                headers["X-Transmission-Session-Id"] = self._session_id
+        async with aiohttp.ClientSession() as session:
+            for attempt in range(2):
+                headers = {}
+                if self._session_id:
+                    headers["X-Transmission-Session-Id"] = self._session_id
 
-            async with aiohttp.ClientSession() as session:
                 async with session.post(
                     self.rpc_url,
                     json=payload,

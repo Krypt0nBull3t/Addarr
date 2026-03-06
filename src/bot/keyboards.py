@@ -839,6 +839,45 @@ def _build_queue_filter_row(active_filter, translation):
     return row
 
 
+def _build_dl_pagination_row(page: int, total_pages: int) -> list:
+    """Build pagination nav row for downloads keyboards."""
+    if total_pages <= 1:
+        return []
+    nav_row = []
+    if page > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
+            )
+        )
+    nav_row.append(
+        InlineKeyboardButton(
+            f"{page + 1}/{total_pages}", callback_data="dl_noop"
+        )
+    )
+    if page < total_pages - 1:
+        nav_row.append(
+            InlineKeyboardButton(
+                "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
+            )
+        )
+    return nav_row
+
+
+def _build_dl_client_tab_row(client: str) -> list:
+    """Build client switcher row for multi-client downloads keyboards."""
+    sab_mark = "\u2713 " if client == "sabnzbd" else ""
+    tx_mark = "\u2713 " if client == "transmission" else ""
+    return [
+        InlineKeyboardButton(
+            f"{sab_mark}SABnzbd", callback_data="dl_client_sab"
+        ),
+        InlineKeyboardButton(
+            f"{tx_mark}Transmission", callback_data="dl_client_tx"
+        ),
+    ]
+
+
 def get_downloads_queue_keyboard(
     items: list, page: int, paused: bool = False, page_size: int = 5,
     client: str = None, show_history_tab: bool = True,
@@ -890,39 +929,13 @@ def get_downloads_queue_keyboard(
             ])
 
     # Pagination row
-    if total_pages > 1:
-        nav_row = []
-        if page > 0:
-            nav_row.append(
-                InlineKeyboardButton(
-                    "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
-                )
-            )
-        nav_row.append(
-            InlineKeyboardButton(
-                f"{page + 1}/{total_pages}", callback_data="dl_noop"
-            )
-        )
-        if page < total_pages - 1:
-            nav_row.append(
-                InlineKeyboardButton(
-                    "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
-                )
-            )
+    nav_row = _build_dl_pagination_row(page, total_pages)
+    if nav_row:
         keyboard.append(nav_row)
 
     # Client tab row (multi-client mode only)
     if client is not None:
-        sab_mark = "\u2713 " if client == "sabnzbd" else ""
-        tx_mark = "\u2713 " if client == "transmission" else ""
-        keyboard.append([
-            InlineKeyboardButton(
-                f"{sab_mark}SABnzbd", callback_data="dl_client_sab"
-            ),
-            InlineKeyboardButton(
-                f"{tx_mark}Transmission", callback_data="dl_client_tx"
-            ),
-        ])
+        keyboard.append(_build_dl_client_tab_row(client))
 
     # Tab row
     tab_row = [
@@ -993,39 +1006,13 @@ def get_downloads_history_keyboard(
         ])
 
     # Pagination row
-    if total_pages > 1:
-        nav_row = []
-        if page > 0:
-            nav_row.append(
-                InlineKeyboardButton(
-                    "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
-                )
-            )
-        nav_row.append(
-            InlineKeyboardButton(
-                f"{page + 1}/{total_pages}", callback_data="dl_noop"
-            )
-        )
-        if page < total_pages - 1:
-            nav_row.append(
-                InlineKeyboardButton(
-                    "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
-                )
-            )
+    nav_row = _build_dl_pagination_row(page, total_pages)
+    if nav_row:
         keyboard.append(nav_row)
 
     # Client tab row (multi-client mode only)
     if client is not None:
-        sab_mark = "\u2713 " if client == "sabnzbd" else ""
-        tx_mark = "\u2713 " if client == "transmission" else ""
-        keyboard.append([
-            InlineKeyboardButton(
-                f"{sab_mark}SABnzbd", callback_data="dl_client_sab"
-            ),
-            InlineKeyboardButton(
-                f"{tx_mark}Transmission", callback_data="dl_client_tx"
-            ),
-        ])
+        keyboard.append(_build_dl_client_tab_row(client))
 
     # Tab row
     keyboard.append([

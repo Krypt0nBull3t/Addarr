@@ -227,6 +227,7 @@ pl-pl:
   DownloadsRemaining: "Pozostało"
   DownloadsItems: "Elementy"
   DownloadsPaused: "Kolejka wstrzymana"
+  DownloadsResumed: "Kolejka wznowiona"
   DownloadsItemPaused: "Element wstrzymany."
   DownloadsItemResumed: "Element wznowiony."
   DownloadsPauseError: "Nie udało się wstrzymać elementu."

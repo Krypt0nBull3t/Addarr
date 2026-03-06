@@ -227,6 +227,7 @@ pt-pt:
   DownloadsRemaining: "Restante"
   DownloadsItems: "Itens"
   DownloadsPaused: "Fila em pausa"
+  DownloadsResumed: "Fila retomada"
   DownloadsItemPaused: "Item em pausa."
   DownloadsItemResumed: "Item retomado."
   DownloadsPauseError: "Falha ao pausar o item."

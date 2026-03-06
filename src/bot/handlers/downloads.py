@@ -222,20 +222,10 @@ class DownloadsHandler:
         query = update.callback_query
         raw_id = query.data.replace("dl_pause_", "")
         item_id = self._parse_item_id(raw_id, context)
-
-        service = self._get_active_service(context)
-        success = await service.pause_item(item_id)
-
-        if success:
-            await query.answer(
-                text=self.translation.get_text("DownloadsItemPaused")
-            )
-            await self._refresh_current_view(query, context)
-        else:
-            await query.answer(
-                text=self.translation.get_text("DownloadsPauseError"),
-                show_alert=True,
-            )
+        await self._do_action(
+            query, context, "pause_item", item_id,
+            "DownloadsItemPaused", "DownloadsPauseError",
+        )
 
     async def handle_downloads_resume_item(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -244,48 +234,51 @@ class DownloadsHandler:
         query = update.callback_query
         raw_id = query.data.replace("dl_resume_", "")
         item_id = self._parse_item_id(raw_id, context)
-
-        service = self._get_active_service(context)
-        success = await service.resume_item(item_id)
-
-        if success:
-            await query.answer(
-                text=self.translation.get_text("DownloadsItemResumed")
-            )
-            await self._refresh_current_view(query, context)
-        else:
-            await query.answer(
-                text=self.translation.get_text("DownloadsResumeError"),
-                show_alert=True,
-            )
+        await self._do_action(
+            query, context, "resume_item", item_id,
+            "DownloadsItemResumed", "DownloadsResumeError",
+        )
 
     async def handle_downloads_pauseall(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Handle pause all."""
-        query = update.callback_query
-        service = self._get_active_service(context)
-        await service.pause_queue()
-        await query.answer(
-            text=self.translation.get_text("DownloadsPaused")
+        await self._do_action(
+            update.callback_query, context, "pause_queue", None,
+            "DownloadsPaused", "DownloadsPauseError",
         )
-        await self._refresh_current_view(query, context)
 
     async def handle_downloads_resumeall(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Handle resume all."""
-        query = update.callback_query
-        service = self._get_active_service(context)
-        await service.resume_queue()
-        await query.answer(
-            text=self.translation.get_text("DownloadsItemResumed")
+        await self._do_action(
+            update.callback_query, context, "resume_queue", None,
+            "DownloadsResumed", "DownloadsResumeError",
         )
-        await self._refresh_current_view(query, context)
 
     # -----------------------------------------------------------------
     # Private helpers
     # -----------------------------------------------------------------
+
+    async def _do_action(
+        self, query, context, method_name, item_id,
+        success_key, error_key,
+    ):
+        """Execute a service action and show result toast."""
+        service = self._get_active_service(context)
+        method = getattr(service, method_name)
+        success = await (method(item_id) if item_id is not None else method())
+        if success:
+            await query.answer(
+                text=self.translation.get_text(success_key)
+            )
+            await self._refresh_current_view(query, context)
+        else:
+            await query.answer(
+                text=self.translation.get_text(error_key),
+                show_alert=True,
+            )
 
     async def _refresh_current_view(self, query, context):
         """Re-fetch data and edit the message for the current tab/page."""
@@ -296,7 +289,7 @@ class DownloadsHandler:
 
         if tab == "history" and self._show_history_tab(context):
             history = await service.get_history()
-            text = self._format_history_text(history)
+            text = self._format_history_text(history, page=page)
             keyboard = get_downloads_history_keyboard(
                 history["items"], page=page, client=client_param,
             )
@@ -336,8 +329,8 @@ class DownloadsHandler:
 
         return "\n".join(lines)
 
-    def _format_history_text(self, history):
-        """Format history data into display text."""
+    def _format_history_text(self, history, page=0, page_size=5):
+        """Format history data into display text for the given page."""
         t = self.translation.get_text
         title = t("DownloadsHistoryTitle")
         lines = [f"\U0001f4dc {title}\n"]
@@ -346,7 +339,9 @@ class DownloadsHandler:
         if not items:
             lines.append(t("DownloadsHistoryEmpty"))
         else:
-            for i, item in enumerate(items[:10], 1):
+            start = page * page_size
+            page_items = items[start:start + page_size]
+            for i, item in enumerate(page_items, start + 1):
                 name = item.get("name", "")
                 status = item.get("status", "")
                 size = item.get("size", "")

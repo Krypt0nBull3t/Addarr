@@ -227,6 +227,7 @@ it-it:
   DownloadsRemaining: "Rimanente"
   DownloadsItems: "Elementi"
   DownloadsPaused: "Coda in pausa"
+  DownloadsResumed: "Coda ripresa"
   DownloadsItemPaused: "Elemento in pausa."
   DownloadsItemResumed: "Elemento ripreso."
   DownloadsPauseError: "Impossibile mettere in pausa l'elemento."

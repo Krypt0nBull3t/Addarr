@@ -230,6 +230,7 @@ en-us:
   DownloadsRemaining: "Remaining"
   DownloadsItems: "Items"
   DownloadsPaused: "Queue paused"
+  DownloadsResumed: "Queue resumed"
   DownloadsItemPaused: "Item paused."
   DownloadsItemResumed: "Item resumed."
   DownloadsPauseError: "Failed to pause item."

@@ -227,6 +227,7 @@ ru-ru:
   DownloadsRemaining: "Осталось"
   DownloadsItems: "Элементы"
   DownloadsPaused: "Очередь приостановлена"
+  DownloadsResumed: "Очередь возобновлена"
   DownloadsItemPaused: "Элемент приостановлен."
   DownloadsItemResumed: "Элемент возобновлён."
   DownloadsPauseError: "Не удалось приостановить элемент."
