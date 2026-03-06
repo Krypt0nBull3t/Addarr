@@ -111,7 +111,7 @@
 
 **Goal:** Full conversation flow tests for all three media types, including the happy path and edge cases.
 
-- [ ] **3.1** Movie flow: search → select → quality → added
+- [x] **3.1** Movie flow: search → select → quality → added
     - **Context:** Movie flow uses `MediaHandler` (`src/bot/handlers/media/handler.py`). States: `/movie` → SEARCHING → user types query → `handle_search` calls `MediaService.search_movies()` → SELECTING → user taps `select_{id}` → `handle_selection` calls `MediaService.add_movie()` → if quality selection needed, returns dict with `type: "quality_selection"` → QUALITY_SELECT → user taps `quality_{id}` → `handle_quality_selection` calls `add_movie_with_profile()` → END. The `@require_auth` and `@rate_limit` decorators wrap entry points.
     - **Watch out:**
         - `handle_selection` (`handler.py:386`) matches result by `r["id"] == selection` where selection is the string after `select_` — mock search results must have an `id` field matching
@@ -129,6 +129,14 @@
         - [GREEN] Wire up API mocks for Radarr search, quality profiles, root folders, and add endpoints in each test
         - [GREEN] Fix any harness issues discovered during first real conversation flow test
     - **Success:** All movie flow tests pass, conversation states transition correctly, responses contain expected text
+    - **Completed:** 2026-03-06
+    - **Learnings:**
+        - Cannot patch `MediaService` constructor on handler module — handler instance is created during fixture setup. Must use `patch.object(MediaService, "method")` to patch methods on the singleton class directly
+        - `send_response` in formatters.py checks `message.photo` to decide between `edit_text` and `edit_caption` — the harness fake results handle both
+        - `PreferencesService().get_view_mode()` defaults to "card" view, which uses `show_result()` (single result display)
+    - **Key Changes:**
+        - Created `tests/integration/test_media_flow.py` with 5 tests (happy path, no results, cancel at search/selection/quality)
+    - **Notes:** `patch.object(MediaService, ...)` pattern is the correct approach for all integration tests that need to mock service methods
 
 - [ ] **3.2** Series and music flows with type-specific steps
     - **Context:** Series flow adds a SEASON_SELECT state after QUALITY_SELECT (`handler.py:529-566`). Season keyboard has "Monitor All", "All Seasons", "Future Seasons", "Future Episodes", plus individual season buttons. User selects seasons then taps `season_confirm`. Music flow adds ALBUM_SELECT state for artist searches — shows album monitor mode keyboard (`get_album_monitor_mode_keyboard()` in `keyboards.py`). Album/song searches skip album selection and add directly.
