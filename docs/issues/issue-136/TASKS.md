@@ -138,7 +138,7 @@
         - Created `tests/integration/test_media_flow.py` with 5 tests (happy path, no results, cancel at search/selection/quality)
     - **Notes:** `patch.object(MediaService, ...)` pattern is the correct approach for all integration tests that need to mock service methods
 
-- [ ] **3.2** Series and music flows with type-specific steps
+- [x] **3.2** Series and music flows with type-specific steps
     - **Context:** Series flow adds a SEASON_SELECT state after QUALITY_SELECT (`handler.py:529-566`). Season keyboard has "Monitor All", "All Seasons", "Future Seasons", "Future Episodes", plus individual season buttons. User selects seasons then taps `season_confirm`. Music flow adds ALBUM_SELECT state for artist searches — shows album monitor mode keyboard (`get_album_monitor_mode_keyboard()` in `keyboards.py`). Album/song searches skip album selection and add directly.
     - **Watch out:**
         - Series `quality_data` must include `"seasons"` key for season picker to appear
@@ -155,6 +155,14 @@
         - [GREEN] Add Sonarr and Lidarr mock data with correct field shapes (seasons, music_type, artist_id)
         - [GREEN] Fix any state transition issues discovered
     - **Success:** Series season picker and music album picker work end-to-end in integration tests
+    - **Completed:** 2026-03-06
+    - **Learnings:**
+        - `season_monitor_all` auto-calls `handle_season_confirm` — one tap completes the flow
+        - Music artist flow routes to ALBUM_SELECT with album monitor mode keyboard; album/song flow skips album picker and adds directly
+        - `select_album:b1ae2a0f` callback data works — handler strips `album:` prefix for API calls
+    - **Key Changes:**
+        - Added 4 tests to `tests/integration/test_media_flow.py`: series happy path, series monitor all, music artist happy path, music album direct add
+    - **Notes:** All media types (movie, series, music-artist, music-album) now have integration test coverage
 
 ---
 
