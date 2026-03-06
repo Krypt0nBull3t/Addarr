@@ -7,7 +7,7 @@ for Radarr, Sonarr, and Lidarr API clients.
 
 import pytest
 
-from tests.integration.api_mocks import RadarrMockHelper, SonarrMockHelper, LidarrMockHelper
+from tests.integration.api_mocks import RadarrMockHelper, SonarrMockHelper
 
 
 @pytest.mark.asyncio

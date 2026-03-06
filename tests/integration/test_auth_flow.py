@@ -23,7 +23,7 @@ async def test_auth_correct_password(harness):
         assert resp.text
 
         # Type correct password
-        resp = await harness.send_text("test-pass")
+        await harness.send_text("test-pass")
         # check_password deletes the message, then sends success
         assert len(harness.responses) >= 1
         # User should now be authenticated
@@ -37,7 +37,7 @@ async def test_auth_wrong_password(harness):
 
     with patch.object(AuthHandler, "_save_authenticated_users"):
         await harness.send_command("/auth")
-        resp = await harness.send_text("wrong-password")
+        await harness.send_text("wrong-password")
         assert len(harness.responses) >= 1
         # User should NOT be authenticated
         assert not AuthHandler.is_authenticated(12345)
