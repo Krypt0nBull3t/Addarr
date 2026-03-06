@@ -3,7 +3,7 @@ Integration test infrastructure.
 
 BotHarness builds a real PTB Application with all handlers registered,
 processes Update objects through the handler chain, and captures bot
-responses by intercepting Bot._do_post — no Telegram connection needed.
+responses by intercepting HTTPXRequest.do_request — no Telegram connection needed.
 """
 
 import json as json_mod
@@ -201,8 +201,8 @@ def make_callback_update(
 class BotHarness:
     """Drives a real PTB Application with all handlers, no Telegram connection.
 
-    Intercepts Bot._do_post to capture outgoing API calls and return
-    plausible fake results so PTB's internals don't break.
+    Intercepts HTTPXRequest.do_request to capture outgoing API calls and
+    return plausible fake results so PTB's internals don't break.
     """
 
     def __init__(self, app: Application):
