@@ -98,7 +98,7 @@
 
 **Goal:** New unified DownloadsHandler replaces SabnzbdHandler's /downloads, supports both clients.
 
-- [ ] **3.1** Create DownloadsHandler
+- [x] **3.1** Create DownloadsHandler
     - **Context:** See plan.md Phase 3. Key refs: `src/bot/handlers/sabnzbd.py:113-298` (current /downloads implementation to port), `src/bot/keyboards.py:842` (keyboard functions)
     - **Watch out:** Must handle 4 scenarios: SABnzbd-only, Transmission-only, both enabled, neither enabled. `dl_client` in `user_data` tracks active client. History tab only for SABnzbd. Default to first available client. Use `@require_auth` from `src/bot/handlers/auth.py`.
     - **Scope:** Full handler class with all `dl_*` callbacks, text formatters, service delegation
@@ -114,6 +114,10 @@
         - [RED] Write tests for tab switch, pagination, refresh, noop
         - [GREEN] Implement DownloadsHandler class
     - **Success:** `pytest tests/test_handlers/test_downloads_handler.py -v` all pass
+    - **Completed:** 2026-03-06
+    - **Learnings:** Transmission torrent IDs are ints while SABnzbd nzo_ids are strings — `_parse_item_id()` handles the conversion based on active client. Multi-client detection at init time (`_multi_client` flag) simplifies keyboard param logic.
+    - **Key Changes:** Created `src/bot/handlers/downloads.py` (DownloadsHandler class) and `tests/test_handlers/test_downloads_handler.py` (29 tests)
+    - **Notes:** Handler delegates to active service based on `context.user_data["dl_client"]`. History tab only shown for SABnzbd.
 
 - [ ] **3.2** Remove /downloads from SabnzbdHandler, wire up DownloadsHandler
     - **Context:** See plan.md Phase 3. Key refs: `src/bot/handlers/sabnzbd.py:38-46` (handler list to trim), `src/main.py:153-157` (Transmission registration pattern), `src/bot/commands.py:69-71` (`/downloads` registration)
