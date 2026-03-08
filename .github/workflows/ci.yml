@@ -67,7 +67,7 @@ jobs:
       - name: Run unit tests with 100% coverage enforcement
         run: pytest tests/ --ignore=tests/integration --ignore=tests/test_architecture --cov=src --cov-report=term-missing --cov-report=html:coverage-html --cov-fail-under=100 --tb=short
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-report
