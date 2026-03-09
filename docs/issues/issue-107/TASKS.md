@@ -27,7 +27,7 @@
     - **Key Changes:** Added `get_history(page, page_size, event_type)` to `RadarrClient` and `SonarrClient`, added `RADARR_HISTORY` and `SONARR_HISTORY` sample data, added 10 tests (5 per client).
     - **Notes:** Both clients have identical method signatures and logic, differing only in log messages.
 
-- [ ] **1.2** Add `get_history()` to MediaService with normalizers
+- [x] **1.2** Add `get_history()` to MediaService with normalizers
     - **Context:** See plan.md Phase 2. Key refs: `src/services/media.py:532` (`get_upcoming` as pattern — gather, normalize, sort). Normalized schema includes `type`, `title`, `episode_title`, `season`, `episode`, `date`, `event_type`, `quality`, `source_title`, `service`.
     - **Watch out:** Sort by date descending (newest first), unlike `get_upcoming` which sorts ascending. Exception from one service should not block the other.
     - **Scope:** `get_history()` method + `_normalize_radarr_history` and `_normalize_sonarr_history` statics
@@ -36,6 +36,10 @@
         - [RED] Write tests: both services return items (merged + sorted desc), radarr-only, sonarr-only, no services, one exception, event_type passthrough, normalizer unit tests
         - [GREEN] Implement `get_history()` and both normalizer statics
     - **Success:** `pytest tests/test_services/test_media_service.py -v` passes, new methods have 100% coverage
+    - **Completed:** 2026-03-09
+    - **Learnings:** Follows get_upcoming pattern exactly — gather, normalize, sort. Only difference is descending sort and no date computation.
+    - **Key Changes:** Added `get_history()`, `_normalize_radarr_history()`, `_normalize_sonarr_history()` to MediaService. Added `get_history` to mock client fixtures. Added 8 tests.
+    - **Notes:** Also added `get_history = AsyncMock(return_value=[])` to both `mock_radarr_client` and `mock_sonarr_client` fixtures in conftest.
 
 ---
 

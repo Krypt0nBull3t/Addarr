@@ -2550,3 +2550,154 @@ class TestGetQueueMedia:
         assert len(results) == 1
         assert results[0]["type"] == "album"
         assert results[0]["service"] == "lidarr"
+
+
+# ---------------------------------------------------------------------------
+# get_history
+# ---------------------------------------------------------------------------
+
+RADARR_HISTORY_RECORD = {
+    "id": 1, "movieId": 10,
+    "sourceTitle": "Fight.Club.1999.1080p.BluRay",
+    "quality": {"quality": {"name": "Bluray-1080p"}},
+    "date": "2026-03-09T14:30:00Z",
+    "eventType": "grabbed",
+    "data": {"indexer": "NZBgeek"},
+    "movie": {"title": "Fight Club", "year": 1999, "tmdbId": 550},
+}
+
+SONARR_HISTORY_RECORD = {
+    "id": 101, "seriesId": 42, "episodeId": 201,
+    "sourceTitle": "Breaking.Bad.S01E01.720p",
+    "quality": {"quality": {"name": "HDTV-720p"}},
+    "date": "2026-03-09T12:00:00Z",
+    "eventType": "grabbed",
+    "data": {"indexer": "NZBgeek"},
+    "series": {"title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+    "episode": {"title": "Pilot", "seasonNumber": 1, "episodeNumber": 1},
+}
+
+
+class TestGetHistory:
+    @pytest.mark.asyncio
+    async def test_both_services_merged_sorted_desc(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Both services return items — merged and sorted by date descending."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_history.return_value = [RADARR_HISTORY_RECORD]
+        mock_sonarr_client.get_history.return_value = [SONARR_HISTORY_RECORD]
+
+        results = await service.get_history()
+
+        assert len(results) == 2
+        # Radarr (14:30) should come before Sonarr (12:00) — newest first
+        assert results[0]["service"] == "radarr"
+        assert results[0]["title"] == "Fight Club"
+        assert results[1]["service"] == "sonarr"
+        assert results[1]["title"] == "Breaking Bad"
+
+    @pytest.mark.asyncio
+    async def test_radarr_only(self, mock_radarr_client):
+        """Only Radarr enabled — returns only movie items."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_history.return_value = [RADARR_HISTORY_RECORD]
+
+        results = await service.get_history()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "movie"
+
+    @pytest.mark.asyncio
+    async def test_sonarr_only(self, mock_sonarr_client):
+        """Only Sonarr enabled — returns only episode items."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_history.return_value = [SONARR_HISTORY_RECORD]
+
+        results = await service.get_history()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+
+    @pytest.mark.asyncio
+    async def test_no_services(self):
+        """Neither enabled — returns empty list."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+
+        results = await service.get_history()
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_one_exception_partial_result(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """One service raises — other still returns results."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_history.side_effect = Exception("Radarr down")
+        mock_sonarr_client.get_history.return_value = [SONARR_HISTORY_RECORD]
+
+        results = await service.get_history()
+
+        assert len(results) == 1
+        assert results[0]["service"] == "sonarr"
+
+    @pytest.mark.asyncio
+    async def test_event_type_passthrough(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Event type parameter passed through to both clients."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+
+        await service.get_history(event_type="grabbed")
+
+        mock_radarr_client.get_history.assert_called_once_with(
+            1, 20, "grabbed"
+        )
+        mock_sonarr_client.get_history.assert_called_once_with(
+            1, 20, "grabbed"
+        )
+
+    @pytest.mark.asyncio
+    async def test_normalize_radarr_history(self):
+        """Radarr normalizer produces correct schema."""
+        result = MediaService._normalize_radarr_history(RADARR_HISTORY_RECORD)
+
+        assert result["type"] == "movie"
+        assert result["title"] == "Fight Club"
+        assert result["episode_title"] is None
+        assert result["season"] is None
+        assert result["episode"] is None
+        assert result["date"] == "2026-03-09T14:30:00Z"
+        assert result["event_type"] == "grabbed"
+        assert result["quality"] == "Bluray-1080p"
+        assert result["source_title"] == "Fight.Club.1999.1080p.BluRay"
+        assert result["service"] == "radarr"
+
+    @pytest.mark.asyncio
+    async def test_normalize_sonarr_history(self):
+        """Sonarr normalizer produces correct schema."""
+        result = MediaService._normalize_sonarr_history(SONARR_HISTORY_RECORD)
+
+        assert result["type"] == "episode"
+        assert result["title"] == "Breaking Bad"
+        assert result["episode_title"] == "Pilot"
+        assert result["season"] == 1
+        assert result["episode"] == 1
+        assert result["date"] == "2026-03-09T12:00:00Z"
+        assert result["event_type"] == "grabbed"
+        assert result["quality"] == "HDTV-720p"
+        assert result["source_title"] == "Breaking.Bad.S01E01.720p"
+        assert result["service"] == "sonarr"

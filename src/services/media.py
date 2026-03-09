@@ -972,6 +972,80 @@ class MediaService:
             logger.error(f"Error checking Transmission status: {e}")
             return False
 
+    async def get_history(self, page: int = 1, page_size: int = 20,
+                          event_type: str = None) -> List[Dict]:
+        """Get recent history from Radarr and Sonarr.
+
+        Returns a normalized, date-sorted (newest first) list of history items.
+        """
+        tasks = []
+        if self.radarr:
+            tasks.append(("radarr", self.radarr.get_history(
+                page, page_size, event_type
+            )))
+        if self.sonarr:
+            tasks.append(("sonarr", self.sonarr.get_history(
+                page, page_size, event_type
+            )))
+
+        if not tasks:
+            return []
+
+        results = await asyncio.gather(
+            *(t[1] for t in tasks), return_exceptions=True
+        )
+
+        items = []
+        for (service_name, _), result in zip(tasks, results):
+            if isinstance(result, Exception):
+                logger.error(f"History fetch failed for {service_name}: {result}")
+                continue
+
+            if service_name == "radarr":
+                for record in result:
+                    items.append(self._normalize_radarr_history(record))
+            else:
+                for record in result:
+                    items.append(self._normalize_sonarr_history(record))
+
+        items.sort(key=lambda x: x.get("date", ""), reverse=True)
+        return items
+
+    @staticmethod
+    def _normalize_radarr_history(record: Dict) -> Dict:
+        """Normalize a Radarr history record."""
+        movie = record.get("movie", {})
+        return {
+            "type": "movie",
+            "title": movie.get("title", ""),
+            "episode_title": None,
+            "season": None,
+            "episode": None,
+            "date": record.get("date", ""),
+            "event_type": record.get("eventType", ""),
+            "quality": record.get("quality", {}).get("quality", {}).get("name", ""),
+            "source_title": record.get("sourceTitle", ""),
+            "service": "radarr",
+        }
+
+    @staticmethod
+    def _normalize_sonarr_history(record: Dict) -> Dict:
+        """Normalize a Sonarr history record."""
+        series = record.get("series", {})
+        ep = record.get("episode", {})
+        return {
+            "type": "episode",
+            "title": series.get("title", ""),
+            "episode_title": ep.get("title"),
+            "season": ep.get("seasonNumber"),
+            "episode": ep.get("episodeNumber"),
+            "date": record.get("date", ""),
+            "event_type": record.get("eventType", ""),
+            "quality": record.get("quality", {}).get("quality", {}).get("name", ""),
+            "source_title": record.get("sourceTitle", ""),
+            "service": "sonarr",
+        }
+
     async def get_sabnzbd_status(self) -> bool:
         """Check if SABnzbd is available"""
         try:
