@@ -77,7 +77,7 @@ Add a "Library" button to the main menu that opens a sub-menu for browsing Movie
 
 ### Phase 3: Verification (1 task)
 
-- [ ] **3.1** Full suite, coverage, lint, and translation validation
+- [x] **3.1** Full suite, coverage, lint, and translation validation
     - **Scope:** Run all checks, fix any gaps
     - **Action items:**
         - Run full test suite: `python -m pytest --tb=short -q`
@@ -85,3 +85,7 @@ Add a "Library" button to the main menu that opens a sub-menu for browsing Movie
         - Run lint: `python -m flake8 src/bot/keyboards.py src/bot/handlers/start.py src/bot/handlers/library.py`
         - Validate translations: `PYTHONIOENCODING=utf-8 python run.py --validate-i18n`
     - **Success:** All checks green, 100% coverage on new/changed lines
+    - **Completed:** 2026-03-09
+    - **Learnings:** Needed one extra test for generic Exception handler in `handle_library_selection` to reach 100%.
+    - **Key Changes:** Added `test_library_selection_generic_error` test.
+    - **Notes:** 1856 tests all pass, lint clean, translations valid.

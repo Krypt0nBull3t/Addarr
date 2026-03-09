@@ -394,6 +394,25 @@ async def test_library_selection_service_error(
 
 
 @pytest.mark.asyncio
+async def test_library_selection_generic_error(
+    library_handler, make_update, make_context
+):
+    """Generic exception shows error message."""
+    library_handler._mock_service.get_movies = AsyncMock(
+        side_effect=Exception("Connection refused")
+    )
+
+    update = make_update(callback_data="library_movie")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "LibraryError" in str(call_args)
+
+
+@pytest.mark.asyncio
 async def test_library_selection_empty_library(
     library_handler, make_update, make_context
 ):
