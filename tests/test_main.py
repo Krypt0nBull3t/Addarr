@@ -600,11 +600,14 @@ class TestRunBot:
         """run_bot() calls asyncio.run(main())."""
         run_bot()
         mock_run.assert_called_once()
+        # Close the unawaited coroutine to suppress RuntimeWarning
+        mock_run.call_args[0][0].close()
 
     @patch("src.main.asyncio.run", side_effect=KeyboardInterrupt)
     def test_keyboard_interrupt(self, mock_run):
         """KeyboardInterrupt is caught gracefully."""
         run_bot()  # Should not raise
+        mock_run.call_args[0][0].close()
 
     @patch("src.main.asyncio.run", side_effect=RuntimeError("fatal"))
     def test_generic_exception_exits(self, mock_run):
@@ -612,6 +615,7 @@ class TestRunBot:
         with pytest.raises(SystemExit) as exc_info:
             run_bot()
         assert exc_info.value.code == 1
+        mock_run.call_args[0][0].close()
 
 
 # ---- AddarrBot._register_commands ----
