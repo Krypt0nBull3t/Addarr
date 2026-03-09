@@ -313,21 +313,21 @@ def test_format_usage_bar_full():
 
 def test_format_bytes_zero():
     """0 bytes formats as 0 B."""
-    from src.bot.handlers.system import _format_bytes
-    assert _format_bytes(0) == "0 B"
+    from src.utils.helpers import format_bytes
+    assert format_bytes(0) == "0.0 B"
 
 
 def test_format_bytes_gb():
     """GB range formats correctly."""
-    from src.bot.handlers.system import _format_bytes
-    result = _format_bytes(1500000000)  # ~1.4 GB
+    from src.utils.helpers import format_bytes
+    result = format_bytes(1500000000)  # ~1.4 GB
     assert "GB" in result
 
 
 def test_format_bytes_tb():
     """TB range formats correctly."""
-    from src.bot.handlers.system import _format_bytes
-    result = _format_bytes(2000000000000)  # ~1.82 TB
+    from src.utils.helpers import format_bytes
+    result = format_bytes(2000000000000)  # ~1.82 TB
     assert "TB" in result
 
 

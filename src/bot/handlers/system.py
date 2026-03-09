@@ -8,6 +8,7 @@ Description: System command handler module.
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
+from src.utils.helpers import format_bytes
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import get_system_keyboard, get_main_menu_keyboard
 from src.services.health import health_service
@@ -23,19 +24,6 @@ def _format_usage_bar(percent_used, width=10):
     filled = round(width * percent_used / 100)
     empty = width - filled
     return "█" * filled + "░" * empty
-
-
-def _format_bytes(num_bytes):
-    """Format bytes into human-readable string using binary units."""
-    if num_bytes == 0:
-        return "0 B"
-    units = ["B", "KB", "MB", "GB", "TB", "PB"]
-    i = 0
-    value = float(num_bytes)
-    while value >= 1024 and i < len(units) - 1:
-        value /= 1024
-        i += 1
-    return f"{value:.1f} {units[i]}"
 
 
 def _build_disk_space_text(drives, translation):
@@ -62,7 +50,7 @@ def _build_disk_space_text(drives, translation):
 
         text += f"📁 `{path}`{warning}\n"
         text += f"  {bar} {percent_used}%\n"
-        text += f"  {_format_bytes(free)} free / {_format_bytes(total)} total\n\n"
+        text += f"  {format_bytes(free)} free / {format_bytes(total)} total\n\n"
 
     return text
 
