@@ -8,12 +8,51 @@ Description: System command handler module.
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
+from src.utils.helpers import format_bytes
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import get_system_keyboard, get_main_menu_keyboard
 from src.services.health import health_service
 from src.services.translation import TranslationService
 
 logger = get_logger("addarr.system")
+
+LOW_SPACE_THRESHOLD = 10  # percent free
+
+
+def _format_usage_bar(percent_used, width=10):
+    """Build a text progress bar for disk usage."""
+    filled = round(width * percent_used / 100)
+    empty = width - filled
+    return "█" * filled + "░" * empty
+
+
+def _build_disk_space_text(drives, translation):
+    """Build formatted disk space text from a list of drive dicts."""
+    if not drives:
+        return translation.get_text("DiskSpaceNone", default="No disk space data available.")
+
+    text = "💾 *Disk Space*\n\n"
+    for drive in drives:
+        path = drive.get("path", "Unknown")
+        free = drive.get("freeSpace", 0)
+        total = drive.get("totalSpace", 0)
+
+        if total > 0:
+            used = total - free
+            percent_used = round(used / total * 100, 1)
+            percent_free = round(free / total * 100, 1)
+        else:
+            percent_used = 0
+            percent_free = 100
+
+        bar = _format_usage_bar(percent_used)
+        warning = " ⚠️" if percent_free < LOW_SPACE_THRESHOLD else ""
+
+        text += f"📁 `{path}`{warning}\n"
+        text += f"  {bar} {percent_used}%\n"
+        text += f"  {format_bytes(free)} free / {format_bytes(total)} total\n\n"
+
+    return text
 
 
 class SystemHandler:
@@ -66,6 +105,8 @@ class SystemHandler:
             await self._handle_refresh(query)
         elif action == "details":
             await self._handle_details(query)
+        elif action == "diskspace":
+            await self._handle_diskspace(query)
         elif action == "back":
             await self._handle_back(query)
         else:
@@ -111,6 +152,27 @@ class SystemHandler:
             )
             await query.answer(
                 self.translation.get_text("StatusDetailsFailed")
+            )
+
+    async def _handle_diskspace(self, query):
+        """Show disk space information from the first available *arr service."""
+        try:
+            drives = await health_service.get_disk_space()
+            text = _build_disk_space_text(drives, self.translation)
+            await query.message.edit_text(
+                text,
+                reply_markup=get_system_keyboard(),
+                parse_mode="Markdown",
+            )
+            await query.answer()
+        except Exception as e:
+            logger.error(f"Error getting disk space: {e}")
+            await query.message.edit_text(
+                self.translation.get_text("DiskSpaceError", default="Error retrieving disk space."),
+                reply_markup=get_system_keyboard(),
+            )
+            await query.answer(
+                self.translation.get_text("DiskSpaceFailed", default="Failed to get disk space.")
             )
 
     async def _handle_back(self, query):

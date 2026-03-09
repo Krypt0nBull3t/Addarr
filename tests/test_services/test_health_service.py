@@ -10,6 +10,7 @@ from aioresponses import aioresponses
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.services.health import HealthService, display_health_status
+from tests.fixtures.sample_data import RADARR_DISK_SPACE
 
 
 # ---------------------------------------------------------------------------
@@ -904,3 +905,155 @@ class TestMonitorLoop:
 
         # Should not crash -- the exception is caught and logged
         assert call_count >= 2
+
+
+# ---------------------------------------------------------------------------
+# _get_api_client
+# ---------------------------------------------------------------------------
+
+
+class TestGetApiClient:
+    def test_get_api_client_radarr(self):
+        """Returns a RadarrClient for 'radarr' key."""
+        service = HealthService()
+        with patch("src.services.health.RadarrClient") as MockRadarr:
+            mock_instance = MagicMock()
+            MockRadarr.return_value = mock_instance
+            client = service._get_api_client("radarr")
+        assert client is mock_instance
+
+    def test_get_api_client_sonarr(self):
+        """Returns a SonarrClient for 'sonarr' key."""
+        service = HealthService()
+        with patch("src.services.health.SonarrClient") as MockSonarr:
+            mock_instance = MagicMock()
+            MockSonarr.return_value = mock_instance
+            client = service._get_api_client("sonarr")
+        assert client is mock_instance
+
+    def test_get_api_client_lidarr(self):
+        """Returns a LidarrClient for 'lidarr' key."""
+        service = HealthService()
+        with patch("src.services.health.LidarrClient") as MockLidarr:
+            mock_instance = MagicMock()
+            MockLidarr.return_value = mock_instance
+            client = service._get_api_client("lidarr")
+        assert client is mock_instance
+
+    def test_get_api_client_unknown_returns_none(self):
+        """Returns None for unknown service key."""
+        service = HealthService()
+        client = service._get_api_client("unknown")
+        assert client is None
+
+
+# ---------------------------------------------------------------------------
+# get_disk_space
+# ---------------------------------------------------------------------------
+
+
+class TestGetDiskSpace:
+    @pytest.mark.asyncio
+    async def test_get_disk_space_returns_drives_from_first_enabled(self):
+        """Returns drives from the first enabled *arr service."""
+        service = HealthService()
+
+        mock_client = AsyncMock()
+        mock_client.get_disk_space.return_value = RADARR_DISK_SPACE
+        mock_client.close = AsyncMock()
+
+        with patch.object(
+            service, "_get_api_client", return_value=mock_client
+        ):
+            results = await service.get_disk_space()
+
+        assert len(results) == 2
+        assert results[0]["path"] == "/movies"
+        mock_client.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_skips_disabled_services(self):
+        """Skips disabled services and queries the first enabled one."""
+        service = HealthService()
+
+        mock_client = AsyncMock()
+        mock_client.get_disk_space.return_value = RADARR_DISK_SPACE
+        mock_client.close = AsyncMock()
+
+        with patch("src.services.health.config") as mock_config:
+            mock_config.get.side_effect = lambda key, default=None: (
+                {"enable": False} if key == "radarr"
+                else {"enable": True} if key == "sonarr"
+                else {"enable": True} if key == "lidarr"
+                else default
+            )
+            with patch.object(
+                service, "_get_api_client", return_value=mock_client
+            ) as mock_get:
+                results = await service.get_disk_space()
+
+        # Should have been called with sonarr (first enabled after radarr)
+        mock_get.assert_called_once_with("sonarr")
+        assert len(results) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_no_enabled_services(self):
+        """Returns empty list when no services are enabled."""
+        service = HealthService()
+
+        with patch("src.services.health.config") as mock_config:
+            mock_config.get.return_value = {"enable": False}
+            results = await service.get_disk_space()
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_falls_through_on_error(self):
+        """Falls through to next enabled service on client error."""
+        service = HealthService()
+
+        failing_client = AsyncMock()
+        failing_client.get_disk_space.side_effect = Exception("connection refused")
+        failing_client.close = AsyncMock()
+
+        working_client = AsyncMock()
+        working_client.get_disk_space.return_value = RADARR_DISK_SPACE
+        working_client.close = AsyncMock()
+
+        call_count = 0
+
+        def _mock_get_client(key):
+            nonlocal call_count
+            call_count += 1
+            if key == "radarr":
+                return failing_client
+            return working_client
+
+        with patch.object(
+            service, "_get_api_client", side_effect=_mock_get_client
+        ):
+            results = await service.get_disk_space()
+
+        assert len(results) == 2
+        assert call_count == 2  # radarr failed, sonarr succeeded
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_get_api_client_returns_none(self):
+        """Skips service when _get_api_client returns None."""
+        service = HealthService()
+
+        mock_client = AsyncMock()
+        mock_client.get_disk_space.return_value = RADARR_DISK_SPACE
+        mock_client.close = AsyncMock()
+
+        def _mock_get_client(key):
+            if key == "radarr":
+                return None
+            return mock_client
+
+        with patch.object(
+            service, "_get_api_client", side_effect=_mock_get_client
+        ):
+            results = await service.get_disk_space()
+
+        assert len(results) == 2

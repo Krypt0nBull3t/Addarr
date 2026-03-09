@@ -239,6 +239,17 @@ class BaseApiClient(ABC):
         """Search for media"""
         pass
 
+    async def get_disk_space(self) -> list:
+        """Get disk space information from the service"""
+        try:
+            success, data, _error = await self._make_request("diskspace")
+            if success and isinstance(data, list):
+                return data
+            return []
+        except Exception as e:
+            self.logger.error(f"Error getting disk space: {e}")
+            return []
+
     async def check_status(self) -> bool:
         """Check if the service is available"""
         try:
