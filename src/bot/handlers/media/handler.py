@@ -198,7 +198,9 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         media_cfg = MEDIA_CONFIG[search_type]
         if config.get(media_cfg["config_key"], {}).get("adminRestrictions", False):
             if update.effective_user.id not in config.get("admins", []):
-                await update.message.reply_text("Access restricted to admins only.")
+                await update.message.reply_text(
+                    self.translation.get_text("NotAdmin")
+                )
                 return ConversationHandler.END
 
         log_user_interaction(logger, update.effective_user, f"/{search_type}")
@@ -256,14 +258,19 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         try:
             media_cfg = MEDIA_CONFIG.get(search_type)
             if not media_cfg:
-                await update.message.reply_text("❌ Invalid search type")
+                await update.message.reply_text(
+                    self.translation.get_text("SearchInvalidType")
+                )
                 return ConversationHandler.END
 
             results = await getattr(self.media_service, media_cfg["search"])(query)
 
             if not results:
                 await update.message.reply_text(
-                    f"❌ No {search_type} found matching '{query}'"
+                    self.translation.get_text(
+                        "SearchNoResults",
+                        search_type=search_type, query=query
+                    )
                 )
                 return ConversationHandler.END
 
@@ -289,8 +296,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         except Exception as e:
             logger.error(f"Error during search: {e}")
             await update.message.reply_text(
-                "❌ An error occurred while searching.\n"
-                "Please try again later."
+                self.translation.get_text("SearchError")
             )
             return ConversationHandler.END
 
@@ -416,7 +422,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 if not selected:
                     await send_response(
                         query.message,
-                        "❌ Error: Selection not found.\nPlease try your search again."
+                        self.translation.get_text("SelectionNotFound")
                     )
                     return ConversationHandler.END
 
@@ -488,7 +494,9 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 logger.error(f"Error adding media: {e}")
                 await send_response(
                     query.message,
-                    f"❌ An error occurred: {str(e)}"
+                    self.translation.get_text(
+                        "MediaAddError", error=str(e)
+                    )
                 )
                 return ConversationHandler.END
 
@@ -516,7 +524,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             if not quality_data or not selected:
                 await send_response(
                     query.message,
-                    "❌ Error: Selection data not found.\nPlease try your search again."
+                    self.translation.get_text("SelectionDataNotFound")
                 )
                 return ConversationHandler.END
 
@@ -610,8 +618,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             logger.error(f"Error handling quality selection: {e}")
             await send_response(
                 query.message,
-                "❌ An error occurred while processing your selection.\n"
-                "Please try again."
+                self.translation.get_text("SelectionProcessError")
             )
             return ConversationHandler.END
 
@@ -619,7 +626,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         """Add media with selected profile"""
         media_cfg = MEDIA_CONFIG.get(media_type)
         if not media_cfg:
-            return False, "Invalid media type"
+            return False, self.translation.get_text("InvalidMediaType")
         return await getattr(self.media_service, media_cfg["add_with_profile"])(
             selected["id"], profile_id, root_folder
         )

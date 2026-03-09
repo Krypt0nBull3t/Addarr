@@ -53,7 +53,7 @@ class AlbumPickerMixin:
                 logger.error(f"Error adding artist: {e}")
                 await send_response(
                     query.message,
-                    "❌ An error occurred while adding the artist."
+                    self.translation.get_text("ArtistAddError")
                 )
             return ConversationHandler.END
 
@@ -78,7 +78,7 @@ class AlbumPickerMixin:
                 logger.error(f"Error fetching albums: {e}")
                 await send_response(
                     query.message,
-                    "❌ An error occurred while fetching albums."
+                    self.translation.get_text("AlbumFetchError")
                 )
                 return ConversationHandler.END
 
@@ -125,7 +125,7 @@ class AlbumPickerMixin:
                 logger.error(f"Error adding artist: {e}")
                 await send_response(
                     query.message,
-                    "❌ An error occurred while adding the artist."
+                    self.translation.get_text("ArtistAddError")
                 )
             return ConversationHandler.END
 
@@ -194,7 +194,6 @@ class AlbumPickerMixin:
             logger.error(f"Error confirming album selection: {e}")
             await send_response(
                 query.message,
-                "❌ An error occurred while processing your selection.\n"
-                "Please try again."
+                self.translation.get_text("SelectionProcessError")
             )
             return ConversationHandler.END

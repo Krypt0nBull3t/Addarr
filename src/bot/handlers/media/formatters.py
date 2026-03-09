@@ -11,6 +11,7 @@ showing search results in card/list views, and editing messages.
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.utils.logger import get_logger
+from src.services.translation import TranslationService
 from src.bot.keyboards import (
     get_search_results_list_keyboard,
     get_list_detail_keyboard,
@@ -181,7 +182,7 @@ async def show_result(message, result, index: int, total: int):
         logger.error(f"Error showing result: {e}")
         try:
             new_message = await message.reply_text(
-                "❌ Error displaying result. Please try your search again.",
+                TranslationService().get_text("DisplayResultError"),
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("❌ Cancel", callback_data="select_cancel")
                 ]])

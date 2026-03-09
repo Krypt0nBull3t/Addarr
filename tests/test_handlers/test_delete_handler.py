@@ -130,8 +130,7 @@ async def test_handle_delete_selection_type_invalid(
     await delete_handler.handle_delete_selection(update, context)
 
     update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "Invalid" in str(call_args)
+    delete_handler._mock_ts.get_text.assert_any_call("InvalidMediaType")
 
 
 @pytest.mark.asyncio
@@ -166,8 +165,7 @@ async def test_handle_delete_selection_type_exception(
     await delete_handler.handle_delete_selection(update, context)
 
     update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "Error" in str(call_args)
+    delete_handler._mock_ts.get_text.assert_any_call("MediaListError")
 
 
 # ---------------------------------------------------------------------------
@@ -212,8 +210,7 @@ async def test_handle_delete_selection_item_no_type(
     await delete_handler.handle_delete_selection(update, context)
 
     update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "not found" in str(call_args).lower()
+    delete_handler._mock_ts.get_text.assert_any_call("MediaTypeNotFound")
 
 
 @pytest.mark.asyncio
@@ -244,8 +241,7 @@ async def test_handle_delete_selection_item_invalid_type(
     await delete_handler.handle_delete_selection(update, context)
 
     update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "Invalid" in str(call_args)
+    delete_handler._mock_ts.get_text.assert_any_call("InvalidMediaType")
 
 
 @pytest.mark.asyncio
@@ -263,8 +259,7 @@ async def test_handle_delete_selection_item_exception(
     await delete_handler.handle_delete_selection(update, context)
 
     update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "Error" in str(call_args)
+    delete_handler._mock_ts.get_text.assert_any_call("ItemDetailsError")
 
 
 # ---------------------------------------------------------------------------
@@ -353,8 +348,7 @@ async def test_handle_delete_confirm_no_data(
     await delete_handler.handle_delete_selection(update, context)
 
     update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "not found" in str(call_args).lower()
+    delete_handler._mock_ts.get_text.assert_any_call("ItemDataNotFound")
 
 
 @pytest.mark.asyncio
@@ -371,8 +365,7 @@ async def test_handle_delete_confirm_invalid_type(
     await delete_handler.handle_delete_selection(update, context)
 
     update.callback_query.message.edit_text.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "Invalid" in str(call_args)
+    delete_handler._mock_ts.get_text.assert_any_call("InvalidMediaType")
 
 
 # ---------------------------------------------------------------------------

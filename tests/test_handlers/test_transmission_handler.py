@@ -16,12 +16,16 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 
 @pytest.mark.asyncio
+@patch("src.bot.handlers.transmission.TranslationService")
 @patch("src.bot.handlers.transmission.transmission_service")
 async def test_transmission_not_enabled(
-    mock_service, make_update, make_context
+    mock_service, mock_ts_class, make_update, make_context
 ):
     """When transmission is not enabled, reply with 'not enabled' message."""
     mock_service.is_enabled = MagicMock(return_value=False)
+    mock_translation = MagicMock()
+    mock_translation.get_text = MagicMock(return_value="not enabled")
+    mock_ts_class.return_value = mock_translation
 
     from src.bot.handlers.transmission import TransmissionHandler
 
@@ -34,14 +38,14 @@ async def test_transmission_not_enabled(
     await handler.transmission_command(update, context)
 
     update.message.reply_text.assert_called_once()
-    call_args = update.message.reply_text.call_args
-    assert "not enabled" in str(call_args).lower()
+    mock_translation.get_text.assert_any_call("TransmissionNotEnabled")
 
 
 @pytest.mark.asyncio
+@patch("src.bot.handlers.transmission.TranslationService")
 @patch("src.bot.handlers.transmission.transmission_service")
 async def test_transmission_not_connected(
-    mock_service, make_update, make_context
+    mock_service, mock_ts_class, make_update, make_context
 ):
     """When transmission is enabled but not connected, show error."""
     mock_service.is_enabled = MagicMock(return_value=True)
@@ -49,6 +53,9 @@ async def test_transmission_not_connected(
         "connected": False,
         "error": "Connection refused"
     })
+    mock_translation = MagicMock()
+    mock_translation.get_text = MagicMock(return_value="connection error")
+    mock_ts_class.return_value = mock_translation
 
     from src.bot.handlers.transmission import TransmissionHandler
 
@@ -61,8 +68,9 @@ async def test_transmission_not_connected(
     await handler.transmission_command(update, context)
 
     update.message.reply_text.assert_called_once()
-    call_args = update.message.reply_text.call_args
-    assert "connect" in str(call_args).lower()
+    mock_translation.get_text.assert_any_call(
+        "TransmissionConnectionError", error="Connection refused"
+    )
 
 
 @pytest.mark.asyncio
@@ -126,15 +134,19 @@ async def test_handle_callback_toggle_yes_success(
 
 
 @pytest.mark.asyncio
+@patch("src.bot.handlers.transmission.TranslationService")
 @patch("src.bot.handlers.transmission.transmission_service")
 async def test_handle_callback_toggle_yes_failure(
-    mock_service, make_update, make_context
+    mock_service, mock_ts_class, make_update, make_context
 ):
     """Toggle yes with failure shows error."""
     mock_service.get_status = AsyncMock(return_value={
         "alt_speed_enabled": False,
     })
     mock_service.set_alt_speed = AsyncMock(return_value=False)
+    mock_translation = MagicMock()
+    mock_translation.get_text = MagicMock(return_value="toggle failed")
+    mock_ts_class.return_value = mock_translation
 
     from src.bot.handlers.transmission import TransmissionHandler
 
@@ -147,8 +159,7 @@ async def test_handle_callback_toggle_yes_failure(
     await handler.handle_callback(update, context)
 
     update.callback_query.edit_message_text.assert_called_once()
-    call_args = update.callback_query.edit_message_text.call_args
-    assert "Failed" in str(call_args)
+    mock_translation.get_text.assert_any_call("TransmissionToggleFailed")
 
 
 @pytest.mark.asyncio

@@ -95,9 +95,11 @@ Step 7  RUN     Push changes, report what was addressed
 See [references/create-pr.md](references/create-pr.md) for detailed instructions.
 
 ```
-Step 1  RUN     Pre-PR review: single consolidated pass over branch diff
-                covering bugs, security, code quality, and efficiency.
-                Run directly (not via skill invocation) — see create-pr.md.
+Step 1  RUN     Pre-PR review — three complementary passes over the branch diff.
+                INVOKE @find-bugs          (security, bugs, async errors, Telegram misuse)
+                INVOKE @simplify           (code reuse, quality patterns, efficiency)
+                INVOKE @code-simplifier    (structural clarity, nesting, readability)
+                See create-pr.md for execution details.
                 Fix any actionable findings. Skip pre-existing patterns.
 Step 2  RUN     Coverage check: run pytest with --cov on all changed source modules
                 and --cov-report=term-missing. Target 100% on all new/modified code.
@@ -144,7 +146,7 @@ when the specific trigger condition is met — never routinely per task or per b
 | `@python-testing-pro` | Facing a non-trivial test design question (parametrize strategy, complex mock setup, fixture architecture) |
 | `@superpowers:test-driven-development` | First task in a session (load once to set TDD discipline) |
 | `@superpowers:verification-before-completion` | After all tasks complete, before create-pr flow |
-| `@code-simplifier` | Refactor step produces code that feels overly complex |
+| `@code-simplifier` | Refactor step produces overly complex code; also invoked in create-pr step 1 |
 | `@superpowers:systematic-debugging` | Unexpected test failure (not a simple typo/import fix) |
 
 "First task in a session" means: invoke once when the trigger first applies, then
@@ -214,4 +216,6 @@ on-demand table in the Execution Loop section for per-task triggers.
 | `@addarr-services` | Service/API client patterns | First service/API task in session |
 | `@addarr-testing` | Project-specific test patterns | First test-writing task in session |
 | `@python-testing-pro` | Advanced pytest strategies | Non-trivial test design questions |
-| `@code-simplifier` | Focused refactoring | When refactor step produces complex code |
+| `@code-simplifier` | Structural clarity & readability | create-pr step 1; also during execution when refactor produces complex code |
+| `@find-bugs` | Security, bugs, async/Telegram errors | create-pr step 1 |
+| `@simplify` | Code reuse, quality patterns, efficiency | create-pr step 1 |

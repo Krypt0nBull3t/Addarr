@@ -100,7 +100,7 @@ async def test_handle_media_admin_restriction_denies_non_admin(
         # Should have replied with a restriction message
         update.message.reply_text.assert_called_once()
         call_args = update.message.reply_text.call_args
-        assert "admin" in call_args[0][0].lower() or "restricted" in call_args[0][0].lower()
+        assert "NotAdmin" in call_args[0][0]
     finally:
         config._config[service]["adminRestrictions"] = original
 
@@ -112,7 +112,7 @@ async def test_handle_media_admin_restriction_denies_non_admin(
 
 @pytest.mark.asyncio
 async def test_handle_search_no_results(media_handler, make_update, make_context):
-    """Empty search results replies with not-found message and returns END."""
+    """Empty search results replies with translated no-results message and returns END."""
     media_handler._mock_service.search_movies = AsyncMock(return_value=[])
 
     update = make_update(text="Nonexistent Movie")
@@ -122,6 +122,9 @@ async def test_handle_search_no_results(media_handler, make_update, make_context
 
     assert result == ConversationHandler.END
     update.message.reply_text.assert_called_once()
+    media_handler._mock_ts.get_text.assert_any_call(
+        "SearchNoResults", search_type="movie", query="Nonexistent Movie"
+    )
 
 
 @pytest.mark.asyncio
@@ -172,18 +175,19 @@ async def test_handle_search_dispatches_by_type(
 
 @pytest.mark.asyncio
 async def test_handle_search_invalid_type(media_handler, make_update, make_context):
-    """handle_search with invalid search_type returns END."""
+    """handle_search with invalid search_type replies with translated error and returns END."""
     update = make_update(text="Test")
     context = make_context(user_data={"search_type": "invalid"})
 
     result = await media_handler.handle_search(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SearchInvalidType")
 
 
 @pytest.mark.asyncio
 async def test_handle_search_exception(media_handler, make_update, make_context):
-    """handle_search returns END on exception."""
+    """handle_search returns END on exception and uses translated error."""
     media_handler._mock_service.search_movies = AsyncMock(
         side_effect=Exception("Network error")
     )
@@ -195,6 +199,7 @@ async def test_handle_search_exception(media_handler, make_update, make_context)
 
     assert result == ConversationHandler.END
     update.message.reply_text.assert_called_once()
+    media_handler._mock_ts.get_text.assert_any_call("SearchError")
 
 
 @pytest.mark.asyncio
@@ -339,7 +344,7 @@ async def test_handle_selection_tuple_failure(
 
 @pytest.mark.asyncio
 async def test_handle_selection_not_found(media_handler, make_update, make_context):
-    """Selection not found in results returns END."""
+    """Selection not found in results uses translated error and returns END."""
     update = make_update(callback_data="select_999")
     update.callback_query.message.photo = None
     context = make_context(user_data={
@@ -350,11 +355,12 @@ async def test_handle_selection_not_found(media_handler, make_update, make_conte
     result = await media_handler.handle_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionNotFound")
 
 
 @pytest.mark.asyncio
 async def test_handle_selection_exception(media_handler, make_update, make_context):
-    """Exception during selection returns END."""
+    """Exception during selection uses translated error and returns END."""
     media_handler._mock_service.add_movie = AsyncMock(
         side_effect=Exception("API error")
     )
@@ -369,6 +375,9 @@ async def test_handle_selection_exception(media_handler, make_update, make_conte
     result = await media_handler.handle_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call(
+        "MediaAddError", error="API error"
+    )
 
 
 @pytest.mark.asyncio
@@ -528,7 +537,7 @@ async def test_handle_quality_selection_series_with_seasons(
 async def test_handle_quality_selection_no_data(
     media_handler, make_update, make_context
 ):
-    """Missing quality_data returns END with error."""
+    """Missing quality_data returns END with translated error."""
     update = make_update(callback_data="quality_1")
     update.callback_query.message.photo = None
     context = make_context(user_data={"search_type": "movie"})
@@ -536,13 +545,14 @@ async def test_handle_quality_selection_no_data(
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionDataNotFound")
 
 
 @pytest.mark.asyncio
 async def test_handle_quality_selection_exception(
     media_handler, make_update, make_context
 ):
-    """Exception during quality selection returns END."""
+    """Exception during quality selection uses translated error and returns END."""
     media_handler._mock_service.add_movie_with_profile = AsyncMock(
         side_effect=Exception("API error")
     )
@@ -561,6 +571,7 @@ async def test_handle_quality_selection_exception(
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionProcessError")
 
 
 @pytest.mark.asyncio
@@ -1061,6 +1072,7 @@ async def test_handle_season_confirm_exception(
     result = await media_handler.handle_season_confirm(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionProcessError")
 
 
 @pytest.mark.asyncio
@@ -1111,7 +1123,7 @@ async def test_add_media_with_profile_invalid_type(media_handler):
     )
 
     assert success is False
-    assert "Invalid" in msg
+    media_handler._mock_ts.get_text.assert_any_call("InvalidMediaType")
 
 
 # ---------------------------------------------------------------------------
@@ -2852,6 +2864,7 @@ async def test_handle_album_confirm_exception(
     result = await media_handler.handle_album_confirm(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionProcessError")
 
 
 @pytest.mark.asyncio
@@ -2893,6 +2906,7 @@ async def test_handle_album_monitor_mode_all_exception(
     result = await media_handler.handle_album_monitor_mode(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("ArtistAddError")
 
 
 @pytest.mark.asyncio
@@ -2915,6 +2929,7 @@ async def test_handle_album_monitor_mode_pick_exception(
     result = await media_handler.handle_album_monitor_mode(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("AlbumFetchError")
 
 
 @pytest.mark.asyncio
@@ -2987,6 +3002,7 @@ async def test_handle_album_selection_monitor_all_exception(
     result = await media_handler.handle_album_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("ArtistAddError")
 
 
 @pytest.mark.asyncio
