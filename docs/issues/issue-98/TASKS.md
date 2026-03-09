@@ -116,7 +116,7 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
 
 **Goal:** Full test suite, lint, and i18n validation pass.
 
-- [ ] **4.1** Run full preflight checks
+- [x] **4.1** Run full preflight checks
     - **Context:** All handler changes and translation keys are in place. Run the full CI-equivalent checks.
     - **Scope:** pytest, flake8, validate-i18n
     - **Action items:**
@@ -126,3 +126,7 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
         - [GREEN] Run `pytest --cov=src.bot.handlers --cov=src.services.translation --cov-report=term-missing` — check coverage on changed modules
         - [GREEN] Fix any failures
     - **Success:** All checks pass, no regressions
+    - **Completed:** 2026-03-09
+    - **Learnings:** No issues — all 1765 tests pass, lint clean, i18n valid, 100% coverage on all handler modules.
+    - **Key Changes:** No code changes — verification only.
+    - **Notes:** Ready for PR.
