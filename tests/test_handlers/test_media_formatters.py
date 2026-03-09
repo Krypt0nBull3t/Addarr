@@ -228,6 +228,17 @@ def test_build_external_links_all_none():
     assert links == ""
 
 
+def test_build_external_links_tmdb_with_tvdb_uses_tv_path():
+    """When both tmdb and tvdb are present, TMDB link uses /tv/ path."""
+    result = {
+        "external_ids": {"tmdb": 1396, "tvdb": 81189, "imdb": None},
+    }
+
+    links = _build_external_links(result)
+
+    assert "[TMDB](https://www.themoviedb.org/tv/1396)" in links
+
+
 # ---------------------------------------------------------------------------
 # build_result_caption with external links
 # ---------------------------------------------------------------------------

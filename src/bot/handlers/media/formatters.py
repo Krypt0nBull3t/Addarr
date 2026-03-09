@@ -37,11 +37,15 @@ def _build_external_links(result):
         links.append(f"[IMDB](https://www.imdb.com/title/{imdb_id}/)")
 
     tmdb_id = external_ids.get("tmdb")
-    if tmdb_id:
-        links.append(f"[TMDB](https://www.themoviedb.org/movie/{tmdb_id})")
+    if tmdb_id is not None:
+        # TMDB uses /tv/ for series, /movie/ for movies
+        tmdb_type = "tv" if external_ids.get("tvdb") is not None else "movie"
+        links.append(
+            f"[TMDB](https://www.themoviedb.org/{tmdb_type}/{tmdb_id})"
+        )
 
     tvdb_id = external_ids.get("tvdb")
-    if tvdb_id:
+    if tvdb_id is not None:
         links.append(f"[TVDB](https://thetvdb.com/?id={tvdb_id}&tab=series)")
 
     mb_id = external_ids.get("musicbrainz")
