@@ -14,6 +14,9 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 from colorama import Fore, Style
 
+from src.api.lidarr import LidarrClient
+from src.api.radarr import RadarrClient
+from src.api.sonarr import SonarrClient
 from src.api.transmission import TransmissionClient
 from src.config.settings import config
 from src.utils.logger import get_logger
@@ -298,6 +301,44 @@ class HealthService:
             })
 
         return results
+
+    def _get_api_client(self, service_key: str):
+        """Create an API client instance for the given service key."""
+        client_map = {
+            "radarr": RadarrClient,
+            "sonarr": SonarrClient,
+            "lidarr": LidarrClient,
+        }
+        cls = client_map.get(service_key)
+        if cls is None:
+            return None
+        return cls()
+
+    async def get_disk_space(self) -> List[Dict]:
+        """Get disk space from the first enabled *arr service."""
+        services = ["radarr", "sonarr", "lidarr"]
+
+        for service_key in services:
+            service_config = config.get(service_key, {})
+            if not service_config.get("enable"):
+                continue
+
+            client = self._get_api_client(service_key)
+            if client is None:
+                continue
+
+            try:
+                result = await client.get_disk_space()
+                if result:
+                    return result
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get disk space from {service_key}: {e}"
+                )
+            finally:
+                await client.close()
+
+        return []
 
     def get_status(self) -> Dict:
         """Get current monitoring status"""

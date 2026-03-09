@@ -27,7 +27,7 @@ Add disk space information to the `/status` command via a "Disk Space" button. S
     - **Key Changes:** Added `get_disk_space()` to `src/api/base.py`, `RADARR_DISK_SPACE` fixture to `tests/fixtures/sample_data.py`, 3 tests in `tests/test_api/test_radarr.py`
     - **Notes:** Method is on BaseApiClient so all *arr clients (Radarr, Sonarr, Lidarr) inherit it automatically.
 
-- [ ] **1.2** Add `get_disk_space()` to HealthService
+- [x] **1.2** Add `get_disk_space()` to HealthService
     - **Context:** See plan.md Task 2. Key refs: `src/services/health.py:238-300` (`run_health_checks` iterates services similarly). HealthService currently builds URLs manually for health checks — for disk space, we create actual API client instances via a new `_get_api_client()` helper with lazy imports.
     - **Watch out:** Returns flat list (not dict-of-lists) since we only query one service. Falls through to next enabled service on error.
     - **Scope:** `_get_api_client()` helper + `get_disk_space()` method, tests
@@ -36,6 +36,10 @@ Add disk space information to the `/status` command via a "Disk Space" button. S
         - [RED] Write tests: returns drives from first enabled service, skips disabled services, no enabled services returns `[]`, client error falls through to next service, `_get_api_client` returns None for unknown key
         - [GREEN] Implement `_get_api_client()` and `get_disk_space()` on HealthService
     - **Success:** `pytest tests/test_services/test_health_service.py -v -k disk_space` — 5 tests pass
+    - **Completed:** 2026-03-09
+    - **Learnings:** Used eager imports for API clients rather than lazy imports — simpler and the circular import concern doesn't apply here since health.py doesn't import from handlers. The `finally: await client.close()` pattern ensures sessions are cleaned up even on error.
+    - **Key Changes:** Added `_get_api_client()` and `get_disk_space()` to `src/services/health.py`, imported RadarrClient/SonarrClient/LidarrClient. 9 new tests (4 for `_get_api_client`, 5 for `get_disk_space`).
+    - **Notes:** `get_disk_space()` returns a flat list from the first responding service. Falls through silently on error.
 
 - [ ] **1.3** Add keyboard button, handler callback, and formatter
     - **Context:** See plan.md Task 3. Key refs: `src/bot/keyboards.py:74-93` (`get_system_keyboard`), `src/bot/handlers/system.py:65-68` (action dispatch), `src/bot/handlers/system.py:96-114` (`_handle_details` as pattern). Formatter and helpers are module-level functions (not methods) for easy unit testing.
