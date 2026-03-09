@@ -273,6 +273,15 @@ fr-fr:
   QueueTitle: "📥 File de Téléchargement"
   QueueEmpty: "Aucun élément dans la file de téléchargement."
 
+  History: "📜 Historique"
+  CommandHistory: "Parcourir l'activité récente"
+  HistoryTitle: "📜 Activité Récente"
+  HistoryEmpty: "Aucune activité récente trouvée."
+  HistoryGrabbed: "Téléchargé"
+  HistoryImported: "Importé"
+  HistoryFailed: "Échoué"
+  HistoryAll: "Tous"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

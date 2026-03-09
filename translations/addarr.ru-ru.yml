@@ -273,6 +273,15 @@ ru-ru:
   QueueTitle: "📥 Очередь Загрузок"
   QueueEmpty: "В очереди загрузок нет элементов."
 
+  History: "📜 История"
+  CommandHistory: "Просмотр недавней активности"
+  HistoryTitle: "📜 Недавняя Активность"
+  HistoryEmpty: "Недавняя активность не найдена."
+  HistoryGrabbed: "Загружено"
+  HistoryImported: "Импортировано"
+  HistoryFailed: "Ошибка"
+  HistoryAll: "Все"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

@@ -273,6 +273,15 @@ pl-pl:
   QueueTitle: "📥 Kolejka Pobierania"
   QueueEmpty: "Brak elementów w kolejce pobierania."
 
+  History: "📜 Historia"
+  CommandHistory: "Przeglądaj ostatnią aktywność"
+  HistoryTitle: "📜 Ostatnia Aktywność"
+  HistoryEmpty: "Nie znaleziono ostatniej aktywności."
+  HistoryGrabbed: "Pobrano"
+  HistoryImported: "Zaimportowano"
+  HistoryFailed: "Nieudane"
+  HistoryAll: "Wszystko"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

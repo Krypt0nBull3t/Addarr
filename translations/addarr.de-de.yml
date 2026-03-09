@@ -273,6 +273,15 @@ de-de:
   QueueTitle: "📥 Download-Warteschlange"
   QueueEmpty: "Keine Elemente in der Download-Warteschlange."
 
+  History: "📜 Verlauf"
+  CommandHistory: "Letzte Aktivitäten anzeigen"
+  HistoryTitle: "📜 Letzte Aktivitäten"
+  HistoryEmpty: "Keine aktuellen Aktivitäten gefunden."
+  HistoryGrabbed: "Geholt"
+  HistoryImported: "Importiert"
+  HistoryFailed: "Fehlgeschlagen"
+  HistoryAll: "Alle"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

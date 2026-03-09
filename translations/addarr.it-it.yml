@@ -273,6 +273,15 @@ it-it:
   QueueTitle: "📥 Coda di Download"
   QueueEmpty: "Nessun elemento nella coda di download."
 
+  History: "📜 Cronologia"
+  CommandHistory: "Visualizza attività recente"
+  HistoryTitle: "📜 Attività Recente"
+  HistoryEmpty: "Nessuna attività recente trovata."
+  HistoryGrabbed: "Scaricato"
+  HistoryImported: "Importato"
+  HistoryFailed: "Fallito"
+  HistoryAll: "Tutti"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

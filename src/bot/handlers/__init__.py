@@ -11,6 +11,7 @@ Each handler is responsible for managing a specific type of user interaction.
 
 from .auth import AuthHandler
 from .calendar import CalendarHandler
+from .history import HistoryHandler
 from .media import MediaHandler
 from .delete import DeleteHandler
 from .library import LibraryHandler
@@ -18,6 +19,6 @@ from .settings import SettingsHandler
 from .system import SystemHandler
 
 __all__ = [
-    'AuthHandler', 'CalendarHandler', 'MediaHandler', 'DeleteHandler',
-    'LibraryHandler', 'SettingsHandler', 'SystemHandler',
+    'AuthHandler', 'CalendarHandler', 'HistoryHandler', 'MediaHandler',
+    'DeleteHandler', 'LibraryHandler', 'SettingsHandler', 'SystemHandler',
 ]

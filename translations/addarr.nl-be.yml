@@ -273,6 +273,15 @@ nl-be:
   QueueTitle: "📥 Downloadwachtrij"
   QueueEmpty: "Geen items in de downloadwachtrij."
 
+  History: "📜 Geschiedenis"
+  CommandHistory: "Bekijk recente activiteit"
+  HistoryTitle: "📜 Recente Activiteit"
+  HistoryEmpty: "Geen recente activiteit gevonden."
+  HistoryGrabbed: "Opgehaald"
+  HistoryImported: "Geïmporteerd"
+  HistoryFailed: "Mislukt"
+  HistoryAll: "Alles"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

@@ -15,6 +15,7 @@ from tests.fixtures.sample_data import (
     SONARR_WANTED_MISSING,
     SONARR_WANTED_CUTOFF,
     SONARR_QUEUE,
+    SONARR_HISTORY,
 )
 
 
@@ -921,4 +922,68 @@ class TestSonarrGetQueue:
         """Exception during get_queue returns empty list."""
         with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
             results = await sonarr_client.get_queue()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_history
+# ---------------------------------------------------------------------------
+
+
+class TestSonarrGetHistory:
+    @pytest.mark.asyncio
+    async def test_get_history_success(self, aio_mock, sonarr_client):
+        """Happy path: returns list of history records."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20",
+            payload=SONARR_HISTORY,
+            status=200,
+        )
+        results = await sonarr_client.get_history()
+        assert len(results) == 2
+        assert results[0]["series"]["title"] == "Breaking Bad"
+        assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    async def test_get_history_with_event_type(self, aio_mock, sonarr_client):
+        """Event type filter appended to URL."""
+        filtered = {
+            "page": 1, "pageSize": 20, "totalRecords": 1,
+            "records": [SONARR_HISTORY["records"][0]],
+        }
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&eventType=grabbed",
+            payload=filtered,
+            status=200,
+        )
+        results = await sonarr_client.get_history(event_type="grabbed")
+        assert len(results) == 1
+        assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    async def test_get_history_empty(self, aio_mock, sonarr_client):
+        """Empty records returns empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20",
+            payload={"page": 1, "pageSize": 20, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await sonarr_client.get_history()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_error(self, sonarr_client):
+        """Exception during get_history returns empty list."""
+        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await sonarr_client.get_history()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_non_dict_response(self, sonarr_client):
+        """Non-dict response (None) returns empty list."""
+        with patch.object(sonarr_client, "_request", return_value=None):
+            results = await sonarr_client.get_history()
         assert results == []

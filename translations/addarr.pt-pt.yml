@@ -273,6 +273,15 @@ pt-pt:
   QueueTitle: "📥 Fila de Downloads"
   QueueEmpty: "Sem itens na fila de downloads."
 
+  History: "📜 Histórico"
+  CommandHistory: "Ver atividade recente"
+  HistoryTitle: "📜 Atividade Recente"
+  HistoryEmpty: "Nenhuma atividade recente encontrada."
+  HistoryGrabbed: "Transferido"
+  HistoryImported: "Importado"
+  HistoryFailed: "Falhado"
+  HistoryAll: "Todos"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

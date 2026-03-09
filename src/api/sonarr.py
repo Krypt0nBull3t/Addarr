@@ -297,6 +297,32 @@ class SonarrClient(BaseApiClient):
             logger.error(Fore.RED + f"❌ Failed to get calendar: {str(e)}")
             return []
 
+    async def get_history(self, page: int = 1, page_size: int = 20,
+                          event_type: str = None) -> List[Dict]:
+        """Get recent history from Sonarr."""
+        try:
+            logger.info(Fore.BLUE + "📜 Getting history from Sonarr")
+            endpoint = (
+                f"history?sortKey=date&sortDirection=descending"
+                f"&page={page}&pageSize={page_size}"
+            )
+            if event_type:
+                endpoint += f"&eventType={event_type}"
+
+            result = await self._request(endpoint)
+
+            if not result or not isinstance(result, dict):
+                logger.warning(Fore.YELLOW + "⚠️ No history found in Sonarr")
+                return []
+
+            records = result.get("records", [])
+            logger.info(Fore.GREEN + f"✅ Found {len(records)} history items in Sonarr")
+            return records
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get Sonarr history: {str(e)}")
+            return []
+
     async def get_all_series(self) -> List[Dict]:
         """Get all series in the library"""
         try:
