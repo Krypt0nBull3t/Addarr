@@ -51,6 +51,8 @@ ru-ru:
   LibraryNotEnabled: "❌ %{subject} не включён или не настроен."
   LibraryError: "❌ Ошибка загрузки библиотеки. Попробуйте позже."
   LibraryExpired: "⏳ Сессия истекла. Выполните команду ещё раз."
+  Library: "Библиотека"
+  LibraryPrompt: "📚 Выберите библиотеку для просмотра:"
 
   # Common messages
   Start chatting: "🤖 Начните общаться с Addarr в Telegram. При первом использовании \"start\" вам будет предложено ввести пароль."

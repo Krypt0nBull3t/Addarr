@@ -53,6 +53,12 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                f"\U0001f4da {translation.get_text('Library')}",
+                callback_data="menu_library"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
                 f"⚙️ {translation.get_text('Settings')}",
                 callback_data="menu_settings"
             ),
@@ -65,6 +71,36 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 f"❌ {translation.get_text('Cancel')}",
                 callback_data="menu_cancel"
+            ),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_library_menu_keyboard() -> InlineKeyboardMarkup:
+    """Get the library sub-menu keyboard"""
+    translation = TranslationService()
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                f"\U0001f3ac {translation.get_text('Movie')}",
+                callback_data="library_movie"
+            ),
+            InlineKeyboardButton(
+                f"\U0001f4fa {translation.get_text('Series')}",
+                callback_data="library_series"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"\U0001f3b5 {translation.get_text('Music')}",
+                callback_data="library_music"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"\u25c0\ufe0f {translation.get_text('Back')}",
+                callback_data="menu_back"
             ),
         ],
     ]

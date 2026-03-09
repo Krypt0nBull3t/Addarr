@@ -128,8 +128,10 @@ def start_handler(mock_media_service, mock_translation_service):
         patch("src.bot.handlers.start.SystemHandler") as mock_sh_class,
         patch("src.bot.handlers.start.TranslationService") as mock_ts_class,
         patch("src.bot.handlers.start.get_main_menu_keyboard") as mock_kbd,
+        patch("src.bot.handlers.start.get_library_menu_keyboard") as mock_lib_kbd,
     ):
         mock_ts_class.return_value = mock_translation_service
+        mock_lib_kbd.return_value = MagicMock()
         mock_media_handler = MagicMock()
         mock_media_handler.handle_search = AsyncMock()
         mock_media_handler.handle_selection = AsyncMock()
@@ -162,6 +164,7 @@ def start_handler(mock_media_service, mock_translation_service):
         handler._mock_system_handler = mock_system_handler
         handler._mock_ts = mock_translation_service
         handler._mock_kbd = mock_kbd
+        handler._mock_lib_kbd = mock_lib_kbd
         yield handler
 
 

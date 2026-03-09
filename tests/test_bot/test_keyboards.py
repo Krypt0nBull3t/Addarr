@@ -10,6 +10,7 @@ from src.bot.keyboards import (
     get_downloads_queue_keyboard,
     get_history_items_keyboard,
     get_history_empty_keyboard,
+    get_library_menu_keyboard,
     get_main_menu_keyboard,
     get_settings_keyboard,
     get_system_keyboard,
@@ -48,6 +49,7 @@ class TestMainMenuKeyboard:
             "menu_status",
             "menu_upcoming",
             "menu_delete",
+            "menu_library",
             "menu_help",
             "menu_cancel",
         ]
@@ -55,6 +57,41 @@ class TestMainMenuKeyboard:
             assert value in callback_data_values, (
                 f"{value} not found in keyboard callback data"
             )
+
+
+class TestLibraryMenuKeyboard:
+    """Tests for get_library_menu_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_library_menu_returns_markup(self, mock_ts):
+        """Returns InlineKeyboardMarkup"""
+        _mock_translation(mock_ts)
+        result = get_library_menu_keyboard()
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_library_menu_has_media_buttons(self, mock_ts):
+        """Contains movie, series, music library buttons"""
+        _mock_translation(mock_ts)
+        result = get_library_menu_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "library_movie" in callbacks
+        assert "library_series" in callbacks
+        assert "library_music" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_library_menu_has_back_button(self, mock_ts):
+        """Contains back button to return to main menu"""
+        _mock_translation(mock_ts)
+        result = get_library_menu_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "menu_back" in callbacks
 
 
 class TestSystemKeyboard:

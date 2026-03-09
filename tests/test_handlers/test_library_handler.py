@@ -306,3 +306,124 @@ async def test_navigation_non_integer_page(
     result = await library_handler.handle_page_navigation(update, context)
 
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Library sub-menu callback (handle_library_selection)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("callback_data,service_method", [
+    ("library_movie", "get_movies"),
+    ("library_series", "get_series"),
+    ("library_music", "get_music"),
+])
+@pytest.mark.asyncio
+async def test_library_selection_callback(
+    library_handler, make_update, make_context,
+    callback_data, service_method
+):
+    """library_{type} callback fetches items and replies with paginated text."""
+    items = [
+        {"id": "1", "title": "Alpha"},
+        {"id": "2", "title": "Beta"},
+    ]
+    setattr(
+        library_handler._mock_service, service_method,
+        AsyncMock(return_value=items)
+    )
+
+    update = make_update(callback_data=callback_data)
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.answer.assert_called_once()
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    text = call_args[0][0] if call_args[0] else call_args[1].get("text", "")
+    assert "Alpha" in text
+    assert "Beta" in text
+
+
+@pytest.mark.asyncio
+async def test_library_selection_no_callback(
+    library_handler, make_update, make_context
+):
+    """handle_library_selection returns when no callback_query."""
+    update = make_update(text="/test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await library_handler.handle_library_selection(update, context)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_library_selection_unknown_type(
+    library_handler, make_update, make_context
+):
+    """Unknown library type returns early after answering."""
+    update = make_update(callback_data="library_unknown")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.answer.assert_called_once()
+    update.callback_query.message.edit_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_library_selection_service_error(
+    library_handler, make_update, make_context
+):
+    """Service ValueError shows not-enabled message."""
+    library_handler._mock_service.get_movies = AsyncMock(
+        side_effect=ValueError("not enabled")
+    )
+
+    update = make_update(callback_data="library_movie")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "LibraryNotEnabled" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_library_selection_generic_error(
+    library_handler, make_update, make_context
+):
+    """Generic exception shows error message."""
+    library_handler._mock_service.get_movies = AsyncMock(
+        side_effect=Exception("Connection refused")
+    )
+
+    update = make_update(callback_data="library_movie")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "LibraryError" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_library_selection_empty_library(
+    library_handler, make_update, make_context
+):
+    """Empty library shows empty message."""
+    library_handler._mock_service.get_movies = AsyncMock(return_value=[])
+
+    update = make_update(callback_data="library_movie")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "LibraryEmpty" in str(call_args)

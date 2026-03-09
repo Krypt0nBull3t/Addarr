@@ -51,6 +51,8 @@ es-es:
   LibraryNotEnabled: "❌ %{subject} no está habilitado o configurado."
   LibraryError: "❌ Error al cargar la biblioteca. Por favor, inténtalo de nuevo más tarde."
   LibraryExpired: "⏳ Sesión expirada. Por favor, ejecuta el comando de nuevo."
+  Library: "Biblioteca"
+  LibraryPrompt: "📚 Selecciona una biblioteca para explorar:"
 
   # Common messages
   Start chatting: "🤖 Empieza a chatear con Addarr en Telegram. La primera vez que uses \"start\" te pedirá introducir tu contraseña configurada."
