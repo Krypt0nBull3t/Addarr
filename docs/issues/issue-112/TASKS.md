@@ -26,7 +26,7 @@ Add a "Library" button to the main menu that opens a sub-menu for browsing Movie
     - **Key Changes:** Added `Library`/`LibraryPrompt` keys to all 10 locales + template. Created `get_library_menu_keyboard()` in `keyboards.py`.
     - **Notes:** None
 
-- [ ] **1.2** Add Library button to main menu keyboard
+- [x] **1.2** Add Library button to main menu keyboard
     - **Context:** See plan.md Task 3. Key refs: `src/bot/keyboards.py:43-53` (insert new row after Delete), `tests/test_bot/test_keyboards.py:44-57` (expected callback list)
     - **Watch out:** Must update the existing `test_main_menu_keyboard_structure` test's expected list to include `menu_library`.
     - **Scope:** One new button row in `get_main_menu_keyboard()`, update existing test
@@ -35,6 +35,10 @@ Add a "Library" button to the main menu that opens a sub-menu for browsing Movie
         - [RED] Update existing main menu test to expect `menu_library` callback
         - [GREEN] Add Library button row to `get_main_menu_keyboard()` (after Delete, before Settings)
     - **Success:** Main menu keyboard test passes with `menu_library` in callback list
+    - **Completed:** 2026-03-09
+    - **Learnings:** Straightforward single-row addition. Used Unicode escape for book emoji.
+    - **Key Changes:** Added Library button row to `get_main_menu_keyboard()`, updated test expected list.
+    - **Notes:** Button placed after Delete, before Settings (row 4 of 7).
 
 ### Phase 2: Handler Wiring (2 tasks)
 

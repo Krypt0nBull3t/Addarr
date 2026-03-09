@@ -53,6 +53,12 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                f"\U0001f4da {translation.get_text('Library')}",
+                callback_data="menu_library"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
                 f"⚙️ {translation.get_text('Settings')}",
                 callback_data="menu_settings"
             ),

@@ -49,6 +49,7 @@ class TestMainMenuKeyboard:
             "menu_status",
             "menu_upcoming",
             "menu_delete",
+            "menu_library",
             "menu_help",
             "menu_cancel",
         ]
