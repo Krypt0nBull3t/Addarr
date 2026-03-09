@@ -85,6 +85,11 @@ def get_system_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                "💾 Disk Space", callback_data="system_diskspace"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
                 f"◀️ {translation.get_text('Back')}",
                 callback_data="system_back"
             ),

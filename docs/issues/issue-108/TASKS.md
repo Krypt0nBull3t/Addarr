@@ -41,7 +41,7 @@ Add disk space information to the `/status` command via a "Disk Space" button. S
     - **Key Changes:** Added `_get_api_client()` and `get_disk_space()` to `src/services/health.py`, imported RadarrClient/SonarrClient/LidarrClient. 9 new tests (4 for `_get_api_client`, 5 for `get_disk_space`).
     - **Notes:** `get_disk_space()` returns a flat list from the first responding service. Falls through silently on error.
 
-- [ ] **1.3** Add keyboard button, handler callback, and formatter
+- [x] **1.3** Add keyboard button, handler callback, and formatter
     - **Context:** See plan.md Task 3. Key refs: `src/bot/keyboards.py:74-93` (`get_system_keyboard`), `src/bot/handlers/system.py:65-68` (action dispatch), `src/bot/handlers/system.py:96-114` (`_handle_details` as pattern). Formatter and helpers are module-level functions (not methods) for easy unit testing.
     - **Watch out:** `_build_disk_space_text` takes `(drives, translation)` not `self` — keeps it testable as a standalone function. `_format_bytes` divides by 1024 (binary units).
     - **Scope:** Keyboard button, dispatch branch, handler method, 3 module-level functions, tests
@@ -53,6 +53,10 @@ Add disk space information to the `/status` command via a "Disk Space" button. S
         - [GREEN] Add `_handle_diskspace()` method and dispatch branch in `handle_system_action()`
         - [GREEN] Add "Disk Space" button to `get_system_keyboard()` in `keyboards.py`
     - **Success:** `pytest tests/test_handlers/test_system_handler.py -v -k "diskspace or format_usage or format_bytes"` — 6+ tests pass
+    - **Completed:** 2026-03-09
+    - **Learnings:** `_format_bytes` uses binary division (1024) so 1TB = 1,099,511,627,776 bytes — test fixtures need values above this threshold. Mock `get_text` with `side_effect=lambda key, **kw: key` swallows kwargs, so `assert_any_call("key")` fails when `default=` is passed — use `call_args_list` extraction instead.
+    - **Key Changes:** Added `_format_usage_bar()`, `_format_bytes()`, `_build_disk_space_text()`, `_handle_diskspace()` to `system.py`. Added `diskspace` dispatch branch. Added "Disk Space" button to `get_system_keyboard()` in `keyboards.py`. 10 new tests.
+    - **Notes:** `LOW_SPACE_THRESHOLD = 10` is a module constant — easy to adjust later.
 
 - [ ] **1.4** Add translation keys
     - **Context:** See plan.md Task 4. Key refs: `translations/addarr.en-us.yml:295-299` (existing status keys section). Handler uses `default=` fallbacks so this is for i18n completeness.
