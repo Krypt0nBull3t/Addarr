@@ -975,6 +975,17 @@ class TestRadarrGetDiskSpace:
         assert results == []
 
     @pytest.mark.asyncio
+    async def test_get_disk_space_non_list_response(self, aio_mock, radarr_client):
+        """Non-list response (e.g. dict) returns empty list."""
+        aio_mock.get(
+            f"{BASE}/diskspace",
+            payload={"error": "unexpected format"},
+            status=200,
+        )
+        results = await radarr_client.get_disk_space()
+        assert results == []
+
+    @pytest.mark.asyncio
     async def test_get_disk_space_exception(self, radarr_client):
         """Exception during get_disk_space returns empty list."""
         with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):

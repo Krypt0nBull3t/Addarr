@@ -336,6 +336,18 @@ def test_format_bytes_tb():
 # ---------------------------------------------------------------------------
 
 
+def test_build_disk_space_text_zero_total():
+    """Drive with totalSpace=0 shows 0% used."""
+    from src.bot.handlers.system import _build_disk_space_text
+    from unittest.mock import MagicMock
+    translation = MagicMock()
+    translation.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    drives = [{"path": "/empty", "freeSpace": 0, "totalSpace": 0}]
+    text = _build_disk_space_text(drives, translation)
+    assert "0%" in text
+    assert "/empty" in text
+
+
 @pytest.mark.asyncio
 async def test_handle_diskspace(system_handler, make_update, make_context):
     """system_diskspace shows drives with percentage."""
