@@ -32,7 +32,7 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
 
 **Goal:** Replace hardcoded error strings with `get_text()` calls in handlers that already have `self.translation`.
 
-- [ ] **2.1** Replace hardcoded strings in media handler package
+- [x] **2.1** Replace hardcoded strings in media handler package
     - **Context:** See plan.md Phase 2. `MediaHandler` has `self.translation` (TranslationService singleton). Mixin classes (`SeasonPickerMixin`, `AlbumPickerMixin`) inherit `self.translation` from the handler. `formatters.py` has standalone functions — use `TranslationService().get_text()` inline (singleton, error path only).
     - **Watch out:** `handler.py:491` uses f-string with `{str(e)}` — use `get_text("MediaAddError", error=str(e))` with `%{error}` substitution. `handler.py:622` returns a tuple `(False, message)` not a reply_text — use `get_text()` there too.
     - **Scope:** 14 string replacements across 4 files
@@ -46,6 +46,10 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
         - [GREEN] Replace 1 hardcoded string in `season_picker.py` with `self.translation.get_text()` call
         - [GREEN] Run `pytest tests/test_handlers/test_media_handler.py tests/test_handlers/test_media_formatters.py -v`
     - **Success:** All media handler tests pass, no hardcoded English error strings remain in the media package
+    - **Completed:** 2026-03-09
+    - **Learnings:** Existing tests only checked return values and `assert_called_once()`, not message content. Added `get_text.assert_any_call("KeyName")` assertions to verify correct translation keys are used.
+    - **Key Changes:** 14 string replacements across `handler.py`, `album_picker.py`, `season_picker.py`, `formatters.py`. Added `TranslationService` import to `formatters.py`.
+    - **Notes:** The `formatters.py` uses `TranslationService().get_text()` inline (singleton) since it has standalone functions, not a class.
 
 - [ ] **2.2** Replace hardcoded strings in delete and calendar handlers
     - **Context:** See plan.md Phase 2. Both handlers have `self.translation`. `delete.py` has 6 hardcoded strings across 3 branches (type selection, item selection, confirmation). `calendar.py` has 1 hardcoded string (`"Unknown media type"` at line 155).

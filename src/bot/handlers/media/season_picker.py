@@ -201,7 +201,6 @@ class SeasonPickerMixin:
             logger.error(f"Error confirming season selection: {e}")
             await send_response(
                 query.message,
-                "❌ An error occurred while processing your selection.\n"
-                "Please try again."
+                self.translation.get_text("SelectionProcessError")
             )
             return ConversationHandler.END
