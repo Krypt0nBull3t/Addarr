@@ -2,47 +2,56 @@
 
 Sequence is defined in SKILL.md. This file provides implementation details per step.
 
-## Step 1: Pre-PR Review (Consolidated)
+## Step 1: Pre-PR Review (Three Complementary Passes)
 
-Single pass over the branch diff covering bugs, security, quality, and efficiency.
-Do NOT invoke @find-bugs, @simplify, or @code-simplifier as separate skills.
-Run the review directly to avoid loading 3+ skill definitions into context.
+Invoke three skills in sequence. Each covers a distinct concern with no overlap.
+Fix actionable findings after each pass. Skip pre-existing codebase patterns.
 
-### Get the diff
+### Pass 1: INVOKE @find-bugs
 
-```bash
-git diff origin/development...HEAD
-```
+**Scope:** Security, correctness, and runtime errors.
 
-If truncated, read each changed source file individually.
-
-### Review checklist (check every changed file)
-
-**Security & Bugs:**
+Covers (and ONLY covers):
 - Injection (command, template, URL parameter)
-- Missing `@require_auth` on entry points
-- Missing `query.answer()` on callback handlers
-- `reply_text` on callbacks (should be `edit_text`/`edit_caption`)
-- Direct `config["key"]` indexing (should be `.get()`)
-- Missing `await`, unclosed sessions
-- API keys in log messages
+- Authentication/authorization bypass (missing `@require_auth`, IDOR)
+- Async bugs (missing `await`, unclosed sessions, fire-and-forget coroutines)
+- Telegram API misuse (missing `query.answer()`, `reply_text` on callbacks)
+- Config safety (direct `config["key"]` indexing without `.get()`)
+- Information disclosure (API keys in logs, error messages leaking internals)
+- Race conditions, resource exhaustion, business logic errors
 
-**Code Quality:**
-- Copy-paste blocks that should be unified (3+ near-identical blocks = fix)
-- New code that duplicates an existing utility (search before writing)
-- Leaky abstractions crossing layer boundaries
+Does NOT cover: code style, reuse opportunities, readability, efficiency.
 
-**Efficiency:**
-- Redundant API calls (same data fetched multiple times)
-- N+1 patterns
-- Unbounded data structures
+### Pass 2: INVOKE @simplify
 
-### Output rules
+**Scope:** Code reuse, quality patterns, and efficiency. Launches 3 parallel agents.
 
-- Only report issues you would actually fix.
-- Skip items consistent with existing codebase patterns (pre-existing tech debt).
-- Skip stylistic issues (flake8 catches those).
-- Fix actionable findings immediately. Run `pytest --tb=short -q` after fixes.
+Covers (and ONLY covers):
+- **Reuse:** New code duplicating existing utilities, inline logic that could use helpers
+- **Quality:** Copy-paste blocks (3+ near-identical), parameter sprawl, leaky abstractions,
+  redundant state, stringly-typed code where constants/enums exist
+- **Efficiency:** Redundant API calls, N+1 patterns, missed concurrency,
+  unbounded data structures, hot-path bloat
+
+Does NOT cover: security bugs, structural readability, Python-specific simplifications.
+
+### Pass 3: INVOKE @code-simplifier
+
+**Scope:** Structural clarity and readability of changed files.
+
+Covers (and ONLY covers):
+- Unnecessary nesting (opportunities for early returns, guard clauses)
+- Redundant abstractions used only once
+- Variable/function naming clarity
+- Python-specific simplifications (comprehensions, inline conditionals, unpacking)
+- Verbose patterns that can be expressed more clearly
+- Comments that describe obvious code
+
+Does NOT cover: security, reuse opportunities, efficiency, architecture.
+
+### After all three passes
+
+Run `pytest --tb=short -q` if any fixes were made. Then proceed to Step 2.
 
 ## Step 2: Coverage Check
 
