@@ -44,7 +44,7 @@ Add a "Library" button to the main menu that opens a sub-menu for browsing Movie
 
 **Goal:** Wire the menu button to show the library sub-menu, and handle sub-menu selections via LibraryHandler.
 
-- [ ] **2.1** Handle `menu_library` in StartHandler
+- [x] **2.1** Handle `menu_library` in StartHandler
     - **Context:** See plan.md Task 4. Key refs: `src/bot/handlers/start.py:186-188` (upcoming pattern to follow — show keyboard, return END), `tests/test_handlers/conftest.py:122-165` (start_handler fixture needs `get_library_menu_keyboard` patch), `tests/test_handlers/test_start_handler.py:123-134` (upcoming test as pattern)
     - **Watch out:** Must return `ConversationHandler.END` so LibraryHandler's globally-registered `CallbackQueryHandler` can pick up `library_*` callbacks. Must patch `get_library_menu_keyboard` in the test fixture.
     - **Scope:** Import + 4-line handler block in `handle_menu_selection()`, fixture update, one new test
@@ -54,6 +54,10 @@ Add a "Library" button to the main menu that opens a sub-menu for browsing Movie
         - [GREEN] Update `start_handler` fixture to patch `get_library_menu_keyboard`
         - [GREEN] Add import + handler block in `handle_menu_selection()`
     - **Success:** All start handler tests pass including new library test
+    - **Completed:** 2026-03-09
+    - **Learnings:** Fixture needed `get_library_menu_keyboard` patch added to the `with` block. Returns END so LibraryHandler picks up sub-menu callbacks.
+    - **Key Changes:** Added import + 4-line handler block in `start.py:handle_menu_selection()`. Updated `start_handler` fixture in conftest.
+    - **Notes:** None
 
 - [ ] **2.2** Add callback routing in LibraryHandler for sub-menu buttons
     - **Context:** See plan.md Task 5. Key refs: `src/bot/handlers/library.py:67-96` (`_fetch_and_show` pattern — but uses `update.message.reply_text`; callback version needs `query.message.edit_text`), `tests/test_handlers/test_library_handler.py:30-65` (parametrized command test pattern)

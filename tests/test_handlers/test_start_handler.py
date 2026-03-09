@@ -134,6 +134,21 @@ async def test_handle_menu_selection_upcoming(
 
 
 @pytest.mark.asyncio
+async def test_handle_menu_selection_library(
+    start_handler, make_update, make_context
+):
+    """menu_library shows library sub-menu and ends conversation."""
+    update = make_update(callback_data="menu_library")
+    context = make_context()
+
+    result = await start_handler.handle_menu_selection(update, context)
+
+    assert result == ConversationHandler.END
+    update.callback_query.message.edit_text.assert_called_once()
+    start_handler._mock_lib_kbd.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_menu_selection_settings(
     start_handler, make_update, make_context
 ):

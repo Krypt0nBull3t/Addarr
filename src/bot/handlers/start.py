@@ -22,7 +22,7 @@ from src.bot.handlers.media import MediaHandler, SEARCHING, SELECTING
 from src.bot.handlers.calendar import CalendarHandler
 from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.system import SystemHandler
-from src.bot.keyboards import get_main_menu_keyboard
+from src.bot.keyboards import get_main_menu_keyboard, get_library_menu_keyboard
 from src.services.translation import TranslationService
 
 logger = get_logger("addarr.start")
@@ -185,6 +185,13 @@ class StartHandler:
 
         if action == "upcoming":
             await self.calendar_handler.show_upcoming(update, context)
+            return ConversationHandler.END
+
+        if action == "library":
+            await query.message.edit_text(
+                self.translation.get_text("LibraryPrompt"),
+                reply_markup=get_library_menu_keyboard()
+            )
             return ConversationHandler.END
 
         # For commands that end the conversation
