@@ -1,6 +1,7 @@
 RADARR_SEARCH_RESULTS = [
     {
         "tmdbId": 550,
+        "imdbId": "tt0137523",
         "title": "Fight Club",
         "year": 1999,
         "overview": "An insomniac office worker...",
@@ -13,6 +14,7 @@ RADARR_SEARCH_RESULTS = [
     },
     {
         "tmdbId": 680,
+        "imdbId": "tt0110912",
         "title": "Pulp Fiction",
         "year": 1994,
         "overview": "A burger-loving hit man...",
@@ -27,6 +29,7 @@ RADARR_SEARCH_RESULTS = [
 
 RADARR_MOVIE_DETAIL = {
     "tmdbId": 550,
+    "imdbId": "tt0137523",
     "title": "Fight Club",
     "year": 1999,
     "overview": "An insomniac office worker...",
@@ -52,6 +55,7 @@ RADARR_SYSTEM_STATUS = {"version": "5.0.0", "appName": "Radarr"}
 SONARR_SEARCH_RESULTS = [
     {
         "tvdbId": 81189,
+        "imdbId": "tt0903747",
         "title": "Breaking Bad",
         "year": 2008,
         "overview": "A high school chemistry teacher...",
@@ -87,6 +91,7 @@ SONARR_SEARCH_RESULTS = [
 
 SONARR_SERIES_DETAIL = {
     "tvdbId": 81189,
+    "imdbId": "tt0903747",
     "title": "Breaking Bad",
     "year": 2008,
     "overview": "A high school chemistry teacher...",

@@ -14,6 +14,7 @@ from src.services.media import MediaService
 
 SAMPLE_MOVIE = {
     "tmdbId": 550,
+    "imdbId": "tt0137523",
     "title": "Fight Club",
     "year": 1999,
     "overview": "An insomniac office worker...",
@@ -27,6 +28,7 @@ SAMPLE_MOVIE = {
 
 SAMPLE_SERIES = {
     "tvdbId": 81189,
+    "imdbId": "tt0903747",
     "title": "Breaking Bad",
     "year": 2008,
     "overview": "A high school chemistry teacher...",
@@ -38,6 +40,21 @@ SAMPLE_SERIES = {
     "status": "ended",
     "runtime": 47,
     "seasons": [{"seasonNumber": 1}, {"seasonNumber": 2}],
+}
+
+SAMPLE_SERIES_NO_IMDB = {
+    "tvdbId": 295759,
+    "title": "Severance",
+    "year": 2022,
+    "overview": "Mark leads a team...",
+    "images": [],
+    "ratings": {},
+    "genres": ["Drama"],
+    "network": "Apple TV+",
+    "studio": "Apple",
+    "status": "continuing",
+    "runtime": 55,
+    "seasons": [{"seasonNumber": 1}],
 }
 
 SAMPLE_ARTIST = {
@@ -314,6 +331,34 @@ class TestSearchMovies:
         mock_radarr_client.search.assert_awaited_once_with("fight club")
 
     @pytest.mark.asyncio
+    async def test_search_movies_external_ids(self, mock_radarr_client):
+        """Normalized movie results include external_ids with imdb and tmdb."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.search.return_value = [SAMPLE_MOVIE]
+
+        results = await service.search_movies("fight club")
+
+        assert results[0]["external_ids"] == {
+            "imdb": "tt0137523",
+            "tmdb": 550,
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_movies_external_ids_no_imdb(self, mock_radarr_client):
+        """Movie without imdbId gets None for imdb external_id."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        movie_no_imdb = {**SAMPLE_MOVIE}
+        del movie_no_imdb["imdbId"]
+        mock_radarr_client.search.return_value = [movie_no_imdb]
+
+        results = await service.search_movies("fight club")
+
+        assert results[0]["external_ids"]["imdb"] is None
+        assert results[0]["external_ids"]["tmdb"] == 550
+
+    @pytest.mark.asyncio
     async def test_search_movies_radarr_disabled(self):
         service = MediaService()
         MediaService._radarr = None
@@ -351,6 +396,32 @@ class TestSearchSeries:
         mock_sonarr_client.search.assert_awaited_once_with("breaking bad")
 
     @pytest.mark.asyncio
+    async def test_search_series_external_ids(self, mock_sonarr_client):
+        """Normalized series results include external_ids with tvdb and imdb."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search.return_value = [SAMPLE_SERIES]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["external_ids"] == {
+            "tvdb": 81189,
+            "imdb": "tt0903747",
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_series_external_ids_no_imdb(self, mock_sonarr_client):
+        """Series without imdbId gets None for imdb external_id."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search.return_value = [SAMPLE_SERIES_NO_IMDB]
+
+        results = await service.search_series("severance")
+
+        assert results[0]["external_ids"]["tvdb"] == 295759
+        assert results[0]["external_ids"]["imdb"] is None
+
+    @pytest.mark.asyncio
     async def test_search_series_disabled(self):
         service = MediaService()
         MediaService._sonarr = None
@@ -386,6 +457,51 @@ class TestSearchMusic:
         assert results[0]["title"] == "Radiohead"
         assert results[0]["id"] == "some-mbid-123"
         mock_lidarr_client.search.assert_awaited_once_with("radiohead")
+
+    @pytest.mark.asyncio
+    async def test_search_music_artist_external_ids(self, mock_lidarr_client):
+        """Normalized artist results include musicbrainz external_id."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["external_ids"] == {
+            "musicbrainz": "some-mbid-123",
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_music_album_external_ids(self, mock_lidarr_client):
+        """Normalized album results include musicbrainz external_id."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = []
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
+
+        results = await service.search_music("ok computer")
+
+        albums = [r for r in results if r.get("music_type") == "album"]
+        assert len(albums) == 1
+        assert albums[0]["external_ids"] == {
+            "musicbrainz": "album-id-abc",
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_music_song_external_ids(self, mock_lidarr_client):
+        """Normalized song results include musicbrainz external_id from parent album."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = []
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM_WITH_TRACKS]
+
+        results = await service.search_music("paranoid android")
+
+        songs = [r for r in results if r.get("music_type") == "song"]
+        assert len(songs) == 1
+        assert songs[0]["external_ids"] == {
+            "musicbrainz": "album-id-abc",
+        }
 
     @pytest.mark.asyncio
     async def test_search_music_disabled(self):

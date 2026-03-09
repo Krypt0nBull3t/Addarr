@@ -128,6 +128,10 @@ class MediaService:
                     "status": movie.get("status", "unknown"),
                     "runtime": movie.get("runtime", "N/A"),
                     "genres": movie.get("genres", []),  # Full genre list
+                    "external_ids": {
+                        "imdb": movie.get("imdbId"),
+                        "tmdb": movie.get("tmdbId"),
+                    },
                     "data": movie
                 }
                 for movie in results
@@ -169,6 +173,10 @@ class MediaService:
                     "seasons": len(series.get("seasons", [])),
                     "runtime": series.get("runtime", "N/A"),
                     "genres": series.get("genres", []),  # Full genre list
+                    "external_ids": {
+                        "tvdb": series.get("tvdbId"),
+                        "imdb": series.get("imdbId"),
+                    },
                     "data": series
                 }
                 for series in results
@@ -212,6 +220,9 @@ class MediaService:
                     "type": artist.get("artistType", "Unknown"),
                     "status": artist.get("status", "unknown"),
                     "music_type": "artist",
+                    "external_ids": {
+                        "musicbrainz": artist.get("foreignArtistId"),
+                    },
                     "data": artist,
                 }
                 for artist in artist_results
@@ -243,6 +254,9 @@ class MediaService:
                     "artist_id": artist_id,
                     "album_id": album_id,
                     "music_type": "album",
+                    "external_ids": {
+                        "musicbrainz": album.get("foreignAlbumId"),
+                    },
                     "data": album,
                 })
 
@@ -260,6 +274,9 @@ class MediaService:
                                 "artist_id": artist_id,
                                 "album_id": album_id,
                                 "music_type": "song",
+                                "external_ids": {
+                                    "musicbrainz": album.get("foreignAlbumId"),
+                                },
                                 "data": album,
                             })
 
