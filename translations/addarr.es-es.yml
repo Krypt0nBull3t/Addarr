@@ -273,6 +273,15 @@ es-es:
   QueueTitle: "📥 Cola de Descargas"
   QueueEmpty: "No hay elementos en la cola de descargas."
 
+  History: "📜 Historial"
+  CommandHistory: "Ver actividad reciente"
+  HistoryTitle: "📜 Actividad Reciente"
+  HistoryEmpty: "No se encontró actividad reciente."
+  HistoryGrabbed: "Descargado"
+  HistoryImported: "Importado"
+  HistoryFailed: "Fallido"
+  HistoryAll: "Todos"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

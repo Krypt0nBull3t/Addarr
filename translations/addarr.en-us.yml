@@ -276,6 +276,15 @@ en-us:
   QueueTitle: "📥 Download Queue"
   QueueEmpty: "No items in the download queue."
 
+  History: "📜 History"
+  CommandHistory: "Browse recent activity"
+  HistoryTitle: "📜 Recent Activity"
+  HistoryEmpty: "No recent activity found."
+  HistoryGrabbed: "Grabbed"
+  HistoryImported: "Imported"
+  HistoryFailed: "Failed"
+  HistoryAll: "All"
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"

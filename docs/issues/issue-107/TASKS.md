@@ -47,7 +47,7 @@
 
 **Goal:** Add translation keys, keyboard functions, and the handler.
 
-- [ ] **2.1** Add history translation keys to all locales
+- [x] **2.1** Add history translation keys to all locales
     - **Context:** See plan.md Phase 3. Key refs: `translations/addarr.en-us.yml:273` (Queue section — add after it). Flat top-level keys only (no nesting). Must add to all 10 locale files + template.
     - **Watch out:** Use `PYTHONIOENCODING=utf-8` when validating. Keep emoji prefixes consistent across locales.
     - **Scope:** 8 new keys: `History`, `CommandHistory`, `HistoryTitle`, `HistoryEmpty`, `HistoryGrabbed`, `HistoryImported`, `HistoryFailed`, `HistoryAll`
@@ -57,6 +57,10 @@
         - [GREEN] Add translated keys to all other locale files
         - [GREEN] Add keys to `addarr.template.yml`
     - **Success:** `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` passes
+    - **Completed:** 2026-03-09
+    - **Learnings:** All locale files have a consistent structure — QueueEmpty is always followed by a blank line then handler error section.
+    - **Key Changes:** Added 8 keys (History, CommandHistory, HistoryTitle, HistoryEmpty, HistoryGrabbed, HistoryImported, HistoryFailed, HistoryAll) to all 10 locale files + template.
+    - **Notes:** Keys placed after Queue section, before handler error messages section.
 
 - [ ] **2.2** Add history keyboard functions to `keyboards.py`
     - **Context:** See plan.md Phase 4. Key refs: `src/bot/keyboards.py` (follow `get_calendar_items_keyboard` pattern). Callback data prefix: `hist_`. Filter tabs row + item rows + pagination + action row.

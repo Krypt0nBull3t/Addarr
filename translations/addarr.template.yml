@@ -298,6 +298,15 @@ template:
   QueueTitle: "📥 Download Queue"
   QueueEmpty: "No items in the download queue."
 
+  History: ""
+  CommandHistory: ""
+  HistoryTitle: ""
+  HistoryEmpty: ""
+  HistoryGrabbed: ""
+  HistoryImported: ""
+  HistoryFailed: ""
+  HistoryAll: ""
+
   # Handler error and status messages
   SearchError: "❌ An error occurred while searching.\nPlease try again later."
   SearchInvalidType: "❌ Invalid search type"
