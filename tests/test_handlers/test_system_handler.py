@@ -145,8 +145,8 @@ async def test_handle_refresh(system_handler, make_update, make_context):
     await system_handler.handle_system_action(update, context)
 
     system_handler._mock_health.run_health_checks.assert_awaited_once()
-    update.callback_query.answer.assert_called_once()
     update.callback_query.message.edit_text.assert_called_once()
+    system_handler._mock_ts.get_text.assert_any_call("StatusRefreshed")
 
 
 @pytest.mark.asyncio
@@ -161,8 +161,7 @@ async def test_handle_refresh_error(system_handler, make_update, make_context):
     await system_handler.handle_system_action(update, context)
 
     update.callback_query.answer.assert_called_once()
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "Error" in call_args[0][0]
+    system_handler._mock_ts.get_text.assert_any_call("StatusRefreshError")
 
 
 # ---------------------------------------------------------------------------
@@ -218,8 +217,7 @@ async def test_handle_details_error(system_handler, make_update, make_context):
 
     await system_handler.handle_system_action(update, context)
 
-    call_args = update.callback_query.message.edit_text.call_args
-    assert "Error" in call_args[0][0]
+    system_handler._mock_ts.get_text.assert_any_call("StatusDetailsError")
 
 
 # ---------------------------------------------------------------------------
@@ -257,8 +255,7 @@ async def test_handle_unknown_action(
     await system_handler.handle_system_action(update, context)
 
     update.callback_query.answer.assert_called_once()
-    call_args = update.callback_query.answer.call_args
-    assert "Unknown" in str(call_args)
+    system_handler._mock_ts.get_text.assert_any_call("UnknownAction")
 
 
 @pytest.mark.asyncio

@@ -11,12 +11,16 @@ from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import get_system_keyboard, get_main_menu_keyboard
 from src.services.health import health_service
+from src.services.translation import TranslationService
 
 logger = get_logger("addarr.system")
 
 
 class SystemHandler:
     """Handler for system-related commands"""
+
+    def __init__(self):
+        self.translation = TranslationService()
 
     def get_handler(self):
         """Get system command handlers"""
@@ -65,7 +69,7 @@ class SystemHandler:
         elif action == "back":
             await self._handle_back(query)
         else:
-            await query.answer("Unknown action")
+            await query.answer(self.translation.get_text("UnknownAction"))
 
     async def _handle_refresh(self, query):
         """Re-run health checks and update the status display."""
@@ -76,14 +80,18 @@ class SystemHandler:
                 status_text,
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer("Status refreshed")
+            await query.answer(
+                self.translation.get_text("StatusRefreshed")
+            )
         except Exception as e:
             logger.error(f"Error refreshing status: {e}")
             await query.message.edit_text(
-                "❌ Error refreshing status. Please try again.",
+                self.translation.get_text("StatusRefreshError"),
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer("Refresh failed")
+            await query.answer(
+                self.translation.get_text("StatusRefreshFailed")
+            )
 
     async def _handle_details(self, query):
         """Show detailed per-service health information."""
@@ -98,10 +106,12 @@ class SystemHandler:
         except Exception as e:
             logger.error(f"Error getting service details: {e}")
             await query.message.edit_text(
-                "❌ Error retrieving service details. Please try again.",
+                self.translation.get_text("StatusDetailsError"),
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer("Details failed")
+            await query.answer(
+                self.translation.get_text("StatusDetailsFailed")
+            )
 
     async def _handle_back(self, query):
         """Return to the main menu."""

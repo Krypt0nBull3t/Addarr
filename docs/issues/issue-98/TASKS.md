@@ -74,7 +74,7 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
 
 **Goal:** Add TranslationService to SystemHandler and TransmissionHandler, replace their hardcoded strings, update test fixtures.
 
-- [ ] **3.1** Add TranslationService to SystemHandler and replace strings
+- [x] **3.1** Add TranslationService to SystemHandler and replace strings
     - **Context:** See plan.md Phase 3. `SystemHandler` currently has no `__init__` and no TranslationService. Need to add `__init__` with `self.translation = TranslationService()`. The `system_handler` fixture in `tests/test_handlers/conftest.py` (line 271-298) does NOT patch TranslationService — must add the patch. 5 hardcoded strings: `"Unknown action"` (line 68), `"Status refreshed"` (line 79), `"❌ Error refreshing status..."` (line 83), `"Refresh failed"` (line 86), `"❌ Error retrieving..."` (line 101), `"Details failed"` (line 104).
     - **Watch out:** The strings on lines 79, 86, 104 are `query.answer()` toast messages (short text shown briefly) — they still need translating. Must add `from src.services.translation import TranslationService` import.
     - **Scope:** Add TranslationService to handler, replace 5 strings, update fixture + tests
@@ -87,6 +87,10 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
         - [GREEN] Update existing tests that assert on hardcoded English text
         - [GREEN] Run `pytest tests/test_handlers/test_system_handler.py -v`
     - **Success:** All system handler tests pass, TranslationService is used for all user-facing strings
+    - **Completed:** 2026-03-09
+    - **Learnings:** SystemHandler had no `__init__` — needed to add one. The `system_handler` fixture needed `mock_translation_service` as a parameter and `TranslationService` patch added. Direct `SystemHandler()` creation in `test_show_status_not_authenticated` still works because auth rejects before translation calls.
+    - **Key Changes:** Added `__init__`, TranslationService import, replaced 5 strings in `system.py`. Updated fixture and 4 test assertions.
+    - **Notes:** None.
 
 - [ ] **3.2** Add TranslationService to TransmissionHandler and replace strings
     - **Context:** See plan.md Phase 3. `TransmissionHandler.__init__` exists but only sets `self.service`. The `transmission_handler` fixture already patches `TranslationService` at `src.bot.handlers.transmission.TranslationService` (conftest.py line 173) — no fixture change needed. But the handler doesn't import or use it. 3 hardcoded strings: not-enabled message (line 46-48), connection error (line 54-55), toggle failed (line 95). Existing tests assert on `"not enabled"` and `"connect"` in lowercase — these will break when output becomes translation keys.

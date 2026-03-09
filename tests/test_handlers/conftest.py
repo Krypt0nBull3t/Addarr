@@ -268,13 +268,15 @@ def library_handler(mock_media_service, mock_translation_service):
 
 
 @pytest.fixture
-def system_handler():
+def system_handler(mock_translation_service):
     """Create a SystemHandler with patched services."""
     with (
         patch("src.bot.handlers.system.health_service") as mock_health,
         patch("src.bot.handlers.system.get_system_keyboard") as mock_kbd,
         patch("src.bot.handlers.system.get_main_menu_keyboard") as mock_menu_kbd,
+        patch("src.bot.handlers.system.TranslationService") as mock_ts_class,
     ):
+        mock_ts_class.return_value = mock_translation_service
         mock_health.get_status.return_value = {
             "running": True,
             "last_check": None,
@@ -295,6 +297,7 @@ def system_handler():
         handler._mock_health = mock_health
         handler._mock_kbd = mock_kbd
         handler._mock_menu_kbd = mock_menu_kbd
+        handler._mock_ts = mock_translation_service
         yield handler
 
 
