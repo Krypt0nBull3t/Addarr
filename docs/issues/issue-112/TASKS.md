@@ -59,7 +59,7 @@ Add a "Library" button to the main menu that opens a sub-menu for browsing Movie
     - **Key Changes:** Added import + 4-line handler block in `start.py:handle_menu_selection()`. Updated `start_handler` fixture in conftest.
     - **Notes:** None
 
-- [ ] **2.2** Add callback routing in LibraryHandler for sub-menu buttons
+- [x] **2.2** Add callback routing in LibraryHandler for sub-menu buttons
     - **Context:** See plan.md Task 5. Key refs: `src/bot/handlers/library.py:67-96` (`_fetch_and_show` pattern — but uses `update.message.reply_text`; callback version needs `query.message.edit_text`), `tests/test_handlers/test_library_handler.py:30-65` (parametrized command test pattern)
     - **Watch out:** Can't reuse `_fetch_and_show()` directly because it uses `update.message.reply_text` (for commands) while callbacks need `query.message.edit_text`. The new method handles the callback-specific flow separately. Register `library_` pattern handler BEFORE `lib_` in `get_handler()`.
     - **Scope:** New `handle_library_selection()` method, register `CallbackQueryHandler` in `get_handler()`
@@ -70,6 +70,10 @@ Add a "Library" button to the main menu that opens a sub-menu for browsing Movie
         - [GREEN] Implement `handle_library_selection()` method
         - [GREEN] Register `CallbackQueryHandler(pattern="^library_")` in `get_handler()`
     - **Success:** All library handler tests pass, full suite passes
+    - **Completed:** 2026-03-09
+    - **Learnings:** Needed separate method from `_fetch_and_show` since callback uses `query.message.edit_text` vs command's `update.message.reply_text`. `library_` pattern registered before `lib_` to avoid prefix conflicts.
+    - **Key Changes:** Added `handle_library_selection()` method to LibraryHandler, registered `CallbackQueryHandler(pattern="^library_")` in `get_handler()`. Added 7 new tests (3 parametrized + 4 edge cases).
+    - **Notes:** None
 
 ### Phase 3: Verification (1 task)
 

@@ -42,6 +42,9 @@ class LibraryHandler:
             CommandHandler("allSeries", self.handle_all_series),
             CommandHandler("allMusic", self.handle_all_music),
             CallbackQueryHandler(
+                self.handle_library_selection, pattern="^library_"
+            ),
+            CallbackQueryHandler(
                 self.handle_page_navigation, pattern="^lib_"
             ),
         ]
@@ -63,6 +66,63 @@ class LibraryHandler:
     async def handle_all_music(self, update, context):
         """Handle /allMusic command."""
         await self._fetch_and_show(update, context, "a")
+
+    @require_auth
+    @rate_limit("search")
+    async def handle_library_selection(self, update, context):
+        """Handle library sub-menu callback (library_{type})."""
+        if not update.callback_query:
+            return
+
+        query = update.callback_query
+        await query.answer()
+
+        type_map = {"movie": "m", "series": "s", "music": "a"}
+        action = query.data.replace("library_", "")
+        media_type = type_map.get(action)
+
+        if not media_type:
+            return
+
+        type_info = MEDIA_TYPES[media_type]
+        log_user_interaction(
+            logger, query.from_user,
+            f"library_{type_info['label']}"
+        )
+
+        try:
+            method = getattr(self.media_service, type_info["service_method"])
+            items = await method()
+        except ValueError:
+            await query.message.edit_text(
+                self.translation.get_text(
+                    "LibraryNotEnabled", subject=type_info["label"]
+                )
+            )
+            return
+        except Exception:
+            logger.error(
+                f"Error fetching {type_info['label']} library",
+                exc_info=True,
+            )
+            await query.message.edit_text(
+                self.translation.get_text("LibraryError")
+            )
+            return
+
+        if not items:
+            await query.message.edit_text(
+                self.translation.get_text(
+                    "LibraryEmpty", subject=type_info["label"]
+                )
+            )
+            return
+
+        items = sorted(items, key=lambda x: x.get("title", "").lower())
+        context.user_data[f"library_{media_type}"] = items
+
+        text, reply_markup = self._build_page_message(items, 0, media_type)
+        await query.message.edit_text(text, reply_markup=reply_markup)
 
     async def _fetch_and_show(self, update, context, media_type):
         """Fetch library items and show paginated list."""
