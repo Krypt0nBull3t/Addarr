@@ -9,6 +9,7 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock
 
 from src.bot.handlers.media.formatters import (
+    _build_external_links,
     build_result_caption,
     send_response,
 )
@@ -119,6 +120,165 @@ def test_build_result_caption_long_overview_truncated():
 
     assert "A" * 297 + "..." in caption
     assert "A" * 298 not in caption
+
+
+# ---------------------------------------------------------------------------
+# _build_external_links
+# ---------------------------------------------------------------------------
+
+
+def test_build_external_links_movie():
+    """Movie with IMDB and TMDB links."""
+    result = {
+        "external_ids": {"imdb": "tt0137523", "tmdb": 550},
+    }
+
+    links = _build_external_links(result)
+
+    assert "[IMDB](https://www.imdb.com/title/tt0137523/)" in links
+    assert "[TMDB](https://www.themoviedb.org/movie/550)" in links
+    assert links.startswith("\n")
+    assert " | " in links
+
+
+def test_build_external_links_series_with_imdb():
+    """Series with TVDB and IMDB links."""
+    result = {
+        "external_ids": {"tvdb": 81189, "imdb": "tt0903747"},
+    }
+
+    links = _build_external_links(result)
+
+    assert "[TVDB](https://thetvdb.com/?id=81189&tab=series)" in links
+    assert "[IMDB](https://www.imdb.com/title/tt0903747/)" in links
+
+
+def test_build_external_links_series_tvdb_only():
+    """Series with TVDB only (no IMDB)."""
+    result = {
+        "external_ids": {"tvdb": 295759, "imdb": None},
+    }
+
+    links = _build_external_links(result)
+
+    assert "[TVDB](" in links
+    assert "IMDB" not in links
+
+
+def test_build_external_links_album():
+    """Album with MusicBrainz release-group link."""
+    result = {
+        "music_type": "album",
+        "external_ids": {"musicbrainz": "album-id-abc"},
+    }
+
+    links = _build_external_links(result)
+
+    assert "[MusicBrainz](https://musicbrainz.org/release-group/album-id-abc)" in links
+
+
+def test_build_external_links_artist():
+    """Artist with MusicBrainz artist link."""
+    result = {
+        "music_type": "artist",
+        "external_ids": {"musicbrainz": "some-mbid-123"},
+    }
+
+    links = _build_external_links(result)
+
+    assert "[MusicBrainz](https://musicbrainz.org/artist/some-mbid-123)" in links
+
+
+def test_build_external_links_song():
+    """Song with MusicBrainz release-group link (uses album ID)."""
+    result = {
+        "music_type": "song",
+        "external_ids": {"musicbrainz": "album-id-abc"},
+    }
+
+    links = _build_external_links(result)
+
+    assert "[MusicBrainz](https://musicbrainz.org/release-group/album-id-abc)" in links
+
+
+def test_build_external_links_no_key():
+    """Result without external_ids key returns empty string."""
+    result = {"title": "Test"}
+
+    links = _build_external_links(result)
+
+    assert links == ""
+
+
+def test_build_external_links_empty_dict():
+    """Result with empty external_ids returns empty string."""
+    result = {"external_ids": {}}
+
+    links = _build_external_links(result)
+
+    assert links == ""
+
+
+def test_build_external_links_all_none():
+    """Result with all None IDs returns empty string."""
+    result = {"external_ids": {"imdb": None, "tmdb": None}}
+
+    links = _build_external_links(result)
+
+    assert links == ""
+
+
+# ---------------------------------------------------------------------------
+# build_result_caption with external links
+# ---------------------------------------------------------------------------
+
+
+def test_build_result_caption_movie_with_links():
+    """Movie caption includes external links before counter."""
+    result = {
+        "title": "Test Movie",
+        "overview": "Overview",
+        "external_ids": {"imdb": "tt0137523", "tmdb": 550},
+    }
+
+    caption = build_result_caption(result, index=0, total=1)
+
+    assert "[IMDB](" in caption
+    assert "[TMDB](" in caption
+    # Links should appear before counter
+    links_pos = caption.index("[IMDB]")
+    counter_pos = caption.index("Result 1 of 1")
+    assert links_pos < counter_pos
+
+
+def test_build_result_caption_album_with_links():
+    """Album caption includes MusicBrainz link."""
+    result = {
+        "title": "Test Album",
+        "music_type": "album",
+        "artist_name": "Test Artist",
+        "release_date": "2024-01-15T00:00:00Z",
+        "external_ids": {"musicbrainz": "album-id-abc"},
+    }
+
+    caption = build_result_caption(result)
+
+    assert "[MusicBrainz](" in caption
+
+
+def test_build_result_caption_song_with_links():
+    """Song caption includes MusicBrainz link."""
+    result = {
+        "title": "Test Song",
+        "music_type": "song",
+        "album_title": "Test Album",
+        "artist_name": "Test Artist",
+        "external_ids": {"musicbrainz": "album-id-abc"},
+    }
+
+    caption = build_result_caption(result)
+
+    assert "[MusicBrainz](" in caption
 
 
 # ---------------------------------------------------------------------------

@@ -20,6 +20,44 @@ from src.bot.keyboards import (
 logger = get_logger("addarr.media.formatters")
 
 
+def _build_external_links(result):
+    """Build a line of clickable external links for a search result.
+
+    Returns an empty string if no external IDs are available.
+    """
+    external_ids = result.get("external_ids", {})
+    if not external_ids:
+        return ""
+
+    music_type = result.get("music_type")
+    links = []
+
+    imdb_id = external_ids.get("imdb")
+    if imdb_id:
+        links.append(f"[IMDB](https://www.imdb.com/title/{imdb_id}/)")
+
+    tmdb_id = external_ids.get("tmdb")
+    if tmdb_id:
+        links.append(f"[TMDB](https://www.themoviedb.org/movie/{tmdb_id})")
+
+    tvdb_id = external_ids.get("tvdb")
+    if tvdb_id:
+        links.append(f"[TVDB](https://thetvdb.com/?id={tvdb_id}&tab=series)")
+
+    mb_id = external_ids.get("musicbrainz")
+    if mb_id:
+        if music_type == "artist":
+            mb_url = f"https://musicbrainz.org/artist/{mb_id}"
+        else:
+            mb_url = f"https://musicbrainz.org/release-group/{mb_id}"
+        links.append(f"[MusicBrainz]({mb_url})")
+
+    if not links:
+        return ""
+
+    return "\n" + " | ".join(links) + "\n"
+
+
 def build_result_caption(result, index=None, total=None):
     """Build caption text for a search result.
 
@@ -45,6 +83,7 @@ def build_result_caption(result, index=None, total=None):
             if len(overview) > 300:
                 overview = overview[:297] + "..."
             caption += f"\n_{overview}_\n"
+        caption += _build_external_links(result)
         if index is not None and total is not None:
             caption += f"\n📊 Result {index + 1} of {total}"
         return caption
@@ -56,6 +95,7 @@ def build_result_caption(result, index=None, total=None):
             caption += f"💿 Album: {result['album_title']}\n"
         if result.get("artist_name"):
             caption += f"🎤 Artist: {result['artist_name']}\n"
+        caption += _build_external_links(result)
         if index is not None and total is not None:
             caption += f"\n📊 Result {index + 1} of {total}"
         return caption
@@ -112,6 +152,8 @@ def build_result_caption(result, index=None, total=None):
             if len(genres) > 3:
                 caption += f" +{len(genres) - 3} more"
             caption += "\n"
+
+    caption += _build_external_links(result)
 
     if index is not None and total is not None:
         caption += f"\n📊 Result {index + 1} of {total}"

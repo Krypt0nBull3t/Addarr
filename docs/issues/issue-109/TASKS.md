@@ -29,7 +29,7 @@
     - **Key Changes:** Added `external_ids` dict to all 5 normalization paths in `src/services/media.py`. Added `imdbId` to Radarr/Sonarr sample data fixtures. Added 7 tests covering all media types + missing ID edge cases.
     - **Notes:** None
 
-- [ ] **1.2** Build external links line in formatter
+- [x] **1.2** Build external links line in formatter
     - **Context:** See plan.md Task 4. Key refs: `src/bot/handlers/media/formatters.py:23-119` (`build_result_caption`), `tests/test_handlers/test_media_formatters.py` (existing formatter tests)
     - **Watch out:** Telegram Markdown v1 link syntax is `[text](url)`. Links line goes before the result counter. `_build_external_links` must gracefully return empty string when `external_ids` is missing or empty. MusicBrainz URL differs for artist vs album/song.
     - **Scope:** Add `_build_external_links()` helper, integrate into all three caption branches (album, song, movie/series).
@@ -40,3 +40,7 @@
         - [GREEN] Implement `_build_external_links()` helper
         - [GREEN] Integrate into album, song, and movie/series caption branches
     - **Success:** `pytest tests/test_handlers/test_media_formatters.py -v` passes, captions contain clickable Markdown links in correct format
+    - **Completed:** 2026-03-09
+    - **Learnings:** Links line uses `\n` prefix for visual separation from preceding content. All 9 `_build_external_links` scenarios covered including edge cases (no key, empty dict, all None values).
+    - **Key Changes:** Added `_build_external_links()` helper to `formatters.py`. Integrated into all 3 caption branches (album, song, movie/series). Added 12 new tests (9 for helper, 3 for caption integration).
+    - **Notes:** None
