@@ -152,7 +152,9 @@ class CalendarHandler:
                     media_id, profiles[0]["id"], root_folders[0]
                 )
             else:
-                await query.answer("Unknown media type")
+                await query.answer(
+                    self.translation.get_text("UnknownMediaType")
+                )
                 return
 
             if success:

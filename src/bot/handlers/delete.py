@@ -102,7 +102,9 @@ class DeleteHandler:
                 elif media_type == "music":
                     items = await self.media_service.get_music()
                 else:
-                    await query.message.edit_text("❌ Invalid media type")
+                    await query.message.edit_text(
+                        self.translation.get_text("InvalidMediaType")
+                    )
                     return
 
                 if not items:
@@ -136,7 +138,7 @@ class DeleteHandler:
             except Exception as e:
                 logger.error(f"Error getting media list: {e}")
                 await query.message.edit_text(
-                    "❌ Error getting media list"
+                    self.translation.get_text("MediaListError")
                 )
 
         elif action.startswith("item_"):
@@ -145,7 +147,9 @@ class DeleteHandler:
             media_type = context.user_data.get("delete_type")
 
             if not media_type:
-                await query.message.edit_text("❌ Media type not found")
+                await query.message.edit_text(
+                    self.translation.get_text("MediaTypeNotFound")
+                )
                 return
 
             try:
@@ -157,7 +161,9 @@ class DeleteHandler:
                 elif media_type == "music":
                     item = await self.media_service.get_music(item_id)
                 else:
-                    await query.message.edit_text("❌ Invalid media type")
+                    await query.message.edit_text(
+                        self.translation.get_text("InvalidMediaType")
+                    )
                     return
 
                 if not item:
@@ -194,7 +200,7 @@ class DeleteHandler:
             except Exception as e:
                 logger.error(f"Error getting item details: {e}")
                 await query.message.edit_text(
-                    "❌ Error getting item details"
+                    self.translation.get_text("ItemDetailsError")
                 )
 
         elif action == "confirm":
@@ -203,7 +209,9 @@ class DeleteHandler:
             item = context.user_data.get("delete_item")
 
             if not media_type or not item:
-                await query.message.edit_text("❌ Item data not found")
+                await query.message.edit_text(
+                    self.translation.get_text("ItemDataNotFound")
+                )
                 return
 
             try:
@@ -215,7 +223,9 @@ class DeleteHandler:
                 elif media_type == "music":
                     success = await self.media_service.delete_music(item["id"])
                 else:
-                    await query.message.edit_text("❌ Invalid media type")
+                    await query.message.edit_text(
+                        self.translation.get_text("InvalidMediaType")
+                    )
                     return
 
                 if success:

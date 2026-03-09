@@ -51,7 +51,7 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
     - **Key Changes:** 14 string replacements across `handler.py`, `album_picker.py`, `season_picker.py`, `formatters.py`. Added `TranslationService` import to `formatters.py`.
     - **Notes:** The `formatters.py` uses `TranslationService().get_text()` inline (singleton) since it has standalone functions, not a class.
 
-- [ ] **2.2** Replace hardcoded strings in delete and calendar handlers
+- [x] **2.2** Replace hardcoded strings in delete and calendar handlers
     - **Context:** See plan.md Phase 2. Both handlers have `self.translation`. `delete.py` has 6 hardcoded strings across 3 branches (type selection, item selection, confirmation). `calendar.py` has 1 hardcoded string (`"Unknown media type"` at line 155).
     - **Watch out:** `delete.py` lines 105, 160, 218 all say `"❌ Invalid media type"` — consolidate to single key `InvalidMediaType`. The `"❌ Media type not found"` (line 148) is different from `InvalidMediaType` — it means `context.user_data` lost the type.
     - **Scope:** 7 string replacements across 2 files
@@ -63,6 +63,10 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
         - [GREEN] Replace 1 hardcoded string in `calendar.py`
         - [GREEN] Run `pytest tests/test_handlers/test_delete_handler.py tests/test_handlers/test_calendar_handler.py -v`
     - **Success:** All delete/calendar tests pass, no hardcoded English error strings remain
+    - **Completed:** 2026-03-09
+    - **Learnings:** `replace_all=true` on Edit tool works well for consolidating duplicate strings like `"❌ Invalid media type"` that appear 3 times in delete.py.
+    - **Key Changes:** 6 replacements in `delete.py`, 1 in `calendar.py`. Updated 8 test assertions to use translation key checks.
+    - **Notes:** None.
 
 ---
 

@@ -365,7 +365,7 @@ async def test_add_unknown_media_type(
     await calendar_handler.handle_calendar_action(update, context)
 
     update.callback_query.answer.assert_called_once()
-    assert "Unknown" in str(update.callback_query.answer.call_args)
+    calendar_handler._mock_ts.get_text.assert_any_call("UnknownMediaType")
 
 
 # ---------------------------------------------------------------------------
