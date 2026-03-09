@@ -192,6 +192,21 @@ LIDARR_METADATA_PROFILES = [
     {"id": 2, "name": "None"},
 ]
 
+RADARR_DISK_SPACE = [
+    {
+        "path": "/movies",
+        "label": "Movies Drive",
+        "freeSpace": 200000000000,
+        "totalSpace": 1000000000000,
+    },
+    {
+        "path": "/tv",
+        "label": "TV Drive",
+        "freeSpace": 50000000000,
+        "totalSpace": 500000000000,
+    },
+]
+
 TRANSMISSION_SESSION = {
     "arguments": {
         "alt-speed-enabled": False,

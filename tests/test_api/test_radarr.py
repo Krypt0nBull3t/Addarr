@@ -16,6 +16,7 @@ from tests.fixtures.sample_data import (
     RADARR_WANTED_MISSING,
     RADARR_WANTED_CUTOFF,
     RADARR_QUEUE,
+    RADARR_DISK_SPACE,
 )
 
 
@@ -939,4 +940,43 @@ class TestRadarrGetQueue:
         """Exception during get_queue returns empty list."""
         with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
             results = await radarr_client.get_queue()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_disk_space
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetDiskSpace:
+    @pytest.mark.asyncio
+    async def test_get_disk_space_success(self, aio_mock, radarr_client):
+        """Returns list of drives with space info."""
+        aio_mock.get(
+            f"{BASE}/diskspace",
+            payload=RADARR_DISK_SPACE,
+            status=200,
+        )
+        results = await radarr_client.get_disk_space()
+        assert len(results) == 2
+        assert results[0]["path"] == "/movies"
+        assert results[0]["freeSpace"] == 200000000000
+        assert results[1]["path"] == "/tv"
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_empty(self, aio_mock, radarr_client):
+        """Empty response returns empty list."""
+        aio_mock.get(
+            f"{BASE}/diskspace",
+            payload=[],
+            status=200,
+        )
+        results = await radarr_client.get_disk_space()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_exception(self, radarr_client):
+        """Exception during get_disk_space returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_disk_space()
         assert results == []
