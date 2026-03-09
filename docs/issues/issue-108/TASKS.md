@@ -58,7 +58,7 @@ Add disk space information to the `/status` command via a "Disk Space" button. S
     - **Key Changes:** Added `_format_usage_bar()`, `_format_bytes()`, `_build_disk_space_text()`, `_handle_diskspace()` to `system.py`. Added `diskspace` dispatch branch. Added "Disk Space" button to `get_system_keyboard()` in `keyboards.py`. 10 new tests.
     - **Notes:** `LOW_SPACE_THRESHOLD = 10` is a module constant — easy to adjust later.
 
-- [ ] **1.4** Add translation keys
+- [x] **1.4** Add translation keys
     - **Context:** See plan.md Task 4. Key refs: `translations/addarr.en-us.yml:295-299` (existing status keys section). Handler uses `default=` fallbacks so this is for i18n completeness.
     - **Watch out:** Must add to both `en-us.yml` AND `template.yml` or `--validate-i18n` will flag mismatches. Use flat top-level keys (TranslationService does single-level lookup only).
     - **Scope:** 3 translation keys in 2 files
@@ -67,3 +67,7 @@ Add disk space information to the `/status` command via a "Disk Space" button. S
         - [GREEN] Add `DiskSpaceError`, `DiskSpaceFailed`, `DiskSpaceNone` keys to `en-us.yml`
         - [GREEN] Add same keys to `template.yml`
     - **Success:** `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` passes
+    - **Completed:** 2026-03-09
+    - **Learnings:** `--validate-i18n` checks ALL locale files against the template, not just en-us. Must add keys to all 8 non-English locales too (with English defaults as placeholders).
+    - **Key Changes:** Added `DiskSpaceError`, `DiskSpaceFailed`, `DiskSpaceNone` to all 10 translation files (en-us, template, and 8 other locales).
+    - **Notes:** Non-English translations are English placeholders — native speakers should translate them.
