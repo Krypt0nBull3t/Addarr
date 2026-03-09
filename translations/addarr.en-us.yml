@@ -39,7 +39,9 @@ en-us:
   LibraryNotEnabled: "❌ %{subject} is not enabled or configured."
   LibraryError: "❌ Error loading library. Please try again later."
   LibraryExpired: "⏳ Session expired. Please run the command again."
-  
+  Library: "Library"
+  LibraryPrompt: "📚 Select a library to browse:"
+
   # Common messages
   Start chatting: "🤖 Start chatting with Addarr in Telegram. The first time you use \"start\" you will be asked to enter your password."
   End: "🏁 The process has ended."

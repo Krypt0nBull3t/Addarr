@@ -51,6 +51,8 @@ nl-be:
   LibraryNotEnabled: "❌ %{subject} is niet ingeschakeld of geconfigureerd."
   LibraryError: "❌ Fout bij het laden van de bibliotheek. Probeer het later opnieuw."
   LibraryExpired: "⏳ Sessie verlopen. Voer het commando opnieuw uit."
+  Library: "Bibliotheek"
+  LibraryPrompt: "📚 Selecteer een bibliotheek om te bekijken:"
 
   # Common messages
   Start chatting: "🤖 Je kan nu chatten met Addarr op Telegram. De eerste keer dat je \"start\" gebruikt, zul je je wachtwoord moeten ingeven."

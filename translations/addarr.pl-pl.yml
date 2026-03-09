@@ -51,6 +51,8 @@ pl-pl:
   LibraryNotEnabled: "❌ %{subject} nie jest włączony lub skonfigurowany."
   LibraryError: "❌ Błąd ładowania biblioteki. Spróbuj ponownie później."
   LibraryExpired: "⏳ Sesja wygasła. Uruchom ponownie polecenie."
+  Library: "Biblioteka"
+  LibraryPrompt: "📚 Wybierz bibliotekę do przeglądania:"
 
   # Common messages
   Start chatting: "🤖 Rozpocznij rozmowę z Addarrem na Telegramie. Przy pierwszym użyciu \"start\" zostaniesz poproszony o podanie hasła."

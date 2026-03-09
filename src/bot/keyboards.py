@@ -71,6 +71,36 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_library_menu_keyboard() -> InlineKeyboardMarkup:
+    """Get the library sub-menu keyboard"""
+    translation = TranslationService()
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                f"\U0001f3ac {translation.get_text('Movie')}",
+                callback_data="library_movie"
+            ),
+            InlineKeyboardButton(
+                f"\U0001f4fa {translation.get_text('Series')}",
+                callback_data="library_series"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"\U0001f3b5 {translation.get_text('Music')}",
+                callback_data="library_music"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"\u25c0\ufe0f {translation.get_text('Back')}",
+                callback_data="menu_back"
+            ),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_system_keyboard() -> InlineKeyboardMarkup:
     """Get system status keyboard with action buttons"""
     translation = TranslationService()
