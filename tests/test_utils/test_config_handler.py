@@ -1,6 +1,7 @@
 """Tests for src/utils/config_handler.py"""
 
 import os
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -83,7 +84,7 @@ class TestCreateFromExample:
         result = handler.create_from_example()
         assert result is True
         assert os.path.exists(handler.config_path)
-        content = open(handler.config_path, encoding="utf-8").read()
+        content = Path(handler.config_path).read_text(encoding="utf-8")
         assert "telegram" in content
 
     def test_backs_up_existing_config(self, handler, example_yaml, config_yaml):
@@ -141,8 +142,8 @@ class TestCreateBackup:
     def test_backup_preserves_content(self, handler, config_yaml):
         """Backup file has identical content to original."""
         result = handler.create_backup()
-        original = open(handler.config_path, encoding="utf-8").read()
-        backup = open(result, encoding="utf-8").read()
+        original = Path(handler.config_path).read_text(encoding="utf-8")
+        backup = Path(result).read_text(encoding="utf-8")
         assert original == backup
 
 
