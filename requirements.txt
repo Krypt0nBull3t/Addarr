@@ -12,10 +12,8 @@ colorama>=0.4.6
 # Async support
 aiohttp>=3.8.5
 aiocron>=1.8
-asyncio>=3.4.3
 
-# Data handling
-dataclasses>=0.6
+# Type hints (required by transmission-rpc)
 typing-extensions>=4.7.1
 
 # Interactive CLI
