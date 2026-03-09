@@ -62,7 +62,7 @@
     - **Key Changes:** Added 8 keys (History, CommandHistory, HistoryTitle, HistoryEmpty, HistoryGrabbed, HistoryImported, HistoryFailed, HistoryAll) to all 10 locale files + template.
     - **Notes:** Keys placed after Queue section, before handler error messages section.
 
-- [ ] **2.2** Add history keyboard functions to `keyboards.py`
+- [x] **2.2** Add history keyboard functions to `keyboards.py`
     - **Context:** See plan.md Phase 4. Key refs: `src/bot/keyboards.py` (follow `get_calendar_items_keyboard` pattern). Callback data prefix: `hist_`. Filter tabs row + item rows + pagination + action row.
     - **Watch out:** `_HISTORY_EVENT_EMOJI` dict for event type icons. Title truncation at 30 chars. Filter tab bullet prefix for active filter.
     - **Scope:** `get_history_items_keyboard()` and `get_history_empty_keyboard()` + event emoji mapping
@@ -71,6 +71,10 @@
         - [RED] Write tests: items keyboard with items (pagination present), empty items, active filter highlight, empty keyboard buttons
         - [GREEN] Implement `_HISTORY_EVENT_EMOJI`, `get_history_items_keyboard()`, `get_history_empty_keyboard()`
     - **Success:** `pytest tests/test_bot/test_keyboards.py -v` passes, new functions have 100% coverage
+    - **Completed:** 2026-03-09
+    - **Learnings:** Need separate tests for title truncation (>30 chars) and Previous button (page > 0) to hit 100% coverage.
+    - **Key Changes:** Added `_HISTORY_EVENT_EMOJI`, `get_history_items_keyboard()`, `get_history_empty_keyboard()` to keyboards.py. Added 6 tests.
+    - **Notes:** Filter tabs use `\u2022` bullet prefix for active filter. Items use `hist_noop` callback since they're display-only.
 
 - [ ] **2.3** Create HistoryHandler and register in main.py
     - **Context:** See plan.md Phase 5+6. Key refs: `src/bot/handlers/calendar.py` (exact pattern to follow), `src/main.py:149` (registration after QueueHandler). Handler uses `context.user_data` for `hist_items`, `hist_page`, `hist_filter`.

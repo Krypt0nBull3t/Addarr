@@ -8,6 +8,8 @@ from src.bot.keyboards import (
     get_confirmation_keyboard,
     get_downloads_history_keyboard,
     get_downloads_queue_keyboard,
+    get_history_items_keyboard,
+    get_history_empty_keyboard,
     get_main_menu_keyboard,
     get_settings_keyboard,
     get_system_keyboard,
@@ -1986,3 +1988,132 @@ class TestDownloadsHistoryKeyboardClientTabs:
         ]
         assert "dl_client_sab" in callbacks
         assert "dl_client_tx" in callbacks
+
+
+# ---------------------------------------------------------------------------
+# History keyboards
+# ---------------------------------------------------------------------------
+
+HISTORY_ITEMS = [
+    {
+        "type": "movie", "title": "Fight Club", "event_type": "grabbed",
+        "quality": "Bluray-1080p", "date": "2026-03-09T14:30:00Z",
+        "source_title": "Fight.Club.1999.1080p.BluRay", "service": "radarr",
+    },
+    {
+        "type": "episode", "title": "Breaking Bad", "event_type": "downloadFolderImported",
+        "quality": "HDTV-720p", "date": "2026-03-09T12:00:00Z",
+        "source_title": "Breaking.Bad.S01E01.720p", "service": "sonarr",
+    },
+    {
+        "type": "movie", "title": "Pulp Fiction", "event_type": "downloadFailed",
+        "quality": "Bluray-720p", "date": "2026-03-08T10:00:00Z",
+        "source_title": "Pulp.Fiction.1994.720p", "service": "radarr",
+    },
+    {
+        "type": "movie", "title": "Inception", "event_type": "grabbed",
+        "quality": "Bluray-1080p", "date": "2026-03-07T10:00:00Z",
+        "source_title": "Inception.2010.1080p", "service": "radarr",
+    },
+    {
+        "type": "episode", "title": "Severance", "event_type": "grabbed",
+        "quality": "WEBDL-1080p", "date": "2026-03-06T10:00:00Z",
+        "source_title": "Severance.S02E01.1080p", "service": "sonarr",
+    },
+    {
+        "type": "movie", "title": "The Matrix", "event_type": "grabbed",
+        "quality": "Bluray-1080p", "date": "2026-03-05T10:00:00Z",
+        "source_title": "The.Matrix.1999.1080p", "service": "radarr",
+    },
+]
+
+
+class TestHistoryItemsKeyboard:
+    @patch("src.bot.keyboards.TranslationService")
+    def test_with_items_pagination_present(self, mock_ts):
+        """6 items with page_size=5: pagination row should be present."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard(HISTORY_ITEMS, page=0, page_size=5)
+        assert isinstance(result, InlineKeyboardMarkup)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        # Pagination should exist (6 items, 5 per page = 2 pages)
+        assert "hist_page_1" in callbacks
+        # Filter tabs should exist
+        assert "hist_filter_all" in callbacks
+        assert "hist_filter_grabbed" in callbacks
+        # Action row
+        assert "hist_refresh" in callbacks
+        assert "hist_back" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_items_no_item_rows(self, mock_ts):
+        """0 items: no item rows, but filter tabs and action row present."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard([], page=0, page_size=5)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        # Filter tabs still present
+        assert "hist_filter_all" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_filter_active_highlight(self, mock_ts):
+        """Active filter shows bullet prefix."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard(
+            HISTORY_ITEMS, page=0, page_size=5, event_filter="grabbed"
+        )
+        filter_row = result.inline_keyboard[0]
+        # Find the "grabbed" filter button — should have bullet prefix
+        grabbed_btn = [b for b in filter_row if "grabbed" in b.callback_data][0]
+        assert grabbed_btn.text.startswith("\u2022 ")
+        # "All" should NOT have bullet
+        all_btn = [b for b in filter_row if b.callback_data == "hist_filter_all"][0]
+        assert not all_btn.text.startswith("\u2022 ")
+
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_title_truncation(self, mock_ts):
+        """Titles longer than 30 chars are truncated with ellipsis."""
+        _mock_translation(mock_ts)
+        long_item = {
+            "type": "movie", "title": "A" * 35, "event_type": "grabbed",
+            "quality": "HD", "date": "2026-03-09T14:30:00Z",
+            "source_title": "test", "service": "radarr",
+        }
+        result = get_history_items_keyboard([long_item], page=0, page_size=5)
+        item_row = result.inline_keyboard[1]
+        assert "..." in item_row[0].text
+        assert "A" * 27 in item_row[0].text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_page_two_has_previous_button(self, mock_ts):
+        """Page > 0 shows Previous button."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard(
+            HISTORY_ITEMS, page=1, page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "hist_page_0" in callbacks
+
+
+class TestHistoryEmptyKeyboard:
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_keyboard_buttons(self, mock_ts):
+        """Empty keyboard has refresh and back buttons."""
+        _mock_translation(mock_ts)
+        result = get_history_empty_keyboard()
+        assert isinstance(result, InlineKeyboardMarkup)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "hist_refresh" in callbacks
+        assert "hist_back" in callbacks

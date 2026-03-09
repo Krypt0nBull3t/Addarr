@@ -1057,3 +1057,113 @@ def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: st
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+# ---------------------------------------------------------------------------
+# History keyboards
+# ---------------------------------------------------------------------------
+
+_HISTORY_EVENT_EMOJI = {
+    "grabbed": "\U0001f4e5",
+    "downloadFolderImported": "\u2705",
+    "downloadFailed": "\u274c",
+    "movieFileDeleted": "\U0001f5d1",
+    "episodeFileDeleted": "\U0001f5d1",
+    "movieFileRenamed": "\U0001f4dd",
+    "episodeFileRenamed": "\U0001f4dd",
+}
+
+
+def get_history_items_keyboard(
+    items: list, page: int = 0, page_size: int = 5,
+    event_filter: str = None,
+) -> InlineKeyboardMarkup:
+    """Paginated history items keyboard with filter tabs."""
+    translation = TranslationService()
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    page_items = items[start:start + page_size]
+
+    keyboard = []
+
+    # Filter tabs row
+    filters = [
+        ("HistoryAll", None),
+        ("HistoryGrabbed", "grabbed"),
+        ("HistoryImported", "downloadFolderImported"),
+        ("HistoryFailed", "downloadFailed"),
+    ]
+    filter_row = []
+    for label_key, filter_val in filters:
+        prefix = "\u2022 " if event_filter == filter_val else ""
+        cb = f"hist_filter_{filter_val}" if filter_val else "hist_filter_all"
+        filter_row.append(
+            InlineKeyboardButton(
+                f"{prefix}{translation.get_text(label_key)}",
+                callback_data=cb,
+            )
+        )
+    keyboard.append(filter_row)
+
+    # Item rows
+    for item in page_items:
+        emoji = _HISTORY_EVENT_EMOJI.get(item.get("event_type"), "\u2753")
+        type_emoji = _MEDIA_TYPE_EMOJI.get(item.get("type"), "")
+        title = item.get("title", "")
+        if len(title) > 30:
+            title = title[:27] + "..."
+        quality = item.get("quality", "")
+        date_str = item.get("date", "")[:10]
+
+        label = f"{emoji} {type_emoji} {title} [{quality}] {date_str}"
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="hist_noop")
+        ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(InlineKeyboardButton(
+                f"\u25c0\ufe0f {translation.get_text('Previous')}",
+                callback_data=f"hist_page_{page - 1}",
+            ))
+        nav_row.append(InlineKeyboardButton(
+            f"{page + 1}/{total_pages}",
+            callback_data="hist_noop",
+        ))
+        if page < total_pages - 1:
+            nav_row.append(InlineKeyboardButton(
+                f"{translation.get_text('Next')} \u25b6\ufe0f",
+                callback_data=f"hist_page_{page + 1}",
+            ))
+        keyboard.append(nav_row)
+
+    # Action row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 " + translation.get_text("Search"),
+            callback_data="hist_refresh",
+        ),
+        InlineKeyboardButton(
+            "\u25c0\ufe0f " + translation.get_text("Back"),
+            callback_data="hist_back",
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_history_empty_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard for empty history state."""
+    translation = TranslationService()
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "\U0001f504 " + translation.get_text("Search"),
+            callback_data="hist_refresh",
+        ),
+        InlineKeyboardButton(
+            "\u25c0\ufe0f " + translation.get_text("Back"),
+            callback_data="hist_back",
+        ),
+    ]])
