@@ -76,7 +76,7 @@
     - **Key Changes:** Added `_HISTORY_EVENT_EMOJI`, `get_history_items_keyboard()`, `get_history_empty_keyboard()` to keyboards.py. Added 6 tests.
     - **Notes:** Filter tabs use `\u2022` bullet prefix for active filter. Items use `hist_noop` callback since they're display-only.
 
-- [ ] **2.3** Create HistoryHandler and register in main.py
+- [x] **2.3** Create HistoryHandler and register in main.py
     - **Context:** See plan.md Phase 5+6. Key refs: `src/bot/handlers/calendar.py` (exact pattern to follow), `src/main.py:149` (registration after QueueHandler). Handler uses `context.user_data` for `hist_items`, `hist_page`, `hist_filter`.
     - **Watch out:** `@require_auth` on both `show_history` and `handle_history_action`. Add `history_handler` fixture to `tests/test_handlers/conftest.py`. Add `("history", "CommandHistory")` to `src/bot/commands.py`. Add `HistoryHandler` to `src/bot/handlers/__init__.py`.
     - **Scope:** Full handler class + registration + fixture + tests
@@ -89,3 +89,7 @@
         - [GREEN] Add command to `src/bot/commands.py`
         - [GREEN] Add to `src/bot/handlers/__init__.py`
     - **Success:** `pytest tests/test_handlers/test_history_handler.py -v` passes, full test suite green, `flake8` clean
+    - **Completed:** 2026-03-09
+    - **Learnings:** Must update `_make_handler_patches()` in test_main.py when adding new handlers. Each mock handler returns [MagicMock()] (1 handler), so count increments by 1 per new handler class, not by the real handler count. Also need to update command count assertions in test_commands.py.
+    - **Key Changes:** Created `src/bot/handlers/history.py` with HistoryHandler. Registered in main.py after QueueHandler. Added `history` command to commands.py. Added to `__init__.py`. Added fixture + 12 tests. Updated test_main.py handler counts and test_commands.py command counts.
+    - **Notes:** History command is gated behind radarr or sonarr being enabled, same as upcoming/missing.

@@ -474,6 +474,40 @@ def queue_handler(mock_media_service, mock_translation_service):
 
 
 @pytest.fixture
+def history_handler(mock_media_service, mock_translation_service):
+    """Create a HistoryHandler with patched services."""
+    with (
+        patch("src.bot.handlers.history.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.history.TranslationService") as mock_ts_class,
+        patch(
+            "src.bot.handlers.history.get_history_items_keyboard"
+        ) as mock_items_kbd,
+        patch(
+            "src.bot.handlers.history.get_history_empty_keyboard"
+        ) as mock_empty_kbd,
+        patch("src.bot.handlers.history.get_main_menu_keyboard") as mock_menu_kbd,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        mock_media_service.get_history = AsyncMock(return_value=[])
+        mock_items_kbd.return_value = MagicMock()
+        mock_empty_kbd.return_value = MagicMock()
+        mock_menu_kbd.return_value = MagicMock()
+
+        from src.bot.handlers.history import HistoryHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = HistoryHandler()
+        handler._mock_service = mock_media_service
+        handler._mock_ts = mock_translation_service
+        handler._mock_items_kbd = mock_items_kbd
+        handler._mock_empty_kbd = mock_empty_kbd
+        handler._mock_menu_kbd = mock_menu_kbd
+        yield handler
+
+
+@pytest.fixture
 def preferences_handler(mock_translation_service):
     """Create a PreferencesHandler with patched services."""
     with (

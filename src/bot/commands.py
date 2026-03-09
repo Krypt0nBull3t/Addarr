@@ -63,6 +63,9 @@ def build_authenticated_commands() -> list:
             or config.get("lidarr", {}).get("enable")):
         commands.append(BotCommand("queue", translation.get_text("CommandQueue")))
 
+    if config.get("radarr", {}).get("enable") or config.get("sonarr", {}).get("enable"):
+        commands.append(BotCommand("history", translation.get_text("CommandHistory")))
+
     if config.get("transmission", {}).get("enable", False):
         commands.append(BotCommand("transmission", translation.get_text("CommandTransmission")))
 
