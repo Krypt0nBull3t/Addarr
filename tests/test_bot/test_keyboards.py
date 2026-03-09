@@ -2075,7 +2075,6 @@ class TestHistoryItemsKeyboard:
         all_btn = [b for b in filter_row if b.callback_data == "hist_filter_all"][0]
         assert not all_btn.text.startswith("\u2022 ")
 
-
     @patch("src.bot.keyboards.TranslationService")
     def test_title_truncation(self, mock_ts):
         """Titles longer than 30 chars are truncated with ellipsis."""
