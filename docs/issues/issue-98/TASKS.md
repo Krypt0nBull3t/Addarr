@@ -92,7 +92,7 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
     - **Key Changes:** Added `__init__`, TranslationService import, replaced 5 strings in `system.py`. Updated fixture and 4 test assertions.
     - **Notes:** None.
 
-- [ ] **3.2** Add TranslationService to TransmissionHandler and replace strings
+- [x] **3.2** Add TranslationService to TransmissionHandler and replace strings
     - **Context:** See plan.md Phase 3. `TransmissionHandler.__init__` exists but only sets `self.service`. The `transmission_handler` fixture already patches `TranslationService` at `src.bot.handlers.transmission.TranslationService` (conftest.py line 173) — no fixture change needed. But the handler doesn't import or use it. 3 hardcoded strings: not-enabled message (line 46-48), connection error (line 54-55), toggle failed (line 95). Existing tests assert on `"not enabled"` and `"connect"` in lowercase — these will break when output becomes translation keys.
     - **Watch out:** The `transmission_handler` fixture patches `TranslationService` but the actual handler code `from src.bot.handlers.transmission import TransmissionHandler` doesn't import `TranslationService` — so the patch target `src.bot.handlers.transmission.TranslationService` won't exist yet. Must add the import first. Also: existing tests import `TransmissionHandler` directly inside the test function and bypass the fixture — check both patterns.
     - **Scope:** Add TranslationService usage to handler, replace 3 strings, update tests
@@ -105,6 +105,10 @@ Replace ~29 hardcoded English error/status strings across 8 handler files with `
         - [GREEN] Update existing tests that assert on hardcoded English text (`"not enabled"`, `"connect"`)
         - [GREEN] Run `pytest tests/test_handlers/test_transmission_handler.py -v`
     - **Success:** All transmission handler tests pass, TranslationService is used for all user-facing strings
+    - **Completed:** 2026-03-09
+    - **Learnings:** Existing tests used inline `@patch` + local imports instead of the conftest fixture. Updated the 3 affected tests to also patch `TranslationService` and assert on `get_text` calls with the correct key names.
+    - **Key Changes:** Added `TranslationService` import and `self.translation` to `TransmissionHandler.__init__`. Replaced 3 hardcoded strings (`TransmissionNotEnabled`, `TransmissionConnectionError`, `TransmissionToggleFailed`). Updated 3 tests.
+    - **Notes:** The conftest `transmission_handler` fixture already had TranslationService patching in place — it was set up anticipating this change.
 
 ---
 
