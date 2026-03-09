@@ -410,6 +410,69 @@ SONARR_QUEUE = {
     ],
 }
 
+RADARR_HISTORY = {
+    "page": 1,
+    "pageSize": 20,
+    "totalRecords": 3,
+    "records": [
+        {
+            "id": 1, "movieId": 10,
+            "sourceTitle": "Fight.Club.1999.1080p.BluRay",
+            "quality": {"quality": {"name": "Bluray-1080p"}},
+            "date": "2026-03-09T14:30:00Z",
+            "eventType": "grabbed",
+            "data": {"indexer": "NZBgeek"},
+            "movie": {"title": "Fight Club", "year": 1999, "tmdbId": 550},
+        },
+        {
+            "id": 2, "movieId": 10,
+            "sourceTitle": "Fight.Club.1999.1080p.BluRay",
+            "quality": {"quality": {"name": "Bluray-1080p"}},
+            "date": "2026-03-09T15:00:00Z",
+            "eventType": "downloadFolderImported",
+            "data": {},
+            "movie": {"title": "Fight Club", "year": 1999, "tmdbId": 550},
+        },
+        {
+            "id": 3, "movieId": 20,
+            "sourceTitle": "Pulp.Fiction.1994.720p",
+            "quality": {"quality": {"name": "Bluray-720p"}},
+            "date": "2026-03-08T10:00:00Z",
+            "eventType": "downloadFailed",
+            "data": {"indexer": "Drunken Slug"},
+            "movie": {"title": "Pulp Fiction", "year": 1994, "tmdbId": 680},
+        },
+    ],
+}
+
+SONARR_HISTORY = {
+    "page": 1,
+    "pageSize": 20,
+    "totalRecords": 2,
+    "records": [
+        {
+            "id": 101, "seriesId": 42, "episodeId": 201,
+            "sourceTitle": "Breaking.Bad.S01E01.720p",
+            "quality": {"quality": {"name": "HDTV-720p"}},
+            "date": "2026-03-09T12:00:00Z",
+            "eventType": "grabbed",
+            "data": {"indexer": "NZBgeek"},
+            "series": {"title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+            "episode": {"title": "Pilot", "seasonNumber": 1, "episodeNumber": 1},
+        },
+        {
+            "id": 102, "seriesId": 42, "episodeId": 201,
+            "sourceTitle": "Breaking.Bad.S01E01.720p",
+            "quality": {"quality": {"name": "HDTV-720p"}},
+            "date": "2026-03-09T12:30:00Z",
+            "eventType": "downloadFolderImported",
+            "data": {},
+            "series": {"title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+            "episode": {"title": "Pilot", "seasonNumber": 1, "episodeNumber": 1},
+        },
+    ],
+}
+
 LIDARR_QUEUE = {
     "page": 1,
     "pageSize": 1000,

@@ -291,6 +291,32 @@ class RadarrClient(BaseApiClient):
             logger.error(Fore.RED + f"❌ Failed to get calendar: {str(e)}")
             return []
 
+    async def get_history(self, page: int = 1, page_size: int = 20,
+                          event_type: str = None) -> List[Dict]:
+        """Get recent history from Radarr."""
+        try:
+            logger.info(Fore.BLUE + "📜 Getting history from Radarr")
+            endpoint = (
+                f"history?sortKey=date&sortDirection=descending"
+                f"&page={page}&pageSize={page_size}"
+            )
+            if event_type:
+                endpoint += f"&eventType={event_type}"
+
+            result = await self._request(endpoint)
+
+            if not result or not isinstance(result, dict):
+                logger.warning(Fore.YELLOW + "⚠️ No history found in Radarr")
+                return []
+
+            records = result.get("records", [])
+            logger.info(Fore.GREEN + f"✅ Found {len(records)} history items in Radarr")
+            return records
+
+        except Exception as e:
+            logger.error(Fore.RED + f"❌ Failed to get Radarr history: {str(e)}")
+            return []
+
     async def get_movies(self) -> List[Dict]:
         """Get all movies in the library"""
         try:

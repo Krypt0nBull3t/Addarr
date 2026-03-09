@@ -17,6 +17,7 @@ from tests.fixtures.sample_data import (
     RADARR_WANTED_CUTOFF,
     RADARR_QUEUE,
     RADARR_DISK_SPACE,
+    RADARR_HISTORY,
 )
 
 
@@ -990,4 +991,74 @@ class TestRadarrGetDiskSpace:
         """Exception during get_disk_space returns empty list."""
         with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
             results = await radarr_client.get_disk_space()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_history
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetHistory:
+    @pytest.mark.asyncio
+    async def test_get_history_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of history records."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20",
+            payload=RADARR_HISTORY,
+            status=200,
+        )
+        results = await radarr_client.get_history()
+        assert len(results) == 3
+        assert results[0]["movie"]["title"] == "Fight Club"
+        assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    async def test_get_history_with_event_type(self, aio_mock, radarr_client):
+        """Event type filter appended to URL."""
+        filtered = {
+            "page": 1, "pageSize": 20, "totalRecords": 1,
+            "records": [RADARR_HISTORY["records"][0]],
+        }
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&eventType=grabbed",
+            payload=filtered,
+            status=200,
+        )
+        results = await radarr_client.get_history(event_type="grabbed")
+        assert len(results) == 1
+        assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    async def test_get_history_empty(self, aio_mock, radarr_client):
+        """Empty records returns empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20",
+            payload={"page": 1, "pageSize": 20, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await radarr_client.get_history()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_error(self, radarr_client):
+        """Exception during get_history returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_history()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_non_dict_response(self, aio_mock, radarr_client):
+        """Non-dict response (None) returns empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20",
+            payload="",
+            status=200,
+        )
+        with patch.object(radarr_client, "_request", return_value=None):
+            results = await radarr_client.get_history()
         assert results == []
