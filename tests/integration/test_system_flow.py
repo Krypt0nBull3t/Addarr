@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, patch
 
 from src.services.health import health_service
 
+from tests.integration.fixtures import find_response
+
 
 MOCK_STATUS = {
     "running": True,
@@ -33,14 +35,6 @@ MOCK_DISK_SPACE = [
 ]
 
 
-def _find_response(harness, method):
-    """Find the first captured response matching a given API method."""
-    for resp in harness.responses:
-        if resp.method == method:
-            return resp
-    return None
-
-
 @pytest.mark.asyncio
 async def test_status_command_shows_status(harness):
     """/status returns sendMessage with system status text."""
@@ -62,7 +56,7 @@ async def test_system_refresh_reruns_checks(harness):
         patch.object(health_service, "get_status", return_value=MOCK_STATUS),
     ):
         await harness.tap_button("system_refresh")
-        resp = _find_response(harness, "editMessageText")
+        resp = find_response(harness, "editMessageText")
         assert resp is not None
         assert "System Status" in resp.text
 
@@ -75,7 +69,7 @@ async def test_system_details_shows_services(harness):
         new_callable=AsyncMock, return_value=MOCK_HEALTH_RESULTS,
     ):
         await harness.tap_button("system_details")
-        resp = _find_response(harness, "editMessageText")
+        resp = find_response(harness, "editMessageText")
         assert resp is not None
         assert "Radarr" in resp.text
 
@@ -88,7 +82,7 @@ async def test_system_diskspace_shows_drives(harness):
         new_callable=AsyncMock, return_value=MOCK_DISK_SPACE,
     ):
         await harness.tap_button("system_diskspace")
-        resp = _find_response(harness, "editMessageText")
+        resp = find_response(harness, "editMessageText")
         assert resp is not None
         assert "Disk Space" in resp.text
 
@@ -97,6 +91,6 @@ async def test_system_diskspace_shows_drives(harness):
 async def test_system_back_returns_to_main_menu(harness):
     """system_back callback edits message to main menu."""
     await harness.tap_button("system_back")
-    resp = _find_response(harness, "editMessageText")
+    resp = find_response(harness, "editMessageText")
     assert resp is not None
     assert "Main Menu" in resp.text

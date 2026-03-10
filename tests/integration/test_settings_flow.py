@@ -12,13 +12,7 @@ Patches:
 import pytest
 from unittest.mock import patch, MagicMock
 
-
-def _find_response(harness, method):
-    """Find the first captured response matching the given API method."""
-    for r in harness.responses:
-        if r.method == method:
-            return r
-    return None
+from tests.integration.fixtures import find_response
 
 
 @pytest.mark.asyncio
@@ -56,13 +50,13 @@ async def test_settings_language_flow(harness):
 
         # Tap language
         await harness.tap_button("settings_language")
-        lang_resp = _find_response(harness, "editMessageText")
+        lang_resp = find_response(harness, "editMessageText")
         assert lang_resp is not None
         assert "Settings.Language" in lang_resp.text
 
         # Select a language
         await harness.tap_button("lang_en")
-        select_resp = _find_response(harness, "editMessageText")
+        select_resp = find_response(harness, "editMessageText")
         assert select_resp is not None
         assert "Settings.LanguageChanged" in select_resp.text
         mock_cfg.update_nested.assert_called_with("language", "en")
@@ -76,6 +70,6 @@ async def test_settings_back_ends_conversation(harness):
         await harness.send_command("/settings")
 
         await harness.tap_button("settings_back")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "End" in edit_resp.text

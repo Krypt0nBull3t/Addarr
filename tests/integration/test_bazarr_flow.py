@@ -10,15 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 from src.services.bazarr import BazarrService
 
-from tests.integration.fixtures import BAZARR_WANTED_MOVIES
-
-
-def _find_response(harness, method):
-    """Find the first captured response matching the given API method."""
-    for r in harness.responses:
-        if r.method == method:
-            return r
-    return None
+from tests.integration.fixtures import BAZARR_WANTED_MOVIES, find_response
 
 
 @pytest.mark.asyncio
@@ -42,7 +34,7 @@ async def test_bazarr_wanted_movies_shows_list(bazarr_harness):
 
         # Tap wanted movies
         await bazarr_harness.tap_button("bazarr_wanted_movies")
-        edit_resp = _find_response(bazarr_harness, "editMessageText")
+        edit_resp = find_response(bazarr_harness, "editMessageText")
         assert edit_resp is not None
         assert "Fight Club" in edit_resp.text
         assert "English" in edit_resp.text
@@ -56,6 +48,6 @@ async def test_bazarr_cancel_sends_cancelled(bazarr_harness):
 
     # Tap cancel
     await bazarr_harness.tap_button("bazarr_cancel")
-    edit_resp = _find_response(bazarr_harness, "editMessageText")
+    edit_resp = find_response(bazarr_harness, "editMessageText")
     assert edit_resp is not None
     assert "BazarrCancelled" in edit_resp.text

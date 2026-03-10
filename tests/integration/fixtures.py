@@ -1,9 +1,18 @@
 """
-Shared test data for integration tests.
+Shared test data and helpers for integration tests.
 
-Provides reusable search results, quality selection results, and queue data
-used across multiple test files.
+Provides reusable search results, quality selection results, queue data,
+and utility functions used across multiple test files.
 """
+
+
+def find_response(harness, method):
+    """Find the first captured response matching the given API method."""
+    for r in harness.responses:
+        if r.method == method:
+            return r
+    return None
+
 
 MOVIE_SEARCH_RESULTS = [
     {

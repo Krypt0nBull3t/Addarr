@@ -13,16 +13,8 @@ from src.services.media import MediaService
 from tests.integration.fixtures import (
     MOVIE_SEARCH_RESULTS,
     MOVIE_QUALITY_RESULT,
-    SERIES_SEARCH_RESULTS,
+    find_response,
 )
-
-
-def _find_response(harness, method):
-    """Find the first captured response matching the given API method."""
-    for r in harness.responses:
-        if r.method == method:
-            return r
-    return None
 
 
 @pytest.mark.asyncio
@@ -49,7 +41,7 @@ async def test_movie_add_raises_exception_shows_error(harness):
         # Quality select triggers add which raises
         await harness.tap_button("quality_1")
         # Handler catches exception and sends error text
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "Error" in edit_resp.text or "error" in edit_resp.text.lower()
 
@@ -95,6 +87,6 @@ async def test_delete_confirm_returns_false_shows_failure(harness):
 
         # Confirm deletion — returns False
         await harness.tap_button("delete_confirm")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "DeleteFailed" in edit_resp.text

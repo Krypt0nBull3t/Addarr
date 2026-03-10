@@ -10,13 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 from src.services.media import MediaService
 
-
-def _find_response(harness, method):
-    """Find the first captured response matching the given API method."""
-    for r in harness.responses:
-        if r.method == method:
-            return r
-    return None
+from tests.integration.fixtures import find_response
 
 
 @pytest.mark.asyncio
@@ -43,19 +37,19 @@ async def test_delete_happy_path_movie(harness):
 
         # Step 2: Tap movie type → shows item list with "Select"
         await harness.tap_button("delete_type_movie")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "Select" in edit_resp.text
 
         # Step 3: Tap item → shows confirmation with "ThisDelete"
         await harness.tap_button("delete_item_550")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "ThisDelete" in edit_resp.text
 
         # Step 4: Confirm deletion → shows "DeleteSuccess"
         await harness.tap_button("delete_confirm")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "DeleteSuccess" in edit_resp.text
 
@@ -70,7 +64,7 @@ async def test_delete_cancel(harness):
 
     # Step 2: Tap cancel → shows "End"
     await harness.tap_button("delete_cancel")
-    edit_resp = _find_response(harness, "editMessageText")
+    edit_resp = find_response(harness, "editMessageText")
     assert edit_resp is not None
     assert "End" in edit_resp.text
 
@@ -87,6 +81,6 @@ async def test_delete_type_empty_library(harness):
 
         # Step 2: Tap movie type with empty library → shows "NoExist"
         await harness.tap_button("delete_type_movie")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "NoExist" in edit_resp.text

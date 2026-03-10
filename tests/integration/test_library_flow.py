@@ -10,15 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 from src.services.media import MediaService
 
-from tests.integration.fixtures import LIBRARY_MOVIES, LIBRARY_SERIES
-
-
-def _find_response(harness, method):
-    """Find the first captured response matching the given API method."""
-    for r in harness.responses:
-        if r.method == method:
-            return r
-    return None
+from tests.integration.fixtures import LIBRARY_MOVIES, LIBRARY_SERIES, find_response
 
 
 @pytest.mark.asyncio
@@ -60,7 +52,7 @@ async def test_pagination_via_lib_callback(harness):
 
         # Navigate to page 2
         await harness.tap_button("lib_m_1")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "Page 2" in edit_resp.text
 

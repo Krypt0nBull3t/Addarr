@@ -10,15 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 from src.services.media import MediaService
 
-from tests.integration.fixtures import CALENDAR_ITEMS
-
-
-def _find_response(harness, method):
-    """Find the first captured response matching the given API method."""
-    for r in harness.responses:
-        if r.method == method:
-            return r
-    return None
+from tests.integration.fixtures import CALENDAR_ITEMS, find_response
 
 
 @pytest.mark.asyncio
@@ -57,7 +49,7 @@ async def test_calendar_period_change(harness):
 
         # Tap period change button
         await harness.tap_button("cal_period_30")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "30 days" in edit_resp.text
 
@@ -77,7 +69,7 @@ async def test_calendar_refresh(harness):
 
         # Tap refresh
         await harness.tap_button("cal_refresh")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "CalendarTitle" in edit_resp.text
 
@@ -94,6 +86,6 @@ async def test_calendar_back_returns_to_main_menu(harness):
 
         # Tap back
         await harness.tap_button("cal_back")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "Main Menu" in edit_resp.text

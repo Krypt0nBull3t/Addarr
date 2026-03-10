@@ -10,15 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 from src.services.media import MediaService
 
-from tests.integration.fixtures import HISTORY_ITEMS
-
-
-def _find_response(harness, method):
-    """Find the first captured response matching the given API method."""
-    for r in harness.responses:
-        if r.method == method:
-            return r
-    return None
+from tests.integration.fixtures import HISTORY_ITEMS, find_response
 
 
 @pytest.mark.asyncio
@@ -58,7 +50,7 @@ async def test_history_refresh_refetches(harness):
 
         # Tap refresh — handler calls edit_text then query.answer()
         await harness.tap_button("hist_refresh")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "HistoryTitle" in edit_resp.text
 
@@ -75,6 +67,6 @@ async def test_history_back_returns_to_main_menu(harness):
 
         # Tap back — handler calls edit_text then query.answer()
         await harness.tap_button("hist_back")
-        edit_resp = _find_response(harness, "editMessageText")
+        edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "Main Menu" in edit_resp.text
