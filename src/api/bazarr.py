@@ -158,7 +158,7 @@ class BazarrClient(BaseApiClient):
             if success:
                 logger.info(
                     Fore.GREEN
-                    + f"✅ Subtitle search triggered for movie"
+                    + "✅ Subtitle search triggered for movie"
                     + f" {radarr_id}"
                 )
             else:
@@ -186,7 +186,7 @@ class BazarrClient(BaseApiClient):
         try:
             logger.info(
                 Fore.BLUE
-                + f"🔍 Searching subtitles for episode"
+                + "🔍 Searching subtitles for episode"
                 + f" {sonarr_episode_id}"
             )
             forced_str = "true" if forced else "false"
@@ -201,7 +201,7 @@ class BazarrClient(BaseApiClient):
             if success:
                 logger.info(
                     Fore.GREEN
-                    + f"✅ Subtitle search triggered for episode"
+                    + "✅ Subtitle search triggered for episode"
                     + f" {sonarr_episode_id}"
                 )
             else:
