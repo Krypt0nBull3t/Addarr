@@ -9,7 +9,7 @@ This module handles interactions with media services (Radarr, Sonarr, Lidarr).
 
 import asyncio
 import datetime
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional, Union
 
 from src.utils.logger import get_logger
 from src.config.settings import config
@@ -287,7 +287,7 @@ class MediaService:
             logger.error(f"Error searching music: {e}")
             raise
 
-    async def add_movie(self, tmdb_id: str) -> tuple[bool, str]:
+    async def add_movie(self, tmdb_id: str) -> Union[tuple[bool, str], Dict[str, Any]]:
         """Add a movie to Radarr"""
         if not self.radarr:
             raise ValueError("Radarr is not enabled or configured")
@@ -351,7 +351,7 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_movie: {str(e)}")
             return False, str(e)
 
-    async def add_series(self, tvdb_id: str) -> tuple[bool, str]:
+    async def add_series(self, tvdb_id: str) -> Union[tuple[bool, str], Dict[str, Any]]:
         """Add a TV series to Sonarr"""
         if not self.sonarr:
             raise ValueError("Sonarr is not enabled or configured")
@@ -396,7 +396,7 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_series: {str(e)}")
             return False, str(e)
 
-    async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, selected_seasons: List[int] = None) -> tuple[bool, str]:
+    async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, selected_seasons: Optional[List[int]] = None) -> tuple[bool, str]:
         """Add a series to Sonarr with selected quality profile and seasons"""
         if not self.sonarr:
             raise ValueError("Sonarr is not enabled or configured")
@@ -434,7 +434,7 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_series: {str(e)}")
             return False, str(e)
 
-    async def add_music(self, artist_id: str) -> tuple[bool, str]:
+    async def add_music(self, artist_id: str) -> Union[tuple[bool, str], Dict[str, Any]]:
         """Add an artist to Lidarr"""
         if not self.lidarr:
             raise ValueError("Lidarr is not enabled or configured")
@@ -474,14 +474,14 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_music: {str(e)}")
             return False, str(e)
 
-    async def add_music_with_profile(self, artist_id: str, profile_id: int, root_folder: str, albums_to_monitor: List[str] = None, future_albums: bool = False) -> tuple[bool, str]:
+    async def add_music_with_profile(self, artist_id: str, profile_id: int, root_folder: str, albums_to_monitor: Optional[List[str]] = None, future_albums: bool = False) -> tuple[bool, str]:
         """Add an artist to Lidarr with selected quality profile"""
         if not self.lidarr:
             raise ValueError("Lidarr is not enabled or configured")
 
         try:
             # Add the artist with selected profile
-            kwargs = {}
+            kwargs: Dict[str, Any] = {}
             if albums_to_monitor is not None:
                 kwargs["albums_to_monitor"] = albums_to_monitor
             if future_albums:
@@ -556,7 +556,7 @@ class MediaService:
         )
 
         for (service_name, _), result in zip(tasks, results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"Calendar fetch failed for {service_name}: {result}")
                 continue
 
@@ -661,7 +661,7 @@ class MediaService:
 
         items = []
         for (service_name, _), result in zip(tasks, results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(
                     f"{label} fetch failed for {service_name}: {result}"
                 )
@@ -749,7 +749,7 @@ class MediaService:
 
         items = []
         for (service_name, _), result in zip(tasks, results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(
                     f"queue fetch failed for {service_name}: {result}"
                 )
@@ -973,7 +973,7 @@ class MediaService:
             return False
 
     async def get_history(self, page: int = 1, page_size: int = 20,
-                          event_type: str = None) -> List[Dict]:
+                          event_type: Optional[str] = None) -> List[Dict]:
         """Get recent history from Radarr and Sonarr.
 
         Returns a normalized, date-sorted (newest first) list of history items.
@@ -997,7 +997,7 @@ class MediaService:
 
         items = []
         for (service_name, _), result in zip(tasks, results):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error(f"History fetch failed for {service_name}: {result}")
                 continue
 

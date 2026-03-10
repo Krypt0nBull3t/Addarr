@@ -100,7 +100,7 @@ class BaseApiClient(ABC):
             'Content-Type': 'application/json'
         }
 
-    def _parse_error_response(self, response_text: str, title: str = None) -> str:
+    def _parse_error_response(self, response_text: str, title: Optional[str] = None) -> str:
         """Parse error response from API
 
         Args:
@@ -128,7 +128,7 @@ class BaseApiClient(ABC):
         """Check if an HTTP status code is retryable."""
         return status_code in self.RETRYABLE_STATUS_CODES
 
-    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: str = None, timeout: int = None, max_retries: int = None) -> Tuple[bool, Any, Optional[str]]:
+    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: Optional[str] = None, timeout: Optional[int] = None, max_retries: Optional[int] = None) -> Tuple[bool, Any, Optional[str]]:
         """Make an API request with retry and exponential backoff.
 
         Args:
@@ -223,7 +223,9 @@ class BaseApiClient(ABC):
                 self.logger.error(f"❌ {error_message}")
                 return False, None, error_message
 
-    async def _request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: str = None) -> Any:
+        return False, None, "Max retries exhausted"  # pragma: no cover
+
+    async def _request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: Optional[str] = None) -> Any:
         """Convenience wrapper: returns parsed data on success, None on failure.
 
         Delegates to _make_request() but discards the success flag and error

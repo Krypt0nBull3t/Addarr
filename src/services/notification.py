@@ -20,8 +20,10 @@ logger = get_logger("addarr.notification")
 class NotificationService:
     """Service for handling notifications"""
 
-    _instance = None
+    _instance: Optional["NotificationService"] = None
     _bot: Optional[Bot] = None
+    admin_notify_id: Optional[str] = None
+    translation: "TranslationService"
 
     def __new__(cls):
         """Ensure only one instance exists"""

@@ -20,7 +20,15 @@ flake8 .
 
 **On failure:** Auto-fix formatting issues (line length, whitespace). Report logic-level lint issues that need manual review. Re-run after fixes.
 
-## Step 3: Translation Validation
+## Step 3: Type Check
+
+```bash
+mypy src/
+```
+
+**On failure:** Fix type errors. Common fixes: add `Optional[]` for params with `None` default, add class-level annotations on singletons, use `isinstance(result, BaseException)` for asyncio.gather results. Re-run after fixes.
+
+## Step 4: Translation Validation
 
 ```bash
 PYTHONIOENCODING=utf-8 python run.py --validate-i18n
@@ -28,12 +36,13 @@ PYTHONIOENCODING=utf-8 python run.py --validate-i18n
 
 **On failure:** Report which translation files have problems and what keys are missing/malformed. Fix if possible, otherwise report.
 
-## Step 4: Report Results
+## Step 5: Report Results
 
 ```
 Preflight passed:
   - Tests: X passed
   - Flake8: clean
+  - Type check: clean
   - Translations: valid
 ```
 

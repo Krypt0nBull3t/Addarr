@@ -46,6 +46,9 @@ pip install -r requirements.txt
 # Lint
 flake8 .
 
+# Type check
+mypy src/
+
 # Run tests
 pytest                                      # All tests
 pytest --tb=short -q                        # Quick summary
@@ -95,6 +98,17 @@ Automated architecture tests in `tests/test_architecture/` enforce conventions a
 
 Flake8 with max line length 88. Ignored rules: E203, E501, W503 (configured in `.flake8`).
 
+## Type Checking
+
+mypy configured in `mypy.ini` with gradual adoption:
+- **Global:** `ignore_missing_imports = True`, `no_implicit_optional = True`, `check_untyped_defs = False`
+- **Handler layer** (`src/bot/handlers/`): `union-attr`, `index`, `arg-type`, `attr-defined`, `assignment`, `var-annotated` suppressed (Telegram Optional types are noisy, not buggy — see #153)
+- **Setup module** (`src/setup/`): `ignore_errors = True` (interactive wizard — see #154)
+
+**When adding Optional params:** Always use `Optional[str]` syntax (not `str | None`) for consistency. Import from `typing`.
+
+**Singleton services:** Must have class-level type annotations for instance attributes set in `__new__`/`_initialize`, or mypy can't see them.
+
 ## Architecture
 
 ### Layered Design
@@ -142,7 +156,7 @@ Handlers are registered in `AddarrBot._add_handlers()` in this order: Start, Aut
 
 GitHub Actions workflows in `.github/workflows/`:
 
-- **`ci.yml`** — Runs on PRs to `main`/`development`. Jobs: flake8 lint, pytest with coverage, translation validation (`--validate-i18n`), Docker build test.
+- **`ci.yml`** — Runs on PRs to `main`/`development`. Jobs: flake8 lint, mypy type check, pytest with coverage, translation validation (`--validate-i18n`), Docker build test.
 - **`auto-approve.yml`** — Triggered after CI succeeds. Performs AI-powered PR review via Groq (GPT-OSS-120B) plus rule-based checks (TODOs, print statements, large files, hardcoded secrets, bare excepts). Posts review comment and auto-approves. Requires `GROQ_API_KEY` and `REVIEWER_BOT_TOKEN` secrets.
 - **`codeql-analysis.yml`** — CodeQL security scanning on push/PR.
 - **`docker-hub-push.yml`** — Publishes Docker image to Docker Hub.

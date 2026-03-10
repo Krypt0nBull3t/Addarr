@@ -11,7 +11,7 @@ all required keys are present and properly formatted.
 import yaml
 import re
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Set
+from typing import Dict, Any, List, Optional, Tuple, Set
 from colorama import Fore, init
 
 # Initialize colorama
@@ -28,7 +28,7 @@ def load_yaml(file_path: str) -> Dict[str, Any]:
         return {}
 
 
-def get_all_keys(data: Dict[str, Any], prefix: str = "", required_sections: Set[str] = None) -> List[str]:
+def get_all_keys(data: Dict[str, Any], prefix: str = "", required_sections: Optional[Set[str]] = None) -> List[str]:
     """Get all keys from nested dictionary
 
     Args:
@@ -92,7 +92,7 @@ def validate_translation(template_data: Dict[str, Any], translation_data: Dict[s
 
 def get_nested_value(data: Dict[str, Any], key: str) -> Any:
     """Get value from nested dictionary using dot notation key"""
-    current = data
+    current: Any = data
     for part in key.split('.'):
         if isinstance(current, dict):
             current = current.get(part)

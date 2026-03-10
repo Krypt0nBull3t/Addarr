@@ -4,6 +4,7 @@
 
 ```python
 import aiohttp
+from typing import Optional
 
 from src.config.settings import config
 from src.utils.logger import get_logger
@@ -13,7 +14,9 @@ logger = get_logger("addarr.<name>")
 
 class <Name>Service:
     """Service for <description>"""
-    _instance = None
+    _instance: Optional["<Name>Service"] = None
+    _enabled: bool = False
+    _client: Optional["<Name>Client"] = None
 
     def __new__(cls):
         """Ensure only one instance exists"""
@@ -62,6 +65,7 @@ class <Name>Service:
 - All state in `_initialize` uses **class variables** (`cls._enabled`, `cls._client`)
 - These are accessed via `self._enabled` in instance methods (Python resolves to class)
 - `__init__` is rarely used (runs every time `<Name>Service()` is called, not just first time)
+- **mypy requires class-level type annotations** for attrs set in `_initialize` — without them, mypy reports `attr-defined` errors. Always declare types at class level (see template above).
 
 ### Testing Implications
 - `reset_singletons` fixture must reset `_instance = None` AND all class vars
@@ -95,10 +99,10 @@ MediaService pattern — wraps multiple API clients:
 
 ```python
 class MediaService:
-    _instance = None
-    _radarr = None
-    _sonarr = None
-    _lidarr = None
+    _instance: Optional["MediaService"] = None
+    _radarr: Optional[RadarrClient] = None
+    _sonarr: Optional[SonarrClient] = None
+    _lidarr: Optional[LidarrClient] = None
 
     def __new__(cls):
         if cls._instance is None:
