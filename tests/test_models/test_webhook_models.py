@@ -10,8 +10,6 @@ Tests cover:
 - Missing/malformed field handling
 """
 
-import pytest
-
 from src.models.webhook import (
     WebhookEvent,
     WebhookEventType,

@@ -1,11 +1,10 @@
 """Tests for WebhookService singleton HTTP server."""
 
-import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from aiohttp import web
-from aiohttp.test_utils import AioHTTPTestCase, TestClient, TestServer
+from aiohttp.test_utils import TestClient, TestServer
 
 
 # ---------------------------------------------------------------------------

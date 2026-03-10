@@ -5,6 +5,7 @@ Created Date: 2024-11-08
 Description: Webhook HTTP server for receiving *arr service notifications.
 """
 
+import hmac
 from typing import Optional
 
 from aiohttp import web
@@ -96,7 +97,7 @@ class WebhookService:
         if provided_secret is None:
             return False
 
-        return provided_secret == configured_secret
+        return hmac.compare_digest(provided_secret, configured_secret)
 
     def _is_event_enabled(self, event_type: WebhookEventType) -> bool:
         """Check if the given event type is enabled in config."""

@@ -9,8 +9,6 @@ Tests cover:
 
 from unittest.mock import patch
 
-import pytest
-
 from src.models.webhook import WebhookEvent, WebhookEventType, WebhookSource
 from src.services.webhook_formatter import format_webhook_event
 

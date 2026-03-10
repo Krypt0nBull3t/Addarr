@@ -1,8 +1,7 @@
 """Tests for WebhooksHandler — webhook setup wizard."""
 
-import secrets
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from telegram import InlineKeyboardMarkup
 from telegram.ext import ConversationHandler

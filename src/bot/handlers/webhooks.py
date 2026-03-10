@@ -32,6 +32,9 @@ from src.utils.logger import get_logger, log_user_interaction
 
 logger = get_logger("addarr.webhooks")
 
+_ALLOWED_SERVICES = {"radarr", "sonarr", "lidarr"}
+_ALLOWED_EVENT_KEYS = {"grab", "download", "upgrade", "health", "failure"}
+
 
 class WebhooksHandler:
     """Handler for webhook configuration wizard."""
@@ -147,6 +150,9 @@ class WebhooksHandler:
         await query.answer()
 
         service = query.data.replace("wh_setup_", "")
+        if service not in _ALLOWED_SERVICES:
+            return ConversationHandler.END
+
         secret = secrets.token_hex(32)
 
         # Save secret to config
@@ -180,6 +186,9 @@ class WebhooksHandler:
         await query.answer()
 
         service = query.data.replace("wh_regen_", "")
+        if service not in _ALLOWED_SERVICES:
+            return ConversationHandler.END
+
         secret = secrets.token_hex(32)
 
         # Save new secret
@@ -231,6 +240,8 @@ class WebhooksHandler:
         await query.answer()
 
         event_key = query.data.replace("wh_toggle_", "")
+        if event_key not in _ALLOWED_EVENT_KEYS:
+            return ConversationHandler.END
 
         webhook_config = config.get("webhooks", {})
         events = webhook_config.get("events", {})
