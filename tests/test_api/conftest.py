@@ -1,7 +1,7 @@
 import pytest
 from aioresponses import aioresponses
 
-_CLIENT_FIXTURES = ("radarr_client", "sonarr_client", "lidarr_client")
+_CLIENT_FIXTURES = ("radarr_client", "sonarr_client", "lidarr_client", "bazarr_client")
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +63,17 @@ def lidarr_client():
 def sabnzbd_client():
     from src.api.sabnzbd import SabnzbdClient
     return SabnzbdClient()
+
+
+@pytest.fixture
+def bazarr_url():
+    return "http://localhost:6767"
+
+
+@pytest.fixture
+def bazarr_client():
+    from src.api.bazarr import BazarrClient
+    return BazarrClient()
 
 
 @pytest.fixture

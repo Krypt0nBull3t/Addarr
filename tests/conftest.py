@@ -63,6 +63,11 @@ MOCK_CONFIG_DATA = {
         "server": {"addr": "localhost", "port": 8090, "path": "/", "ssl": False},
         "auth": {"apikey": "test-sabnzbd-key"},
     },
+    "bazarr": {
+        "enable": True,
+        "server": {"addr": "localhost", "port": 6767, "path": "/", "ssl": False},
+        "auth": {"apikey": "test-bazarr-key"},
+    },
     "entrypoints": {
         "auth": "auth", "help": "help", "add": "start",
         "allSeries": "allSeries", "allMovies": "allMovies", "allMusic": "allMusic",
