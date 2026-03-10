@@ -261,7 +261,7 @@
 
 **Goal:** Verify all protected commands gate behind auth.
 
-- [ ] **6.1** Parametrized auth gating test for all commands
+- [x] **6.1** Parametrized auth gating test for all commands
     - **Context:** See plan.md Task 6.1. Key refs: `tests/integration/test_auth_gating.py` (existing file with 3 tests).
     - **Watch out:** Some commands like `/settings` have admin checks on top of auth, but `@require_auth` fires first. The parametrized test covers the auth decorator. Use `AuthHandler._authenticated_users.discard(12345)` before each command.
     - **Scope:** Extend existing test file with parametrized test covering all 12 commands
@@ -270,3 +270,7 @@
         - [RED] Write parametrized test covering: `/help`, `/settings`, `/delete`, `/allMovies`, `/allSeries`, `/allMusic`, `/upcoming`, `/missing`, `/queue`, `/preferences`, `/status`, `/history`
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_auth_gating.py -v` — existing 3 + new parametrized (12 cases) all pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** All 12 commands correctly reject unauthenticated users with auth message. `@require_auth` fires before any handler-specific checks (like admin gate on `/settings`).
+    - **Key Changes:** Added `AUTH_GATED_COMMANDS` list and parametrized `test_unauthenticated_user_blocked_all_commands` to `test_auth_gating.py`.
+    - **Notes:** `/subtitles` excluded because it requires `bazarr_harness`; could add separately if needed.
