@@ -35,6 +35,16 @@ def _format_missing_subs(item: Dict) -> str:
     return ", ".join(s.get("name", "?") for s in missing)
 
 
+def _format_movie_list(movies: List[Dict]) -> str:
+    """Format a list of movies with their missing subtitles."""
+    lines = []
+    for movie in movies[:MAX_DISPLAY_ITEMS]:
+        title = movie.get("title", "Unknown")
+        missing = _format_missing_subs(movie)
+        lines.append(f"- *{title}*\n  Missing: {missing}")
+    return "\n".join(lines)
+
+
 class BazarrHandler:
     """Handler for Bazarr subtitle commands."""
 
@@ -110,6 +120,16 @@ class BazarrHandler:
         ]
         return InlineKeyboardMarkup(keyboard)
 
+    async def _reply(
+        self, update: Update, text: str, **kwargs
+    ) -> None:
+        """Reply via callback query edit or message reply."""
+        if update.callback_query:
+            await update.callback_query.answer()
+            await update.callback_query.edit_message_text(text, **kwargs)
+        else:
+            await update.message.reply_text(text, **kwargs)
+
     @require_auth
     async def subtitles_menu(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -118,29 +138,13 @@ class BazarrHandler:
         t = self.translation
 
         if not self.service.is_enabled():
-            if update.callback_query:
-                await update.callback_query.answer()
-                await update.callback_query.edit_message_text(
-                    t.get_text("BazarrNotEnabled")
-                )
-            else:
-                await update.message.reply_text(
-                    t.get_text("BazarrNotEnabled")
-                )
+            await self._reply(update, t.get_text("BazarrNotEnabled"))
             return
 
         keyboard = self._get_menu_keyboard()
-        menu_text = t.get_text("BazarrMenu")
-
-        if update.callback_query:
-            await update.callback_query.answer()
-            await update.callback_query.edit_message_text(
-                menu_text, reply_markup=keyboard
-            )
-        else:
-            await update.message.reply_text(
-                menu_text, reply_markup=keyboard
-            )
+        await self._reply(
+            update, t.get_text("BazarrMenu"), reply_markup=keyboard
+        )
 
     async def prompt_search(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -168,13 +172,7 @@ class BazarrHandler:
             )
             return ConversationHandler.END
 
-        lines = []
-        for movie in results[:MAX_DISPLAY_ITEMS]:
-            title = movie.get("title", "Unknown")
-            missing_names = _format_missing_subs(movie)
-            lines.append(f"- *{title}*\n  Missing: {missing_names}")
-
-        await update.message.reply_text("\n".join(lines))
+        await update.message.reply_text(_format_movie_list(results))
         return ConversationHandler.END
 
     async def wanted_movies(
@@ -191,13 +189,9 @@ class BazarrHandler:
             )
             return
 
-        lines = []
-        for movie in movies[:MAX_DISPLAY_ITEMS]:
-            title = movie.get("title", "Unknown")
-            missing_names = _format_missing_subs(movie)
-            lines.append(f"- *{title}*\n  Missing: {missing_names}")
-
-        await update.callback_query.edit_message_text("\n".join(lines))
+        await update.callback_query.edit_message_text(
+            _format_movie_list(movies)
+        )
 
     async def wanted_episodes(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -234,42 +228,44 @@ class BazarrHandler:
         data = update.callback_query.data
         t = self.translation
 
-        # Parse callback: bazarr_sub_movie_{id}_{lang}
-        parts = data.split("_")
-        media_type = parts[2]  # "movie" or "episode"
-        media_id = int(parts[3])
-        language = parts[4]
-
-        if media_type == "movie":
-            success = await self.service.search_movie_subtitles(
-                media_id, language
-            )
-        else:
-            # For episodes, id encodes series_id and episode_id
-            success = await self.service.search_episode_subtitles(
-                media_id, media_id, language
-            )
-
-        if success:
-            await update.callback_query.edit_message_text(
-                t.get_text("BazarrSearchTriggered")
-            )
-        else:
+        try:
+            # Format: bazarr_sub_movie_{id}_{lang}
+            # or: bazarr_sub_episode_{series_id}-{episode_id}_{lang}
+            parts = data.split("_", 4)
+            media_type = parts[2]  # "movie" or "episode"
+            raw_id = parts[3]
+            language = parts[4]
+        except (IndexError, ValueError):
             await update.callback_query.edit_message_text(
                 t.get_text("BazarrSearchFailed")
             )
+            return
+
+        if media_type == "movie":
+            success = await self.service.search_movie_subtitles(
+                int(raw_id), language
+            )
+        else:
+            # Episode IDs: "{series_id}-{episode_id}"
+            try:
+                series_id, episode_id = raw_id.split("-", 1)
+                success = await self.service.search_episode_subtitles(
+                    int(series_id), int(episode_id), language
+                )
+            except (ValueError, IndexError):
+                await update.callback_query.edit_message_text(
+                    t.get_text("BazarrSearchFailed")
+                )
+                return
+
+        key = "BazarrSearchTriggered" if success else "BazarrSearchFailed"
+        await update.callback_query.edit_message_text(t.get_text(key))
 
     async def cancel(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Cancel the current operation."""
-        t = self.translation
-        msg = t.get_text("BazarrCancelled")
-
-        if update.callback_query:
-            await update.callback_query.answer()
-            await update.callback_query.edit_message_text(msg)
-        else:
-            await update.message.reply_text(msg)
-
+        await self._reply(
+            update, self.translation.get_text("BazarrCancelled")
+        )
         return ConversationHandler.END

@@ -430,7 +430,7 @@ class TestSearchSubtitlesTrigger:
         from src.bot.handlers.bazarr import BazarrHandler
 
         handler = BazarrHandler()
-        update = make_update(callback_data="bazarr_sub_episode_99_en")
+        update = make_update(callback_data="bazarr_sub_episode_10-99_en")
         context = make_context()
 
         await handler.search_subtitles_trigger(update, context)
@@ -464,6 +464,57 @@ class TestSearchSubtitlesTrigger:
 
         update.callback_query.answer.assert_called_once()
         update.callback_query.edit_message_text.assert_called_once()
+        call_text = update.callback_query.edit_message_text.call_args[0][0]
+        assert "BazarrSearchFailed" in call_text
+
+    @pytest.mark.asyncio
+    @patch("src.bot.handlers.bazarr.TranslationService")
+    @patch("src.bot.handlers.bazarr.BazarrService")
+    async def test_malformed_callback_data(
+        self, mock_svc_class, mock_ts_class, make_update, make_context
+    ):
+        """Malformed callback data shows failure message."""
+        mock_svc = MagicMock()
+        mock_svc_class.return_value = mock_svc
+        mock_ts = MagicMock()
+        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+        mock_ts_class.return_value = mock_ts
+
+        from src.bot.handlers.bazarr import BazarrHandler
+
+        handler = BazarrHandler()
+        update = make_update(callback_data="bazarr_sub_bad")
+        context = make_context()
+
+        await handler.search_subtitles_trigger(update, context)
+
+        update.callback_query.answer.assert_called_once()
+        call_text = update.callback_query.edit_message_text.call_args[0][0]
+        assert "BazarrSearchFailed" in call_text
+
+    @pytest.mark.asyncio
+    @patch("src.bot.handlers.bazarr.TranslationService")
+    @patch("src.bot.handlers.bazarr.BazarrService")
+    async def test_malformed_episode_id(
+        self, mock_svc_class, mock_ts_class, make_update, make_context
+    ):
+        """Episode callback with missing hyphen separator shows failure."""
+        mock_svc = MagicMock()
+        mock_svc_class.return_value = mock_svc
+        mock_ts = MagicMock()
+        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+        mock_ts_class.return_value = mock_ts
+
+        from src.bot.handlers.bazarr import BazarrHandler
+
+        handler = BazarrHandler()
+        # Episode ID without hyphen separator
+        update = make_update(callback_data="bazarr_sub_episode_99_en")
+        context = make_context()
+
+        await handler.search_subtitles_trigger(update, context)
+
+        update.callback_query.answer.assert_called_once()
         call_text = update.callback_query.edit_message_text.call_args[0][0]
         assert "BazarrSearchFailed" in call_text
 

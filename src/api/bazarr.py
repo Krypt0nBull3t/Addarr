@@ -47,6 +47,63 @@ class BazarrClient(BaseApiClient):
             Fore.GREEN + f"✅ Bazarr API client initialized: {self.base_url}"
         )
 
+    def _build_api_url(self, endpoint: str) -> str:
+        """Build API URL without version prefix (Bazarr uses /api/)."""
+        return f"{self.base_url}/api/{endpoint}"
+
+    def _get_headers(self):
+        """Bazarr uses X-API-KEY header format."""
+        return {
+            'X-API-KEY': self.config["auth"]["apikey"],
+            'Content-Type': 'application/json'
+        }
+
+    async def _get_list(self, endpoint: str, label: str) -> List[Dict]:
+        """Fetch a paginated list endpoint, returning data items."""
+        try:
+            logger.info(Fore.BLUE + f"📭 Getting {label}")
+            result = await self._request(endpoint)
+            if result and isinstance(result, dict):
+                data = result.get("data", [])
+                logger.info(
+                    Fore.GREEN + f"✅ Found {len(data)} {label}"
+                )
+                return data
+            return []
+        except Exception as e:
+            logger.error(
+                Fore.RED + f"❌ Failed to get {label}: {str(e)}"
+            )
+            return []
+
+    async def _trigger_subtitle_search(
+        self, endpoint: str, label: str
+    ) -> bool:
+        """Trigger a subtitle search via PATCH request."""
+        try:
+            logger.info(
+                Fore.BLUE + f"🔍 Searching subtitles for {label}"
+            )
+            success, _data, error = await self._make_request(
+                endpoint, method="PATCH"
+            )
+            if success:
+                logger.info(
+                    Fore.GREEN
+                    + f"✅ Subtitle search triggered for {label}"
+                )
+            else:
+                logger.error(
+                    Fore.RED + f"❌ Subtitle search failed: {error}"
+                )
+            return success
+        except Exception as e:
+            logger.error(
+                Fore.RED
+                + f"❌ Failed to search subtitles: {str(e)}"
+            )
+            return False
+
     async def search(self, term: str) -> List[Dict]:
         """Search movies by title in Bazarr's tracked library."""
         try:
@@ -78,60 +135,19 @@ class BazarrClient(BaseApiClient):
 
     async def get_movies(self) -> List[Dict]:
         """Get all movies with subtitle info."""
-        try:
-            result = await self._request("movies")
-            if result and isinstance(result, dict):
-                return result.get("data", [])
-            return []
-        except Exception as e:
-            logger.error(
-                Fore.RED + f"❌ Failed to get movies: {str(e)}"
-            )
-            return []
+        return await self._get_list("movies", "movies")
 
     async def get_wanted_movies(self) -> List[Dict]:
         """Get movies missing subtitles."""
-        try:
-            logger.info(
-                Fore.BLUE + "📭 Getting movies wanted subtitles"
-            )
-            result = await self._request("movies/wanted")
-            if result and isinstance(result, dict):
-                data = result.get("data", [])
-                logger.info(
-                    Fore.GREEN
-                    + f"✅ Found {len(data)} movies wanting subtitles"
-                )
-                return data
-            return []
-        except Exception as e:
-            logger.error(
-                Fore.RED
-                + f"❌ Failed to get wanted movies: {str(e)}"
-            )
-            return []
+        return await self._get_list(
+            "movies/wanted", "movies wanting subtitles"
+        )
 
     async def get_wanted_episodes(self) -> List[Dict]:
         """Get episodes missing subtitles."""
-        try:
-            logger.info(
-                Fore.BLUE + "📭 Getting episodes wanted subtitles"
-            )
-            result = await self._request("episodes/wanted")
-            if result and isinstance(result, dict):
-                data = result.get("data", [])
-                logger.info(
-                    Fore.GREEN
-                    + f"✅ Found {len(data)} episodes wanting subtitles"
-                )
-                return data
-            return []
-        except Exception as e:
-            logger.error(
-                Fore.RED
-                + f"❌ Failed to get wanted episodes: {str(e)}"
-            )
-            return []
+        return await self._get_list(
+            "episodes/wanted", "episodes wanting subtitles"
+        )
 
     async def search_movie_subtitles(
         self,
@@ -141,38 +157,16 @@ class BazarrClient(BaseApiClient):
         hi: bool = False,
     ) -> bool:
         """Trigger subtitle search for a specific movie."""
-        try:
-            logger.info(
-                Fore.BLUE
-                + f"🔍 Searching subtitles for movie {radarr_id}"
-                + f" ({language})"
-            )
-            forced_str = "true" if forced else "false"
-            hi_str = "true" if hi else "false"
-            success, _data, error = await self._make_request(
-                f"movies/subtitles?radarrid={radarr_id}"
-                f"&language={language}"
-                f"&forced={forced_str}&hi={hi_str}",
-                method="PATCH",
-            )
-            if success:
-                logger.info(
-                    Fore.GREEN
-                    + "✅ Subtitle search triggered for movie"
-                    + f" {radarr_id}"
-                )
-            else:
-                logger.error(
-                    Fore.RED
-                    + f"❌ Subtitle search failed: {error}"
-                )
-            return success
-        except Exception as e:
-            logger.error(
-                Fore.RED
-                + f"❌ Failed to search subtitles: {str(e)}"
-            )
-            return False
+        forced_str = str(forced).lower()
+        hi_str = str(hi).lower()
+        endpoint = (
+            f"movies/subtitles?radarrid={radarr_id}"
+            f"&language={language}"
+            f"&forced={forced_str}&hi={hi_str}"
+        )
+        return await self._trigger_subtitle_search(
+            endpoint, f"movie {radarr_id}"
+        )
 
     async def search_episode_subtitles(
         self,
@@ -183,36 +177,14 @@ class BazarrClient(BaseApiClient):
         hi: bool = False,
     ) -> bool:
         """Trigger subtitle search for a specific episode."""
-        try:
-            logger.info(
-                Fore.BLUE
-                + "🔍 Searching subtitles for episode"
-                + f" {sonarr_episode_id}"
-            )
-            forced_str = "true" if forced else "false"
-            hi_str = "true" if hi else "false"
-            success, _data, error = await self._make_request(
-                f"episodes/subtitles?seriesid={sonarr_series_id}"
-                f"&episodeid={sonarr_episode_id}"
-                f"&language={language}"
-                f"&forced={forced_str}&hi={hi_str}",
-                method="PATCH",
-            )
-            if success:
-                logger.info(
-                    Fore.GREEN
-                    + "✅ Subtitle search triggered for episode"
-                    + f" {sonarr_episode_id}"
-                )
-            else:
-                logger.error(
-                    Fore.RED
-                    + f"❌ Episode subtitle search failed: {error}"
-                )
-            return success
-        except Exception as e:
-            logger.error(
-                Fore.RED
-                + f"❌ Failed to search episode subtitles: {str(e)}"
-            )
-            return False
+        forced_str = str(forced).lower()
+        hi_str = str(hi).lower()
+        endpoint = (
+            f"episodes/subtitles?seriesid={sonarr_series_id}"
+            f"&episodeid={sonarr_episode_id}"
+            f"&language={language}"
+            f"&forced={forced_str}&hi={hi_str}"
+        )
+        return await self._trigger_subtitle_search(
+            endpoint, f"episode {sonarr_episode_id}"
+        )

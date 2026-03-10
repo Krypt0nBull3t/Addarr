@@ -12,7 +12,7 @@ from tests.fixtures.bazarr_data import (
 )
 
 
-BASE = "http://localhost:6767/api//"
+BASE = "http://localhost:6767/api/"
 
 
 # ---------------------------------------------------------------------------
