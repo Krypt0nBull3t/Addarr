@@ -85,7 +85,7 @@
 
 **Goal:** Telegram handler, translations, health check, help text, bot command registration — feature is user-facing.
 
-- [ ] **2.1** BazarrHandler + translations + registration + health check
+- [x] **2.1** BazarrHandler + translations + registration + health check
     - **Context:** See plan.md Phase 2 (Tasks 2.1–2.3) + Phase 3 (Task 3.1). Key refs: `src/bot/handlers/help.py:22` (simple handler pattern), `src/bot/handlers/transmission.py` (enabled-gated handler), `src/main.py:111` (`_add_handlers` registration), `src/services/health.py:256` (`check_service_health`), `src/bot/commands.py` (command registration), `src/bot/states.py:9` (States class), `translations/addarr.en-us.yml` (flat key pattern)
     - **Watch out:**
         - `prompt_search` callback is registered OUTSIDE the ConversationHandler (standalone CallbackQueryHandler) but returns `States.BAZARR_SEARCH` — this won't work as a state transition outside a ConversationHandler. Fix: move `bazarr_movie_search` into the ConversationHandler entry_points so the state transition is valid
@@ -118,20 +118,37 @@
         - [GREEN] Add Bazarr section to `src/bot/handlers/help.py:_build_help_text()`
         - [GREEN] Add `/subtitles` to `src/bot/commands.py`
     - **Success:** `pytest tests/test_handlers/test_bazarr.py -v` passes, 100% coverage on `src/bot/handlers/bazarr.py`, `python -m flake8 .` clean, `mypy src/` clean, `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` passes, architecture tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - Translation keys using nested YAML (e.g., `Sabnzbd.NotEnabled`) exist in the codebase but `get_text()` does single-level lookup — used flat keys (`BazarrNotEnabled`) for consistency
+        - Mock handler classes in `_make_handler_patches()` return 1 handler each from `get_handler()`, not the real count — handler count tests reflect mock behavior
+        - Bazarr health check goes in `media_services` list (not `download_clients`) since it's a subtitle service
+        - State uses string-based key (`"bazarr_search"`) to avoid collision with numeric media states
+    - **Key Changes:**
+        - Created `src/bot/handlers/bazarr.py` with `BazarrHandler` (ConversationHandler + callbacks, 18 tests, 100% coverage)
+        - Created `tests/test_handlers/test_bazarr_handler.py`
+        - Added `BAZARR_SEARCH` state to `src/bot/states.py`
+        - Added `check_bazarr_health()` to `src/services/health.py` + integrated in `run_health_checks()`
+        - Added `/subtitles` command to `src/bot/commands.py`
+        - Added Bazarr handler registration to `src/main.py`
+        - Added Bazarr help line to `src/bot/handlers/help.py`
+        - Added 15 translation keys to all 10 locale files
+        - Updated existing test files: `test_commands.py`, `test_main.py`, `test_health_service.py`
+    - **Notes:** Handler not exported in `__init__.py` (follows pattern for conditional/optional handlers)
 
 ---
 
 ## Verification Checklist
 
-- [ ] `pytest --tb=short -q` — full suite passes
-- [ ] `python -m flake8 .` — no lint errors
-- [ ] `mypy src/` — no type errors
-- [ ] `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` — translations valid
-- [ ] Architecture tests pass (SINGLETON_CLASSES, get_handler convention)
-- [ ] 100% coverage on all new source files
-- [ ] Config example includes bazarr section
-- [ ] Help text shows Bazarr commands when enabled
-- [ ] Health check includes Bazarr when enabled
+- [x] `pytest --tb=short -q` — full suite passes (2051 tests)
+- [x] `python -m flake8 .` — no lint errors
+- [x] `mypy src/` — no type errors
+- [x] `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` — translations valid
+- [x] Architecture tests pass (SINGLETON_CLASSES, get_handler convention)
+- [x] 100% coverage on all new source files
+- [x] Config example includes bazarr section
+- [x] Help text shows Bazarr commands when enabled
+- [x] Health check includes Bazarr when enabled
 
 ---
 

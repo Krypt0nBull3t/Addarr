@@ -496,6 +496,11 @@ class TestRunHealthChecks:
             "check_service_health",
             new_callable=AsyncMock,
             return_value=(True, "Online (v4.7.0)"),
+        ), patch.object(
+            service,
+            "check_bazarr_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online (v1.4.0)"),
         ):
             results = await service.run_health_checks()
 
@@ -504,11 +509,12 @@ class TestRunHealthChecks:
         assert isinstance(results["media_services"], list)
         assert isinstance(results["download_clients"], list)
 
-        # With default mock config, radarr/sonarr/lidarr are enabled
+        # With default mock config, radarr/sonarr/lidarr/bazarr are enabled
         service_names = [s["name"] for s in results["media_services"]]
         assert "Radarr" in service_names
         assert "Sonarr" in service_names
         assert "Lidarr" in service_names
+        assert "Bazarr" in service_names
 
         for svc in results["media_services"]:
             assert svc["healthy"] is True

@@ -49,6 +49,9 @@ class HelpHandler:
         if config.get("sabnzbd", {}).get("enable", False):
             sections.append(t.get_text("HelpDownloadSabnzbd"))
 
+        if config.get("bazarr", {}).get("enable", False):
+            sections.append(t.get_text("HelpSubtitlesBazarr"))
+
         sections.append("")
         sections.append(t.get_text("HelpVersion", version=__version__))
         sections.append(t.get_text("HelpFooter"))

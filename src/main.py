@@ -24,6 +24,7 @@ from src.bot.handlers.media import MediaHandler
 from src.bot.handlers.settings import SettingsHandler
 from src.bot.handlers.transmission import TransmissionHandler
 from src.bot.handlers.sabnzbd import SabnzbdHandler
+from src.bot.handlers.bazarr import BazarrHandler
 from src.bot.handlers.downloads import DownloadsHandler
 from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.preferences import PreferencesHandler
@@ -176,6 +177,12 @@ class AddarrBot:
             if config.get("sabnzbd", {}).get("enable", False):
                 sabnzbd_handler = SabnzbdHandler()
                 for handler in sabnzbd_handler.get_handler():
+                    self.application.add_handler(handler)
+
+            # Bazarr handler (if enabled)
+            if config.get("bazarr", {}).get("enable", False):
+                bazarr_handler = BazarrHandler()
+                for handler in bazarr_handler.get_handler():
                     self.application.add_handler(handler)
 
             # Downloads handler (if either client enabled)

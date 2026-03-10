@@ -121,7 +121,21 @@ en-us:
     ChangedTo25: "✅ Limit set to 25%"
     ChangedTo100: "✅ No speed limit"
     Error: "❌ Something went wrong while trying to set the speed"
-  
+
+  # Bazarr
+  BazarrNotEnabled: "❌ The Bazarr subtitle function is not activated.\nEnable it in config.yaml to use this feature."
+  BazarrMenu: "🎭 Subtitle Management - Choose an action:"
+  BazarrSearchButton: "🔍 Search Subtitles"
+  BazarrWantedMoviesButton: "🎬 Wanted Movies"
+  BazarrWantedEpisodesButton: "📺 Wanted Episodes"
+  BazarrCancelButton: "❌ Cancel"
+  BazarrSearchPrompt: "🎭 Enter a movie title to search for subtitles:"
+  BazarrNoResults: "❌ No subtitle results found."
+  BazarrWantedEmpty: "✅ No media is missing subtitles."
+  BazarrSearchTriggered: "✅ Subtitle search triggered successfully!"
+  BazarrSearchFailed: "❌ Subtitle search failed."
+  BazarrCancelled: "👍 Subtitle operation cancelled."
+
   # Help sections
   HelpHeader: "🤖 *Available Commands:*"
   HelpBasicCommands: |
@@ -143,6 +157,7 @@ en-us:
     🎵 /allmusic - Show all music
   HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
   HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
+  HelpSubtitlesBazarr: "🎭 /subtitles - Manage subtitles (Bazarr)"
   HelpVersion: "🔄 Version: %(version)s"
   HelpFooter: |
     📖 Wiki: https://github.com/Krypt0nBull3t/Addarr/wiki
@@ -221,6 +236,7 @@ en-us:
   CommandAllMusic: "List all music"
   CommandTransmission: "Manage Transmission"
   CommandSabnzbd: "Manage SABnzbd"
+  CommandSubtitles: "Manage subtitles"
   CommandDownloads: "Download queue"
 
   # Downloads dashboard

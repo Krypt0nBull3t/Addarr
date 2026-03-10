@@ -320,6 +320,31 @@ class HealthService:
         except Exception as e:
             return False, f"Error: {str(e)}"
 
+    async def check_bazarr_health(self, url: str, api_key: str) -> Tuple[bool, str]:
+        """Check Bazarr connection via system status endpoint."""
+        try:
+            api_url = f"{url.rstrip('/')}/api/system/status"
+            async with aiohttp.ClientSession() as session:
+                headers = {"X-API-KEY": api_key}
+                async with session.get(
+                    api_url,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        version = data.get("data", {}).get(
+                            "bazarr_version", "Unknown"
+                        )
+                        return True, f"Online (v{version})"
+                    return False, f"HTTP {response.status}"
+        except aiohttp.ClientConnectorError:
+            return False, "Error: Connection failed"
+        except asyncio.TimeoutError:
+            return False, "Error: Connection timeout"
+        except Exception as e:
+            return False, f"Error: {str(e)}"
+
     async def check_transmission_health(self) -> Tuple[bool, str]:
         """Check Transmission connection via RPC client."""
         try:
@@ -392,6 +417,25 @@ class HealthService:
             is_healthy, status = await self.check_sabnzbd_health(url, api_key)
             results["download_clients"].append({
                 "name": "SABnzbd",
+                "healthy": is_healthy,
+                "status": status
+            })
+
+        # Check Bazarr
+        bazarr = config.get("bazarr", {})
+        if bazarr.get("enable"):
+            server_config = bazarr.get("server", {})
+            protocol = "https" if server_config.get("ssl", False) else "http"
+            addr = server_config.get("addr", "localhost")
+            port = server_config.get("port", "")
+            base_path = server_config.get("path", "").rstrip('/')
+
+            url = f"{protocol}://{addr}:{port}{base_path}"
+            api_key = bazarr.get("auth", {}).get("apikey")
+
+            is_healthy, status = await self.check_bazarr_health(url, api_key)
+            results["media_services"].append({
+                "name": "Bazarr",
                 "healthy": is_healthy,
                 "status": status
             })

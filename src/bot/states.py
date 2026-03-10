@@ -32,5 +32,8 @@ class States:
     WEBHOOK_EVENTS = "webhook_events"
     WEBHOOK_CHANGE_PORT = "webhook_change_port"
 
+    # Bazarr states
+    BAZARR_SEARCH = "bazarr_search"
+
     # General states
     END = "end"
