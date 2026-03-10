@@ -223,7 +223,7 @@ class BaseApiClient(ABC):
                 self.logger.error(f"❌ {error_message}")
                 return False, None, error_message
 
-        return False, None, "Max retries exhausted"
+        return False, None, "Max retries exhausted"  # pragma: no cover
 
     async def _request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: Optional[str] = None) -> Any:
         """Convenience wrapper: returns parsed data on success, None on failure.

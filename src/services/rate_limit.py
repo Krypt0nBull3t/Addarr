@@ -137,7 +137,7 @@ def rate_limit(category):
             if not allowed:
                 translation = TranslationService()
                 msg = update.effective_message
-                if msg is None:
+                if msg is None:  # pragma: no cover
                     return
                 await msg.reply_text(
                     translation.get_text(
