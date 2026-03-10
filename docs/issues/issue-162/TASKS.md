@@ -32,7 +32,7 @@
 
 **Goal:** Happy-path integration tests for handlers that respond to a single command without complex conversation state.
 
-- [ ] **2.1** Help handler integration test
+- [x] **2.1** Help handler integration test
     - **Context:** See plan.md Task 2.1. Key refs: `src/bot/handlers/help.py` — `/help` command, `menu_back` callback
     - **Watch out:** No service mocks needed — help reads config (already mocked in conftest)
     - **Scope:** `/help` response, `menu_back` callback
@@ -42,8 +42,12 @@
         - [RED] Write test: `menu_back` callback returns response
         - [GREEN] Run tests — should pass immediately (no implementation needed, just verifying harness works)
     - **Success:** `pytest tests/integration/test_help_flow.py -v` — 2 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** No mocks needed — harness conftest already mocks config and translations.
+    - **Key Changes:** Created `tests/integration/test_help_flow.py` with 2 tests.
+    - **Notes:** None.
 
-- [ ] **2.2** System/Status handler integration test
+- [x] **2.2** System/Status handler integration test
     - **Context:** See plan.md Task 2.2. Key refs: `src/bot/handlers/system.py` — `/status` command, `system_refresh`, `system_details`, `system_diskspace`, `system_back` callbacks. Uses module-level `health_service` singleton from `src.services.health`.
     - **Watch out:** Mock `health_service` methods via `patch.object()` on the imported singleton. `get_status()` is sync, `run_health_checks()` and `get_disk_space()` are async.
     - **Scope:** `/status` command + 4 callback actions
@@ -56,8 +60,12 @@
         - [RED] Write test: `system_back` returns to main menu
         - [GREEN] Run tests — should pass with correct mocks
     - **Success:** `pytest tests/integration/test_system_flow.py -v` — 5 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** Callback handlers produce multiple API calls (editMessageText + answerCallbackQuery), so need a `_find_response` helper to locate the edit call specifically.
+    - **Key Changes:** Created `tests/integration/test_system_flow.py` with 5 tests.
+    - **Notes:** `_find_response(harness, method)` pattern is reusable for other callback-driven tests.
 
-- [ ] **2.3** Preferences handler integration test
+- [x] **2.3** Preferences handler integration test
     - **Context:** See plan.md Task 2.3. Key refs: `src/bot/handlers/preferences.py` — `/preferences` command, `pref_toggle_view` callback. Uses `PreferencesService` singleton.
     - **Watch out:** Mock `PreferencesService.get_view_mode` and `toggle_view_mode` via `patch.object()`
     - **Scope:** `/preferences` command + toggle callback
@@ -67,8 +75,12 @@
         - [RED] Write test: `pref_toggle_view` toggles and shows new mode
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_preferences_flow.py -v` — 2 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** `patch.object` on PreferencesService class methods works because singleton delegates to class-level methods.
+    - **Key Changes:** Created `tests/integration/test_preferences_flow.py` with 2 tests.
+    - **Notes:** None.
 
-- [ ] **2.4** History handler integration test
+- [x] **2.4** History handler integration test
     - **Context:** See plan.md Task 2.4. Key refs: `src/bot/handlers/history.py` — `/history` command, `hist_refresh`, `hist_back` callbacks. Uses `MediaService.get_history()`.
     - **Watch out:** Need to add `HISTORY_ITEMS` fixture data to `tests/integration/fixtures.py`
     - **Scope:** `/history` command + empty results + refresh + back
@@ -81,6 +93,10 @@
         - [RED] Write test: `hist_back` returns to main menu
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_history_flow.py -v` — 4 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** Same `_find_response` helper pattern needed for callback tests. Refresh test requires sending `/history` first to populate `user_data`.
+    - **Key Changes:** Added `HISTORY_ITEMS` to `tests/integration/fixtures.py`, created `tests/integration/test_history_flow.py` with 4 tests.
+    - **Notes:** None.
 
 ---
 

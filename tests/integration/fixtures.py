@@ -141,3 +141,20 @@ DOWNLOADS_EMPTY_QUEUE = {
     "items_count": 0,
     "items": [],
 }
+
+HISTORY_ITEMS = [
+    {
+        "id": 1,
+        "title": "Fight Club",
+        "event_type": "grabbed",
+        "date": "2026-03-09T10:00:00Z",
+        "quality": "HD-1080p",
+    },
+    {
+        "id": 2,
+        "title": "Breaking Bad S01E01",
+        "event_type": "downloaded",
+        "date": "2026-03-09T09:00:00Z",
+        "quality": "HD-720p",
+    },
+]
