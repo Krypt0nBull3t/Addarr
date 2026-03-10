@@ -12,7 +12,7 @@ from unittest.mock import patch, MagicMock
 
 
 def _make_config(radarr=False, sonarr=False, lidarr=False,
-                 transmission=False, sabnzbd=False):
+                 transmission=False, sabnzbd=False, bazarr=False):
     """Build a mock config dict with service enable flags."""
     data = {
         "radarr": {"enable": True} if radarr else {},
@@ -20,6 +20,7 @@ def _make_config(radarr=False, sonarr=False, lidarr=False,
         "lidarr": {"enable": True} if lidarr else {},
         "transmission": {"enable": True} if transmission else {},
         "sabnzbd": {"enable": True} if sabnzbd else {},
+        "bazarr": {"enable": True} if bazarr else {},
     }
     mock = MagicMock()
     mock.get = lambda key, default=None: data.get(
@@ -108,6 +109,18 @@ async def test_show_help_shows_download_clients(make_update, make_context):
         help_text = update.message.reply_text.call_args[0][0]
         assert "HelpDownloadTransmission" in help_text
         assert "HelpDownloadSabnzbd" in help_text
+
+
+@pytest.mark.asyncio
+async def test_show_help_shows_bazarr(make_update, make_context):
+    """show_help includes subtitles section when bazarr is enabled."""
+    with _help_patches(bazarr=True):
+        handler = _make_handler()
+        update = make_update(text="/help")
+        await handler.show_help(update, make_context())
+
+        help_text = update.message.reply_text.call_args[0][0]
+        assert "HelpSubtitlesBazarr" in help_text
 
 
 @pytest.mark.asyncio
