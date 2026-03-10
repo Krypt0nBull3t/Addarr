@@ -9,7 +9,7 @@ periodic tasks. It manages job lifecycles and provides error handling
 for scheduled tasks.
 """
 
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 import aiocron
 from ..utils.logger import get_logger
 
@@ -19,7 +19,7 @@ logger = get_logger("addarr.scheduler")
 class JobScheduler:
     """Service for scheduling and managing jobs"""
 
-    _instance: "JobScheduler | None" = None
+    _instance: Optional["JobScheduler"] = None
     jobs: Dict[str, aiocron.Cron]
     running: bool
 

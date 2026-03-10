@@ -10,6 +10,7 @@ Uses an in-memory sliding window algorithm to track request timestamps.
 
 import time
 from functools import wraps
+from typing import Optional
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -32,7 +33,7 @@ DEFAULT_FALLBACK = (10, 60)
 class RateLimitService:
     """Per-user rate limiting using in-memory sliding window."""
 
-    _instance: "RateLimitService | None" = None
+    _instance: Optional["RateLimitService"] = None
     _records: dict[tuple[int, str], list[float]] = {}
 
     def __new__(cls):
@@ -136,7 +137,8 @@ def rate_limit(category):
             if not allowed:
                 translation = TranslationService()
                 msg = update.effective_message
-                assert msg is not None
+                if msg is None:
+                    return
                 await msg.reply_text(
                     translation.get_text(
                         "RateLimitExceeded",

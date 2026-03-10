@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from colorama import Fore, Style
 
-from src.api.base import BaseApiClient
 from src.api.lidarr import LidarrClient
 from src.api.radarr import RadarrClient
 from src.api.sonarr import SonarrClient
@@ -308,7 +307,7 @@ class HealthService:
 
         return results
 
-    def _get_api_client(self, service_key: str) -> Optional["BaseApiClient"]:
+    def _get_api_client(self, service_key: str) -> Optional[Any]:
         """Create an API client instance for the given service key."""
         client_map: Dict[str, type] = {
             "radarr": RadarrClient,
