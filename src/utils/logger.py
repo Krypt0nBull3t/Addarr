@@ -11,6 +11,7 @@ import logging
 import logging.handlers
 import os
 from pathlib import Path
+from typing import Optional
 from colorama import Fore, Style, init
 from logging.handlers import RotatingFileHandler
 
@@ -194,7 +195,7 @@ def get_logger(name: str) -> logging.Logger:
     return logger
 
 
-def log_exception(logger: logging.Logger, e: Exception, context: str = None):
+def log_exception(logger: logging.Logger, e: Exception, context: Optional[str] = None):
     """
     Helper function to log exceptions with full context
 
@@ -215,7 +216,7 @@ def log_exception(logger: logging.Logger, e: Exception, context: str = None):
     )
 
 
-def log_user_interaction(logger, user, action: str, input_data: str = None):
+def log_user_interaction(logger, user, action: str, input_data: Optional[str] = None):
     """Log user interaction with the bot with emojis
 
     Args:

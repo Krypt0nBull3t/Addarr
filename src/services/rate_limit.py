@@ -32,8 +32,8 @@ DEFAULT_FALLBACK = (10, 60)
 class RateLimitService:
     """Per-user rate limiting using in-memory sliding window."""
 
-    _instance = None
-    _records = {}
+    _instance: "RateLimitService | None" = None
+    _records: dict[tuple[int, str], list[float]] = {}
 
     def __new__(cls):
         if cls._instance is None:
@@ -135,7 +135,9 @@ def rate_limit(category):
 
             if not allowed:
                 translation = TranslationService()
-                await update.effective_message.reply_text(
+                msg = update.effective_message
+                assert msg is not None
+                await msg.reply_text(
                     translation.get_text(
                         "RateLimitExceeded",
                         default=(

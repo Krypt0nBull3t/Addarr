@@ -19,7 +19,9 @@ logger = get_logger("addarr.scheduler")
 class JobScheduler:
     """Service for scheduling and managing jobs"""
 
-    _instance = None
+    _instance: "JobScheduler | None" = None
+    jobs: Dict[str, aiocron.Cron]
+    running: bool
 
     def __new__(cls):
         """Ensure only one instance of JobScheduler exists"""

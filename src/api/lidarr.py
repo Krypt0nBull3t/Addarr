@@ -7,7 +7,7 @@ Description: Lidarr API client module.
 
 import json
 import aiohttp
-from typing import Optional, List, Dict
+from typing import Any, Optional, List, Dict
 from colorama import Fore
 
 from src.api.base import BaseApiClient, filter_root_folders
@@ -148,7 +148,7 @@ class LidarrClient(BaseApiClient):
             logger.error(f"❌ Failed to get artist: {str(e)}")
             return None
 
-    async def add_artist(self, artist_id: str, root_folder: str = None, quality_profile_id: int = None, albums_to_monitor: List[str] = None, future_albums: bool = False) -> tuple[bool, str]:
+    async def add_artist(self, artist_id: str, root_folder: Optional[str] = None, quality_profile_id: Optional[int] = None, albums_to_monitor: Optional[List[str]] = None, future_albums: bool = False) -> tuple[bool, str]:
         """Add an artist to Lidarr"""
         try:
             # Get artist details from search results
@@ -180,7 +180,7 @@ class LidarrClient(BaseApiClient):
             monitor_option = lidarr_features.get("monitorOption", "all")
             album_folder = lidarr_features.get("albumFolder", False)
 
-            add_options = {
+            add_options: Dict[str, Any] = {
                 "searchForMissingAlbums": True
             }
 

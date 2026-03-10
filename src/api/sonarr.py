@@ -99,7 +99,7 @@ class SonarrClient(BaseApiClient):
             logger.error(f"❌ Failed to get seasons: {str(e)}")
             return []
 
-    async def add_series(self, tvdb_id: int, root_folder: str, quality_profile_id: int, seasons: List[Dict] = None) -> tuple[bool, str]:
+    async def add_series(self, tvdb_id: int, root_folder: str, quality_profile_id: int, seasons: Optional[List[Dict]] = None) -> tuple[bool, str]:
         """Add a TV series to Sonarr with optional season selection"""
         try:
             # Get series details from search results
@@ -298,7 +298,7 @@ class SonarrClient(BaseApiClient):
             return []
 
     async def get_history(self, page: int = 1, page_size: int = 20,
-                          event_type: str = None) -> List[Dict]:
+                          event_type: Optional[str] = None) -> List[Dict]:
         """Get recent history from Sonarr."""
         try:
             logger.info(Fore.BLUE + "📜 Getting history from Sonarr")

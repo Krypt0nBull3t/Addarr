@@ -88,7 +88,7 @@ def check_config() -> bool:
         return True
 
     except ValidationError as e:
-        print(f"\n{Fore.RED}❌ Configuration error: {e.message}")
+        print(f"\n{Fore.RED}❌ Configuration error: {e}")
         return False
     except Exception as e:
         print(f"\n{Fore.RED}❌ Error checking configuration: {str(e)}")

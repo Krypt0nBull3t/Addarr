@@ -7,6 +7,7 @@ Description: SABnzbd API client module.
 
 import aiohttp
 from colorama import Fore
+from typing import Optional
 from urllib.parse import quote
 
 from src.config.settings import config
@@ -78,7 +79,7 @@ class SabnzbdClient:
             logger.error(f"Error getting SABnzbd queue: {e}")
             return {}
 
-    async def add_nzb(self, url: str, nzbname: str = None, category: str = None) -> bool:
+    async def add_nzb(self, url: str, nzbname: Optional[str] = None, category: Optional[str] = None) -> bool:
         """Add an NZB to SABnzbd queue"""
         try:
             async with aiohttp.ClientSession() as session:

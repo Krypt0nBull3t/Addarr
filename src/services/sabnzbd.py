@@ -8,7 +8,7 @@ This module handles interactions with the SABnzbd API.
 """
 
 import aiohttp
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from src.utils.logger import get_logger
 from src.config.settings import config
 
@@ -18,7 +18,10 @@ logger = get_logger("addarr.services.sabnzbd")
 class SABnzbdService:
     """Service for handling SABnzbd operations"""
 
-    _instance = None
+    _instance: Optional["SABnzbdService"] = None
+    _enabled: bool = False
+    base_url: str = ""
+    api_key: str = ""
 
     def __new__(cls):
         """Ensure only one instance of SABnzbdService exists"""
@@ -31,8 +34,8 @@ class SABnzbdService:
     def _initialize(cls):
         """Initialize service state on first instantiation."""
         cls._enabled = False
-        cls.base_url = None
-        cls.api_key = None
+        cls.base_url = ""
+        cls.api_key = ""
 
         sabnzbd_config = config.get('sabnzbd', {})
         if not sabnzbd_config.get('enable', False):
@@ -123,7 +126,7 @@ class SABnzbdService:
             logger.error(f"Error setting SABnzbd speed limit: {e}")
             return False
 
-    async def add_nzb(self, url: str, name: str = None, category: str = None) -> bool:
+    async def add_nzb(self, url: str, name: Optional[str] = None, category: Optional[str] = None) -> bool:
         """Add an NZB to SABnzbd queue"""
         try:
             params = {

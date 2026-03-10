@@ -82,7 +82,7 @@ def save_chat_id(chat_id: int, chat_name: Optional[str] = None):
         f.write(entry)
 
 
-def format_bytes(size: int) -> str:
+def format_bytes(size: float) -> str:
     """Format bytes to human readable string"""
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if size < 1024:

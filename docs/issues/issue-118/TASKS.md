@@ -12,7 +12,7 @@ Add mypy as a blocking CI job. Create config with per-module overrides (lenient 
 
 **Goal:** Blocking mypy CI job that passes clean on the entire `src/` tree.
 
-- [~] **1.1** Infrastructure — mypy config, dependencies, CI job
+- [x] **1.1** Infrastructure — mypy config, dependencies, CI job
     - **Context:** See plan.md Phase 1. No mypy.ini or pyproject.toml exists. CI is in `.github/workflows/ci.yml`. Test deps in `requirements-test.txt`.
     - **Watch out:** Per-module `[mypy-src.bot.handlers.*]` must use dotted module paths. `[mypy-src.setup.*]` should also be lenient (interactive wizard, not business logic). CI job should run between lint and unit-test.
     - **Scope:** Create `mypy.ini`, update `requirements-test.txt`, add `type-check` job to CI
@@ -23,8 +23,17 @@ Add mypy as a blocking CI job. Create config with per-module overrides (lenient 
         - [GREEN] Add `type-check` job to CI workflow (blocking, between lint and unit-test)
         - [CHECK] Run `python -m mypy src/` locally — note remaining error count (should drop significantly from 494)
     - **Success:** mypy runs, per-module config suppresses handler/setup noise, CI job defined
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - Handler files need union-attr, index, arg-type, attr-defined, assignment, AND var-annotated suppressed (mixin pattern + Telegram Optional types)
+        - `ignore_errors = True` for setup module is cleaner than listing all error codes
+    - **Key Changes:**
+        - Created `mypy.ini` with global defaults + per-module overrides
+        - Added mypy + types-PyYAML to `requirements-test.txt`
+        - Added `type-check` CI job to `.github/workflows/ci.yml`
+    - **Notes:** Error count dropped from 494 to 84 just from config + stubs
 
-- [ ] **1.2** Fix type errors in services and API layer
+- [x] **1.2** Fix type errors in services and API layer
     - **Context:** See plan.md Phases 2-4. Main error categories: implicit Optional (`param: str = None` → `Optional[str]`), attr-defined on singletons (missing class-level annotations), wrong arg types.
     - **Watch out:** Singleton `__new__` sets instance attrs in `if not hasattr` block — mypy needs class-level declarations. `Optional` import may already exist in some files. Don't change function behavior, only type annotations.
     - **Scope:** Fix all mypy errors in `src/services/`, `src/api/`, `src/utils/`, `src/config/`
@@ -42,8 +51,21 @@ Add mypy as a blocking CI job. Create config with per-module overrides (lenient 
         - [CHECK] Run `python -m mypy src/` — verify services/API/utils layers are clean
         - [CHECK] Run `python -m pytest --tb=short -q` — no test regressions
     - **Success:** Zero mypy errors in services, API, and utils layers. All tests pass.
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - Singleton `__new__` pattern needs class-level type annotations for mypy to see instance attrs
+        - `asyncio.gather(return_exceptions=True)` returns `Any | BaseException` — use `isinstance(result, BaseException)` not `Exception`
+        - aiohttp `timeout` param needs `aiohttp.ClientTimeout(total=N)` not bare `int`
+        - SABnzbdService `api_key`/`base_url` changed from `Optional[str]` to `str` (empty string default) to avoid params dict typing issues
+        - `AddarrError` doesn't store `.message` — use `str(e)` instead
+    - **Key Changes:**
+        - Fixed implicit Optional in 13 files (api/base, api/sabnzbd, api/sonarr, api/radarr, api/lidarr, services/sabnzbd, services/media, services/translation, utils/logger, utils/validate_translations, bot/keyboards)
+        - Added class-level type annotations to 6 singletons (SABnzbdService, JobScheduler, NotificationService, TransmissionService, RateLimitService, HealthService)
+        - Fixed return types on MediaService.add_movie/add_series/add_music
+        - Fixed aiohttp timeout types in HealthService
+    - **Notes:** All 84 non-handler errors resolved. 1869 tests pass, flake8 clean.
 
-- [ ] **1.3** Fix remaining errors (keyboards, bot modules) and final verification
+- [x] **1.3** Fix remaining errors (keyboards, bot modules) and final verification
     - **Context:** See plan.md Phase 4-5. `src/bot/keyboards.py` has ~9 union-attr errors from Telegram types. May need targeted fixes or per-module config. Any other stragglers outside handler/setup layers.
     - **Watch out:** `keyboards.py` is not under `handlers/` so it doesn't get the per-module suppression. Check if `src/bot/commands.py` or `src/bot/states.py` have errors too. Don't add unnecessary `# type: ignore` — prefer config or real fixes.
     - **Scope:** Fix all remaining mypy errors, ensure clean pass, run full verification suite
@@ -55,6 +77,10 @@ Add mypy as a blocking CI job. Create config with per-module overrides (lenient 
         - [CHECK] Run `python -m pytest --tb=short -q` — all tests pass
         - [CHECK] Run `python -m flake8 .` — no lint failures
     - **Success:** `mypy src/` passes clean. Full test suite passes. Flake8 clean.
+    - **Completed:** 2026-03-10
+    - **Learnings:** keyboards.py errors were just implicit Optional, same as services
+    - **Key Changes:** Merged into task 1.2 — all fixes done in one pass
+    - **Notes:** N/A — tasks 1.2 and 1.3 completed together since scope overlapped
 
 - [ ] **1.4** Create follow-up GitHub issues for suppressed type errors
     - **Context:** Per-module config in `mypy.ini` suppresses union-attr/index in handlers and disables checking in setup. These are tech debt that should be tracked.

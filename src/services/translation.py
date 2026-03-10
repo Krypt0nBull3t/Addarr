@@ -8,7 +8,7 @@ This module handles loading and managing translations for the bot.
 """
 
 import yaml
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 from src.utils.logger import get_logger
@@ -101,7 +101,7 @@ class TranslationService:
             logger.error(f"Translation error for key '{key}': {str(e)}")
             return key
 
-    def get_message(self, key: str, subject: str = None, title: str = None, **kwargs) -> str:
+    def get_message(self, key: str, subject: Optional[str] = None, title: Optional[str] = None, **kwargs) -> str:
         """Get a message translation with subject handling
 
         Args:

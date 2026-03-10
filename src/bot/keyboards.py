@@ -7,6 +7,7 @@ Description: Keyboard layouts module.
 This module provides centralized keyboard layouts for the bot.
 """
 
+from typing import Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from src.services.translation import TranslationService
 
@@ -921,7 +922,7 @@ def _build_dl_client_tab_row(client: str) -> list:
 
 def get_downloads_queue_keyboard(
     items: list, page: int, paused: bool = False, page_size: int = 5,
-    client: str = None, show_history_tab: bool = True,
+    client: Optional[str] = None, show_history_tab: bool = True,
 ) -> InlineKeyboardMarkup:
     """Get keyboard for downloads queue view.
 
@@ -1018,7 +1019,7 @@ def get_downloads_queue_keyboard(
 
 def get_downloads_history_keyboard(
     items: list, page: int, page_size: int = 5,
-    client: str = None,
+    client: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     """Get keyboard for downloads history view.
 
@@ -1112,7 +1113,7 @@ _HISTORY_EVENT_EMOJI = {
 
 def get_history_items_keyboard(
     items: list, page: int = 0, page_size: int = 5,
-    event_filter: str = None,
+    event_filter: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     """Paginated history items keyboard with filter tabs."""
     translation = TranslationService()

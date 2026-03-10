@@ -17,7 +17,9 @@ logger = get_logger("addarr.services.transmission")
 class TransmissionService:
     """Service class for Transmission operations"""
 
-    _instance = None
+    _instance: Optional["TransmissionService"] = None
+    _client: Optional[TransmissionClient] = None
+    _config: Dict[str, Any] = {}
 
     def __new__(cls):
         """Ensure only one instance of TransmissionService exists"""

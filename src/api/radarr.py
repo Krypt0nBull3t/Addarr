@@ -292,7 +292,7 @@ class RadarrClient(BaseApiClient):
             return []
 
     async def get_history(self, page: int = 1, page_size: int = 20,
-                          event_type: str = None) -> List[Dict]:
+                          event_type: Optional[str] = None) -> List[Dict]:
         """Get recent history from Radarr."""
         try:
             logger.info(Fore.BLUE + "📜 Getting history from Radarr")

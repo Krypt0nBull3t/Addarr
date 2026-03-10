@@ -11,9 +11,10 @@ Includes both one-time checks and periodic monitoring.
 import aiohttp
 import asyncio
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from colorama import Fore, Style
 
+from src.api.base import BaseApiClient
 from src.api.lidarr import LidarrClient
 from src.api.radarr import RadarrClient
 from src.api.sonarr import SonarrClient
@@ -67,7 +68,12 @@ def display_health_status(results: Dict[str, List[Dict]]) -> bool:
 class HealthService:
     """Service for health monitoring"""
 
-    _instance = None
+    _instance: Optional["HealthService"] = None
+    _last_check: Optional[datetime] = None
+    _unhealthy_services: set[str]
+    _running: bool
+    _task: Optional[asyncio.Task[None]] = None
+    interval: int
 
     def __new__(cls):
         if cls._instance is None:
@@ -176,7 +182,7 @@ class HealthService:
                 headers = {'X-Api-Key': api_key}
                 logger.debug(f"Checking health of {service_type} at: {api_url}")
 
-                async with session.get(api_url, headers=headers, timeout=10) as response:
+                async with session.get(api_url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as response:
                     if response.status == 200:
                         data = await response.json()
                         version = data.get('version', 'Unknown')
@@ -205,7 +211,7 @@ class HealthService:
 
             async with aiohttp.ClientSession() as session:
                 logger.debug(f"Checking SABnzbd health at: {api_url}")
-                async with session.get(api_url, params=params, timeout=10) as response:
+                async with session.get(api_url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
                     if response.status == 200:
                         try:
                             data = await response.json()
@@ -240,7 +246,7 @@ class HealthService:
 
     async def run_health_checks(self) -> Dict[str, List[Dict]]:
         """Run health checks on all enabled services"""
-        results = {
+        results: Dict[str, List[Dict[str, Any]]] = {
             "media_services": [],
             "download_clients": []
         }
@@ -302,9 +308,9 @@ class HealthService:
 
         return results
 
-    def _get_api_client(self, service_key: str):
+    def _get_api_client(self, service_key: str) -> Optional["BaseApiClient"]:
         """Create an API client instance for the given service key."""
-        client_map = {
+        client_map: Dict[str, type] = {
             "radarr": RadarrClient,
             "sonarr": SonarrClient,
             "lidarr": LidarrClient,
