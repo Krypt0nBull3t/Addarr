@@ -45,7 +45,7 @@
         - Updated `src/api/__init__.py` and `tests/test_api/conftest.py`
     - **Notes:** Bazarr health check method for `HealthService` deferred to task 2.1
 
-- [ ] **1.2** BazarrService singleton + architecture updates
+- [x] **1.2** BazarrService singleton + architecture updates
     - **Context:** See plan.md Phase 1 (Task 1.3). Key refs: `src/services/transmission.py:17` (singleton pattern), `tests/conftest.py:218` (singleton reset fixture), `tests/test_architecture/test_conventions.py` (SINGLETON_CLASSES set)
     - **Watch out:**
         - Class-level type annotations required for mypy to see attributes set in `__new__`/`_initialize`
@@ -66,6 +66,18 @@
         - [GREEN] Add singleton reset to `tests/conftest.py`
         - [GREEN] Add `"BazarrService"` to `SINGLETON_CLASSES` in `tests/test_architecture/test_conventions.py`
     - **Success:** `pytest tests/test_services/test_bazarr.py tests/test_architecture/ -v` passes, 100% coverage on `src/services/bazarr.py`
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - Singleton reset in conftest must include ALL class vars (`_client`, `_config`) not just `_instance`, otherwise state leaks between tests cause failures
+        - Bazarr config is enabled by default in mock config, so disabled tests need a fixture to temporarily flip it
+        - Delegation tests inject mock client via class attribute (`BazarrService._client = mock_client`) after singleton init — simpler than patching the constructor
+    - **Key Changes:**
+        - Created `src/services/bazarr.py` with `BazarrService` singleton (7 delegation methods)
+        - Created `tests/test_services/test_bazarr_service.py` (19 tests, 100% coverage)
+        - Added `BazarrService` to singleton reset in `tests/conftest.py`
+        - Added `"BazarrService"` to `SINGLETON_CLASSES` in `tests/test_architecture/test_conventions.py`
+        - Added export to `src/services/__init__.py`
+    - **Notes:** Service follows TransmissionService pattern with lazy client init via property
 
 ---
 

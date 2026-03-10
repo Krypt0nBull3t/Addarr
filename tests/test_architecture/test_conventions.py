@@ -28,6 +28,7 @@ SINGLETON_CLASSES = {
     "RateLimitService",
     "JobScheduler",
     "WebhookService",
+    "BazarrService",
 }
 
 # Paths excluded from the config bracket access check.
