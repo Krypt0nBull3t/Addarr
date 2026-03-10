@@ -65,6 +65,7 @@ class TestBuildAuthenticatedCommands:
         mock_config._set("lidarr", {"enable": False})
         mock_config._set("transmission", {"enable": False})
         mock_config._set("sabnzbd", {"enable": False})
+        mock_config._set("bazarr", {"enable": False})
         for key, value in overrides.items():
             mock_config._set(key, value)
         return mock_config
@@ -205,20 +206,21 @@ class TestBuildAuthenticatedCommands:
             lidarr={"enable": True},
             transmission={"enable": True},
             sabnzbd={"enable": True},
+            bazarr={"enable": True},
         )
 
         with patch("src.bot.commands.config", cfg):
             from src.bot.commands import build_authenticated_commands
             commands = build_authenticated_commands()
 
-        assert len(commands) == 21
+        assert len(commands) == 22
         names = [c.command for c in commands]
         expected = [
             "start", "auth", "help", "status", "settings",
             "preferences", "delete", "webhooks", "movie", "allmovies",
             "series", "allseries", "music", "allmusic",
             "upcoming", "missing", "queue", "history",
-            "transmission", "sabnzbd", "downloads",
+            "transmission", "sabnzbd", "subtitles", "downloads",
         ]
         assert names == expected
 

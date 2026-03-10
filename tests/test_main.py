@@ -71,6 +71,7 @@ def _make_handler_patches():
         "PreferencesHandler": _mock_handler_class(),
         "SystemHandler": _mock_handler_class(),
         "WebhooksHandler": _mock_handler_class(),
+        "BazarrHandler": _mock_handler_class(),
     }
 
 
@@ -277,10 +278,10 @@ class TestAddHandlers:
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 15 always-on handlers (Start, Auth, Media, Settings, Delete,
+        # 16 always-on handlers (Start, Auth, Media, Settings, Delete,
         # Library, Calendar, Missing, Queue, History, Downloads, Help,
-        # Preferences, System, Webhooks)
-        assert mock_app.add_handler.call_count == 15
+        # Preferences, System, Webhooks, Bazarr — enabled in mock config)
+        assert mock_app.add_handler.call_count == 16
 
     @patch("src.main.config")
     def test_transmission_enabled(self, mock_cfg, bot, mock_app):

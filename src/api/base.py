@@ -100,6 +100,10 @@ class BaseApiClient(ABC):
             'Content-Type': 'application/json'
         }
 
+    def _build_api_url(self, endpoint: str) -> str:
+        """Build the full API URL for an endpoint."""
+        return f"{self.base_url}/api/{self.API_VERSION}/{endpoint}"
+
     def _parse_error_response(self, response_text: str, title: Optional[str] = None) -> str:
         """Parse error response from API
 
@@ -142,7 +146,7 @@ class BaseApiClient(ABC):
         Returns:
             Tuple[bool, Any, Optional[str]]: (success, data, error_message)
         """
-        url = f"{self.base_url}/api/{self.API_VERSION}/{endpoint}"
+        url = self._build_api_url(endpoint)
         retries = (
             max_retries if max_retries is not None
             else self.DEFAULT_MAX_RETRIES

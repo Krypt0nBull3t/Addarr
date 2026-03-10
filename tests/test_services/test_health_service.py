@@ -392,6 +392,108 @@ class TestCheckSabnzbdHealth:
 
 
 # ---------------------------------------------------------------------------
+# check_bazarr_health
+# ---------------------------------------------------------------------------
+
+
+class TestCheckBazarrHealth:
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_success(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+        api_key = "test-key"
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                payload={
+                    "data": {"bazarr_version": "1.4.0"}
+                },
+                status=200,
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, api_key
+            )
+
+        assert healthy is True
+        assert "v1.4.0" in status
+
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_http_error(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                status=500,
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, "key"
+            )
+
+        assert healthy is False
+        assert "HTTP 500" in status
+
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_timeout(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+
+        import asyncio
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                exception=asyncio.TimeoutError(),
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, "key"
+            )
+
+        assert healthy is False
+        assert "timeout" in status.lower()
+
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_connection_error(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+
+        import aiohttp as _aiohttp
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                exception=_aiohttp.ClientConnectorError(
+                    connection_key=MagicMock(), os_error=OSError("refused")
+                ),
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, "key"
+            )
+
+        assert healthy is False
+        assert "Connection failed" in status
+
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_generic_exception(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                exception=RuntimeError("unexpected"),
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, "key"
+            )
+
+        assert healthy is False
+        assert "unexpected" in status
+
+
+# ---------------------------------------------------------------------------
 # check_transmission_health
 # ---------------------------------------------------------------------------
 
@@ -496,6 +598,11 @@ class TestRunHealthChecks:
             "check_service_health",
             new_callable=AsyncMock,
             return_value=(True, "Online (v4.7.0)"),
+        ), patch.object(
+            service,
+            "check_bazarr_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online (v1.4.0)"),
         ):
             results = await service.run_health_checks()
 
@@ -504,11 +611,12 @@ class TestRunHealthChecks:
         assert isinstance(results["media_services"], list)
         assert isinstance(results["download_clients"], list)
 
-        # With default mock config, radarr/sonarr/lidarr are enabled
+        # With default mock config, radarr/sonarr/lidarr/bazarr are enabled
         service_names = [s["name"] for s in results["media_services"]]
         assert "Radarr" in service_names
         assert "Sonarr" in service_names
         assert "Lidarr" in service_names
+        assert "Bazarr" in service_names
 
         for svc in results["media_services"]:
             assert svc["healthy"] is True

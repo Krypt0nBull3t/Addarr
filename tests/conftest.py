@@ -63,6 +63,11 @@ MOCK_CONFIG_DATA = {
         "server": {"addr": "localhost", "port": 8090, "path": "/", "ssl": False},
         "auth": {"apikey": "test-sabnzbd-key"},
     },
+    "bazarr": {
+        "enable": True,
+        "server": {"addr": "localhost", "port": 6767, "path": "/", "ssl": False},
+        "auth": {"apikey": "test-bazarr-key"},
+    },
     "entrypoints": {
         "auth": "auth", "help": "help", "add": "start",
         "allSeries": "allSeries", "allMovies": "allMovies", "allMusic": "allMusic",
@@ -228,6 +233,7 @@ def reset_singletons():
     from src.services.scheduler import JobScheduler
     from src.services.transmission import TransmissionService
     from src.services.sabnzbd import SABnzbdService
+    from src.services.bazarr import BazarrService
     from src.services.preferences import PreferencesService
     from src.services.rate_limit import RateLimitService
     from src.services.webhook import WebhookService
@@ -239,6 +245,10 @@ def reset_singletons():
     TransmissionService._instance = None
 
     SABnzbdService._instance = None
+
+    BazarrService._instance = None
+    BazarrService._client = None
+    BazarrService._config = {}
 
     MediaService._instance = None
     MediaService._radarr = None

@@ -10,8 +10,12 @@ with these services through their REST APIs.
 """
 
 from .base import BaseApiClient
+from .bazarr import BazarrClient
 from .radarr import RadarrClient
 from .sonarr import SonarrClient
 from .lidarr import LidarrClient
 
-__all__ = ['BaseApiClient', 'RadarrClient', 'SonarrClient', 'LidarrClient']
+__all__ = [
+    'BaseApiClient', 'BazarrClient', 'RadarrClient',
+    'SonarrClient', 'LidarrClient',
+]

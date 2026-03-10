@@ -87,6 +87,17 @@ lidarr:
   adminRestrictions: false
   metadataProfileId: 1
 
+# Bazarr Configuration (Subtitles — Optional)
+bazarr:
+  enable: false  # Set to true to enable Bazarr
+  server:
+    addr: localhost
+    port: 6767
+    path: /
+    ssl: false
+  auth:
+    apikey:  # Your Bazarr API key (required if enabled)
+
 # Webhook Notifications (Optional)
 # Receives events from *arr services for download lifecycle notifications
 webhooks:

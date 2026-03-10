@@ -12,6 +12,7 @@ from .notification import NotificationService
 from .scheduler import scheduler, JobScheduler
 from .transmission import transmission_service, TransmissionService
 from .sabnzbd import SABnzbdService
+from .bazarr import BazarrService
 
 __all__ = [
     'MediaService',
@@ -23,4 +24,5 @@ __all__ = [
     'transmission_service',
     'TransmissionService',
     'SABnzbdService',
+    'BazarrService',
 ]
