@@ -239,7 +239,7 @@
 
 **Goal:** At least one error-path test per conversation flow — API failures mid-conversation.
 
-- [ ] **5.1** Error path integration tests
+- [x] **5.1** Error path integration tests
     - **Context:** See plan.md Task 5.1. Key refs: existing happy-path tests in `test_media_flow.py` as template.
     - **Watch out:** Handlers use try/except and send error text — don't expect exceptions to propagate. Assert on the error response text instead.
     - **Scope:** Movie add failure, series search failure, delete failure
@@ -250,6 +250,10 @@
         - [RED] Write test: delete confirm with `delete_movie` returning False → failure text
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_error_paths.py -v` — 3 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** Error paths use `_find_response(harness, "editMessageText")` since handlers catch exceptions and send error text via edit_text. Movie add error is caught in `handle_quality_select` and shows `SelectionProcessError` or `MediaAddError`.
+    - **Key Changes:** Created `tests/integration/test_error_paths.py` with 3 tests: movie add exception, series search exception, delete confirm failure.
+    - **Notes:** None.
 
 ---
 
