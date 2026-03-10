@@ -1204,3 +1204,84 @@ def get_history_empty_keyboard() -> InlineKeyboardMarkup:
             callback_data="hist_back",
         ),
     ]])
+
+
+# ---------------------------------------------------------------------------
+# Webhook wizard keyboards
+# ---------------------------------------------------------------------------
+
+
+def get_webhook_menu_keyboard(
+    radarr_configured: bool,
+    sonarr_configured: bool,
+    lidarr_configured: bool,
+) -> InlineKeyboardMarkup:
+    """Main webhook settings menu keyboard."""
+    translation = TranslationService()
+
+    def _svc_label(name: str, configured: bool) -> str:
+        key = "WebhookServiceConfigured" if configured else "WebhookServiceNotConfigured"
+        return translation.get_text(key, service=name)
+
+    keyboard = [
+        [InlineKeyboardButton(
+            _svc_label("Radarr", radarr_configured),
+            callback_data="wh_setup_radarr",
+        )],
+        [InlineKeyboardButton(
+            _svc_label("Sonarr", sonarr_configured),
+            callback_data="wh_setup_sonarr",
+        )],
+        [InlineKeyboardButton(
+            _svc_label("Lidarr", lidarr_configured),
+            callback_data="wh_setup_lidarr",
+        )],
+        [
+            InlineKeyboardButton(
+                translation.get_text("WebhookEvents"),
+                callback_data="wh_events",
+            ),
+            InlineKeyboardButton(
+                translation.get_text("WebhookChangePort"),
+                callback_data="wh_port",
+            ),
+        ],
+        [InlineKeyboardButton(
+            translation.get_text("WebhookClose"),
+            callback_data="wh_close",
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_webhook_service_keyboard(service: str) -> InlineKeyboardMarkup:
+    """Keyboard for a configured service (regenerate secret, back)."""
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            translation.get_text("WebhookRegenerateSecret"),
+            callback_data=f"wh_regen_{service}",
+        )],
+        [InlineKeyboardButton(
+            translation.get_text("Back"),
+            callback_data="wh_back",
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_webhook_events_keyboard(events: dict) -> InlineKeyboardMarkup:
+    """Keyboard showing event type toggles."""
+    translation = TranslationService()
+    keyboard = []
+    for event_key, enabled in events.items():
+        icon = "\u2705" if enabled else "\U0001f515"
+        keyboard.append([InlineKeyboardButton(
+            f"{icon} {event_key}",
+            callback_data=f"wh_toggle_{event_key}",
+        )])
+    keyboard.append([InlineKeyboardButton(
+        translation.get_text("Back"),
+        callback_data="wh_back",
+    )])
+    return InlineKeyboardMarkup(keyboard)

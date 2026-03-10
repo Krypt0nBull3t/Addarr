@@ -144,7 +144,7 @@
 
 **Goal:** Build the `/webhooks` Telegram command with a full conversation flow for configuring webhook secrets, ports, and event toggles through inline keyboards.
 
-- [ ] **3.1** Webhook setup handler with states and keyboards
+- [x] **3.1** Webhook setup handler with states and keyboards
     - **Context:** See plan.md Phase 6. Key refs: `src/bot/handlers/settings.py` (ConversationHandler pattern), `src/bot/states.py` (state definitions), `src/bot/keyboards.py` (keyboard factory functions), `src/bot/handlers/auth.py` (`@require_auth` + `is_admin()` pattern), `src/definitions.py` (`is_admin()`)
     - **Watch out:** Handler must be registered even when webhooks are disabled (so admin can see status + "not enabled" message). ConversationHandler states use string keys (not ints) for wizard flows. `config.update_nested()` + `config.save()` for persisting secrets/port. Port change requires bot restart — inform user. The `WEBHOOK_CHANGE_PORT` state needs a `MessageHandler` (not `CallbackQueryHandler`) since user types a number.
     - **Scope:** WebhooksHandler class, conversation states, keyboard functions, admin gate
@@ -165,8 +165,19 @@
         - [GREEN] Implement `WebhooksHandler` class with all conversation methods
         - [GREEN] Implement `get_handler()` returning ConversationHandler with all states
     - **Success:** `pytest tests/test_handlers/test_webhooks_handler.py -v` passes, full wizard flow works
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - `@require_auth` decorator handles the `effective_message`/`effective_user` None guard before the handler runs, making explicit guard clauses unreachable dead code
+        - Config must be patched at import site (`src.bot.handlers.webhooks.config`) AND kept active through the test (use yield-based fixture)
+        - Test users need to be in `AuthHandler._authenticated_users` to pass `@require_auth`
+    - **Key Changes:**
+        - Created `src/bot/handlers/webhooks.py` with full ConversationHandler (menu, setup, regen, events, port, close)
+        - Added 3 webhook states to `src/bot/states.py` (WEBHOOK_MENU, WEBHOOK_EVENTS, WEBHOOK_CHANGE_PORT)
+        - Added 3 keyboard functions to `src/bot/keyboards.py` (menu, service, events)
+        - Created `tests/test_handlers/test_webhooks_handler.py` with 22 tests at 100% coverage
+    - **Notes:** Handler registered even when webhooks disabled — admin sees "not enabled" message
 
-- [ ] **3.2** Handler registration and command menu
+- [x] **3.2** Handler registration and command menu
     - **Context:** See plan.md Phase 6 (handler/command registration sections). Key refs: `src/main.py:107` (`_add_handlers()`), `src/bot/commands.py` (`build_authenticated_commands()`)
     - **Watch out:** Register WebhooksHandler after SettingsHandler, before HelpHandler. Command name must be lowercase (`webhooks`). Add the `CommandWebhooks` translation key usage in commands.py.
     - **Scope:** Register handler in main.py, add /webhooks to command menu
@@ -189,5 +200,5 @@
 | 1.3  | [x]    | 2026-03-10 |
 | 2.1  | [x]    | 2026-03-10 |
 | 2.2  | [x]    | 2026-03-10 |
-| 3.1  | [ ]    |      |
+| 3.1  | [x]    | 2026-03-10 |
 | 3.2  | [ ]    |      |
