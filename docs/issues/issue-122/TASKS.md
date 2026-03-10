@@ -109,7 +109,7 @@
         - Added `WebhookService` to singleton reset in `tests/conftest.py`
     - **Notes:** The `webhook_service = WebhookService()` module-level instance at bottom of webhook.py gets created at import time — ensure conftest resets it
 
-- [ ] **2.2** Bot lifecycle integration
+- [x] **2.2** Bot lifecycle integration
     - **Context:** See plan.md Phase 5. Key refs: `src/main.py:212` (`start()` method), `src/main.py:235` (`stop()` method), `src/main.py:220` (health checker task pattern), `tests/test_architecture/test_conventions.py:20` (SINGLETON_CLASSES set)
     - **Watch out:** `NotificationService.set_bot()` must be called in `start()` after `self.application.start()` so the bot instance is available for webhook notifications. Import `WebhookService` inside the conditional to avoid import when webhooks are disabled. Add `WebhookService` to `SINGLETON_CLASSES` in architecture tests. Add singleton reset to `tests/conftest.py`.
     - **Scope:** Wire WebhookService start/stop into AddarrBot, inject bot into NotificationService, update architecture tests and conftest
@@ -125,6 +125,18 @@
         - [GREEN] Add `WebhookService` to `SINGLETON_CLASSES` in `test_conventions.py`
         - [GREEN] Add `WebhookService` singleton reset to `conftest.py`
     - **Success:** `pytest tests/test_main.py tests/test_architecture/ -v` passes, webhook lifecycle correctly managed
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - NotificationService.set_bot() must be called after application.start() so the bot instance is available for webhook notifications
+        - _webhook_service attribute on AddarrBot tracks the instance for stop() cleanup
+    - **Key Changes:**
+        - Added `WebhookService` and `NotificationService` imports to `src/main.py`
+        - Added webhook start/stop to `AddarrBot.start()` and `AddarrBot.stop()`
+        - Added `NotificationService().set_bot()` call in `start()`
+        - Added `WebhookService` to `SINGLETON_CLASSES` in architecture tests
+        - Added `WebhookService` singleton reset in `tests/conftest.py`
+        - Added 4 lifecycle integration tests in `tests/test_main.py`
+    - **Notes:** Webhook server starts after application.start() and before polling begins
 
 ---
 
@@ -176,6 +188,6 @@
 | 1.2  | [x]    | 2026-03-10 |
 | 1.3  | [x]    | 2026-03-10 |
 | 2.1  | [x]    | 2026-03-10 |
-| 2.2  | [ ]    |      |
+| 2.2  | [x]    | 2026-03-10 |
 | 3.1  | [ ]    |      |
 | 3.2  | [ ]    |      |

@@ -41,6 +41,8 @@ from src.utils.error_handler import (
 )
 from src.bot.commands import build_default_commands, register_commands_for_chat
 from src.services.health import health_service, display_health_status
+from src.services.notification import NotificationService
+from src.services.webhook import WebhookService
 
 # Initialize colorama
 init(autoreset=True)
@@ -56,6 +58,7 @@ class AddarrBot:
         self.application = None
         self._running = False
         self.health_checker = health_service
+        self._webhook_service = None
 
     async def initialize(self):
         """Initialize the bot application"""
@@ -216,6 +219,14 @@ class AddarrBot:
             await self.application.start()
             self._running = True
 
+            # Inject bot into NotificationService for webhook notifications
+            NotificationService().set_bot(self.application.bot)
+
+            # Start webhook server if enabled
+            self._webhook_service = WebhookService()
+            if self._webhook_service.is_enabled():
+                await self._webhook_service.start()
+
             # Start health check job
             asyncio.create_task(self.health_checker.start())
 
@@ -238,6 +249,10 @@ class AddarrBot:
             try:
                 logger.info("🛑 Stopping bot...")
                 self._running = False
+
+                # Stop webhook server
+                if self._webhook_service:
+                    await self._webhook_service.stop()
 
                 # Stop health check job
                 await self.health_checker.stop()
