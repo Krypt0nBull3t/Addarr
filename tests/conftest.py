@@ -183,7 +183,12 @@ _src_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src")
 if "src" not in sys.modules:
     _src_mod = types.ModuleType("src")
     _src_mod.__path__ = [_src_dir]
+    _src_mod.__version__ = "0.8"
     sys.modules["src"] = _src_mod
+else:
+    # Ensure __version__ is available even if src was already imported
+    if not hasattr(sys.modules["src"], "__version__"):
+        sys.modules["src"].__version__ = "0.8"
 if "src.config" not in sys.modules:
     _config_mod = types.ModuleType("src.config")
     _config_mod.__path__ = [os.path.join(_src_dir, "config")]
