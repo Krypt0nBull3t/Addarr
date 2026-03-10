@@ -106,32 +106,18 @@ class BazarrClient(BaseApiClient):
 
     async def search(self, term: str) -> List[Dict]:
         """Search movies by title in Bazarr's tracked library."""
-        try:
-            logger.info(Fore.BLUE + f"🔍 Searching Bazarr for: {term}")
-            result = await self._request("movies")
-
-            if not result or not isinstance(result, dict):
-                logger.warning(
-                    Fore.YELLOW + "⚠️ No results from Bazarr"
-                )
-                return []
-
-            movies = result.get("data", [])
-            term_lower = term.lower()
-            matches = [
-                m for m in movies
-                if term_lower in m.get("title", "").lower()
-            ]
-
-            logger.info(
-                Fore.GREEN
-                + f"✅ Found {len(matches)} matches for: {term}"
-            )
-            return matches
-
-        except Exception as e:
-            logger.error(Fore.RED + f"❌ Search failed: {str(e)}")
-            return []
+        logger.info(Fore.BLUE + f"🔍 Searching Bazarr for: {term}")
+        movies = await self.get_movies()
+        term_lower = term.lower()
+        matches = [
+            m for m in movies
+            if term_lower in m.get("title", "").lower()
+        ]
+        logger.info(
+            Fore.GREEN
+            + f"✅ Found {len(matches)} matches for: {term}"
+        )
+        return matches
 
     async def get_movies(self) -> List[Dict]:
         """Get all movies with subtitle info."""
