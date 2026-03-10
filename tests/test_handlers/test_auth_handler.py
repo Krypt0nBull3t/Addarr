@@ -5,6 +5,8 @@ AuthHandler manages user authentication via password. The require_auth decorator
 guards handler methods by checking AuthHandler.is_authenticated(user_id).
 """
 
+from contextlib import contextmanager
+
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 from telegram.ext import ConversationHandler
@@ -92,30 +94,40 @@ async def test_require_auth_not_authenticated(mock_ts_class, make_update, make_c
 # ---------------------------------------------------------------------------
 
 
+@contextmanager
+def _chat_mode_patches(mock_config):
+    """Shared patch context for chat mode enforcement tests."""
+    with patch("src.bot.handlers.auth.TranslationService") as mock_ts_class, \
+         patch("src.bot.handlers.auth.config", mock_config):
+        mock_ts = MagicMock()
+        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+        mock_ts_class.return_value = mock_ts
+        yield
+
+
+class _DummyHandler:
+    """Test handler for require_auth decorator tests."""
+    from src.bot.handlers.auth import require_auth
+
+    @require_auth
+    async def guarded(self, update, context):
+        return "allowed"
+
+
 @pytest.mark.asyncio
-@patch("src.bot.handlers.auth.TranslationService")
-async def test_require_auth_rejects_group_chat(
-    mock_ts_class, make_update, make_context, mock_config
+@pytest.mark.parametrize("chat_type", ["group", "supergroup"])
+async def test_require_auth_rejects_non_private_chat(
+    chat_type, make_update, make_context, mock_config
 ):
-    """require_auth rejects group chats when chatMode is private_only."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-
-    from src.bot.handlers.auth import AuthHandler, require_auth
-
+    """require_auth rejects group/supergroup chats when chatMode is private_only."""
+    from src.bot.handlers.auth import AuthHandler
     AuthHandler._authenticated_users = {12345}
 
-    class DummyHandler:
-        @require_auth
-        async def guarded(self, update, context):
-            return "allowed"
-
-    handler = DummyHandler()
-    update = make_update(text="/test", chat_type="group")
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type=chat_type)
     context = make_context()
 
-    with patch("src.bot.handlers.auth.config", mock_config):
+    with _chat_mode_patches(mock_config):
         result = await handler.guarded(update, context)
 
     assert result is None
@@ -123,129 +135,63 @@ async def test_require_auth_rejects_group_chat(
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.auth.TranslationService")
-async def test_require_auth_rejects_supergroup_chat(
-    mock_ts_class, make_update, make_context, mock_config
-):
-    """require_auth rejects supergroup chats when chatMode is private_only."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-
-    from src.bot.handlers.auth import AuthHandler, require_auth
-
-    AuthHandler._authenticated_users = {12345}
-
-    class DummyHandler:
-        @require_auth
-        async def guarded(self, update, context):
-            return "allowed"
-
-    handler = DummyHandler()
-    update = make_update(text="/test", chat_type="supergroup")
-    context = make_context()
-
-    with patch("src.bot.handlers.auth.config", mock_config):
-        result = await handler.guarded(update, context)
-
-    assert result is None
-    update.message.reply_text.assert_called_once()
-
-
-@pytest.mark.asyncio
-@patch("src.bot.handlers.auth.TranslationService")
 async def test_require_auth_allows_private_chat(
-    mock_ts_class, make_update, make_context, mock_config
+    make_update, make_context, mock_config
 ):
     """require_auth allows private chats through to the auth check."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-
-    from src.bot.handlers.auth import AuthHandler, require_auth
-
+    from src.bot.handlers.auth import AuthHandler
     AuthHandler._authenticated_users = {12345}
 
-    class DummyHandler:
-        @require_auth
-        async def guarded(self, update, context):
-            return "allowed"
-
-    handler = DummyHandler()
+    handler = _DummyHandler()
     update = make_update(text="/test", chat_type="private")
     context = make_context()
 
-    with patch("src.bot.handlers.auth.config", mock_config):
+    with _chat_mode_patches(mock_config):
         result = await handler.guarded(update, context)
 
     assert result == "allowed"
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.auth.TranslationService")
 async def test_require_auth_allows_group_when_allow_all(
-    mock_ts_class, make_update, make_context, mock_config
+    make_update, make_context, mock_config
 ):
     """require_auth allows group chats when chatMode is allow_all."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-
-    from src.bot.handlers.auth import AuthHandler, require_auth
-
+    from src.bot.handlers.auth import AuthHandler
     AuthHandler._authenticated_users = {12345}
     mock_config._set("security", {
         "enableAdmin": False, "enableAllowlist": False, "chatMode": "allow_all"
     })
 
-    class DummyHandler:
-        @require_auth
-        async def guarded(self, update, context):
-            return "allowed"
-
-    handler = DummyHandler()
+    handler = _DummyHandler()
     update = make_update(text="/test", chat_type="group")
     context = make_context()
 
-    with patch("src.bot.handlers.auth.config", mock_config):
+    with _chat_mode_patches(mock_config):
         result = await handler.guarded(update, context)
 
     assert result == "allowed"
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.auth.TranslationService")
 async def test_require_auth_rejects_group_via_callback(
-    mock_ts_class, make_update, make_context, mock_config
+    make_update, make_context, mock_config
 ):
     """require_auth answers callback query with alert in group chat."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-
-    from src.bot.handlers.auth import AuthHandler, require_auth
-
+    from src.bot.handlers.auth import AuthHandler
     AuthHandler._authenticated_users = {12345}
 
-    class DummyHandler:
-        @require_auth
-        async def guarded(self, update, context):
-            return "allowed"
-
-    handler = DummyHandler()
+    handler = _DummyHandler()
     update = make_update(callback_data="menu_test", chat_type="group")
     context = make_context()
 
-    with patch("src.bot.handlers.auth.config", mock_config):
+    with _chat_mode_patches(mock_config):
         result = await handler.guarded(update, context)
 
     assert result is None
     update.callback_query.answer.assert_called_once()
-    # Verify show_alert=True was passed
     call_kwargs = update.callback_query.answer.call_args
-    assert call_kwargs[1].get("show_alert") is True or (
-        len(call_kwargs[0]) > 1 and call_kwargs[0][1] is True
-    )
+    assert call_kwargs[1].get("show_alert") is True
 
 
 @pytest.mark.asyncio
@@ -416,24 +362,19 @@ async def test_start_auth_no_user(mock_ts_class, make_update, make_context):
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.auth.TranslationService")
 async def test_start_auth_rejects_group_chat(
-    mock_ts_class, make_update, make_context, mock_config
+    make_update, make_context, mock_config
 ):
     """start_auth rejects group chats in private_only mode and returns END."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-
     from src.bot.handlers.auth import AuthHandler
 
-    handler = AuthHandler()
-    AuthHandler._authenticated_users = set()
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
 
-    update = make_update(text="/auth", chat_type="group")
-    context = make_context()
+        update = make_update(text="/auth", chat_type="group")
+        context = make_context()
 
-    with patch("src.bot.handlers.auth.config", mock_config):
         result = await handler.start_auth(update, context)
 
     assert result == ConversationHandler.END
@@ -441,51 +382,42 @@ async def test_start_auth_rejects_group_chat(
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.auth.TranslationService")
 async def test_start_auth_allows_private_chat(
-    mock_ts_class, make_update, make_context, mock_config
+    make_update, make_context, mock_config
 ):
     """start_auth proceeds normally in private chats."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-
     from src.bot.handlers.auth import AuthHandler, PASSWORD
 
-    handler = AuthHandler()
-    AuthHandler._authenticated_users = set()
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
 
-    update = make_update(text="/auth", chat_type="private")
-    context = make_context()
+        update = make_update(text="/auth", chat_type="private")
+        context = make_context()
 
-    with patch("src.bot.handlers.auth.config", mock_config):
         result = await handler.start_auth(update, context)
 
     assert result == PASSWORD
 
 
 @pytest.mark.asyncio
-@patch("src.bot.handlers.auth.TranslationService")
 async def test_start_auth_allows_group_when_allow_all(
-    mock_ts_class, make_update, make_context, mock_config
+    make_update, make_context, mock_config
 ):
     """start_auth allows group chats when chatMode is allow_all."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
-
     from src.bot.handlers.auth import AuthHandler, PASSWORD
 
-    handler = AuthHandler()
-    AuthHandler._authenticated_users = set()
     mock_config._set("security", {
         "enableAdmin": False, "enableAllowlist": False, "chatMode": "allow_all"
     })
 
-    update = make_update(text="/auth", chat_type="group")
-    context = make_context()
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
 
-    with patch("src.bot.handlers.auth.config", mock_config):
+        update = make_update(text="/auth", chat_type="group")
+        context = make_context()
+
         result = await handler.start_auth(update, context)
 
     assert result == PASSWORD

@@ -34,6 +34,25 @@ logger = get_logger("addarr.auth")
 PASSWORD = 0
 
 
+async def _enforce_private_chat(update: Update) -> bool:
+    """Return True if the update should be blocked due to chat mode policy."""
+    chat_mode = config.get("security", {}).get("chatMode", "private_only")
+    if chat_mode != "private_only" or not update.effective_chat:
+        return False
+    if update.effective_chat.type == "private":
+        return False
+    translation = TranslationService()
+    msg = translation.get_text(
+        "PrivateChatOnly",
+        default="🔒 This bot only works in private chats."
+    )
+    if update.callback_query:
+        await update.callback_query.answer(msg, show_alert=True)
+    elif update.message:
+        await update.message.reply_text(msg)
+    return True
+
+
 def require_auth(func):
     """Decorator to require authentication for handlers"""
     @wraps(func)
@@ -41,22 +60,8 @@ def require_auth(func):
         if not update.effective_user:
             return
 
-        # Chat type enforcement
-        chat_mode = config.get("security", {}).get("chatMode", "private_only")
-        if chat_mode == "private_only" and update.effective_chat:
-            if update.effective_chat.type != "private":
-                translation = TranslationService()
-                msg = translation.get_text(
-                    "PrivateChatOnly",
-                    default="🔒 This bot only works in private chats."
-                )
-                if update.callback_query:
-                    await update.callback_query.answer(
-                        msg, show_alert=True
-                    )
-                elif update.message:
-                    await update.message.reply_text(msg)
-                return
+        if await _enforce_private_chat(update):
+            return
 
         if not AuthHandler.is_authenticated(update.effective_user.id):
             translation = TranslationService()
@@ -122,16 +127,8 @@ class AuthHandler:
         if not update.effective_message or not update.effective_user:
             return ConversationHandler.END
 
-        # Chat type enforcement
-        chat_mode = config.get("security", {}).get("chatMode", "private_only")
-        if chat_mode == "private_only" and update.effective_chat:
-            if update.effective_chat.type != "private":
-                msg = self.translation.get_text(
-                    "PrivateChatOnly",
-                    default="🔒 This bot only works in private chats."
-                )
-                await update.message.reply_text(msg)
-                return ConversationHandler.END
+        if await _enforce_private_chat(update):
+            return ConversationHandler.END
 
         user = update.effective_user
         chat = update.effective_message.chat
