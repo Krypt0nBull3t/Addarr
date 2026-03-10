@@ -41,7 +41,7 @@ def _format_movie_list(movies: List[Dict]) -> str:
     for movie in movies[:MAX_DISPLAY_ITEMS]:
         title = movie.get("title", "Unknown")
         missing = _format_missing_subs(movie)
-        lines.append(f"- *{title}*\n  Missing: {missing}")
+        lines.append(f"- {title}\n  Missing: {missing}")
     return "\n".join(lines)
 
 
@@ -214,7 +214,7 @@ class BazarrHandler:
             ep_title = ep.get("episodeTitle", "")
             missing_names = _format_missing_subs(ep)
             lines.append(
-                f"- *{series}* {ep_num} - {ep_title}\n"
+                f"- {series} {ep_num} - {ep_title}\n"
                 f"  Missing: {missing_names}"
             )
 
@@ -241,22 +241,22 @@ class BazarrHandler:
             )
             return
 
-        if media_type == "movie":
-            success = await self.service.search_movie_subtitles(
-                int(raw_id), language
-            )
-        else:
-            # Episode IDs: "{series_id}-{episode_id}"
-            try:
+        try:
+            if media_type == "movie":
+                success = await self.service.search_movie_subtitles(
+                    int(raw_id), language
+                )
+            else:
+                # Episode IDs: "{series_id}-{episode_id}"
                 series_id, episode_id = raw_id.split("-", 1)
                 success = await self.service.search_episode_subtitles(
                     int(series_id), int(episode_id), language
                 )
-            except (ValueError, IndexError):
-                await update.callback_query.edit_message_text(
-                    t.get_text("BazarrSearchFailed")
-                )
-                return
+        except (ValueError, IndexError):
+            await update.callback_query.edit_message_text(
+                t.get_text("BazarrSearchFailed")
+            )
+            return
 
         key = "BazarrSearchTriggered" if success else "BazarrSearchFailed"
         await update.callback_query.edit_message_text(t.get_text(key))

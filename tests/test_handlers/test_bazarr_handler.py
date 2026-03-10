@@ -518,6 +518,31 @@ class TestSearchSubtitlesTrigger:
         call_text = update.callback_query.edit_message_text.call_args[0][0]
         assert "BazarrSearchFailed" in call_text
 
+    @pytest.mark.asyncio
+    @patch("src.bot.handlers.bazarr.TranslationService")
+    @patch("src.bot.handlers.bazarr.BazarrService")
+    async def test_malformed_movie_id(
+        self, mock_svc_class, mock_ts_class, make_update, make_context
+    ):
+        """Movie callback with non-numeric ID shows failure."""
+        mock_svc = MagicMock()
+        mock_svc_class.return_value = mock_svc
+        mock_ts = MagicMock()
+        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+        mock_ts_class.return_value = mock_ts
+
+        from src.bot.handlers.bazarr import BazarrHandler
+
+        handler = BazarrHandler()
+        update = make_update(callback_data="bazarr_sub_movie_abc_en")
+        context = make_context()
+
+        await handler.search_subtitles_trigger(update, context)
+
+        update.callback_query.answer.assert_called_once()
+        call_text = update.callback_query.edit_message_text.call_args[0][0]
+        assert "BazarrSearchFailed" in call_text
+
 
 # ---------------------------------------------------------------------------
 # cancel
