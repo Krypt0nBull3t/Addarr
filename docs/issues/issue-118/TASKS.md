@@ -82,7 +82,7 @@ Add mypy as a blocking CI job. Create config with per-module overrides (lenient 
     - **Key Changes:** Merged into task 1.2 — all fixes done in one pass
     - **Notes:** N/A — tasks 1.2 and 1.3 completed together since scope overlapped
 
-- [ ] **1.4** Create follow-up GitHub issues for suppressed type errors
+- [x] **1.4** Create follow-up GitHub issues for suppressed type errors
     - **Context:** Per-module config in `mypy.ini` suppresses union-attr/index in handlers and disables checking in setup. These are tech debt that should be tracked.
     - **Watch out:** Split handler errors into logical batches (not one mega-issue). Reference #118 as parent. Include specific error codes and affected files per issue.
     - **Scope:** Create 2-3 GitHub issues to track gradual strictness improvements
@@ -91,3 +91,9 @@ Add mypy as a blocking CI job. Create config with per-module overrides (lenient 
         - [GREEN] Create issue for handler layer type fixes (union-attr/index in `src/bot/handlers/`)
         - [GREEN] Create issue for setup module type fixes (`src/setup/`)
     - **Success:** Follow-up issues created on GitHub with clear scope, error counts, and file lists
+    - **Completed:** 2026-03-10
+    - **Learnings:** Handler layer has 403 errors (mostly union-attr from Telegram Optional types), setup only 6
+    - **Key Changes:**
+        - Created #153 (handler layer type fixes — 403 errors, 15 files)
+        - Created #154 (setup module type fixes — 6 errors, 4 files)
+    - **Notes:** When both follow-up issues are resolved, remove per-module sections from mypy.ini
