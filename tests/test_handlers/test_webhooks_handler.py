@@ -438,6 +438,49 @@ class TestHandleCloseCancel:
         update.effective_message.reply_text.assert_awaited_once()
 
 
+class TestInputValidation:
+    """Test allowlist validation on callback data."""
+
+    @pytest.mark.asyncio
+    async def test_setup_service_invalid_service_rejected(
+        self, handler, context, webhook_handler_config, make_update, make_user
+    ):
+        """setup_service rejects unknown service names."""
+        user = make_user(user_id=12345)
+        update = make_update(callback_data="wh_setup_evil", user=user)
+
+        with patch("src.bot.handlers.webhooks.config", webhook_handler_config):
+            result = await handler.setup_service(update, context)
+
+        assert result == ConversationHandler.END
+
+    @pytest.mark.asyncio
+    async def test_regenerate_secret_invalid_service_rejected(
+        self, handler, context, webhook_handler_config, make_update, make_user
+    ):
+        """regenerate_secret rejects unknown service names."""
+        user = make_user(user_id=12345)
+        update = make_update(callback_data="wh_regen_evil", user=user)
+
+        with patch("src.bot.handlers.webhooks.config", webhook_handler_config):
+            result = await handler.regenerate_secret(update, context)
+
+        assert result == ConversationHandler.END
+
+    @pytest.mark.asyncio
+    async def test_toggle_event_invalid_key_rejected(
+        self, handler, context, webhook_handler_config, make_update, make_user
+    ):
+        """toggle_event rejects unknown event keys."""
+        user = make_user(user_id=12345)
+        update = make_update(callback_data="wh_toggle_evil", user=user)
+
+        with patch("src.bot.handlers.webhooks.config", webhook_handler_config):
+            result = await handler.toggle_event(update, context)
+
+        assert result == ConversationHandler.END
+
+
 class TestGetHandler:
     """Test get_handler returns proper ConversationHandler."""
 
