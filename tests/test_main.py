@@ -70,6 +70,7 @@ def _make_handler_patches():
         "HelpHandler": _mock_handler_class(),
         "PreferencesHandler": _mock_handler_class(),
         "SystemHandler": _mock_handler_class(),
+        "WebhooksHandler": _mock_handler_class(),
     }
 
 
@@ -271,15 +272,15 @@ class TestAddHandlers:
     """Tests for AddarrBot._add_handlers()."""
 
     def test_always_on_handlers_registered(self, bot, mock_app):
-        """All 12 always-on handlers are registered."""
+        """All 15 always-on handlers are registered."""
         bot.application = mock_app
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 14 always-on handlers (Start, Auth, Media, Settings, Delete,
+        # 15 always-on handlers (Start, Auth, Media, Settings, Delete,
         # Library, Calendar, Missing, Queue, History, Downloads, Help,
-        # Preferences, System)
-        assert mock_app.add_handler.call_count == 14
+        # Preferences, System, Webhooks)
+        assert mock_app.add_handler.call_count == 15
 
     @patch("src.main.config")
     def test_transmission_enabled(self, mock_cfg, bot, mock_app):
@@ -296,8 +297,8 @@ class TestAddHandlers:
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 14 always-on + 1 transmission
-        assert mock_app.add_handler.call_count == 15
+        # 15 always-on + 1 transmission
+        assert mock_app.add_handler.call_count == 16
 
     @patch("src.main.config")
     def test_sabnzbd_enabled(self, mock_cfg, bot, mock_app):
@@ -314,8 +315,8 @@ class TestAddHandlers:
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 14 always-on + 1 sabnzbd
-        assert mock_app.add_handler.call_count == 15
+        # 15 always-on + 1 sabnzbd
+        assert mock_app.add_handler.call_count == 16
 
     @patch("src.main.config")
     def test_both_optional_enabled(self, mock_cfg, bot, mock_app):
@@ -332,8 +333,8 @@ class TestAddHandlers:
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 14 + 2
-        assert mock_app.add_handler.call_count == 16
+        # 15 + 2
+        assert mock_app.add_handler.call_count == 17
 
     def test_handler_error_reraises(self, bot, mock_app):
         """Exception during handler registration is re-raised."""

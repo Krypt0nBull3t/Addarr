@@ -29,6 +29,7 @@ from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.preferences import PreferencesHandler
 from src.bot.handlers.start import StartHandler
 from src.bot.handlers.system import SystemHandler
+from src.bot.handlers.webhooks import WebhooksHandler
 from src.config.settings import config
 from src.utils.logger import get_logger
 from src.utils.splash import show_welcome_screen
@@ -128,6 +129,11 @@ class AddarrBot:
             # Settings handler
             settings_handler = SettingsHandler()
             for handler in settings_handler.get_handler():
+                self.application.add_handler(handler)
+
+            # Webhooks handler
+            webhooks_handler = WebhooksHandler()
+            for handler in webhooks_handler.get_handler():
                 self.application.add_handler(handler)
 
             # Delete handler

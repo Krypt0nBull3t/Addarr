@@ -188,6 +188,16 @@
         - [GREEN] Add WebhooksHandler import and registration in `_add_handlers()`
         - [GREEN] Add `webhooks` command to `build_authenticated_commands()` in `commands.py`
     - **Success:** `pytest tests/test_main.py -v` passes, `/webhooks` command is registered
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - WebhooksHandler is always-on (not conditional on config) since admin needs to see status even when disabled
+        - Adding a handler requires updating `_make_handler_patches()` in test_main.py and all handler count assertions
+    - **Key Changes:**
+        - Added `WebhooksHandler` import and registration in `src/main.py:_add_handlers()` (after Settings, before Delete)
+        - Added `webhooks` command to `build_authenticated_commands()` in `src/bot/commands.py`
+        - Updated handler count assertions in `tests/test_main.py` (14→15 base, +1 for optional)
+        - Updated command count assertions in `tests/test_bot/test_commands.py` (7→8 base, +1 for all totals)
+    - **Notes:** Command uses `CommandWebhooks` translation key — already added in task 1.3
 
 ---
 
@@ -201,4 +211,4 @@
 | 2.1  | [x]    | 2026-03-10 |
 | 2.2  | [x]    | 2026-03-10 |
 | 3.1  | [x]    | 2026-03-10 |
-| 3.2  | [ ]    |      |
+| 3.2  | [x]    | 2026-03-10 |

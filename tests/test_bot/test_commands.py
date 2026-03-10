@@ -70,7 +70,7 @@ class TestBuildAuthenticatedCommands:
         return mock_config
 
     def test_minimal_config_returns_base_commands(self, mock_config):
-        """With no optional services enabled, returns 7 base commands."""
+        """With no optional services enabled, returns 8 base commands."""
         cfg = self._make_config(mock_config)
 
         with patch("src.bot.commands.config", cfg):
@@ -78,10 +78,10 @@ class TestBuildAuthenticatedCommands:
             commands = build_authenticated_commands()
 
         names = [c.command for c in commands]
-        assert len(commands) == 7
+        assert len(commands) == 8
         assert names == [
             "start", "auth", "help", "status",
-            "settings", "preferences", "delete",
+            "settings", "preferences", "delete", "webhooks",
         ]
 
     def test_radarr_adds_movie_and_allmovies(self, mock_config):
@@ -95,7 +95,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "movie" in names
         assert "allmovies" in names
-        assert len(commands) == 13  # 7 base + 2 + upcoming + missing + queue + history
+        assert len(commands) == 14  # 8 base + 2 + upcoming + missing + queue + history
 
     def test_sonarr_adds_series_and_allseries(self, mock_config):
         """Sonarr enabled adds series + allseries + upcoming + missing."""
@@ -108,7 +108,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "series" in names
         assert "allseries" in names
-        assert len(commands) == 13  # 7 base + 2 + upcoming + missing + queue + history
+        assert len(commands) == 14  # 8 base + 2 + upcoming + missing + queue + history
 
     def test_lidarr_adds_music_and_allmusic(self, mock_config):
         """Lidarr enabled adds music + allmusic commands."""
@@ -121,7 +121,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "music" in names
         assert "allmusic" in names
-        assert len(commands) == 10  # 7 base + 2 + queue
+        assert len(commands) == 11  # 8 base + 2 + queue
 
     def test_transmission_adds_transmission(self, mock_config):
         """Transmission enabled adds transmission command."""
@@ -134,7 +134,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "transmission" in names
         assert "downloads" in names
-        assert len(commands) == 9  # 7 base + transmission + downloads
+        assert len(commands) == 10  # 8 base + transmission + downloads
 
     def test_sabnzbd_adds_sabnzbd(self, mock_config):
         """SABnzbd enabled adds sabnzbd command."""
@@ -147,7 +147,7 @@ class TestBuildAuthenticatedCommands:
         names = [c.command for c in commands]
         assert "sabnzbd" in names
         assert "downloads" in names
-        assert len(commands) == 9  # 7 base + sabnzbd + downloads
+        assert len(commands) == 10  # 8 base + sabnzbd + downloads
 
     def test_radarr_adds_upcoming_and_missing(self, mock_config):
         """Radarr enabled adds upcoming and missing commands."""
@@ -185,6 +185,17 @@ class TestBuildAuthenticatedCommands:
         assert "upcoming" not in names
         assert "missing" not in names
 
+    def test_webhooks_command_always_present(self, mock_config):
+        """webhooks command is always included in authenticated commands."""
+        cfg = self._make_config(mock_config)
+
+        with patch("src.bot.commands.config", cfg):
+            from src.bot.commands import build_authenticated_commands
+            commands = build_authenticated_commands()
+
+        names = [c.command for c in commands]
+        assert "webhooks" in names
+
     def test_all_services_enabled(self, mock_config):
         """All services enabled returns all commands."""
         cfg = self._make_config(
@@ -200,11 +211,11 @@ class TestBuildAuthenticatedCommands:
             from src.bot.commands import build_authenticated_commands
             commands = build_authenticated_commands()
 
-        assert len(commands) == 20
+        assert len(commands) == 21
         names = [c.command for c in commands]
         expected = [
             "start", "auth", "help", "status", "settings",
-            "preferences", "delete", "movie", "allmovies",
+            "preferences", "delete", "webhooks", "movie", "allmovies",
             "series", "allseries", "music", "allmusic",
             "upcoming", "missing", "queue", "history",
             "transmission", "sabnzbd", "downloads",
