@@ -48,8 +48,6 @@ async def _enforce_private_chat(update: Update) -> bool:
     )
     if update.effective_message:
         await update.effective_message.reply_text(msg)
-    elif update.callback_query:
-        await update.callback_query.answer(msg, show_alert=True)
     return True
 
 
