@@ -72,6 +72,9 @@ Inject mock clients into singletons via class attributes. See [references/patter
 ### Handlers
 Use `make_update()` factories, patch service constructors before handler init. See [references/patterns.md#handlers](references/patterns.md#handlers).
 
+### Integration Tests
+End-to-end flow tests using `BotHarness` with real PTB handler chains. See [references/patterns.md#integration-tests](references/patterns.md#integration-tests).
+
 ### Config
 Override values via `MockConfig._set()`. See [references/patterns.md#config](references/patterns.md#config).
 

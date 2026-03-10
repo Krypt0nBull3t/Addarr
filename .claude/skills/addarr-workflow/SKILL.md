@@ -172,6 +172,16 @@ the skill stays in context for the rest of the session. Do not re-invoke.
 4  RUN     Coverage check: run pytest with --cov on changed source modules
            and --cov-report=term-missing. Target 100% on all new/modified code.
            Fix any gaps by adding tests for uncovered lines.
+4b RUN     Integration test check — if the task adds or modifies a user-facing
+           flow (handler, command, conversation state, callback routing):
+           a  Check tests/integration/ for an existing test covering this flow
+           b  If none exists: write a new integration test using the BotHarness
+              (see tests/integration/conftest.py for harness, fixtures, and
+              update factories). Test the happy path end-to-end.
+           c  If one exists but doesn't cover the new behavior: extend it.
+           d  Run: pytest tests/integration/ --tb=short -v — confirm all pass.
+           Skip this step for non-handler changes (API clients, services,
+           config, utils, translations, CI, docs).
 5  RUN     Mark task complete in TASKS.md and add completion metadata:
            - **Completed:** <date>
            - **Learnings:** Key insights, gotchas, or discoveries from this task
