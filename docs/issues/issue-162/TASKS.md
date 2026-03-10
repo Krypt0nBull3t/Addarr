@@ -104,7 +104,7 @@
 
 **Goal:** Integration tests for handlers that use multi-step callback button flows (no ConversationHandler).
 
-- [ ] **3.1** Delete handler integration test
+- [x] **3.1** Delete handler integration test
     - **Context:** See plan.md Task 3.1. Key refs: `src/bot/handlers/delete.py` — `/delete` → `delete_type_{type}` → `delete_item_{id}` → `delete_confirm`. Uses `MediaService.get_movies()`, `get_movie()`, `delete_movie()`.
     - **Watch out:** Handler stores state in `context.user_data["delete_type"]` and `["delete_item"]`. The `handle_delete_selection` method isn't decorated with `@require_auth` — only the entry `/delete` is.
     - **Scope:** Full delete flow + cancel + empty library
@@ -115,8 +115,12 @@
         - [RED] Write test: type selection with empty library
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_delete_flow.py -v` — 3 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** Full multi-step flow works through harness — each tap_button call carries user_data forward.
+    - **Key Changes:** Created `tests/integration/test_delete_flow.py` with 3 tests.
+    - **Notes:** None.
 
-- [ ] **3.2** Library handler integration test
+- [x] **3.2** Library handler integration test
     - **Context:** See plan.md Task 3.2. Key refs: `src/bot/handlers/library.py` — `/allMovies`, `/allSeries`, `/allMusic` commands, `lib_{type}_{page}` pagination. Uses `MediaService.get_movies()` etc.
     - **Watch out:** Need 15+ items to test pagination (ITEMS_PER_PAGE=10). Items cached in `context.user_data[f"library_{media_type}"]`.
     - **Scope:** All three library commands + pagination + empty
@@ -129,8 +133,12 @@
         - [RED] Write test: empty library
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_library_flow.py -v` — 4 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** LIBRARY_MOVIES uses list comprehension for 15 items; pagination kicks in at ITEMS_PER_PAGE=10.
+    - **Key Changes:** Added `LIBRARY_MOVIES`, `LIBRARY_SERIES` to fixtures.py. Created `tests/integration/test_library_flow.py` with 4 tests.
+    - **Notes:** None.
 
-- [ ] **3.3** Calendar handler integration test
+- [x] **3.3** Calendar handler integration test
     - **Context:** See plan.md Task 3.3. Key refs: `src/bot/handlers/calendar.py` — `/upcoming` command, `cal_period_{days}`, `cal_refresh`, `cal_back` callbacks. Uses `MediaService.get_upcoming(days)`.
     - **Watch out:** `get_upcoming` is called with `days` parameter. Period change calls it again with new days value.
     - **Scope:** `/upcoming` + period change + refresh + back + empty
@@ -144,8 +152,12 @@
         - [RED] Write test: `cal_back` returns to main menu
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_calendar_flow.py -v` — 5 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** CALENDAR_ITEMS needs `media_id` key in addition to `id` — `get_calendar_items_keyboard` reads `item['media_id']` for callback data.
+    - **Key Changes:** Added `CALENDAR_ITEMS` to fixtures.py. Created `tests/integration/test_calendar_flow.py` with 5 tests.
+    - **Notes:** None.
 
-- [ ] **3.4** Missing handler integration test
+- [x] **3.4** Missing handler integration test
     - **Context:** See plan.md Task 3.4. Key refs: `src/bot/handlers/missing.py` — `/missing` command, `missing_refresh`, `missing_back` callbacks. Uses `MediaService.get_missing_media()`.
     - **Watch out:** Items cached in `context.user_data["missing_items"]`
     - **Scope:** `/missing` + empty + refresh + back
@@ -158,8 +170,12 @@
         - [RED] Write test: `missing_back` returns to main menu
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_missing_flow.py -v` — 4 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** MISSING_ITEMS needs `internal_id` key — `get_missing_items_keyboard` reads `item['internal_id']` for search callback data.
+    - **Key Changes:** Added `MISSING_ITEMS` (with `internal_id`) to fixtures.py. Created `tests/integration/test_missing_flow.py` with 4 tests.
+    - **Notes:** None.
 
-- [ ] **3.5** Queue handler integration test
+- [x] **3.5** Queue handler integration test
     - **Context:** See plan.md Task 3.5. Key refs: `src/bot/handlers/queue.py` — `/queue` command, `queue_refresh`, `queue_back` callbacks. Uses `MediaService.get_queue_media()`.
     - **Watch out:** Items cached in `context.user_data["queue_items"]`
     - **Scope:** `/queue` + empty + refresh + back
@@ -172,6 +188,10 @@
         - [RED] Write test: `queue_back` returns to main menu
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_queue_flow.py -v` — 4 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** Same pattern as missing/history — straightforward with MediaService mock.
+    - **Key Changes:** Added `QUEUE_ITEMS` to fixtures.py. Created `tests/integration/test_queue_flow.py` with 4 tests.
+    - **Notes:** None.
 
 ---
 

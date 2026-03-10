@@ -158,3 +158,64 @@ HISTORY_ITEMS = [
         "quality": "HD-720p",
     },
 ]
+
+CALENDAR_ITEMS = [
+    {
+        "title": "Upcoming Movie",
+        "type": "movie",
+        "date": "2026-03-15",
+        "service": "radarr",
+        "id": 101,
+        "media_id": 101,
+    },
+    {
+        "title": "New Episode S02E01",
+        "type": "episode",
+        "date": "2026-03-12",
+        "service": "sonarr",
+        "id": 202,
+        "media_id": 202,
+    },
+]
+
+LIBRARY_MOVIES = [
+    {"id": str(i), "title": f"Movie {chr(64 + i)}"} for i in range(1, 16)
+]
+
+LIBRARY_SERIES = [
+    {"id": str(i), "title": f"Series {chr(64 + i)}"} for i in range(1, 6)
+]
+
+MISSING_ITEMS = [
+    {
+        "title": "Missing Movie",
+        "type": "movie",
+        "service": "radarr",
+        "id": 301,
+        "internal_id": 301,
+    },
+    {
+        "title": "Missing Episode S01E05",
+        "type": "episode",
+        "service": "sonarr",
+        "id": 302,
+        "internal_id": 302,
+    },
+]
+
+QUEUE_ITEMS = [
+    {
+        "title": "Downloading Movie",
+        "type": "movie",
+        "progress": 45.0,
+        "status": "downloading",
+        "id": 401,
+    },
+    {
+        "title": "Downloading Episode",
+        "type": "episode",
+        "progress": 80.0,
+        "status": "downloading",
+        "id": 402,
+    },
+]
