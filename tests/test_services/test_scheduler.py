@@ -2,10 +2,26 @@
 Tests for src/services/scheduler.py -- JobScheduler.
 
 aiocron.crontab is mocked to avoid real cron scheduling in tests.
+
+NOTE: We use patch.object with an explicit module reference instead of
+@patch("src.services.scheduler.aiocron") because src/services/__init__.py
+exports a variable named `scheduler` (the JobScheduler instance), which
+shadows the `scheduler` submodule in getattr-based resolution. Python 3.10's
+unittest.mock resolves "src.services.scheduler" to the variable (JobScheduler
+instance) instead of the module, causing AttributeError. patch.object avoids
+this by targeting the module object directly.
 """
+
+import sys
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+# Get the actual module object to use with patch.object
+# This import brings the module into sys.modules
+from src.services.scheduler import JobScheduler  # noqa: F401
+
+_scheduler_mod = sys.modules["src.services.scheduler"]
 
 
 # ---------------------------------------------------------------------------
@@ -28,18 +44,14 @@ def _make_mock_cron():
 
 class TestJobSchedulerSingleton:
     def test_singleton(self):
-        from src.services.scheduler import JobScheduler
-
         a = JobScheduler()
         b = JobScheduler()
         assert a is b
 
 
 class TestAddJob:
-    @patch("src.services.scheduler.aiocron")
+    @patch.object(_scheduler_mod, "aiocron")
     def test_add_job(self, mock_aiocron):
-        from src.services.scheduler import JobScheduler
-
         mock_cron = _make_mock_cron()
         mock_aiocron.crontab.return_value = mock_cron
 
@@ -50,10 +62,8 @@ class TestAddJob:
         assert "test_job" in scheduler.jobs
         mock_aiocron.crontab.assert_called_once()
 
-    @patch("src.services.scheduler.aiocron")
+    @patch.object(_scheduler_mod, "aiocron")
     def test_add_job_replaces_existing(self, mock_aiocron):
-        from src.services.scheduler import JobScheduler
-
         old_cron = _make_mock_cron()
         new_cron = _make_mock_cron()
         mock_aiocron.crontab.side_effect = [old_cron, new_cron]
@@ -68,12 +78,10 @@ class TestAddJob:
         old_cron.stop.assert_called_once()
         assert scheduler.jobs["my_job"] is new_cron
 
-    @patch("src.services.scheduler.aiocron")
+    @patch.object(_scheduler_mod, "aiocron")
     @pytest.mark.asyncio
     async def test_wrapped_job_success(self, mock_aiocron):
         """Test the wrapped job function executes the async func."""
-        from src.services.scheduler import JobScheduler
-
         mock_cron = _make_mock_cron()
         mock_aiocron.crontab.return_value = mock_cron
 
@@ -91,12 +99,10 @@ class TestAddJob:
         await wrapped_job()
         func.assert_awaited_once()
 
-    @patch("src.services.scheduler.aiocron")
+    @patch.object(_scheduler_mod, "aiocron")
     @pytest.mark.asyncio
     async def test_wrapped_job_exception(self, mock_aiocron):
         """Test the wrapped job catches exceptions."""
-        from src.services.scheduler import JobScheduler
-
         mock_cron = _make_mock_cron()
         mock_aiocron.crontab.return_value = mock_cron
 
@@ -117,10 +123,8 @@ class TestAddJob:
 
 
 class TestRemoveJob:
-    @patch("src.services.scheduler.aiocron")
+    @patch.object(_scheduler_mod, "aiocron")
     def test_remove_job(self, mock_aiocron):
-        from src.services.scheduler import JobScheduler
-
         mock_cron = _make_mock_cron()
         mock_aiocron.crontab.return_value = mock_cron
 
@@ -131,20 +135,16 @@ class TestRemoveJob:
         assert "temp_job" not in scheduler.jobs
         mock_cron.stop.assert_called_once()
 
-    @patch("src.services.scheduler.aiocron")
+    @patch.object(_scheduler_mod, "aiocron")
     def test_remove_nonexistent(self, mock_aiocron):
-        from src.services.scheduler import JobScheduler
-
         scheduler = JobScheduler()
         # Should not raise
         scheduler.remove_job("does_not_exist")
 
 
 class TestStartStop:
-    @patch("src.services.scheduler.aiocron")
+    @patch.object(_scheduler_mod, "aiocron")
     def test_start(self, mock_aiocron):
-        from src.services.scheduler import JobScheduler
-
         mock_cron1 = _make_mock_cron()
         mock_cron2 = _make_mock_cron()
         mock_aiocron.crontab.side_effect = [mock_cron1, mock_cron2]
@@ -159,10 +159,8 @@ class TestStartStop:
         mock_cron1.start.assert_called()
         mock_cron2.start.assert_called()
 
-    @patch("src.services.scheduler.aiocron")
+    @patch.object(_scheduler_mod, "aiocron")
     def test_stop(self, mock_aiocron):
-        from src.services.scheduler import JobScheduler
-
         mock_cron1 = _make_mock_cron()
         mock_cron2 = _make_mock_cron()
         mock_aiocron.crontab.side_effect = [mock_cron1, mock_cron2]
