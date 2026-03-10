@@ -11,7 +11,7 @@ Includes both one-time checks and periodic monitoring.
 import aiohttp
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from colorama import Fore, Style
 
 from src.api.lidarr import LidarrClient
@@ -19,6 +19,7 @@ from src.api.radarr import RadarrClient
 from src.api.sonarr import SonarrClient
 from src.api.transmission import TransmissionClient
 from src.config.settings import config
+from src.services.notification import NotificationService
 from src.utils.logger import get_logger
 
 logger = get_logger("addarr.health")
@@ -73,6 +74,9 @@ class HealthService:
     _running: bool
     _task: Optional[asyncio.Task[None]] = None
     interval: int
+    _failure_counts: Dict[str, int]
+    _down_since: Dict[str, datetime]
+    _alerted_services: Set[str]
 
     def __new__(cls):
         if cls._instance is None:
@@ -87,6 +91,9 @@ class HealthService:
         cls._running = False
         cls._task = None
         cls.interval = 15 * 60  # Default 15 minutes
+        cls._failure_counts = {}
+        cls._down_since = {}
+        cls._alerted_services = set()
 
     async def start(self, interval_minutes: int = 15):
         """Start periodic health monitoring"""
@@ -114,6 +121,84 @@ class HealthService:
                 await self._task
             except asyncio.CancelledError:
                 pass
+
+    @staticmethod
+    def _format_duration(seconds: float) -> str:
+        """Format a duration in seconds to a human-readable string."""
+        total_seconds = int(seconds)
+        if total_seconds < 60:
+            return f"{total_seconds} seconds"
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        parts = []
+        if hours == 1:
+            parts.append("1 hour")
+        elif hours > 1:
+            parts.append(f"{hours} hours")
+        if minutes == 1:
+            parts.append("1 minute")
+        elif minutes > 1:
+            parts.append(f"{minutes} minutes")
+        return " ".join(parts) if parts else "0 seconds"
+
+    async def _check_alerts(self, current_unhealthy: set) -> None:
+        """Check for state transitions and send alerts via NotificationService."""
+        alert_config = config.get("health_alerts", {})
+        threshold = alert_config.get("flap_threshold", 2)
+        notifier = NotificationService()
+
+        # Extract service names from "ServiceName: Error details" format
+        current_names = set()
+        name_to_entry: Dict[str, str] = {}
+        for entry in current_unhealthy:
+            name = entry.split(":")[0].strip()
+            current_names.add(name)
+            name_to_entry[name] = entry
+
+        # Track failures for currently unhealthy services
+        for name in current_names:
+            self._failure_counts[name] = self._failure_counts.get(name, 0) + 1
+            if name not in self._down_since:
+                self._down_since[name] = datetime.now()
+
+            # Alert if at threshold and not already alerted
+            if (
+                self._failure_counts[name] >= threshold
+                and name not in self._alerted_services
+            ):
+                status = name_to_entry.get(name, name)
+                msg = (
+                    f"⚠️ {name} is unreachable\n"
+                    f"Status: {status}\n"
+                    f"Failing since: "
+                    f"{self._down_since[name].strftime('%H:%M:%S')}"
+                )
+                await notifier.notify_admin(msg)
+                self._alerted_services.add(name)
+                logger.warning(f"Alert sent: {name} is unreachable")
+
+        # Handle recoveries
+        previously_tracked = set(self._failure_counts.keys())
+        recovered_names = previously_tracked - current_names
+        for name in recovered_names:
+            if name in self._alerted_services:
+                # Was alerted — send recovery
+                down_since = self._down_since[name]
+                duration_secs = (
+                    datetime.now() - down_since
+                ).total_seconds()
+                duration_str = self._format_duration(duration_secs)
+                msg = (
+                    f"✅ {name} is back online\n"
+                    f"Was down for: {duration_str}"
+                )
+                await notifier.notify_admin(msg)
+                logger.info(f"Recovery alert sent: {name} is back online")
+
+            # Clean up state regardless of whether we alerted
+            self._failure_counts.pop(name, None)
+            self._down_since.pop(name, None)
+            self._alerted_services.discard(name)
 
     async def _monitor_loop(self):
         """Main monitoring loop"""
@@ -149,6 +234,11 @@ class HealthService:
                         logger.info(f"  • {service}")
 
                 self._unhealthy_services = current_unhealthy
+
+                # Send alerts if enabled
+                alert_config = config.get("health_alerts", {})
+                if alert_config.get("enable", False):
+                    await self._check_alerts(current_unhealthy)
 
                 if not current_unhealthy:
                     logger.info("✅ All services healthy")

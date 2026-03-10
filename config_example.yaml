@@ -179,6 +179,12 @@ logging:
   debug: false  # Enable debug logging
   adminNotifyId:  # Telegram chat ID for admin notifications (optional)
 
+# Health Alert Configuration (Optional)
+# Sends Telegram notifications when services go down or recover
+health_alerts:
+  enable: false  # Master toggle for health alerts (requires adminNotifyId)
+  flap_threshold: 2  # Consecutive failures before alerting (prevents flap noise)
+
 # Access Control
 admins: []  # List of admin Telegram user IDs
 allow_list: []  # List of allowed Telegram user IDs (if enableAllowlist is true)
