@@ -14,14 +14,25 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-from typing import List
+from typing import Dict, List
 
 from src.services.bazarr import BazarrService
 from src.services.translation import TranslationService
+from src.bot.handlers.auth import require_auth
 from src.bot.states import States
 from src.utils.logger import get_logger
 
 logger = get_logger("addarr.handlers.bazarr")
+
+MAX_DISPLAY_ITEMS = 10
+
+
+def _format_missing_subs(item: Dict) -> str:
+    """Format the missing subtitles portion of a display line."""
+    missing = item.get("missing_subtitles", [])
+    if not missing:
+        return "None"
+    return ", ".join(s.get("name", "?") for s in missing)
 
 
 class BazarrHandler:
@@ -99,6 +110,7 @@ class BazarrHandler:
         ]
         return InlineKeyboardMarkup(keyboard)
 
+    @require_auth
     async def subtitles_menu(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
@@ -157,16 +169,12 @@ class BazarrHandler:
             return ConversationHandler.END
 
         lines = []
-        for movie in results[:10]:
+        for movie in results[:MAX_DISPLAY_ITEMS]:
             title = movie.get("title", "Unknown")
-            missing = movie.get("missing_subtitles", [])
-            missing_names = ", ".join(
-                s.get("name", "?") for s in missing
-            ) if missing else "None"
+            missing_names = _format_missing_subs(movie)
             lines.append(f"- *{title}*\n  Missing: {missing_names}")
 
-        message = "\n".join(lines)
-        await update.message.reply_text(message)
+        await update.message.reply_text("\n".join(lines))
         return ConversationHandler.END
 
     async def wanted_movies(
@@ -184,12 +192,9 @@ class BazarrHandler:
             return
 
         lines = []
-        for movie in movies[:10]:
+        for movie in movies[:MAX_DISPLAY_ITEMS]:
             title = movie.get("title", "Unknown")
-            missing = movie.get("missing_subtitles", [])
-            missing_names = ", ".join(
-                s.get("name", "?") for s in missing
-            ) if missing else "None"
+            missing_names = _format_missing_subs(movie)
             lines.append(f"- *{title}*\n  Missing: {missing_names}")
 
         await update.callback_query.edit_message_text("\n".join(lines))
@@ -209,14 +214,11 @@ class BazarrHandler:
             return
 
         lines = []
-        for ep in episodes[:10]:
+        for ep in episodes[:MAX_DISPLAY_ITEMS]:
             series = ep.get("seriesTitle", "Unknown")
             ep_num = ep.get("episode_number", "?")
             ep_title = ep.get("episodeTitle", "")
-            missing = ep.get("missing_subtitles", [])
-            missing_names = ", ".join(
-                s.get("name", "?") for s in missing
-            ) if missing else "None"
+            missing_names = _format_missing_subs(ep)
             lines.append(
                 f"- *{series}* {ep_num} - {ep_title}\n"
                 f"  Missing: {missing_names}"

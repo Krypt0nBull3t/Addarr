@@ -10,6 +10,8 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from telegram.ext import ConversationHandler
 
+from src.bot.handlers.auth import AuthHandler
+
 
 # ---------------------------------------------------------------------------
 # subtitles_menu
@@ -36,6 +38,7 @@ class TestSubtitlesMenu:
         handler = BazarrHandler()
         update = make_update(text="/subtitles")
         context = make_context()
+        AuthHandler._authenticated_users = {12345}
 
         await handler.subtitles_menu(update, context)
 
@@ -62,6 +65,7 @@ class TestSubtitlesMenu:
         handler = BazarrHandler()
         update = make_update(callback_data="bazarr_menu")
         context = make_context()
+        AuthHandler._authenticated_users = {12345}
 
         await handler.subtitles_menu(update, context)
 
@@ -88,6 +92,7 @@ class TestSubtitlesMenu:
         handler = BazarrHandler()
         update = make_update(text="/subtitles")
         context = make_context()
+        AuthHandler._authenticated_users = {12345}
 
         await handler.subtitles_menu(update, context)
 
@@ -114,6 +119,7 @@ class TestSubtitlesMenu:
         handler = BazarrHandler()
         update = make_update(callback_data="bazarr_menu")
         context = make_context()
+        AuthHandler._authenticated_users = {12345}
 
         await handler.subtitles_menu(update, context)
 
@@ -170,6 +176,7 @@ class TestHandleSearch:
         mock_svc = MagicMock()
         mock_svc.search = AsyncMock(return_value=[
             {"title": "Test Movie", "missing_subtitles": [{"name": "English"}]},
+            {"title": "Complete Movie", "missing_subtitles": []},
         ])
         mock_svc_class.return_value = mock_svc
         mock_ts = MagicMock()
