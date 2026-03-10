@@ -230,6 +230,7 @@ def reset_singletons():
     from src.services.sabnzbd import SABnzbdService
     from src.services.preferences import PreferencesService
     from src.services.rate_limit import RateLimitService
+    from src.services.webhook import WebhookService
     from src.bot.handlers.auth import AuthHandler
 
     # Reset singletons
@@ -257,6 +258,11 @@ def reset_singletons():
 
     RateLimitService._instance = None
     RateLimitService._records = {}
+
+    WebhookService._instance = None
+    WebhookService._enabled = False
+    WebhookService._running = False
+    WebhookService._runner = None
 
     AuthHandler._authenticated_users = set()
 

@@ -81,7 +81,7 @@
 
 **Goal:** Build the aiohttp web server that receives webhook POSTs and dispatches notifications, then wire it into the bot lifecycle.
 
-- [ ] **2.1** WebhookService singleton HTTP server
+- [x] **2.1** WebhookService singleton HTTP server
     - **Context:** See plan.md Phase 3. Key refs: `src/services/health.py:67` (singleton pattern template), `src/services/notification.py:45` (`notify_admin()` method). aiohttp is already a dependency — use `aiohttp.web.Application`, `AppRunner`, `TCPSite` for the server lifecycle.
     - **Watch out:** Always return 200 OK to *arr services (except 401 for invalid secret) to prevent retry storms. Port-in-use (`OSError`) must be caught in `start()` — log error + suggestion, don't crash bot. Secret validation is optional: skip if no secret configured for the service. Event type filtering: check `config.get("webhooks", {}).get("events", {}).get(event_type_key, True)` — enabled by default.
     - **Scope:** WebhookService class with start/stop, route handlers, secret validation, event processing pipeline
@@ -98,6 +98,16 @@
         - [GREEN] Implement `_setup_routes()`, endpoint handlers, `_validate_secret()`, `_process_event()`
         - [GREEN] Create module-level `webhook_service = WebhookService()` instance
     - **Success:** `pytest tests/test_services/test_webhook_service.py -v` passes, 100% coverage on new code
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - Config patching must be at import site (`src.services.webhook.config`) not just via MockConfig — the module-level `from src.config.settings import config` binds at import time
+        - Module-level `_PARSERS` dict holds direct references to parser functions — must use `patch.dict` to override, not `patch` on the function name
+        - aiohttp `TestClient`/`TestServer` pattern works well for testing webhook endpoints without starting a real server
+    - **Key Changes:**
+        - Created `src/services/webhook.py` with `WebhookService` singleton (start/stop, route handlers, secret validation, event filtering)
+        - Created `tests/test_services/test_webhook_service.py` with 24 tests at 100% coverage
+        - Added `WebhookService` to singleton reset in `tests/conftest.py`
+    - **Notes:** The `webhook_service = WebhookService()` module-level instance at bottom of webhook.py gets created at import time — ensure conftest resets it
 
 - [ ] **2.2** Bot lifecycle integration
     - **Context:** See plan.md Phase 5. Key refs: `src/main.py:212` (`start()` method), `src/main.py:235` (`stop()` method), `src/main.py:220` (health checker task pattern), `tests/test_architecture/test_conventions.py:20` (SINGLETON_CLASSES set)
@@ -165,7 +175,7 @@
 | 1.1  | [x]    | 2026-03-10 |
 | 1.2  | [x]    | 2026-03-10 |
 | 1.3  | [x]    | 2026-03-10 |
-| 2.1  | [ ]    |      |
+| 2.1  | [x]    | 2026-03-10 |
 | 2.2  | [ ]    |      |
 | 3.1  | [ ]    |      |
 | 3.2  | [ ]    |      |
