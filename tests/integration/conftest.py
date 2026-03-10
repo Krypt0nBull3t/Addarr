@@ -22,16 +22,20 @@ from src.bot.handlers.media import MediaHandler
 from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.system import SystemHandler
 from src.bot.handlers.settings import SettingsHandler
+from src.bot.handlers.webhooks import WebhooksHandler
 from src.bot.handlers.delete import DeleteHandler
 from src.bot.handlers.library import LibraryHandler
 from src.bot.handlers.calendar import CalendarHandler
 from src.bot.handlers.missing import MissingHandler
 from src.bot.handlers.queue import QueueHandler
+from src.bot.handlers.history import HistoryHandler
 from src.bot.handlers.downloads import DownloadsHandler
 from src.bot.handlers.preferences import PreferencesHandler
+from src.bot.handlers.bazarr import BazarrHandler
 from src.config.settings import config
 from src.services.transmission import TransmissionService
 from src.services.sabnzbd import SABnzbdService
+from src.services.bazarr import BazarrService
 
 
 # ---- Response capture -------------------------------------------------------
@@ -317,14 +321,13 @@ def _register_handlers(app: Application):
         AuthHandler,
         MediaHandler,
         SettingsHandler,
+        WebhooksHandler,
         DeleteHandler,
         LibraryHandler,
         CalendarHandler,
         MissingHandler,
         QueueHandler,
-        HelpHandler,
-        PreferencesHandler,
-        SystemHandler,
+        HistoryHandler,
     ]
 
     # Conditionally add download handlers
@@ -336,8 +339,15 @@ def _register_handlers(app: Application):
         from src.bot.handlers.sabnzbd import SabnzbdHandler
         handler_classes.append(SabnzbdHandler)
 
+    # Bazarr handler (if enabled)
+    if config.get("bazarr", {}).get("enable", False):
+        handler_classes.append(BazarrHandler)
+
     # Downloads handler checks is_enabled internally
     handler_classes.append(DownloadsHandler)
+
+    # These come after downloads in main.py
+    handler_classes.extend([HelpHandler, PreferencesHandler, SystemHandler])
 
     for cls in handler_classes:
         instance = cls()
@@ -394,5 +404,27 @@ async def downloads_harness():
         patch.object(SABnzbdService, "is_enabled", return_value=True),
     ):
         app = _build_application()
+        async for h in _make_harness(app):
+            yield h
+
+
+@pytest.fixture
+async def bazarr_harness():
+    """Provide a BotHarness with BazarrHandler enabled."""
+    AuthHandler._authenticated_users.add(12345)
+
+    with patch.object(BazarrService, "is_enabled", return_value=True):
+        app = Application.builder().token("0:TEST").build()
+        # Capture the real get before patching
+        real_get = config.get.__wrapped__ if hasattr(config.get, "__wrapped__") else config.get
+
+        def _get_with_bazarr(key, default=None):
+            if key == "bazarr":
+                return {"enable": True}
+            return real_get(key, default)
+
+        with patch.object(config, "get", side_effect=_get_with_bazarr):
+            _register_handlers(app)
+
         async for h in _make_harness(app):
             yield h

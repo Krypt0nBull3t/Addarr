@@ -13,6 +13,24 @@ from src.bot.handlers.auth import AuthHandler
 from src.bot.handlers.media.dispatch import SEARCHING
 
 
+# All @require_auth-protected commands (excluding /movie, /series, /music
+# which are tested individually above, and /subtitles which needs bazarr_harness)
+AUTH_GATED_COMMANDS = [
+    "/help",
+    "/settings",
+    "/delete",
+    "/allMovies",
+    "/allSeries",
+    "/allMusic",
+    "/upcoming",
+    "/missing",
+    "/queue",
+    "/preferences",
+    "/status",
+    "/history",
+]
+
+
 @pytest.mark.asyncio
 async def test_unauthenticated_user_blocked(harness):
     """Unauthenticated user sending /movie gets auth-required message."""
@@ -40,3 +58,16 @@ async def test_conversation_state_after_command(harness):
     await harness.send_command("/movie")
     state = harness.get_conversation_state("media_conversation", 12345, 12345)
     assert state == SEARCHING
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("command", AUTH_GATED_COMMANDS)
+async def test_unauthenticated_user_blocked_all_commands(harness, command):
+    """All @require_auth commands reject unauthenticated users."""
+    AuthHandler._authenticated_users.discard(12345)
+
+    resp = await harness.send_command(command)
+    assert resp is not None, f"{command} returned no response for unauthed user"
+    assert "authenticate" in resp.text.lower() or "auth" in resp.text.lower(), (
+        f"{command} did not show auth message: {resp.text!r}"
+    )

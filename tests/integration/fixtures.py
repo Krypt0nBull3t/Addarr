@@ -1,9 +1,18 @@
 """
-Shared test data for integration tests.
+Shared test data and helpers for integration tests.
 
-Provides reusable search results, quality selection results, and queue data
-used across multiple test files.
+Provides reusable search results, quality selection results, queue data,
+and utility functions used across multiple test files.
 """
+
+
+def find_response(harness, method):
+    """Find the first captured response matching the given API method."""
+    for r in harness.responses:
+        if r.method == method:
+            return r
+    return None
+
 
 MOVIE_SEARCH_RESULTS = [
     {
@@ -141,3 +150,97 @@ DOWNLOADS_EMPTY_QUEUE = {
     "items_count": 0,
     "items": [],
 }
+
+HISTORY_ITEMS = [
+    {
+        "id": 1,
+        "title": "Fight Club",
+        "event_type": "grabbed",
+        "date": "2026-03-09T10:00:00Z",
+        "quality": "HD-1080p",
+    },
+    {
+        "id": 2,
+        "title": "Breaking Bad S01E01",
+        "event_type": "downloaded",
+        "date": "2026-03-09T09:00:00Z",
+        "quality": "HD-720p",
+    },
+]
+
+CALENDAR_ITEMS = [
+    {
+        "title": "Upcoming Movie",
+        "type": "movie",
+        "date": "2026-03-15",
+        "service": "radarr",
+        "id": 101,
+        "media_id": 101,
+    },
+    {
+        "title": "New Episode S02E01",
+        "type": "episode",
+        "date": "2026-03-12",
+        "service": "sonarr",
+        "id": 202,
+        "media_id": 202,
+    },
+]
+
+LIBRARY_MOVIES = [
+    {"id": str(i), "title": f"Movie {chr(64 + i)}"} for i in range(1, 16)
+]
+
+LIBRARY_SERIES = [
+    {"id": str(i), "title": f"Series {chr(64 + i)}"} for i in range(1, 6)
+]
+
+MISSING_ITEMS = [
+    {
+        "title": "Missing Movie",
+        "type": "movie",
+        "service": "radarr",
+        "id": 301,
+        "internal_id": 301,
+    },
+    {
+        "title": "Missing Episode S01E05",
+        "type": "episode",
+        "service": "sonarr",
+        "id": 302,
+        "internal_id": 302,
+    },
+]
+
+BAZARR_WANTED_MOVIES = [
+    {
+        "title": "Fight Club",
+        "missing_subtitles": [
+            {"name": "English", "code2": "en"},
+            {"name": "French", "code2": "fr"},
+        ],
+    },
+    {
+        "title": "Inception",
+        "missing_subtitles": [
+            {"name": "Spanish", "code2": "es"},
+        ],
+    },
+]
+
+QUEUE_ITEMS = [
+    {
+        "title": "Downloading Movie",
+        "type": "movie",
+        "progress": 45.0,
+        "status": "downloading",
+        "id": 401,
+    },
+    {
+        "title": "Downloading Episode",
+        "type": "episode",
+        "progress": 80.0,
+        "status": "downloading",
+        "id": 402,
+    },
+]
