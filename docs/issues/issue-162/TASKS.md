@@ -216,7 +216,7 @@
     - **Key Changes:** Created `tests/integration/test_settings_flow.py` with 4 tests: admin menu, non-admin rejection, language select flow, back ends conversation.
     - **Notes:** None.
 
-- [ ] **4.2** Bazarr handler integration test
+- [x] **4.2** Bazarr handler integration test
     - **Context:** See plan.md Task 4.2. Key refs: `src/bot/handlers/bazarr.py` — `/subtitles` command, `bazarr_wanted_movies`, `bazarr_cancel` callbacks. Uses `BazarrService` singleton. Requires `bazarr_harness` fixture from task 1.1.
     - **Watch out:** Regular `harness` doesn't register BazarrHandler. Use `bazarr_harness` for enabled tests. For "disabled" test, use regular `harness` and send `/subtitles` — BazarrHandler won't be registered, so no response is expected. Alternative: mock `is_enabled()` to return False in bazarr_harness.
     - **Scope:** Menu + disabled check + wanted movies + cancel
@@ -228,6 +228,10 @@
         - [RED] Write test: `bazarr_cancel` sends cancelled message
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_bazarr_flow.py -v` — 3 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** `bazarr_harness` had a recursion bug — `original_get = config.get` captured the mock, not the real method. Fixed by capturing `real_get` before the `patch.object` context.
+    - **Key Changes:** Fixed `bazarr_harness` fixture in `conftest.py` (capture `real_get` before patching). Added `BAZARR_WANTED_MOVIES` to `fixtures.py`. Created `tests/integration/test_bazarr_flow.py` with 3 tests.
+    - **Notes:** None.
 
 ---
 

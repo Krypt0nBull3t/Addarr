@@ -415,16 +415,15 @@ async def bazarr_harness():
 
     with patch.object(BazarrService, "is_enabled", return_value=True):
         app = Application.builder().token("0:TEST").build()
-        # Build with bazarr enabled in config
-        with patch.object(config, "get", wraps=config.get) as mock_get:
-            original_get = config.get
+        # Capture the real get before patching
+        real_get = config.get.__wrapped__ if hasattr(config.get, "__wrapped__") else config.get
 
-            def _get_with_bazarr(key, default=None):
-                if key == "bazarr":
-                    return {"enable": True}
-                return original_get(key, default)
+        def _get_with_bazarr(key, default=None):
+            if key == "bazarr":
+                return {"enable": True}
+            return real_get(key, default)
 
-            mock_get.side_effect = _get_with_bazarr
+        with patch.object(config, "get", side_effect=_get_with_bazarr):
             _register_handlers(app)
 
         async for h in _make_harness(app):

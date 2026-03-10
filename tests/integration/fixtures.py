@@ -203,6 +203,22 @@ MISSING_ITEMS = [
     },
 ]
 
+BAZARR_WANTED_MOVIES = [
+    {
+        "title": "Fight Club",
+        "missing_subtitles": [
+            {"name": "English", "code2": "en"},
+            {"name": "French", "code2": "fr"},
+        ],
+    },
+    {
+        "title": "Inception",
+        "missing_subtitles": [
+            {"name": "Spanish", "code2": "es"},
+        ],
+    },
+]
+
 QUEUE_ITEMS = [
     {
         "title": "Downloading Movie",
