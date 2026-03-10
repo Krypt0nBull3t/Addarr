@@ -1057,3 +1057,261 @@ class TestGetDiskSpace:
             results = await service.get_disk_space()
 
         assert len(results) == 2
+
+
+# ---------------------------------------------------------------------------
+# Alert state initialization
+# ---------------------------------------------------------------------------
+
+
+class TestAlertStateInitialization:
+    def test_alert_state_attributes_initialized_empty(self):
+        """Alert tracking dicts/sets are empty after singleton reset."""
+        service = HealthService()
+        assert service._failure_counts == {}
+        assert service._down_since == {}
+        assert service._alerted_services == set()
+
+
+# ---------------------------------------------------------------------------
+# _check_alerts
+# ---------------------------------------------------------------------------
+
+
+class TestCheckAlerts:
+    ALERT_CONFIG = {"enable": True, "flap_threshold": 2}
+
+    @pytest.mark.asyncio
+    async def test_single_failure_does_not_alert(self):
+        """One failure is below default threshold (2) — no notification."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+
+        mock_notifier.notify_admin.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_threshold_reached_triggers_alert(self):
+        """Two consecutive failures triggers degradation alert."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+
+        mock_notifier.notify_admin.assert_called_once()
+        msg = mock_notifier.notify_admin.call_args[0][0]
+        assert "Radarr" in msg
+        assert "unreachable" in msg.lower() or "⚠️" in msg
+
+    @pytest.mark.asyncio
+    async def test_no_duplicate_alert_after_threshold(self):
+        """Once alerted, don't re-alert on subsequent failures."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+
+        # Only one alert, not two
+        mock_notifier.notify_admin.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_recovery_after_alert_sends_recovery_message(self):
+        """Service recovers after being alerted — sends recovery notification."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
+
+        # Two calls: one degradation, one recovery
+        assert mock_notifier.notify_admin.call_count == 2
+        recovery_msg = mock_notifier.notify_admin.call_args_list[1][0][0]
+        assert "Radarr" in recovery_msg
+        assert "back online" in recovery_msg.lower() or "✅" in recovery_msg
+
+    @pytest.mark.asyncio
+    async def test_recovery_before_threshold_sends_no_alerts(self):
+        """Service fails once then recovers — no alerts at all."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
+
+        mock_notifier.notify_admin.assert_not_called()
+        # State cleaned up
+        assert service._failure_counts == {}
+        assert service._down_since == {}
+
+    @pytest.mark.asyncio
+    async def test_recovery_cleans_up_state(self):
+        """After recovery, all tracking state for that service is cleared."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
+
+        assert "Radarr" not in service._failure_counts
+        assert "Radarr" not in service._down_since
+        assert "Radarr" not in service._alerted_services
+
+
+class TestAlertsDisabled:
+    @pytest.mark.asyncio
+    async def test_monitor_loop_skips_alerts_when_disabled(self):
+        """When health_alerts.enable is false, _check_alerts is not called."""
+        service = HealthService()
+        service._running = True
+        service.interval = 0.01
+
+        unhealthy_results = {
+            "media_services": [
+                {"name": "Radarr", "healthy": False, "status": "Error: HTTP 500"},
+            ],
+            "download_clients": [],
+        }
+
+        call_count = 0
+
+        async def _mock_checks():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 3:
+                service._running = False
+            return unhealthy_results
+
+        with patch.object(
+            service, "run_health_checks", side_effect=_mock_checks
+        ), patch(
+            "src.services.health.config"
+        ) as mock_config:
+            mock_config.get.side_effect = lambda key, default=None: (
+                {"enable": False}
+                if key == "health_alerts"
+                else default
+            )
+            with patch.object(
+                service, "_check_alerts", new_callable=AsyncMock
+            ) as mock_check:
+                await service._monitor_loop()
+
+        mock_check.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_monitor_loop_calls_alerts_when_enabled(self):
+        """When health_alerts.enable is true, _check_alerts is called."""
+        service = HealthService()
+        service._running = True
+        service.interval = 0.01
+
+        unhealthy_results = {
+            "media_services": [
+                {"name": "Radarr", "healthy": False, "status": "Error: HTTP 500"},
+            ],
+            "download_clients": [],
+        }
+
+        call_count = 0
+
+        async def _mock_checks():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                service._running = False
+            return unhealthy_results
+
+        with patch.object(
+            service, "run_health_checks", side_effect=_mock_checks
+        ), patch(
+            "src.services.health.config"
+        ) as mock_config:
+            mock_config.get.side_effect = lambda key, default=None: (
+                {"enable": True, "flap_threshold": 2}
+                if key == "health_alerts"
+                else default
+            )
+            with patch.object(
+                service, "_check_alerts", new_callable=AsyncMock
+            ) as mock_check:
+                await service._monitor_loop()
+
+        assert mock_check.call_count >= 1
+
+
+class TestFormatDuration:
+    def test_format_seconds(self):
+        service = HealthService()
+        assert service._format_duration(30) == "30 seconds"
+
+    def test_format_minutes(self):
+        service = HealthService()
+        assert service._format_duration(300) == "5 minutes"
+
+    def test_format_hours_and_minutes(self):
+        service = HealthService()
+        assert service._format_duration(5400) == "1 hour 30 minutes"
+
+    def test_format_exact_hour(self):
+        service = HealthService()
+        assert service._format_duration(3600) == "1 hour"
+
+    def test_format_one_minute(self):
+        service = HealthService()
+        assert service._format_duration(60) == "1 minute"
+
+    def test_format_multiple_hours(self):
+        service = HealthService()
+        assert service._format_duration(7200) == "2 hours"
