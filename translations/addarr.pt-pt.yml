@@ -133,32 +133,31 @@ pt-pt:
     ChangedTo100: "✅ Sem limite definido"
     Error: "❌ Algo correu mal ao tentar definir a velocidade"
   
-  # Help text
-  HelpText: "❓ Para ver este texto novamente escreva /%{help}.
-
-    🚀 Comandos básicos:
-    • Para autenticar antes da primeira utilização deve escrever /%{authenticate}
-    • Para adicionar um filme ou série escreva /%{add}
-    • Para apagar uma série ou filme use /%{delete}
-    • Para adicionar imediatamente um filme ou série pode escrever /%{movie}, /%{serie} ou /%{music}
-
-    📊 Comandos de estado:
-    • Para ver que séries existem no Sonarr, escreva /%{allSeries}
-    • Para ver que filmes existem no Radarr, escreva /%{allMovies}
-    • Para ver que artistas existem no Lidarr, escreva /%{allMusic}
-
-    ⚙️ Comandos do sistema:
-    • Para alterar a velocidade de download do Transmission escreva /%{transmission}
-    • Para alterar a velocidade de download do Sabnzbd, utilize /%{sabnzbd}
-
-    🛠️ Comandos de administrador:
-    • python run.py --setup - Executar assistente de configuração
-    • python run.py --configure - Adicionar/modificar serviços
-    • python run.py --check - Mostrar estado da configuração
-    • python run.py --validate-i18n - Validar ficheiros de tradução
-    • python run.py --backup - Criar backup da configuração
-    • python run.py --reset - Repor configuração padrão
-    • python run.py --help - Mostrar todos os comandos"
+  # Help sections
+  HelpHeader: "🤖 *Available Commands:*"
+  HelpBasicCommands: |
+    🚀 /start - Start the bot
+    🔐 /auth - Authenticate with password
+    ❓ /help - Show this help message
+    📊 /status - Check system status
+    ⚙️ /settings - Manage settings
+    🗑️ /delete - Delete media
+    📚 /library - Browse your library
+  HelpMediaMovies: |
+    🎬 /movie - Search and add movies
+    🎬 /allmovies - Show all movies
+  HelpMediaSeries: |
+    📺 /series - Search and add TV shows
+    📺 /allseries - Show all series
+  HelpMediaMusic: |
+    🎵 /music - Search and add music
+    🎵 /allmusic - Show all music
+  HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
+  HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
+  HelpVersion: "🔄 Version: %(version)s"
+  HelpFooter: |
+    📖 Wiki: https://github.com/Krypt0nBull3t/Addarr/wiki
+    🐞 Issues: https://github.com/Krypt0nBull3t/Addarr/issues
   
   # Error messages
   Error:

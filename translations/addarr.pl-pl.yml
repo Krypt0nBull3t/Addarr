@@ -133,32 +133,31 @@ pl-pl:
     ChangedTo100: "✅ Bez limitu prędkości"
     Error: "❌ Wystąpił błąd podczas ustawiania prędkości"
   
-  # Help text
-  HelpText: "❓ Chcesz zobaczyć ten tekst ponownie? Użyj /%{help}.
-
-    🚀 Podstawowe komendy:
-    • Aby uwierzytelnić się przed pierwszym użyciem, użyj /%{authenticate}
-    • Aby dodać media użyj /%{add}
-    • Aby usunąć media użyj /%{delete}
-    • Aby bezpośrednio dodać media użyj /%{movie}, /%{serie} lub /%{music}
-
-    📊 Komendy statusu:
-    • Aby sprawdzić seriale w Sonarr użyj /%{allSeries}
-    • Aby sprawdzić filmy w Radarr użyj /%{allMovies}
-    • Aby sprawdzić artystów w Lidarr użyj /%{allMusic}
-
-    ⚙️ Komendy systemowe:
-    • Aby zmienić prędkość Transmission użyj /%{transmission}
-    • Aby zmienić prędkość SABnzbd użyj /%{sabnzbd}
-
-    🛠️ Komendy administratora:
-    • python run.py --setup - Uruchom kreator konfiguracji
-    • python run.py --configure - Dodaj/modyfikuj usługi
-    • python run.py --check - Pokaż status konfiguracji
-    • python run.py --validate-i18n - Sprawdź pliki tłumaczeń
-    • python run.py --backup - Utwórz kopię zapasową konfiguracji
-    • python run.py --reset - Przywróć domyślną konfigurację
-    • python run.py --help - Pokaż wszystkie komendy"
+  # Help sections
+  HelpHeader: "🤖 *Available Commands:*"
+  HelpBasicCommands: |
+    🚀 /start - Start the bot
+    🔐 /auth - Authenticate with password
+    ❓ /help - Show this help message
+    📊 /status - Check system status
+    ⚙️ /settings - Manage settings
+    🗑️ /delete - Delete media
+    📚 /library - Browse your library
+  HelpMediaMovies: |
+    🎬 /movie - Search and add movies
+    🎬 /allmovies - Show all movies
+  HelpMediaSeries: |
+    📺 /series - Search and add TV shows
+    📺 /allseries - Show all series
+  HelpMediaMusic: |
+    🎵 /music - Search and add music
+    🎵 /allmusic - Show all music
+  HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
+  HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
+  HelpVersion: "🔄 Version: %(version)s"
+  HelpFooter: |
+    📖 Wiki: https://github.com/Krypt0nBull3t/Addarr/wiki
+    🐞 Issues: https://github.com/Krypt0nBull3t/Addarr/issues
   
   # Error messages
   Error:

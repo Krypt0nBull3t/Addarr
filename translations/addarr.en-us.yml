@@ -121,32 +121,31 @@ en-us:
     ChangedTo100: "✅ No speed limit"
     Error: "❌ Something went wrong while trying to set the speed"
   
-  # Help text
-  HelpText: "❓ Want to see this text again? Use /%{help}.
-
-    🚀 Basic Commands:
-    • To authenticate before first use you should use /%{authenticate}
-    • To add media use /%{add}
-    • To delete media use /%{delete}
-    • To immediately add media you can use /%{movie}, /%{serie} or /%{music}
-
-    📊 Status Commands:
-    • To check which series are in Sonarr use /%{allSeries}
-    • To check which movies are in Radarr use /%{allMovies}
-    • To check which artists are in Lidarr use /%{allMusic}
-
-    ⚙️ System Commands:
-    • To toggle Transmission speed use /%{transmission}
-    • To change SABnzbd speed use /%{sabnzbd}
-
-    🛠️ Admin Commands:
-    • python run.py --setup - Run initial setup wizard
-    • python run.py --configure - Add/modify services
-    • python run.py --check - Show configuration status
-    • python run.py --validate-translations - Validate translation files
-    • python run.py --backup - Create configuration backup
-    • python run.py --reset - Reset configuration to default
-    • python run.py --help - Show all commands"
+  # Help sections
+  HelpHeader: "🤖 *Available Commands:*"
+  HelpBasicCommands: |
+    🚀 /start - Start the bot
+    🔐 /auth - Authenticate with password
+    ❓ /help - Show this help message
+    📊 /status - Check system status
+    ⚙️ /settings - Manage settings
+    🗑️ /delete - Delete media
+    📚 /library - Browse your library
+  HelpMediaMovies: |
+    🎬 /movie - Search and add movies
+    🎬 /allmovies - Show all movies
+  HelpMediaSeries: |
+    📺 /series - Search and add TV shows
+    📺 /allseries - Show all series
+  HelpMediaMusic: |
+    🎵 /music - Search and add music
+    🎵 /allmusic - Show all music
+  HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
+  HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
+  HelpVersion: "🔄 Version: %(version)s"
+  HelpFooter: |
+    📖 Wiki: https://github.com/Krypt0nBull3t/Addarr/wiki
+    🐞 Issues: https://github.com/Krypt0nBull3t/Addarr/issues
   
   # Settings
   Settings:
