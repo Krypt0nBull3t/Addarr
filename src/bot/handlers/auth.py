@@ -34,11 +34,31 @@ logger = get_logger("addarr.auth")
 PASSWORD = 0
 
 
+async def _enforce_private_chat(update: Update) -> bool:
+    """Return True if the update should be blocked due to chat mode policy."""
+    chat_mode = config.get("security", {}).get("chatMode", "private_only")
+    if chat_mode != "private_only" or not update.effective_chat:
+        return False
+    if update.effective_chat.type == "private":
+        return False
+    translation = TranslationService()
+    msg = translation.get_text(
+        "PrivateChatOnly",
+        default="🔒 This bot only works in private chats."
+    )
+    if update.effective_message:
+        await update.effective_message.reply_text(msg)
+    return True
+
+
 def require_auth(func):
     """Decorator to require authentication for handlers"""
     @wraps(func)
     async def wrapped(self, update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         if not update.effective_user:
+            return
+
+        if await _enforce_private_chat(update):
             return
 
         if not AuthHandler.is_authenticated(update.effective_user.id):
@@ -103,6 +123,9 @@ class AuthHandler:
     async def start_auth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start the authentication process"""
         if not update.effective_message or not update.effective_user:
+            return ConversationHandler.END
+
+        if await _enforce_private_chat(update):
             return ConversationHandler.END
 
         user = update.effective_user

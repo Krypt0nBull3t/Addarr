@@ -68,7 +68,7 @@ MOCK_CONFIG_DATA = {
         "allSeries": "allSeries", "allMovies": "allMovies", "allMusic": "allMusic",
         "transmission": "transmission", "sabnzbd": "sabnzbd",
     },
-    "security": {"enableAdmin": False, "enableAllowlist": False},
+    "security": {"enableAdmin": False, "enableAllowlist": False, "chatMode": "private_only"},
     "language": "en-us",
     "logging": {"toConsole": False, "debug": False, "adminNotifyId": None},
     "admins": [], "allow_list": [], "chat_id": [],
@@ -337,22 +337,31 @@ def make_callback_query(make_user, make_message):
 @pytest.fixture
 def make_update(make_user, make_message, make_callback_query):
     """Factory fixture for creating mock Telegram Update objects."""
-    def _make_update(text=None, callback_data=None, user=None):
+    def _make_update(text=None, callback_data=None, user=None, chat_type=None):
         update = MagicMock()
         _user = user or make_user()
         update.effective_user = _user
 
         if callback_data is not None:
             # Callback query update
-            msg = make_message(user=_user)
+            chat_title = "Group" if chat_type and chat_type != "private" else None
+            msg = make_message(user=_user, chat_title=chat_title)
+            if chat_type:
+                msg.chat.type = chat_type
             query = make_callback_query(data=callback_data, user=_user,
                                         message=msg)
             update.callback_query = query
             update.message = None
             update.effective_message = msg
+            update.effective_chat = msg.chat
         else:
             # Text message update
-            msg = make_message(text=text or "test", user=_user)
+            chat_title = "Group" if chat_type and chat_type != "private" else None
+            msg = make_message(
+                text=text or "test", user=_user, chat_title=chat_title
+            )
+            if chat_type:
+                msg.chat.type = chat_type
             update.message = msg
             update.callback_query = None
             update.effective_message = msg

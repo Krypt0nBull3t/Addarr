@@ -5,6 +5,8 @@ AuthHandler manages user authentication via password. The require_auth decorator
 guards handler methods by checking AuthHandler.is_authenticated(user_id).
 """
 
+from contextlib import contextmanager
+
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 from telegram.ext import ConversationHandler
@@ -85,6 +87,109 @@ async def test_require_auth_not_authenticated(mock_ts_class, make_update, make_c
     result = await handler.guarded(update, context)
     assert result is None
     update.message.reply_text.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# require_auth — chat type enforcement
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _chat_mode_patches(mock_config):
+    """Shared patch context for chat mode enforcement tests."""
+    with patch("src.bot.handlers.auth.TranslationService") as mock_ts_class, \
+         patch("src.bot.handlers.auth.config", mock_config):
+        mock_ts = MagicMock()
+        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+        mock_ts_class.return_value = mock_ts
+        yield
+
+
+class _DummyHandler:
+    """Test handler for require_auth decorator tests."""
+    from src.bot.handlers.auth import require_auth
+
+    @require_auth
+    async def guarded(self, update, context):
+        return "allowed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("chat_type", ["group", "supergroup"])
+async def test_require_auth_rejects_non_private_chat(
+    chat_type, make_update, make_context, mock_config
+):
+    """require_auth rejects group/supergroup chats when chatMode is private_only."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type=chat_type)
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result is None
+    update.message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_require_auth_allows_private_chat(
+    make_update, make_context, mock_config
+):
+    """require_auth allows private chats through to the auth check."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type="private")
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result == "allowed"
+
+
+@pytest.mark.asyncio
+async def test_require_auth_allows_group_when_allow_all(
+    make_update, make_context, mock_config
+):
+    """require_auth allows group chats when chatMode is allow_all."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+    mock_config._set("security", {
+        "enableAdmin": False, "enableAllowlist": False, "chatMode": "allow_all"
+    })
+
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type="group")
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result == "allowed"
+
+
+@pytest.mark.asyncio
+async def test_require_auth_rejects_group_via_callback(
+    make_update, make_context, mock_config
+):
+    """require_auth replies via effective_message in group callback query."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+
+    handler = _DummyHandler()
+    update = make_update(callback_data="menu_test", chat_type="group")
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result is None
+    update.effective_message.reply_text.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -247,6 +352,73 @@ async def test_start_auth_no_user(mock_ts_class, make_update, make_context):
     result = await handler.start_auth(update, context)
 
     assert result == ConversationHandler.END
+
+
+# ---------------------------------------------------------------------------
+# start_auth — chat type enforcement
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_auth_rejects_group_chat(
+    make_update, make_context, mock_config
+):
+    """start_auth rejects group chats in private_only mode and returns END."""
+    from src.bot.handlers.auth import AuthHandler
+
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
+
+        update = make_update(text="/auth", chat_type="group")
+        context = make_context()
+
+        result = await handler.start_auth(update, context)
+
+    assert result == ConversationHandler.END
+    update.message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_start_auth_allows_private_chat(
+    make_update, make_context, mock_config
+):
+    """start_auth proceeds normally in private chats."""
+    from src.bot.handlers.auth import AuthHandler, PASSWORD
+
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
+
+        update = make_update(text="/auth", chat_type="private")
+        context = make_context()
+
+        result = await handler.start_auth(update, context)
+
+    assert result == PASSWORD
+
+
+@pytest.mark.asyncio
+async def test_start_auth_allows_group_when_allow_all(
+    make_update, make_context, mock_config
+):
+    """start_auth allows group chats when chatMode is allow_all."""
+    from src.bot.handlers.auth import AuthHandler, PASSWORD
+
+    mock_config._set("security", {
+        "enableAdmin": False, "enableAllowlist": False, "chatMode": "allow_all"
+    })
+
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
+
+        update = make_update(text="/auth", chat_type="group")
+        context = make_context()
+
+        result = await handler.start_auth(update, context)
+
+    assert result == PASSWORD
 
 
 # ---------------------------------------------------------------------------

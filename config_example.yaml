@@ -136,6 +136,7 @@ entrypoints:
 security:
   enableAdmin: false  # Enable admin features
   enableAllowlist: false  # Enable allowlist restriction
+  chatMode: private_only  # Options: private_only (reject group chats), allow_all (no restriction)
 
 # Rate Limiting Configuration
 rateLimit:
