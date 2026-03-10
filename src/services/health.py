@@ -141,9 +141,10 @@ class HealthService:
             parts.append(f"{minutes} minutes")
         return " ".join(parts) if parts else "0 seconds"
 
-    async def _check_alerts(self, current_unhealthy: set) -> None:
+    async def _check_alerts(
+        self, current_unhealthy: set, alert_config: Dict[str, Any]
+    ) -> None:
         """Check for state transitions and send alerts via NotificationService."""
-        alert_config = config.get("health_alerts", {})
         threshold = alert_config.get("flap_threshold", 2)
         notifier = NotificationService()
 
@@ -238,7 +239,7 @@ class HealthService:
                 # Send alerts if enabled
                 alert_config = config.get("health_alerts", {})
                 if alert_config.get("enable", False):
-                    await self._check_alerts(current_unhealthy)
+                    await self._check_alerts(current_unhealthy, alert_config)
 
                 if not current_unhealthy:
                     logger.info("✅ All services healthy")

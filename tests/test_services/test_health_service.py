@@ -1079,6 +1079,8 @@ class TestAlertStateInitialization:
 
 
 class TestCheckAlerts:
+    ALERT_CONFIG = {"enable": True, "flap_threshold": 2}
+
     @pytest.mark.asyncio
     async def test_single_failure_does_not_alert(self):
         """One failure is below default threshold (2) — no notification."""
@@ -1089,7 +1091,9 @@ class TestCheckAlerts:
             "src.services.health.NotificationService"
         ) as MockNS:
             MockNS.return_value = mock_notifier
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
 
         mock_notifier.notify_admin.assert_not_called()
 
@@ -1103,10 +1107,12 @@ class TestCheckAlerts:
             "src.services.health.NotificationService"
         ) as MockNS:
             MockNS.return_value = mock_notifier
-            # First failure — below threshold
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
-            # Second failure — at threshold
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
 
         mock_notifier.notify_admin.assert_called_once()
         msg = mock_notifier.notify_admin.call_args[0][0]
@@ -1123,9 +1129,15 @@ class TestCheckAlerts:
             "src.services.health.NotificationService"
         ) as MockNS:
             MockNS.return_value = mock_notifier
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
 
         # Only one alert, not two
         mock_notifier.notify_admin.assert_called_once()
@@ -1140,11 +1152,13 @@ class TestCheckAlerts:
             "src.services.health.NotificationService"
         ) as MockNS:
             MockNS.return_value = mock_notifier
-            # Push past threshold
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
-            # Recover
-            await service._check_alerts(set())
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
 
         # Two calls: one degradation, one recovery
         assert mock_notifier.notify_admin.call_count == 2
@@ -1162,8 +1176,10 @@ class TestCheckAlerts:
             "src.services.health.NotificationService"
         ) as MockNS:
             MockNS.return_value = mock_notifier
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
-            await service._check_alerts(set())
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
 
         mock_notifier.notify_admin.assert_not_called()
         # State cleaned up
@@ -1180,9 +1196,13 @@ class TestCheckAlerts:
             "src.services.health.NotificationService"
         ) as MockNS:
             MockNS.return_value = mock_notifier
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
-            await service._check_alerts({"Radarr: Error: HTTP 500"})
-            await service._check_alerts(set())
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
 
         assert "Radarr" not in service._failure_counts
         assert "Radarr" not in service._down_since
