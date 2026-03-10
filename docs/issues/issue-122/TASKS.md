@@ -36,7 +36,7 @@
         - Created `tests/test_models/test_webhook_models.py` with 37 tests
     - **Notes:** `Dict` type hint used for `details` field — could be `Dict[str, Any]` but kept simple
 
-- [ ] **1.2** Webhook message formatter
+- [x] **1.2** Webhook message formatter *(in progress)*
     - **Context:** See plan.md Phase 2. Key refs: `src/services/webhook_formatter.py` (new), `src/services/translation.py` (`TranslationService.get_text()` does single-level flat key lookup)
     - **Watch out:** `get_text()` is a flat `.get(key)` — don't use nested keys. The formatter should use `default=` parameter for fallback English text so it works even without translation files loaded. Quality comes from `event.details.get("quality", "Unknown")`.
     - **Scope:** `format_webhook_event()` function, no class needed (stateless)
@@ -47,6 +47,14 @@
         - [RED] Write tests for missing details (no quality, no title) — graceful defaults
         - [GREEN] Implement `format_webhook_event()` using TranslationService
     - **Success:** `pytest tests/test_services/test_webhook_formatter.py -v` passes
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - TranslationService.get_text() returns the key name when translation is missing — used this as detection for fallback to English defaults
+        - Need to mock TranslationService at the import site to test the translation-available path
+    - **Key Changes:**
+        - Created `src/services/webhook_formatter.py` with `format_webhook_event()` using translation fallback pattern
+        - Created `tests/test_services/test_webhook_formatter.py` with 12 tests
+    - **Notes:** The formatter uses `{title}` Python format strings for defaults, while translations use `%(title)s` python-i18n syntax
 
 - [ ] **1.3** Translation keys for all 9 languages
     - **Context:** See plan.md Phase 7. Key refs: `translations/addarr.en-us.yml` (existing keys pattern), `translations/addarr.template.yml` (template reference)
@@ -147,7 +155,7 @@
 | Task | Status | Date |
 |------|--------|------|
 | 1.1  | [x]    | 2026-03-10 |
-| 1.2  | [ ]    |      |
+| 1.2  | [x]    | 2026-03-10 |
 | 1.3  | [ ]    |      |
 | 2.1  | [ ]    |      |
 | 2.2  | [ ]    |      |
