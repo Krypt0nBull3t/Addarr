@@ -56,7 +56,7 @@
         - Created `tests/test_services/test_webhook_formatter.py` with 12 tests
     - **Notes:** The formatter uses `{title}` Python format strings for defaults, while translations use `%(title)s` python-i18n syntax
 
-- [ ] **1.3** Translation keys for all 9 languages
+- [x] **1.3** Translation keys for all 9 languages
     - **Context:** See plan.md Phase 7. Key refs: `translations/addarr.en-us.yml` (existing keys pattern), `translations/addarr.template.yml` (template reference)
     - **Watch out:** Keys must be flat top-level (not nested). Non-English files get English text initially. Use `%{variable}` syntax for interpolation (python-i18n convention).
     - **Scope:** Add webhook notification keys + wizard UI keys to all 9 translation files
@@ -66,6 +66,14 @@
         - [GREEN] Add same keys (English text) to all 8 other language files
         - [GREEN] Run `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` to verify
     - **Success:** `--validate-i18n` passes, no missing key warnings
+    - **Completed:** 2026-03-10
+    - **Learnings:**
+        - Translation keys use `%{variable}` syntax (python-i18n convention), not Python `{variable}` format strings
+        - Wizard UI keys added proactively for task 3.1 (WebhookMenuTitle, WebhookNotAdmin, WebhookSecretGenerated, etc.)
+    - **Key Changes:**
+        - Added 28 webhook translation keys to all 9 language files and template
+        - Keys cover: 8 notification types (WebhookGrab, WebhookDownload, etc.) + 20 wizard UI keys (CommandWebhooks, WebhookMenuTitle, etc.)
+    - **Notes:** Non-English files have English placeholder text — can be translated later
 
 ---
 
@@ -156,7 +164,7 @@
 |------|--------|------|
 | 1.1  | [x]    | 2026-03-10 |
 | 1.2  | [x]    | 2026-03-10 |
-| 1.3  | [ ]    |      |
+| 1.3  | [x]    | 2026-03-10 |
 | 2.1  | [ ]    |      |
 | 2.2  | [ ]    |      |
 | 3.1  | [ ]    |      |
