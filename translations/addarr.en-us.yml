@@ -48,6 +48,7 @@ en-us:
   Title: "🔍 Enter a search term:"
   What is this?: "❓ What are you looking for?"
   NotAuthorized: "🔒 You need to authenticate first.\nUse /start to begin authentication."
+  PrivateChatOnly: "🔒 This bot only works in private chats. Please message me directly."
   mainMenu: "🏠 Main Menu - Choose an action."
 
   messages:

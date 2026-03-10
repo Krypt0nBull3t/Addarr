@@ -60,6 +60,7 @@ es-es:
   Title: "🔍 Introduce el término de búsqueda:"
   What is this?: "❓ ¿Qué estás buscando?"
   NotAuthorized: "🔒 Necesitas autorizarte primero.\nUsa /start para comenzar la autenticación."
+  PrivateChatOnly: "🔒 Este bot solo funciona en chats privados. Por favor, escríbeme directamente."
   mainMenu: "🏠 Menú principal - Elige una acción."
 
   messages:
