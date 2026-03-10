@@ -5,6 +5,7 @@
 - [API Clients](#api-clients)
 - [Services](#services)
 - [Handlers](#handlers)
+- [Integration Tests](#integration-tests)
 - [Config](#config)
 - [Keyboards](#keyboards)
 - [Translations](#translations)
@@ -252,6 +253,99 @@ def test_get_handler_returns_list():
     assert isinstance(handlers, list)
     assert len(handlers) > 0
 ```
+
+---
+
+## Integration Tests
+
+Integration tests live in `tests/integration/` and exercise full conversation flows through real PTB handler chains — no Telegram connection needed.
+
+### Infrastructure
+
+| File | Purpose |
+|------|---------|
+| `conftest.py` | `BotHarness` class, update factories, `harness` and `downloads_harness` fixtures |
+| `fixtures.py` | Shared test data (search results, quality profiles, queue data) |
+| `api_mocks.py` | Mock API helper for consistent service responses |
+
+### BotHarness
+
+`BotHarness` wraps a real PTB `Application` with all handlers registered. It intercepts `HTTPXRequest.do_request` to capture outgoing bot API calls and return fake results.
+
+Key methods:
+
+```python
+await harness.send_command("/movie")          # Simulate /command
+await harness.send_text("search term")        # Simulate plain text
+await harness.tap_button("callback_data")     # Simulate inline button tap
+harness.get_conversation_state("name", chat_id, user_id)  # Inspect state
+harness.responses                             # List of all captured BotResponse objects
+harness.last_response                         # Most recent BotResponse
+```
+
+### Fixtures
+
+```python
+@pytest.fixture
+async def harness():
+    """Pre-authenticated user (12345), all standard handlers registered."""
+
+@pytest.fixture
+async def downloads_harness():
+    """Like harness but with Transmission + SABnzbd handlers enabled."""
+```
+
+### Writing a New Integration Test
+
+```python
+import pytest
+from unittest.mock import AsyncMock, patch
+from src.services.media import MediaService
+
+@pytest.mark.asyncio
+async def test_movie_happy_path(harness):
+    """/movie -> search -> select -> quality -> added."""
+    with (
+        patch.object(MediaService, "search_movies", new_callable=AsyncMock,
+                     return_value=MOVIE_SEARCH_RESULTS),
+        patch.object(MediaService, "add_movie", new_callable=AsyncMock,
+                     return_value=MOVIE_QUALITY_RESULT),
+        patch.object(MediaService, "add_movie_with_profile", new_callable=AsyncMock,
+                     return_value=(True, "Added")),
+    ):
+        resp = await harness.send_command("/movie")
+        assert "Title" in resp.text
+
+        resp = await harness.send_text("fight club")
+        assert len(harness.responses) >= 1
+
+        resp = await harness.tap_button("select_550")
+        assert "quality" in resp.text.lower()
+
+        resp = await harness.tap_button("quality_1")
+        assert "added" in resp.text.lower()
+```
+
+### Key Patterns
+
+- **Patch on the singleton class**, not the instance. Handlers hold a reference obtained at construction time, so `patch.object(MediaService, "method")` works because it patches the class-level method that the instance delegates to.
+- **Use `new_callable=AsyncMock`** for async service methods.
+- **Check `harness.responses`** (plural) when a step produces multiple bot messages (e.g., photo + text).
+- **Verify conversation state** with `harness.get_conversation_state("media_conversation", 12345, 12345)` to confirm state transitions or conversation end (`None`).
+- **Test data** goes in `tests/integration/fixtures.py` — reuse existing constants where possible.
+
+### When to Write Integration Tests
+
+Write an integration test when a task:
+- Adds a new command or conversation flow
+- Adds new states or callback routes to an existing flow
+- Changes how handlers interact (e.g., auth gating, cancel behavior)
+- Modifies conversation state transitions
+
+Skip integration tests for:
+- API client changes (covered by unit tests with `aioresponses`)
+- Service logic changes (covered by unit tests with mock clients)
+- Config, utils, translations, CI, docs changes
 
 ---
 
