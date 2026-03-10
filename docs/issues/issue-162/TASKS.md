@@ -199,7 +199,7 @@
 
 **Goal:** Integration tests for handlers using ConversationHandler with state machines.
 
-- [ ] **4.1** Settings handler integration test (admin flow)
+- [x] **4.1** Settings handler integration test (admin flow)
     - **Context:** See plan.md Task 4.1. Key refs: `src/bot/handlers/settings.py` — `/settings` command, `settings_conversation` ConversationHandler. Admin-only via `is_admin()` from `src.definitions`.
     - **Watch out:** Must patch `src.bot.handlers.settings.is_admin` (not `src.definitions.is_admin`). Must also patch `config.update_nested` and `config.save` as no-ops to prevent disk writes.
     - **Scope:** Admin access + non-admin rejection + language flow + back
@@ -211,6 +211,10 @@
         - [RED] Write test: settings → back ends conversation
         - [GREEN] Run tests
     - **Success:** `pytest tests/integration/test_settings_flow.py -v` — 4 tests pass
+    - **Completed:** 2026-03-10
+    - **Learnings:** Language flow requires patching `config` at handler import site to intercept `update_nested`/`save`. `MagicMock` for config with explicit `get`/`update_nested`/`save` works cleanly.
+    - **Key Changes:** Created `tests/integration/test_settings_flow.py` with 4 tests: admin menu, non-admin rejection, language select flow, back ends conversation.
+    - **Notes:** None.
 
 - [ ] **4.2** Bazarr handler integration test
     - **Context:** See plan.md Task 4.2. Key refs: `src/bot/handlers/bazarr.py` — `/subtitles` command, `bazarr_wanted_movies`, `bazarr_cancel` callbacks. Uses `BazarrService` singleton. Requires `bazarr_harness` fixture from task 1.1.
