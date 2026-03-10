@@ -30,7 +30,7 @@
 
 **Goal:** Chat type checking in `require_auth` decorator and `AuthHandler.start_auth`.
 
-- [ ] **2.1** Add chat type check to `require_auth` decorator
+- [x] **2.1** Add chat type check to `require_auth` decorator
     - **Context:** See plan.md Task 2.1. Key refs: `src/bot/handlers/auth.py:37-51` (require_auth). The decorator guards 15+ handler methods — adding the check here covers all of them. Must handle both message and callback query reply paths.
     - **Watch out:** `update.message` is None for callback queries — use `update.effective_chat` for the type check, and branch reply logic. Config access: `config.get("security", {}).get("chatMode", "private_only")`. For callback rejections use `update.callback_query.answer(msg, show_alert=True)`.
     - **Scope:** Modify `require_auth` to check chat type before auth, add ~5 tests
@@ -39,8 +39,12 @@
         - [RED] Write tests: group chat rejected, supergroup rejected, private chat allowed, allow_all mode allows group, callback query in group answered with alert
         - [GREEN] Add chat type check to `require_auth` before the auth check
     - **Success:** All new tests pass, existing tests still pass, `flake8` clean
+    - **Completed:** 2026-03-10
+    - **Learnings:** The `effective_chat` fix from task 1.1 was essential — callback query updates now properly expose chat type for the decorator check.
+    - **Key Changes:** `src/bot/handlers/auth.py` (require_auth decorator), `tests/test_handlers/test_auth_handler.py` (+5 tests)
+    - **Notes:** Callback rejections use `show_alert=True` so users see a popup alert in Telegram rather than a silent toast.
 
-- [ ] **2.2** Add chat type check to `AuthHandler.start_auth`
+- [x] **2.2** Add chat type check to `AuthHandler.start_auth`
     - **Context:** See plan.md Task 2.2. Key refs: `src/bot/handlers/auth.py:102-128` (start_auth). This method is NOT decorated with `@require_auth` — it needs its own chat type check to prevent password exposure in group chats.
     - **Watch out:** Must return `ConversationHandler.END` when rejecting, not just `None`. Check goes before the "already authenticated" check.
     - **Scope:** Modify `start_auth`, add ~3 tests
@@ -49,3 +53,7 @@
         - [RED] Write tests: start_auth rejects group chat (returns END), allows private, allows group with allow_all
         - [GREEN] Add chat type check at top of `start_auth`
     - **Success:** All tests pass, `flake8` clean, `pytest --cov=src.bot.handlers.auth --cov-report=term-missing` shows 100% on new lines
+    - **Completed:** 2026-03-10
+    - **Learnings:** `start_auth` is wrapped by `@rate_limit("auth")` — the chat type check goes inside `start_auth` after the None guards, not as a separate decorator.
+    - **Key Changes:** `src/bot/handlers/auth.py` (start_auth method), `tests/test_handlers/test_auth_handler.py` (+3 tests)
+    - **Notes:** 100% coverage on auth.py. All 1869 tests pass.
