@@ -46,10 +46,10 @@ async def _enforce_private_chat(update: Update) -> bool:
         "PrivateChatOnly",
         default="🔒 This bot only works in private chats."
     )
-    if update.callback_query:
+    if update.effective_message:
+        await update.effective_message.reply_text(msg)
+    elif update.callback_query:
         await update.callback_query.answer(msg, show_alert=True)
-    elif update.message:
-        await update.message.reply_text(msg)
     return True
 
 

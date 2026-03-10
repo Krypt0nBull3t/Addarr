@@ -177,7 +177,7 @@ async def test_require_auth_allows_group_when_allow_all(
 async def test_require_auth_rejects_group_via_callback(
     make_update, make_context, mock_config
 ):
-    """require_auth answers callback query with alert in group chat."""
+    """require_auth replies via effective_message in group callback query."""
     from src.bot.handlers.auth import AuthHandler
     AuthHandler._authenticated_users = {12345}
 
@@ -189,9 +189,7 @@ async def test_require_auth_rejects_group_via_callback(
         result = await handler.guarded(update, context)
 
     assert result is None
-    update.callback_query.answer.assert_called_once()
-    call_kwargs = update.callback_query.answer.call_args
-    assert call_kwargs[1].get("show_alert") is True
+    update.effective_message.reply_text.assert_called_once()
 
 
 @pytest.mark.asyncio
