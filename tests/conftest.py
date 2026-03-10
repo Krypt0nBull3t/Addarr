@@ -81,6 +81,21 @@ MOCK_CONFIG_DATA = {
             "auth": {"maxRequests": 3, "windowSeconds": 300},
         },
     },
+    "webhooks": {
+        "enable": False,
+        "port": 8080,
+        "host": "0.0.0.0",
+        "radarr_secret": None,
+        "sonarr_secret": None,
+        "lidarr_secret": None,
+        "events": {
+            "grab": True,
+            "download": True,
+            "upgrade": True,
+            "health": True,
+            "failure": True,
+        },
+    },
     "enableAllowlist": False, "logToConsole": False, "debugLogging": False,
 }
 
@@ -215,6 +230,7 @@ def reset_singletons():
     from src.services.sabnzbd import SABnzbdService
     from src.services.preferences import PreferencesService
     from src.services.rate_limit import RateLimitService
+    from src.services.webhook import WebhookService
     from src.bot.handlers.auth import AuthHandler
 
     # Reset singletons
@@ -242,6 +258,11 @@ def reset_singletons():
 
     RateLimitService._instance = None
     RateLimitService._records = {}
+
+    WebhookService._instance = None
+    WebhookService._enabled = False
+    WebhookService._running = False
+    WebhookService._runner = None
 
     AuthHandler._authenticated_users = set()
 

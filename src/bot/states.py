@@ -27,5 +27,10 @@ class States:
     # Auth states
     PASSWORD = 0
 
+    # Webhook wizard states
+    WEBHOOK_MENU = "webhook_menu"
+    WEBHOOK_EVENTS = "webhook_events"
+    WEBHOOK_CHANGE_PORT = "webhook_change_port"
+
     # General states
     END = "end"

@@ -40,6 +40,7 @@ def build_authenticated_commands() -> list:
         BotCommand("settings", translation.get_text("CommandSettings")),
         BotCommand("preferences", translation.get_text("CommandPreferences")),
         BotCommand("delete", translation.get_text("CommandDelete")),
+        BotCommand("webhooks", translation.get_text("CommandWebhooks")),
     ]
 
     if config.get("radarr", {}).get("enable"):

@@ -70,6 +70,7 @@ def _make_handler_patches():
         "HelpHandler": _mock_handler_class(),
         "PreferencesHandler": _mock_handler_class(),
         "SystemHandler": _mock_handler_class(),
+        "WebhooksHandler": _mock_handler_class(),
     }
 
 
@@ -271,15 +272,15 @@ class TestAddHandlers:
     """Tests for AddarrBot._add_handlers()."""
 
     def test_always_on_handlers_registered(self, bot, mock_app):
-        """All 12 always-on handlers are registered."""
+        """All 15 always-on handlers are registered."""
         bot.application = mock_app
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 14 always-on handlers (Start, Auth, Media, Settings, Delete,
+        # 15 always-on handlers (Start, Auth, Media, Settings, Delete,
         # Library, Calendar, Missing, Queue, History, Downloads, Help,
-        # Preferences, System)
-        assert mock_app.add_handler.call_count == 14
+        # Preferences, System, Webhooks)
+        assert mock_app.add_handler.call_count == 15
 
     @patch("src.main.config")
     def test_transmission_enabled(self, mock_cfg, bot, mock_app):
@@ -296,8 +297,8 @@ class TestAddHandlers:
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 14 always-on + 1 transmission
-        assert mock_app.add_handler.call_count == 15
+        # 15 always-on + 1 transmission
+        assert mock_app.add_handler.call_count == 16
 
     @patch("src.main.config")
     def test_sabnzbd_enabled(self, mock_cfg, bot, mock_app):
@@ -314,8 +315,8 @@ class TestAddHandlers:
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 14 always-on + 1 sabnzbd
-        assert mock_app.add_handler.call_count == 15
+        # 15 always-on + 1 sabnzbd
+        assert mock_app.add_handler.call_count == 16
 
     @patch("src.main.config")
     def test_both_optional_enabled(self, mock_cfg, bot, mock_app):
@@ -332,8 +333,8 @@ class TestAddHandlers:
         with patch.multiple("src.main", **_make_handler_patches()):
             bot._add_handlers()
 
-        # 14 + 2
-        assert mock_app.add_handler.call_count == 16
+        # 15 + 2
+        assert mock_app.add_handler.call_count == 17
 
     def test_handler_error_reraises(self, bot, mock_app):
         """Exception during handler registration is re-raised."""
@@ -455,6 +456,98 @@ class TestStop:
 
         # Should not raise
         await bot.stop()
+
+
+# ---- Webhook lifecycle integration ----
+
+
+class TestWebhookLifecycleIntegration:
+    """Tests for webhook server start/stop in AddarrBot lifecycle."""
+
+    @pytest.mark.asyncio
+    async def test_webhook_starts_when_enabled(self, bot, mock_app):
+        """Webhook server starts when webhooks.enable is True."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+
+        mock_ws = MagicMock()
+        mock_ws.is_enabled.return_value = True
+        mock_ws.start = AsyncMock()
+
+        mock_ns = MagicMock()
+
+        async def stop_after_first_sleep(_):
+            bot._running = False
+
+        with patch("src.main.asyncio.sleep", side_effect=stop_after_first_sleep):
+            with patch("src.main.asyncio.create_task"):
+                with patch("src.main.WebhookService", return_value=mock_ws):
+                    with patch("src.main.NotificationService", return_value=mock_ns):
+                        await bot.start()
+
+        mock_ws.start.assert_awaited_once()
+        mock_ns.set_bot.assert_called_once_with(mock_app.bot)
+
+    @pytest.mark.asyncio
+    async def test_webhook_does_not_start_when_disabled(self, bot, mock_app):
+        """Webhook server does NOT start when webhooks.enable is False."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+
+        mock_ws = MagicMock()
+        mock_ws.is_enabled.return_value = False
+        mock_ws.start = AsyncMock()
+
+        async def stop_after_first_sleep(_):
+            bot._running = False
+
+        with patch("src.main.asyncio.sleep", side_effect=stop_after_first_sleep):
+            with patch("src.main.asyncio.create_task"):
+                with patch("src.main.WebhookService", return_value=mock_ws):
+                    with patch("src.main.NotificationService"):
+                        await bot.start()
+
+        mock_ws.start.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_stop_calls_webhook_stop(self, bot, mock_app):
+        """stop() calls webhook_service.stop() when webhook was started."""
+        bot.application = mock_app
+        bot._running = True
+        bot.health_checker = MagicMock()
+        bot.health_checker.stop = AsyncMock()
+
+        mock_ws = MagicMock()
+        mock_ws.stop = AsyncMock()
+        bot._webhook_service = mock_ws
+
+        await bot.stop()
+
+        mock_ws.stop.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_notification_service_set_bot_called(self, bot, mock_app):
+        """NotificationService.set_bot() is called with application.bot."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+
+        mock_ns = MagicMock()
+        mock_ws = MagicMock()
+        mock_ws.is_enabled.return_value = False
+
+        async def stop_after_first_sleep(_):
+            bot._running = False
+
+        with patch("src.main.asyncio.sleep", side_effect=stop_after_first_sleep):
+            with patch("src.main.asyncio.create_task"):
+                with patch("src.main.NotificationService", return_value=mock_ns):
+                    with patch("src.main.WebhookService", return_value=mock_ws):
+                        await bot.start()
+
+        mock_ns.set_bot.assert_called_once_with(mock_app.bot)
 
 
 # ---- main() ----

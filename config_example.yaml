@@ -87,6 +87,24 @@ lidarr:
   adminRestrictions: false
   metadataProfileId: 1
 
+# Webhook Notifications (Optional)
+# Receives events from *arr services for download lifecycle notifications
+webhooks:
+  enable: false  # Set to true to enable webhook receiver
+  port: 8080  # Port for the webhook HTTP server
+  host: 0.0.0.0  # Host to bind the webhook server to
+  # Per-service webhook secrets (must match X-Webhook-Secret header in each *arr app)
+  radarr_secret:
+  sonarr_secret:
+  lidarr_secret:
+  # Event types to notify on (all enabled by default)
+  events:
+    grab: true
+    download: true
+    upgrade: true
+    health: true
+    failure: true
+
 # Download Clients Configuration (Optional)
 # ---------------------------------------
 
