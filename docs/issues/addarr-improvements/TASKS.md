@@ -175,7 +175,7 @@
     - **Key Changes:** Created `.claude/skills/telegram-ux-review/SKILL.md` with 4 phases (Keyboard Consistency, Flow Efficiency, Information Density, Accessibility). Includes known filter checkmark inconsistency as an example.
     - **Notes:** Description follows "Use when..." CSO pattern and includes specific Telegram constraint numbers for discoverability.
 
-- [ ] **3.4** Create post-PR retrospective workflow reference
+- [x] **3.4** Create post-PR retrospective workflow reference
     - **Context:**
         - **Why:** TASKS.md completion metadata captures learnings, but nothing systematically extracts them into durable skill updates. Patterns discovered during implementation get lost after the PR merges.
         - **Architecture:** New reference file at `.claude/skills/addarr-workflow/references/retrospective.md`. Adds an optional post-merge step to the workflow: read completion metadata → categorize learnings → suggest skill/convention updates → user reviews and approves.
@@ -188,3 +188,7 @@
         - [GREEN] Add optional post-merge step reference in `addarr-workflow/SKILL.md`
         - [GREEN] Include example: show what a learning entry looks like and how it maps to a skill update suggestion
     - **Success:** Retrospective reference exists with categorization logic and example. Workflow mentions it as optional post-merge step.
+    - **Completed:** 2026-03-11
+    - **Learnings:** Retrospective is a reference file (not a standalone skill) since it's an optional workflow step, not independently invocable. The categorization table maps learning types to specific target files.
+    - **Key Changes:** Created `references/retrospective.md` with 4-step extract-categorize-present-apply process. Added "Optional: Post-Merge Retrospective" section to `addarr-workflow/SKILL.md`.
+    - **Notes:** This is human-reviewed by design — never auto-updates skills. The categorization table covers 5 target types: anti-patterns, conventions, bug patterns, fixture patterns, workflow improvements.

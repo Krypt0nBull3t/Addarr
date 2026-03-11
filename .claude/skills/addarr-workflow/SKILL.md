@@ -142,6 +142,10 @@ Step 4  ASK     If READY, confirm user wants to create the merge PR to main
 Step 5  RUN     If confirmed: gh pr create --base main --head development
 ```
 
+## Optional: Post-Merge Retrospective
+
+After a PR is merged, optionally run the retrospective process to extract durable learnings from TASKS.md completion metadata. See [references/retrospective.md](references/retrospective.md) for the categorization process. Human-reviewed — never auto-updates skills.
+
 ---
 
 ## Execution Loop
