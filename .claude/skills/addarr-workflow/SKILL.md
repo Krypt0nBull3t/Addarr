@@ -109,6 +109,10 @@ Step 4  RUN     Verify readiness (not on main/development, all committed, push i
 Step 5  RUN     Generate PR title + body from commits and issue context
 Step 6  RUN     gh pr create --base development
 Step 7  RUN     Report PR URL
+Step 8  RUN     Retrospective: extract learnings from TASKS.md completion
+                metadata and suggest durable skill/convention updates.
+                See [references/retrospective.md](references/retrospective.md).
+                Human-reviewed — never auto-updates skills.
 ```
 
 ## Flow: preflight
@@ -127,6 +131,18 @@ Step 3  RUN     mypy src/
 Step 4  RUN     PYTHONIOENCODING=utf-8 python run.py --validate-i18n
                 On failure: report missing/malformed keys
 Step 5  RUN     Report results summary (1-2 lines)
+```
+
+## Flow: release
+
+Full readiness check before merging `development` -> `main`. Invokes the `@release-readiness` skill.
+
+```
+Step 1  RUN     Checkout development branch, ensure up-to-date with origin
+Step 2  INVOKE  @release-readiness (runs all 4 phases)
+Step 3  RUN     Report final verdict: READY or NOT READY
+Step 4  ASK     If READY, confirm user wants to create the merge PR to main
+Step 5  RUN     If confirmed: gh pr create --base main --head development
 ```
 
 ---

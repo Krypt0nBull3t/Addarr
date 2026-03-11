@@ -261,3 +261,31 @@ with patch("asyncio.sleep", new_callable=AsyncMock):
 ```
 
 **Why**: `aioresponses` mocks are consumed in FIFO order per URL. Each request consumes one mock. If the client retries twice after the initial failure, you need 3 mocks total. Also remember to patch `asyncio.sleep` to avoid real delays during retries.
+
+---
+
+## Incomplete AST Decorator Detection
+
+**Don't** check only `ast.Name` when detecting decorators via AST:
+
+```python
+# BAD - misses @require_auth("role") and @require_auth() forms
+for dec in node.decorator_list:
+    if isinstance(dec, ast.Name) and dec.id == "require_auth":
+        return True
+```
+
+**Instead**, handle both bare decorators and parameterized (call) forms:
+
+```python
+# GOOD - catches @require_auth, @require_auth(), @require_auth("role")
+for dec in node.decorator_list:
+    if isinstance(dec, ast.Name) and dec.id == "require_auth":
+        return True
+    if isinstance(dec, ast.Call):
+        func = dec.func
+        if isinstance(func, ast.Name) and func.id == "require_auth":
+            return True
+```
+
+**Why**: Python decorators appear as `ast.Name` when bare (`@decorator`) but as `ast.Call` when parameterized (`@decorator()` or `@decorator(args)`). Missing either form causes false negatives in convention tests like `test_handler_entry_points_have_require_auth`.
