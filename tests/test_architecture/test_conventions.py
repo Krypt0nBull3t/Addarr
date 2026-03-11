@@ -85,6 +85,114 @@ def _class_inherits_from(class_node, base_name):
     return False
 
 
+def _get_call_name(call_node):
+    """Get the function/class name from an ast.Call node."""
+    if isinstance(call_node.func, ast.Name):
+        return call_node.func.id
+    if isinstance(call_node.func, ast.Attribute):
+        return call_node.func.attr
+    return None
+
+
+def _extract_self_methods(node):
+    """Extract all self.method attribute names from an AST subtree."""
+    methods = []
+    for child in ast.walk(node):
+        if (isinstance(child, ast.Attribute)
+                and isinstance(child.value, ast.Name)
+                and child.value.id == "self"):
+            methods.append(child.attr)
+    return methods
+
+
+def _extract_entry_point_methods(class_node):
+    """Extract method names used as handler entry points in get_handler().
+
+    Entry points are:
+    - Callback methods in standalone CommandHandler calls
+    - Callback methods in ConversationHandler entry_points lists
+    """
+    get_handler = None
+    for node in class_node.body:
+        if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name == "get_handler"):
+            get_handler = node
+            break
+    if not get_handler:
+        return []
+
+    # Find the return statement
+    return_node = None
+    for node in ast.walk(get_handler):
+        if isinstance(node, ast.Return) and node.value is not None:
+            return_node = node
+            break
+    if not return_node or not isinstance(return_node.value, ast.List):
+        return []
+
+    methods = []
+    for elt in return_node.value.elts:
+        if not isinstance(elt, ast.Call):
+            continue
+
+        func_name = _get_call_name(elt)
+
+        if func_name == "ConversationHandler":
+            # Extract self.method references from entry_points keyword
+            for kw in elt.keywords:
+                if kw.arg == "entry_points":
+                    methods.extend(_extract_self_methods(kw.value))
+        elif func_name == "CommandHandler":
+            # The callback is the 2nd positional arg: CommandHandler(cmd, self.method)
+            if len(elt.args) >= 2:
+                arg = elt.args[1]
+                if (isinstance(arg, ast.Attribute)
+                        and isinstance(arg.value, ast.Name)
+                        and arg.value.id == "self"):
+                    methods.append(arg.attr)
+
+    return methods
+
+
+def _method_has_decorator(class_node, method_name, decorator_name):
+    """Check if a method in a class has a specific decorator."""
+    for node in class_node.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if node.name != method_name:
+            continue
+        # Found the method — check its decorators
+        for dec in node.decorator_list:
+            if isinstance(dec, ast.Name) and dec.id == decorator_name:
+                return True
+            if isinstance(dec, ast.Attribute) and dec.attr == decorator_name:
+                return True
+            # Handle @decorator(args) form
+            if isinstance(dec, ast.Call):
+                if (isinstance(dec.func, ast.Name)
+                        and dec.func.id == decorator_name):
+                    return True
+                if (isinstance(dec.func, ast.Attribute)
+                        and dec.func.attr == decorator_name):
+                    return True
+        # Method found but decorator not present
+        return False
+    # Method not found in class
+    return False
+
+
+# Handler entry points that intentionally skip @require_auth.
+# Each entry documents why the exemption is safe.
+AUTH_ALLOWLIST = {
+    # AuthHandler IS the auth flow — requiring auth to authenticate is circular
+    "AuthHandler.start_auth",
+    # TransmissionHandler uses is_enabled() check instead
+    "TransmissionHandler.transmission_command",
+    # Triggered from StartHandler menu which already enforces auth
+    "MediaHandler.handle_menu_callback",
+}
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -274,6 +382,33 @@ def test_media_state_constants_in_sync():
     assert not mismatches, (
         "Media state constants out of sync:\n"
         + "\n".join(f"  {m}" for m in mismatches)
+    )
+
+
+def test_handler_entry_points_have_require_auth():
+    """Handler entry points must use @require_auth unless allowlisted.
+
+    Entry points are methods wired as callbacks in CommandHandler or
+    in ConversationHandler entry_points. Missing @require_auth means
+    unauthenticated users can access the command.
+    """
+    missing = []
+    for filepath in _get_python_files(HANDLERS_DIR):
+        for cls in _get_classes_in_file(filepath):
+            if not cls.name.endswith("Handler"):
+                continue
+            entry_methods = _extract_entry_point_methods(cls)
+            for method_name in entry_methods:
+                qualified = f"{cls.name}.{method_name}"
+                if qualified in AUTH_ALLOWLIST:
+                    continue
+                if not _method_has_decorator(cls, method_name, "require_auth"):
+                    missing.append(qualified)
+
+    assert not missing, (
+        "Handler entry points missing @require_auth "
+        "(add to AUTH_ALLOWLIST if intentional):\n"
+        + "\n".join(f"  {m}" for m in missing)
     )
 
 

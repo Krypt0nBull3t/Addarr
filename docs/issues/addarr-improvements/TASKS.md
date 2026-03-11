@@ -48,7 +48,7 @@
     - **Key Changes:** Added `MEDIA_STATE_NAMES` constant and `test_media_state_constants_in_sync` to `tests/test_architecture/test_conventions.py`
     - **Notes:** Only the 5 media states are compared; non-media states (SETTINGS_MENU, PASSWORD, etc.) in States class are intentionally excluded.
 
-- [ ] **1.3** `@require_auth` coverage check test
+- [x] **1.3** `@require_auth` coverage check test
     - **Context:**
         - **Why:** Handler entry points (methods wired into `CommandHandler`/`ConversationHandler` `entry_points`) should have `@require_auth` unless explicitly exempted. A missing decorator means unauthenticated users can access the command. Currently only caught by manual review.
         - **Architecture:** AST-based test. Scan all `*Handler` classes in `src/bot/handlers/`, find methods referenced in `get_handler()` return values as entry_points, check each for `require_auth` in its decorator list. Explicit allowlist for intentionally unprotected handlers.
@@ -67,6 +67,16 @@
         - [GREEN] Implement decorator check: for each entry point method name, find matching method def in the class and check `decorator_list`
         - [GREEN] Define `AUTH_ALLOWLIST` constant with documented rationale for each exemption
     - **Success:** `pytest tests/test_architecture/test_conventions.py::test_handler_entry_points_have_require_auth -v` passes. Adding a new handler without `@require_auth` would fail unless added to allowlist.
+    - **Completed:** 2026-03-11
+    - **Learnings:**
+        - `MediaHandler.handle_menu_callback` is in ConversationHandler entry_points (triggered from start menu) but doesn't need @require_auth since the start menu already enforces it — needed allowlisting.
+        - AST extraction of entry points requires distinguishing between ConversationHandler entry_points and standalone CommandHandler callbacks. CallbackQueryHandler at the return list level is intentionally excluded (not a user-triggerable command).
+        - `_method_has_decorator` must handle both `@require_auth` and `@require_auth()` (call) forms.
+    - **Key Changes:**
+        - Added `_get_call_name()`, `_extract_self_methods()`, `_extract_entry_point_methods()`, `_method_has_decorator()` AST helpers
+        - Added `AUTH_ALLOWLIST` with 3 exempted methods (AuthHandler.start_auth, TransmissionHandler.transmission_command, MediaHandler.handle_menu_callback)
+        - Added `test_handler_entry_points_have_require_auth` test
+    - **Notes:** When adding new handlers, if they don't use @require_auth, add to AUTH_ALLOWLIST with a comment explaining why. Test only checks CommandHandler callbacks and ConversationHandler entry_points, not standalone CallbackQueryHandler.
 
 ---
 
