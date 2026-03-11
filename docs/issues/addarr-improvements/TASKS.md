@@ -139,7 +139,7 @@
     - **Key Changes:** Created `.claude/skills/security-audit/SKILL.md` with 4-phase checklist (Auth Surface, Secret Surface, API Surface, Telegram Surface). Follows find-bugs output format.
     - **Notes:** Skill is now discoverable in the skills list. Description follows "Use when..." CSO pattern per writing-skills guidelines.
 
-- [ ] **3.2** Create release readiness skill + workflow integration
+- [x] **3.2** Create release readiness skill + workflow integration
     - **Context:**
         - **Why:** No gate exists for `development` → `main` merges. The existing preflight (pytest, flake8, mypy, i18n) is a subset — missing code quality review, coverage thresholds, documentation checks, and Docker build verification.
         - **Architecture:** New skill at `.claude/skills/release-readiness/SKILL.md`. Four-phase checklist (Code Quality → Test Confidence → Documentation → Release Safety). Also add `/addarr release` entry point to `addarr-workflow/SKILL.md`.
@@ -152,6 +152,10 @@
         - [GREEN] Add `/addarr release` row to the flow table in `addarr-workflow/SKILL.md`
         - [GREEN] Verify both the new skill and the workflow integration load correctly
     - **Success:** `/release-readiness` skill exists with all 4 phases. `/addarr release` appears in workflow flow table and routes to the readiness check.
+    - **Completed:** 2026-03-11
+    - **Learnings:** Workflow description field needs to include all triggers for discoverability. Added `/addarr release` to both the flow table and the description frontmatter.
+    - **Key Changes:** Created `.claude/skills/release-readiness/SKILL.md` with 4-phase checklist. Added `/addarr release` flow entry and release flow definition to `addarr-workflow/SKILL.md`.
+    - **Notes:** The release flow defaults to NOT READY — all checks must pass. Asks user confirmation before creating the merge PR to main.
 
 - [ ] **3.3** Create Telegram UX review skill
     - **Context:**

@@ -1,6 +1,6 @@
 ---
 name: addarr-workflow
-description: "Development workflow for Addarr. Invoke via /addarr command. Triggers: /addarr, /addarr new, /addarr continue, /addarr feedback, /addarr pr, /addarr check. Handles: issue selection, branch management, planning, PR creation, preflight validation, PR feedback."
+description: "Development workflow for Addarr. Invoke via /addarr command. Triggers: /addarr, /addarr new, /addarr continue, /addarr feedback, /addarr pr, /addarr check, /addarr release. Handles: issue selection, branch management, planning, PR creation, preflight validation, PR feedback, release readiness."
 ---
 
 # Addarr Workflow
@@ -32,6 +32,7 @@ Self-driving development workflow for Addarr. Entry point: `/addarr [argument]`
 | `/addarr feedback` | feedback | Process PR review comments |
 | `/addarr pr` | create-pr | Review -> preflight -> push -> create PR |
 | `/addarr check` | preflight | Run CI checks locally |
+| `/addarr release` | release | Full readiness check for development -> main merge |
 
 ## Auto-Detection (no argument)
 
@@ -127,6 +128,18 @@ Step 3  RUN     mypy src/
 Step 4  RUN     PYTHONIOENCODING=utf-8 python run.py --validate-i18n
                 On failure: report missing/malformed keys
 Step 5  RUN     Report results summary (1-2 lines)
+```
+
+## Flow: release
+
+Full readiness check before merging `development` -> `main`. Invokes the `@release-readiness` skill.
+
+```
+Step 1  RUN     Checkout development branch, ensure up-to-date with origin
+Step 2  INVOKE  @release-readiness (runs all 4 phases)
+Step 3  RUN     Report final verdict: READY or NOT READY
+Step 4  ASK     If READY, confirm user wants to create the merge PR to main
+Step 5  RUN     If confirmed: gh pr create --base main --head development
 ```
 
 ---
