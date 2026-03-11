@@ -20,7 +20,4 @@ settings.local.json
 .coverage
 htmlcov/
 user_preferences.json
-
-# Aider
-.aider.*
-.aider.tags.cache.v4/
+.aider*
