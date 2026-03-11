@@ -157,7 +157,7 @@
     - **Key Changes:** Created `.claude/skills/release-readiness/SKILL.md` with 4-phase checklist. Added `/addarr release` flow entry and release flow definition to `addarr-workflow/SKILL.md`.
     - **Notes:** The release flow defaults to NOT READY — all checks must pass. Asks user confirmation before creating the merge PR to main.
 
-- [ ] **3.3** Create Telegram UX review skill
+- [x] **3.3** Create Telegram UX review skill
     - **Context:**
         - **Why:** Traditional UI/UX tooling doesn't apply to Telegram bots. Known inconsistencies exist (e.g., `✓` vs `•` for active filters between queue/missing and history keyboards). No systematic way to audit keyboard patterns, flow efficiency, or message formatting.
         - **Architecture:** New skill at `.claude/skills/telegram-ux-review/SKILL.md`. Four-phase checklist (Keyboard Consistency → Flow Efficiency → Information Density → Accessibility). Output format matches `find-bugs`.
@@ -170,6 +170,10 @@
         - [GREEN] Verify Telegram-specific constraints (character limits, callback_data size) are concrete, not generic
         - [GREEN] Verify skill references the correct key files (`keyboards.py`, `formatters.py`, `handler.py`)
     - **Success:** `/telegram-ux-review` skill exists with all 4 phases, references Telegram platform constraints, and includes known issues as examples.
+    - **Completed:** 2026-03-11
+    - **Learnings:** Telegram has hard platform constraints (64-byte callback_data, 1024-char caption, 4096-char text) that must be documented as concrete limits, not generic UX advice. Including a constraints table at the top makes the skill immediately useful.
+    - **Key Changes:** Created `.claude/skills/telegram-ux-review/SKILL.md` with 4 phases (Keyboard Consistency, Flow Efficiency, Information Density, Accessibility). Includes known filter checkmark inconsistency as an example.
+    - **Notes:** Description follows "Use when..." CSO pattern and includes specific Telegram constraint numbers for discoverability.
 
 - [ ] **3.4** Create post-PR retrospective workflow reference
     - **Context:**
