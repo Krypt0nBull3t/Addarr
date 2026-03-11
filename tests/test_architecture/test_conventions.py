@@ -246,6 +246,37 @@ def test_media_config_dispatch_integrity():
     )
 
 
+# Media state names that must be in sync between dispatch.py and States.
+MEDIA_STATE_NAMES = [
+    "SEARCHING", "SELECTING", "QUALITY_SELECT", "SEASON_SELECT", "ALBUM_SELECT",
+]
+
+
+def test_media_state_constants_in_sync():
+    """Media state constants in dispatch.py must match States class values.
+
+    States are duplicated in dispatch.py (module-level constants) and
+    states.py (States class attributes). A drift would cause
+    ConversationHandler state routing to silently break.
+    """
+    from src.bot.handlers.media import dispatch as dispatch_module
+    from src.bot.states import States
+
+    mismatches = []
+    for name in MEDIA_STATE_NAMES:
+        dispatch_val = getattr(dispatch_module, name, "<MISSING>")
+        states_val = getattr(States, name, "<MISSING>")
+        if dispatch_val != states_val:
+            mismatches.append(
+                f"{name}: dispatch.py={dispatch_val}, States={states_val}"
+            )
+
+    assert not mismatches, (
+        "Media state constants out of sync:\n"
+        + "\n".join(f"  {m}" for m in mismatches)
+    )
+
+
 def test_no_config_bracket_access_in_business_logic():
     """Business logic must use config.get() instead of config["key"].
 

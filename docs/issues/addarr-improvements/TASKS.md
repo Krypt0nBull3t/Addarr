@@ -31,7 +31,7 @@
     - **Key Changes:** Added `_extract_media_config_methods()` AST helper and `test_media_config_dispatch_integrity` to `tests/test_architecture/test_conventions.py`
     - **Notes:** The helper skips `config_key` entries (config section names, not method names). If MEDIA_CONFIG structure changes, the extractor may need updating.
 
-- [ ] **1.2** State constant sync check test
+- [x] **1.2** State constant sync check test
     - **Context:**
         - **Why:** Media state constants are duplicated: `dispatch.py` lines 12-16 (`SEARCHING=1` through `ALBUM_SELECT=5`) and `states.py` lines 13-17 (`States.SEARCHING=1` through `States.ALBUM_SELECT=5`). No enforcement keeps them in sync — a drift would cause ConversationHandler state routing to silently break.
         - **Architecture:** Direct comparison test — import both sources and assert equality. No AST parsing needed since both are importable.
@@ -43,6 +43,10 @@
         - [RED] Write `test_media_state_constants_in_sync` — define the list of media state names (`SEARCHING`, `SELECTING`, `QUALITY_SELECT`, `SEASON_SELECT`, `ALBUM_SELECT`), compare `getattr(dispatch_module, name)` vs `getattr(States, name)` for each
         - [GREEN] Implement the test. Import `src.bot.handlers.media.dispatch` and `src.bot.states.States`
     - **Success:** `pytest tests/test_architecture/test_conventions.py::test_media_state_constants_in_sync -v` passes. Clear failure message if values diverge (e.g., `"SELECTING: dispatch.py=2, States=3"`).
+    - **Completed:** 2026-03-11
+    - **Learnings:** Simple direct-import comparison is cleaner than AST parsing when both sources are importable. The `<MISSING>` sentinel handles the case where a state name doesn't exist in one source.
+    - **Key Changes:** Added `MEDIA_STATE_NAMES` constant and `test_media_state_constants_in_sync` to `tests/test_architecture/test_conventions.py`
+    - **Notes:** Only the 5 media states are compared; non-media states (SETTINGS_MENU, PASSWORD, etc.) in States class are intentionally excluded.
 
 - [ ] **1.3** `@require_auth` coverage check test
     - **Context:**
