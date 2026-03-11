@@ -181,6 +181,71 @@ def _find_config_bracket_access(filepath):
     return violations
 
 
+def _extract_media_config_methods(filepath):
+    """Extract method name strings from the MEDIA_CONFIG dict in dispatch.py.
+
+    Walks the AST to find the MEDIA_CONFIG assignment, then extracts all
+    string values that are NOT under the 'config_key' key (those are config
+    section names, not MediaService method names).
+    """
+    with open(filepath, "r", encoding="utf-8") as f:
+        tree = ast.parse(f.read(), filename=filepath)
+
+    methods = []
+    for node in ast.iter_child_nodes(tree):
+        if not (isinstance(node, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == "MEDIA_CONFIG"
+                        for t in node.targets)):
+            continue
+        # node.value is the outer dict
+        if not isinstance(node.value, ast.Dict):
+            continue
+        for media_type_dict in node.value.values:
+            if not isinstance(media_type_dict, ast.Dict):
+                continue
+            for key_node, val_node in zip(
+                media_type_dict.keys, media_type_dict.values
+            ):
+                if (isinstance(key_node, ast.Constant)
+                        and key_node.value == "config_key"):
+                    continue
+                if isinstance(val_node, ast.Constant) and isinstance(
+                    val_node.value, str
+                ):
+                    methods.append(val_node.value)
+    return methods
+
+
+def test_media_config_dispatch_integrity():
+    """Every method name in MEDIA_CONFIG must exist on MediaService.
+
+    MEDIA_CONFIG maps media types to MediaService method name strings that
+    are resolved via getattr() at runtime. A rename typo would only surface
+    when a user triggers the command. This test catches the mismatch at CI.
+    """
+    from src.services.media import MediaService
+
+    dispatch_path = os.path.join(
+        HANDLERS_DIR, "media", "dispatch.py"
+    )
+    method_names = _extract_media_config_methods(dispatch_path)
+
+    assert method_names, (
+        "No method names extracted from MEDIA_CONFIG — "
+        "is the dict structure still the same?"
+    )
+
+    missing = []
+    for name in method_names:
+        if not hasattr(MediaService, name):
+            missing.append(name)
+
+    assert not missing, (
+        "MEDIA_CONFIG references methods not found on MediaService: "
+        + ", ".join(missing)
+    )
+
+
 def test_no_config_bracket_access_in_business_logic():
     """Business logic must use config.get() instead of config["key"].
 
