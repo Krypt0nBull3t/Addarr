@@ -412,6 +412,65 @@ def test_handler_entry_points_have_require_auth():
     )
 
 
+def _extract_reset_classes(filepath):
+    """Extract class names that have ._instance = None in reset_singletons.
+
+    Parses the conftest.py AST to find the reset_singletons function,
+    then collects all class names from ClassName._instance = None assignments.
+    """
+    with open(filepath, "r", encoding="utf-8") as f:
+        tree = ast.parse(f.read(), filename=filepath)
+
+    # Find the reset_singletons function
+    func_node = None
+    for node in ast.iter_child_nodes(tree):
+        if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name == "reset_singletons"):
+            func_node = node
+            break
+    if not func_node:
+        return set()
+
+    classes = set()
+    for node in ast.walk(func_node):
+        # Match: ClassName._instance = None
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if (isinstance(target, ast.Attribute)
+                    and target.attr == "_instance"
+                    and isinstance(target.value, ast.Name)):
+                classes.add(target.value.id)
+    return classes
+
+
+def test_singleton_reset_coverage():
+    """Every SINGLETON_CLASSES entry must be reset in reset_singletons fixture.
+
+    SINGLETON_CLASSES (convention test) and reset_singletons (conftest fixture)
+    are manually kept in sync. Adding a service to one but forgetting the other
+    means either the convention test misses it or tests leak state.
+    """
+    conftest_path = os.path.join(PROJECT_ROOT, "tests", "conftest.py")
+    reset_classes = _extract_reset_classes(conftest_path)
+
+    # Check SINGLETON_CLASSES are all reset
+    not_reset = SINGLETON_CLASSES - reset_classes
+    assert not not_reset, (
+        "SINGLETON_CLASSES entries missing from reset_singletons fixture: "
+        + ", ".join(sorted(not_reset))
+    )
+
+    not_in_set = reset_classes - SINGLETON_CLASSES
+    # AuthHandler is reset but is not in SINGLETON_CLASSES (it's a handler)
+    expected_extra = {"AuthHandler"}
+    unexpected = not_in_set - expected_extra
+    assert not unexpected, (
+        "Classes reset in fixture but missing from SINGLETON_CLASSES: "
+        + ", ".join(sorted(unexpected))
+    )
+
+
 def test_no_config_bracket_access_in_business_logic():
     """Business logic must use config.get() instead of config["key"].
 

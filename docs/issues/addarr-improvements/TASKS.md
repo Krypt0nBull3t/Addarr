@@ -89,7 +89,7 @@
 - Plan recommends the simpler alternative: a sync check test, not the `_reset_attrs` refactor
 - Why NOT the `_reset_attrs` approach: requires touching every service file for a maintenance convenience improvement — higher risk, lower ROI
 
-- [ ] **2.1** Singleton reset coverage test
+- [x] **2.1** Singleton reset coverage test
     - **Context:**
         - **Why:** `SINGLETON_CLASSES` in `test_conventions.py` (11 entries) and `reset_singletons` fixture in `conftest.py` (11 imports + resets) are manually kept in sync. Adding a new service to one but forgetting the other means either the convention test misses it or tests leak state between runs.
         - **Architecture:** Test reads the `reset_singletons` fixture source to extract class names being reset, then compares against `SINGLETON_CLASSES`. Also needs to verify `AuthHandler` is reset (it's not in `SINGLETON_CLASSES` because it's not a singleton, but it has class-level state).
@@ -104,6 +104,10 @@
         - [RED] Write `test_singleton_reset_coverage` — parse `conftest.py` AST to extract all class names that have `._instance = None` assignments in the `reset_singletons` function. Compare against `SINGLETON_CLASSES`. Separately verify `AuthHandler._authenticated_users` is reset.
         - [GREEN] Implement the AST extraction: find the `reset_singletons` function def, walk its body for attribute assignments where the target matches `ClassName._instance`
     - **Success:** `pytest tests/test_architecture/test_conventions.py::test_singleton_reset_coverage -v` passes. Adding a new class to `SINGLETON_CLASSES` without updating `reset_singletons` would fail with a clear message.
+    - **Completed:** 2026-03-11
+    - **Learnings:** AuthHandler is an edge case — it's reset in the fixture (class-level `_authenticated_users`) but is NOT in SINGLETON_CLASSES because it's a handler, not a singleton service. The test uses an `expected_extra` set to handle this.
+    - **Key Changes:** Added `_extract_reset_classes()` AST helper and `test_singleton_reset_coverage` to `test_conventions.py`. Checks both directions: SINGLETON_CLASSES entries missing from fixture, and fixture entries missing from SINGLETON_CLASSES.
+    - **Notes:** If a non-singleton class gets reset in the fixture, add it to `expected_extra` in the test with a comment.
 
 ---
 
