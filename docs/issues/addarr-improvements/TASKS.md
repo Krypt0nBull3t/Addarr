@@ -121,7 +121,7 @@
 - Each skill's plan section serves as the spec — `/skill-creator` handles scaffolding
 - Skills follow the same output format as `find-bugs`: File:Line, Severity, Problem, Fix
 
-- [ ] **3.1** Create security audit skill
+- [x] **3.1** Create security audit skill
     - **Context:**
         - **Why:** No full-codebase security review exists. `find-bugs` only reviews branch diffs. Need a comprehensive audit covering auth surface, secret handling, API safety, and Telegram-specific risks.
         - **Architecture:** New skill at `.claude/skills/security-audit/SKILL.md`. Four-phase checklist structure (Auth → Secrets → API → Telegram). Output format matches `find-bugs`.
@@ -134,6 +134,10 @@
         - [GREEN] Review generated skill for Addarr-specific accuracy — every checklist item should reference a real file/function
         - [GREEN] Verify skill loads correctly by checking trigger description
     - **Success:** `/security-audit` skill exists, loads, and contains all 4 phases with Addarr-specific file references.
+    - **Completed:** 2026-03-11
+    - **Learnings:** Verified file references against actual codebase — caught `_build_headers` should be `_get_headers`. Always verify method/function names in skill checklists against the real code.
+    - **Key Changes:** Created `.claude/skills/security-audit/SKILL.md` with 4-phase checklist (Auth Surface, Secret Surface, API Surface, Telegram Surface). Follows find-bugs output format.
+    - **Notes:** Skill is now discoverable in the skills list. Description follows "Use when..." CSO pattern per writing-skills guidelines.
 
 - [ ] **3.2** Create release readiness skill + workflow integration
     - **Context:**
