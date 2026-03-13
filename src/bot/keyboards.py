@@ -172,7 +172,7 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
         ("🇪🇸 Español", "es-es"),
         ("🇫🇷 Français", "fr-fr"),
         ("🇮🇹 Italiano", "it-it"),
-        ("🇧🇪 Nederlands", "nl-be"),
+        ("🇳🇱 Nederlands", "nl-be"),
         ("🇵🇱 Polski", "pl-pl"),
         ("🇵🇹 Português", "pt-pt"),
         ("🇷🇺 Русский", "ru-ru"),
@@ -306,13 +306,15 @@ def get_users_keyboard(
 
 def get_quality_profile_keyboard(
     profiles: list, service: str,
+    current_profile_id: int = None,
 ) -> InlineKeyboardMarkup:
     """Get quality profile selection keyboard"""
     keyboard = []
     for profile in profiles:
+        prefix = "✅ " if profile["id"] == current_profile_id else ""
         keyboard.append([
             InlineKeyboardButton(
-                profile["name"],
+                f"{prefix}{profile['name']}",
                 callback_data=f"setquality_{service}_{profile['id']}"
             )
         ])

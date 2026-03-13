@@ -17,8 +17,9 @@ COPY . /app
 # Install and build Addarr Refresh requirements
 RUN	pip install --no-cache-dir -r requirements.txt --upgrade
 
-# Create non-root user and set ownership
+# Create non-root user, writable directories, and set ownership
 RUN addgroup -S addarr && adduser -S addarr -G addarr \
+    && mkdir -p /app/logs /app/backup \
     && chown -R addarr:addarr /app
 
 USER addarr

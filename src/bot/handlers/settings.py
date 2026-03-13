@@ -379,7 +379,12 @@ class SettingsHandler:
                 )
                 return States.SETTINGS_MENU
 
-            keyboard = get_quality_profile_keyboard(profiles, service)
+            current_id = config.get(service, {}).get(
+                "quality", {}
+            ).get("defaultProfileId")
+            keyboard = get_quality_profile_keyboard(
+                profiles, service, current_id
+            )
             await query.message.edit_text(
                 f"🎯 Select default quality profile for {service.title()}:",
                 reply_markup=keyboard,
@@ -405,6 +410,15 @@ class SettingsHandler:
         service = parts[1]
         profile_id = int(parts[2])
 
+        # Look up profile name from the keyboard buttons
+        profile_name = str(profile_id)
+        if query.message and query.message.reply_markup:
+            for row in query.message.reply_markup.inline_keyboard:
+                for btn in row:
+                    if btn.callback_data == query.data:
+                        profile_name = btn.text.lstrip("✅ ")
+                        break
+
         config.update_nested(
             f"{service}.quality.defaultProfileId", profile_id
         )
@@ -412,8 +426,11 @@ class SettingsHandler:
 
         text = self.translation.get_text(
             "Settings.QualityProfileSet",
-            default=f"Default quality profile set to {profile_id} for {service}",
-            profile=str(profile_id),
+            default=(
+                f"Default quality profile for {service.title()} "
+                f"set to: {profile_name}"
+            ),
+            profile=profile_name,
             service=service,
         )
         await query.message.edit_text(
@@ -432,10 +449,18 @@ class SettingsHandler:
         trans_enabled = config.get("transmission", {}).get("enable", False)
         sab_enabled = config.get("sabnzbd", {}).get("enable", False)
 
+        if not trans_enabled and not sab_enabled:
+            text = (
+                "📥 Downloads\n\n"
+                "No download clients configured.\n"
+                "Enable Transmission or SABnzbd in config.yaml to "
+                "manage downloads here."
+            )
+        else:
+            text = "📥 Downloads"
+
         keyboard = get_downloads_keyboard(trans_enabled, sab_enabled)
-        await query.message.edit_text(
-            "📥 Downloads", reply_markup=keyboard
-        )
+        await query.message.edit_text(text, reply_markup=keyboard)
         return States.SETTINGS_DOWNLOADS
 
     async def handle_transmission_settings(

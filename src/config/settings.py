@@ -10,6 +10,7 @@ all required settings are present and valid.
 """
 
 import os
+import sys
 import yaml
 import questionary
 from typing import Dict, Any, List
@@ -17,6 +18,11 @@ from colorama import Fore
 
 from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH
 from ..utils.backup import create_backup
+
+
+def _is_interactive():
+    """Check if we're running in an interactive terminal."""
+    return sys.stdin.isatty() and sys.stdout.isatty()
 
 
 class ConfigurationError(Exception):
@@ -96,24 +102,57 @@ class Config:
         missing_keys = self._get_missing_keys(example_config, self._config)
         if missing_keys:
             print(f"\n{Fore.YELLOW}Missing configuration keys detected: {', '.join(missing_keys)}")
-            if questionary.confirm("Would you like to configure these settings now?").ask():
-                # Create backup before modifying
-                create_backup()
 
-                for key in missing_keys:
-                    self._configure_missing_key(key)
-
-                # Save updated configuration
-                with open(CONFIG_PATH, 'w') as f:
-                    yaml.dump(self._config, f, default_flow_style=False)
-
-                print(f"{Fore.GREEN}✅ Configuration updated successfully!")
+            if _is_interactive():
+                if questionary.confirm(
+                    "Would you like to configure these settings now?"
+                ).ask():
+                    create_backup()
+                    for key in missing_keys:
+                        self._configure_missing_key(key)
+                    with open(CONFIG_PATH, 'w') as f:
+                        yaml.dump(self._config, f, default_flow_style=False)
+                    print(f"{Fore.GREEN}✅ Configuration updated successfully!")
+                else:
+                    raise ConfigurationError(
+                        f"Missing required configuration keys: "
+                        f"{', '.join(missing_keys)}"
+                    )
             else:
-                raise ConfigurationError(
-                    f"Missing required configuration keys: {', '.join(missing_keys)}"
+                # Non-interactive (e.g. Docker): apply defaults from example
+                print(
+                    f"{Fore.YELLOW}Non-interactive environment detected. "
+                    f"Applying defaults from config_example.yaml..."
+                )
+                for key in missing_keys:
+                    self._apply_default_key(key, example_config)
+                print(
+                    f"{Fore.GREEN}✅ Defaults applied. "
+                    f"Edit config.yaml to customize these settings."
                 )
 
         self._validate_values()
+
+    def _apply_default_key(self, key: str, example_config: Dict):
+        """Apply a default value from example config for a missing key."""
+        parts = key.split('.')
+
+        # Get default value from example config
+        default = example_config
+        for part in parts:
+            if isinstance(default, dict):
+                default = default.get(part)
+            else:
+                default = None
+                break
+
+        # Set value in config
+        current = self._config
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+        current[parts[-1]] = default
 
     def _configure_missing_key(self, key: str):
         """Configure a missing configuration key"""
