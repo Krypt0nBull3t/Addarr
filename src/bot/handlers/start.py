@@ -22,6 +22,7 @@ from src.bot.handlers.media import MediaHandler, SEARCHING, SELECTING
 from src.bot.handlers.calendar import CalendarHandler
 from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.system import SystemHandler
+from src.bot.handlers.delete import DeleteHandler
 from src.bot.keyboards import get_main_menu_keyboard, get_library_menu_keyboard
 from src.services.translation import TranslationService
 
@@ -37,6 +38,7 @@ class StartHandler:
         self.calendar_handler = CalendarHandler()
         self.help_handler = HelpHandler()
         self.system_handler = SystemHandler()
+        self.delete_handler = DeleteHandler()
         self.translation = TranslationService()
 
     def get_handler(self):
@@ -201,8 +203,14 @@ class StartHandler:
             elif action == "help":
                 await self.help_handler.show_help(update, context)
             elif action == "delete":
-                delete_text = self.translation.get_text("messages.DeletePrompt")
-                await query.message.edit_text(delete_text)
+                keyboard = self.delete_handler.get_delete_keyboard()
+                await query.message.edit_text(
+                    self.translation.get_text(
+                        "DeletePrompt",
+                        default="Select what you want to delete"
+                    ),
+                    reply_markup=keyboard,
+                )
             return ConversationHandler.END
 
         # Settings is handled by its own ConversationHandler;

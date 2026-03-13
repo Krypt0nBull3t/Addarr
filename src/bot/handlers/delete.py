@@ -32,16 +32,8 @@ class DeleteHandler:
             CallbackQueryHandler(self.handle_delete_selection, pattern="^delete_")
         ]
 
-    @require_auth
-    @rate_limit("modify")
-    async def handle_delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle delete command"""
-        if not update.effective_message or not update.effective_user:
-            return
-
-        log_user_interaction(logger, update.effective_user, "/delete")
-
-        # Create media type selection keyboard
+    def get_delete_keyboard(self) -> InlineKeyboardMarkup:
+        """Get the delete media type selection keyboard"""
         keyboard = [
             [
                 InlineKeyboardButton(
@@ -66,10 +58,23 @@ class DeleteHandler:
                 )
             ]
         ]
+        return InlineKeyboardMarkup(keyboard)
+
+    @require_auth
+    @rate_limit("modify")
+    async def handle_delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle delete command"""
+        if not update.effective_message or not update.effective_user:
+            return
+
+        log_user_interaction(logger, update.effective_user, "/delete")
 
         await update.message.reply_text(
-            self.translation.get_text("What is this?"),
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            self.translation.get_text(
+                "DeletePrompt",
+                default="Select what you want to delete"
+            ),
+            reply_markup=self.get_delete_keyboard()
         )
 
     async def handle_delete_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
