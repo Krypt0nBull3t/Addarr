@@ -59,7 +59,7 @@ pl-pl:
   End: "🏁 Proces zakończony."
   Title: "🔍 Wpisz wyszukiwany termin:"
   What is this?: "❓ Co chcesz wyszukać?"
-  NotAuthorized: "🔒 Musisz się najpierw uwierzytelnić.\nUżyj /start aby rozpocząć uwierzytelnianie."
+  NotAuthorized: "🔒 Musisz się najpierw uwierzytelnić.\nUżyj /auth aby rozpocząć uwierzytelnianie."
   PrivateChatOnly: "🔒 Ten bot działa tylko w czatach prywatnych. Napisz do mnie bezpośrednio."
   mainMenu: "🏠 Menu główne - Wybierz akcję."
 

@@ -59,7 +59,7 @@ nl-be:
   End: "🏁 Het proces is beëindigd."
   Title: "🔍 Geef de zoekterm:"
   What is this?: "❓ Wat zoek je?"
-  NotAuthorized: "🔒 Je moet eerst inloggen.\nGebruik /start om te beginnen met authenticatie."
+  NotAuthorized: "🔒 Je moet eerst inloggen.\nGebruik /auth om te beginnen met authenticatie."
   PrivateChatOnly: "🔒 Deze bot werkt alleen in privéchats. Stuur me alsjeblieft een direct bericht."
   mainMenu: "🏠 Hoofdmenu - Kies een actie."
 

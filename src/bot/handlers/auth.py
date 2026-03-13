@@ -64,7 +64,7 @@ def require_auth(func):
         if not AuthHandler.is_authenticated(update.effective_user.id):
             translation = TranslationService()
             await update.message.reply_text(
-                translation.get_text("NotAuthorized", default="🔒 You need to authenticate first.\nUse /start to begin authentication.")
+                translation.get_text("NotAuthorized", default="🔒 You need to authenticate first.\nUse /auth to begin authentication.")
             )
             return
         return await func(self, update, context, *args, **kwargs)

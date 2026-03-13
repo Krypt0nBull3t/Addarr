@@ -59,7 +59,7 @@ it-it:
   End: "🏁 Il processo è terminato."
   Title: "🔍 Inserisci il termine di ricerca:"
   What is this?: "❓ Cosa stai cercando?"
-  NotAuthorized: "🔒 Devi prima autenticarti.\nUsa /start per iniziare l'autenticazione."
+  NotAuthorized: "🔒 Devi prima autenticarti.\nUsa /auth per iniziare l'autenticazione."
   PrivateChatOnly: "🔒 Questo bot funziona solo nelle chat private. Per favore, scrivimi direttamente."
   mainMenu: "🏠 Menu principale - Scegli un'azione."
 

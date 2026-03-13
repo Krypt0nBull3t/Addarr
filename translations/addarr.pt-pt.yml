@@ -59,7 +59,7 @@ pt-pt:
   End: "🏁 O processo terminou."
   Title: "🔍 Introduza o termo de pesquisa:"
   What is this?: "❓ O que está procurando?"
-  NotAuthorized: "🔒 Precisa se autenticar primeiro.\nUse /start para começar a autenticação."
+  NotAuthorized: "🔒 Precisa se autenticar primeiro.\nUse /auth para começar a autenticação."
   PrivateChatOnly: "🔒 Este bot só funciona em chats privados. Por favor, envie-me uma mensagem direta."
   mainMenu: "🏠 Menu principal - Escolha uma ação."
 
