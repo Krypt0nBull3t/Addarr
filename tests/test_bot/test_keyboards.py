@@ -276,6 +276,51 @@ class TestLanguageKeyboard:
         ]
         assert "settings_back" in callback_data_values
 
+    @patch("src.bot.keyboards.TranslationService")
+    def test_dutch_flag_is_netherlands_not_belgium(self, mock_ts):
+        """Dutch language uses Netherlands flag, not Belgian flag (#166)."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_language_keyboard
+
+        result = get_language_keyboard()
+
+        nl_buttons = [
+            button
+            for row in result.inline_keyboard
+            for button in row
+            if button.callback_data == "lang_nl-be"
+        ]
+        assert len(nl_buttons) == 1
+        assert "\U0001f1f3\U0001f1f1" in nl_buttons[0].text  # 🇳🇱
+        assert "\U0001f1e7\U0001f1ea" not in nl_buttons[0].text  # 🇧🇪
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_all_language_flag_pairings(self, mock_ts):
+        """All 9 languages have correct flag-code pairings (#166)."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_language_keyboard
+
+        result = get_language_keyboard()
+
+        expected = {
+            "lang_de-de": "🇩🇪",
+            "lang_en-us": "🇺🇸",
+            "lang_es-es": "🇪🇸",
+            "lang_fr-fr": "🇫🇷",
+            "lang_it-it": "🇮🇹",
+            "lang_nl-be": "🇳🇱",
+            "lang_pl-pl": "🇵🇱",
+            "lang_pt-pt": "🇵🇹",
+            "lang_ru-ru": "🇷🇺",
+        }
+        for row in result.inline_keyboard:
+            for button in row:
+                if button.callback_data in expected:
+                    assert expected[button.callback_data] in button.text, (
+                        f"{button.callback_data}: expected {expected[button.callback_data]} "
+                        f"in '{button.text}'"
+                    )
+
 
 class TestServiceToggleKeyboardRemoved:
     """Verify dead code get_service_toggle_keyboard is removed"""
@@ -524,6 +569,47 @@ class TestQualityProfileKeyboard:
             for button in row
         ]
         assert "settings_back" in callback_data_values
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_current_profile_has_checkmark(self, mock_ts):
+        """Quality keyboard marks the current profile with a checkmark prefix."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_quality_profile_keyboard
+
+        profiles = [
+            {"id": 1, "name": "Any"},
+            {"id": 4, "name": "HD-1080p"},
+            {"id": 6, "name": "Ultra-HD"},
+        ]
+        result = get_quality_profile_keyboard(profiles, "radarr", current_profile_id=4)
+
+        button_texts = [
+            button.text
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert any("✅" in t and "HD-1080p" in t for t in button_texts)
+        assert not any("✅" in t and "Any" in t for t in button_texts)
+        assert not any("✅" in t and "Ultra-HD" in t for t in button_texts)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_current_profile_no_checkmark(self, mock_ts):
+        """Quality keyboard has no checkmarks when current_profile_id is None."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_quality_profile_keyboard
+
+        profiles = [
+            {"id": 1, "name": "Any"},
+            {"id": 4, "name": "HD-1080p"},
+        ]
+        result = get_quality_profile_keyboard(profiles, "radarr", current_profile_id=None)
+
+        button_texts = [
+            button.text
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert not any("✅" in t for t in button_texts)
 
 
 class TestSettingsKeyboardBackButton:

@@ -6,6 +6,7 @@ level. Instead, we test:
 2. The real Config._get_missing_keys logic by extracting it
 3. Language validation logic
 4. update_nested and save methods
+5. _apply_default_key and non-interactive config defaults (#166)
 """
 
 import pytest
@@ -369,3 +370,107 @@ class TestSave:
 
             assert call_order[0] == "backup"
             assert call_order[1] == "open"
+
+
+class TestApplyDefaultKey:
+    """Test _apply_default_key logic for non-interactive (Docker) config defaults.
+
+    Since we can't instantiate the real Config (triggers file I/O), we extract
+    and test the _apply_default_key algorithm directly.
+    """
+
+    @staticmethod
+    def _apply_default_key(config, key, example_config):
+        """Extracted from src.config.settings.Config._apply_default_key."""
+        parts = key.split('.')
+        default = example_config
+        for part in parts:
+            if isinstance(default, dict):
+                default = default.get(part)
+            else:
+                default = None
+                break
+        current = config
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+        current[parts[-1]] = default
+
+    def test_top_level_key(self):
+        config = {}
+        example = {"language": "en-us"}
+        self._apply_default_key(config, "language", example)
+        assert config["language"] == "en-us"
+
+    def test_nested_key(self):
+        config = {"radarr": {}}
+        example = {"radarr": {"quality": {"defaultProfileId": 1}}}
+        self._apply_default_key(config, "radarr.quality.defaultProfileId", example)
+        assert config["radarr"]["quality"]["defaultProfileId"] == 1
+
+    def test_creates_intermediate_dicts(self):
+        config = {}
+        example = {"a": {"b": {"c": 42}}}
+        self._apply_default_key(config, "a.b.c", example)
+        assert config["a"]["b"]["c"] == 42
+
+    def test_does_not_overwrite_siblings(self):
+        config = {"radarr": {"enable": True}}
+        example = {"radarr": {"enable": True, "quality": {"defaultProfileId": 1}}}
+        self._apply_default_key(config, "radarr.quality.defaultProfileId", example)
+        assert config["radarr"]["enable"] is True
+        assert config["radarr"]["quality"]["defaultProfileId"] == 1
+
+    def test_missing_key_in_example_sets_none(self):
+        config = {}
+        example = {"a": "value"}
+        self._apply_default_key(config, "nonexistent", example)
+        assert config["nonexistent"] is None
+
+    def test_boolean_default(self):
+        config = {}
+        example = {"radarr": {"enable": False}}
+        self._apply_default_key(config, "radarr.enable", example)
+        assert config["radarr"]["enable"] is False
+
+    def test_list_default(self):
+        config = {}
+        example = {"telegram": {"chat_id": [123, 456]}}
+        self._apply_default_key(config, "telegram.chat_id", example)
+        assert config["telegram"]["chat_id"] == [123, 456]
+
+
+class TestNonInteractiveValidation:
+    """Test that _validate_config applies defaults in non-interactive mode.
+
+    Simulates the Docker path: _is_interactive() returns False, missing keys
+    get defaults from example config.
+    """
+
+    @staticmethod
+    def _simulate_non_interactive_validate(config, example_config, missing_keys):
+        """Simulate the non-interactive branch of _validate_config."""
+        from tests.test_config.test_settings import TestApplyDefaultKey
+        for key in missing_keys:
+            TestApplyDefaultKey._apply_default_key(config, key, example_config)
+
+    def test_applies_all_missing_defaults(self):
+        config = {"language": "en-us"}
+        example = {
+            "language": "en-us",
+            "radarr": {"enable": False, "quality": {"defaultProfileId": 1}},
+        }
+        missing = ["radarr", "radarr.enable", "radarr.quality.defaultProfileId"]
+        self._simulate_non_interactive_validate(config, example, missing)
+        assert config["radarr"]["enable"] is False
+        assert config["radarr"]["quality"]["defaultProfileId"] == 1
+
+    def test_no_error_raised(self):
+        """Non-interactive mode should not raise ConfigurationError."""
+        config = {}
+        example = {"language": "en-us"}
+        missing = ["language"]
+        # Should not raise
+        self._simulate_non_interactive_validate(config, example, missing)
+        assert config["language"] == "en-us"

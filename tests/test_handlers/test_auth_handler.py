@@ -89,6 +89,40 @@ async def test_require_auth_not_authenticated(mock_ts_class, make_update, make_c
     update.message.reply_text.assert_called_once()
 
 
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_require_auth_message_references_auth_not_start(
+    mock_ts_class, make_update, make_context
+):
+    """NotAuthorized message directs users to /auth, not /start (#166)."""
+    mock_ts = MagicMock()
+    # Return the default text (simulates missing translation key)
+    mock_ts.get_text = MagicMock(
+        side_effect=lambda key, **kw: kw.get("default", key)
+    )
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.auth import AuthHandler, require_auth
+
+    AuthHandler._authenticated_users = set()
+
+    class DummyHandler:
+        @require_auth
+        async def guarded(self, update, context):
+            return "allowed"
+
+    handler = DummyHandler()
+    update = make_update(text="/test")
+    context = make_context()
+
+    await handler.guarded(update, context)
+
+    call_args = update.message.reply_text.call_args
+    message_text = call_args[0][0]
+    assert "/auth" in message_text
+    assert "/start" not in message_text
+
+
 # ---------------------------------------------------------------------------
 # require_auth — chat type enforcement
 # ---------------------------------------------------------------------------
