@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 
 from src.bot.states import States
@@ -276,6 +277,33 @@ class TestQualityFlow:
         settings_handler._mock_cfg.save.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_handle_quality_select_resolves_profile_name(
+        self, settings_handler, make_update, make_context
+    ):
+        """Quality select reads profile name from reply_markup buttons."""
+        callback_data = "setquality_radarr_4"
+        update = make_update(callback_data=callback_data)
+        context = make_context()
+
+        # Make translation return the default kwarg so we can see profile_name
+        settings_handler.translation.get_text = MagicMock(
+            side_effect=lambda key, **kw: kw.get("default", key)
+        )
+
+        # Attach real InlineKeyboardMarkup with a matching button
+        update.callback_query.message.reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ HD-1080p", callback_data=callback_data)],
+            [InlineKeyboardButton("Ultra-HD", callback_data="setquality_radarr_7")],
+        ])
+
+        result = await settings_handler.handle_quality_select(update, context)
+
+        assert result == States.SETTINGS_MENU
+        # Confirmation message should contain the resolved profile name
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "HD-1080p" in call_args.args[0]
+
+    @pytest.mark.asyncio
     async def test_handle_quality_api_error(
         self, settings_handler, make_update, make_context
     ):
@@ -376,10 +404,10 @@ class TestDownloadsFlow:
     """Downloads sub-menu flow tests"""
 
     @pytest.mark.asyncio
-    async def test_handle_downloads_menu_shows_keyboard(
+    async def test_handle_downloads_menu_no_clients(
         self, settings_handler, make_update, make_context
     ):
-        """Clicking settings_downloads shows downloads keyboard"""
+        """Downloads menu shows empty state when no clients configured"""
         update = make_update(callback_data="settings_downloads")
         context = make_context()
 
@@ -388,9 +416,39 @@ class TestDownloadsFlow:
         )
 
         assert result == States.SETTINGS_DOWNLOADS
-        update.callback_query.message.edit_text.assert_called_once()
         call_args = update.callback_query.message.edit_text.call_args
-        assert call_args.kwargs.get("reply_markup") is not None
+        assert "No download clients configured" in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_handle_downloads_menu_with_enabled_client(
+        self, settings_handler, make_update, make_context
+    ):
+        """Downloads menu shows short header when a client is enabled"""
+        original_side_effect = settings_handler._mock_cfg.get.side_effect
+        enabled_config = {
+            "transmission": {"enable": True},
+            "sabnzbd": {"enable": False},
+        }
+
+        def config_get(k, d=None):
+            if k in enabled_config:
+                return enabled_config[k]
+            return original_side_effect(k, d)
+
+        settings_handler._mock_cfg.get = MagicMock(side_effect=config_get)
+
+        update = make_update(callback_data="settings_downloads")
+        context = make_context()
+
+        result = await settings_handler.handle_downloads_menu(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        text = call_args.args[0]
+        assert "Downloads" in text
+        assert "No download clients configured" not in text
 
     @pytest.mark.asyncio
     async def test_handle_transmission_settings(
