@@ -379,3 +379,41 @@ def test_get_handler_returns_list(delete_handler):
 
     assert isinstance(handlers, list)
     assert len(handlers) > 0
+
+
+# ---------------------------------------------------------------------------
+# get_delete_keyboard (#166)
+# ---------------------------------------------------------------------------
+
+
+def test_get_delete_keyboard_structure(delete_handler):
+    """get_delete_keyboard returns 3 media types + cancel button."""
+    keyboard = delete_handler.get_delete_keyboard()
+
+    all_buttons = [
+        button
+        for row in keyboard.inline_keyboard
+        for button in row
+    ]
+    callback_data = [b.callback_data for b in all_buttons]
+
+    assert "delete_type_movie" in callback_data
+    assert "delete_type_series" in callback_data
+    assert "delete_type_music" in callback_data
+    assert "delete_cancel" in callback_data
+    assert len(callback_data) == 4
+
+
+def test_get_delete_keyboard_has_media_type_emojis(delete_handler):
+    """Delete keyboard buttons have media type emojis."""
+    keyboard = delete_handler.get_delete_keyboard()
+
+    button_texts = [
+        button.text
+        for row in keyboard.inline_keyboard
+        for button in row
+    ]
+    assert any("🎬" in t for t in button_texts)  # movie
+    assert any("📺" in t for t in button_texts)  # series
+    assert any("🎵" in t for t in button_texts)  # music
+    assert any("❌" in t for t in button_texts)  # cancel
