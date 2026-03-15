@@ -138,7 +138,7 @@ class Config:
         parts = key.split('.')
 
         # Get default value from example config
-        default = example_config
+        default: Any = example_config
         for part in parts:
             if isinstance(default, dict):
                 default = default.get(part)

@@ -306,7 +306,7 @@ def get_users_keyboard(
 
 def get_quality_profile_keyboard(
     profiles: list, service: str,
-    current_profile_id: int = None,
+    current_profile_id: Optional[int] = None,
 ) -> InlineKeyboardMarkup:
     """Get quality profile selection keyboard"""
     keyboard = []

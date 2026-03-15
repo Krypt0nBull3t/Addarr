@@ -276,7 +276,6 @@ class TestLanguageKeyboard:
         ]
         assert "settings_back" in callback_data_values
 
-
     @patch("src.bot.keyboards.TranslationService")
     def test_dutch_flag_is_netherlands_not_belgium(self, mock_ts):
         """Dutch language uses Netherlands flag, not Belgian flag (#166)."""
@@ -570,7 +569,6 @@ class TestQualityProfileKeyboard:
             for button in row
         ]
         assert "settings_back" in callback_data_values
-
 
     @patch("src.bot.keyboards.TranslationService")
     def test_current_profile_has_checkmark(self, mock_ts):
