@@ -1743,6 +1743,50 @@ class TestGetArtistAlbums:
 
 
 # ---------------------------------------------------------------------------
+# get_album_tracks
+# ---------------------------------------------------------------------------
+
+
+class TestGetAlbumTracks:
+    @pytest.mark.asyncio
+    async def test_delegates_to_lidarr_client(self, mock_lidarr_client):
+        """get_album_tracks delegates to LidarrClient and returns raw result."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        sample_tracks = [
+            {"trackNumber": "1", "title": "Papercut", "duration": 185000},
+            {"trackNumber": "2", "title": "One Step Closer", "duration": 156000},
+        ]
+        mock_lidarr_client.get_album_tracks.return_value = sample_tracks
+
+        tracks = await service.get_album_tracks("album-id-abc")
+
+        mock_lidarr_client.get_album_tracks.assert_called_once_with("album-id-abc")
+        assert tracks == sample_tracks
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_exception(self, mock_lidarr_client):
+        """get_album_tracks returns [] on exception."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.get_album_tracks.side_effect = Exception("API error")
+
+        tracks = await service.get_album_tracks("album-id-abc")
+
+        assert tracks == []
+
+    @pytest.mark.asyncio
+    async def test_disabled_returns_empty(self):
+        """get_album_tracks returns [] when Lidarr disabled."""
+        service = MediaService()
+        MediaService._lidarr = None
+
+        tracks = await service.get_album_tracks("album-id-abc")
+
+        assert tracks == []
+
+
+# ---------------------------------------------------------------------------
 # get_upcoming — calendar aggregation
 # ---------------------------------------------------------------------------
 

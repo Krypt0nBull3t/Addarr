@@ -529,6 +529,21 @@ class MediaService:
             logger.error(f"Error getting artist albums: {e}")
             return []
 
+    async def get_album_tracks(self, album_id: str) -> List[Dict]:
+        """Get tracks for an album from Lidarr.
+
+        Returns raw track list from LidarrClient.
+        Returns [] if Lidarr disabled or on error.
+        """
+        if not self.lidarr:
+            return []
+
+        try:
+            return await self.lidarr.get_album_tracks(album_id)
+        except Exception as e:
+            logger.error(f"Error getting album tracks: {e}")
+            return []
+
     async def get_upcoming(self, days: int = 7) -> List[Dict]:
         """Get upcoming releases from Radarr and Sonarr calendars.
 
