@@ -405,37 +405,44 @@ class SettingsHandler:
         query = update.callback_query
         await query.answer()
 
-        # Parse: setquality_{service}_{id}
-        parts = query.data.split("_")
-        service = parts[1]
-        profile_id = int(parts[2])
+        try:
+            # Parse: setquality_{service}_{id}
+            parts = query.data.split("_")
+            service = parts[1]
+            profile_id = int(parts[2])
 
-        # Look up profile name from the keyboard buttons
-        profile_name = str(profile_id)
-        if query.message and query.message.reply_markup:
-            for row in query.message.reply_markup.inline_keyboard:
-                for btn in row:
-                    if btn.callback_data == query.data:
-                        profile_name = btn.text.lstrip("✅ ")
-                        break
+            # Look up profile name from the keyboard buttons
+            profile_name = str(profile_id)
+            if query.message and query.message.reply_markup:
+                for row in query.message.reply_markup.inline_keyboard:
+                    for btn in row:
+                        if btn.callback_data == query.data:
+                            profile_name = btn.text.lstrip("✅ ")
+                            break
 
-        config.update_nested(
-            f"{service}.quality.defaultProfileId", profile_id
-        )
-        config.save()
+            config.update_nested(
+                f"{service}.quality.defaultProfileId", profile_id
+            )
+            config.save()
 
-        text = self.translation.get_text(
-            "Settings.QualityProfileSet",
-            default=(
-                f"Default quality profile for {service.title()} "
-                f"set to: {profile_name}"
-            ),
-            profile=profile_name,
-            service=service,
-        )
-        await query.message.edit_text(
-            f"✅ {text}", reply_markup=get_settings_keyboard()
-        )
+            text = self.translation.get_text(
+                "Settings.QualityProfileSet",
+                default=(
+                    f"Default quality profile for {service.title()} "
+                    f"set to: {profile_name}"
+                ),
+                profile=profile_name,
+                service=service,
+            )
+            await query.message.edit_text(
+                f"✅ {text}", reply_markup=get_settings_keyboard()
+            )
+        except Exception as e:
+            logger.error(f"Error saving quality profile ({query.data}): {e}")
+            await query.message.edit_text(
+                "❌ Error saving quality profile.",
+                reply_markup=get_settings_keyboard(),
+            )
         return States.SETTINGS_MENU
 
     # -- Downloads flow --
@@ -615,14 +622,21 @@ class SettingsHandler:
         query = update.callback_query
         await query.answer()
 
-        if query.data == "dl_sab_pause" and self.sabnzbd_service.is_enabled():
-            await self.sabnzbd_service.pause_queue()
-            text = "⏸ Queue paused"
-        elif query.data == "dl_sab_resume" and self.sabnzbd_service.is_enabled():
-            await self.sabnzbd_service.resume_queue()
-            text = "▶️ Queue resumed"
-        else:
-            text = "❌ SABnzbd not available"
+        try:
+            if query.data == "dl_sab_pause" and self.sabnzbd_service.is_enabled():
+                await self.sabnzbd_service.pause_queue()
+                text = "⏸ Queue paused"
+            elif (
+                query.data == "dl_sab_resume"
+                and self.sabnzbd_service.is_enabled()
+            ):
+                await self.sabnzbd_service.resume_queue()
+                text = "▶️ Queue resumed"
+            else:
+                text = "❌ SABnzbd not available"
+        except Exception as e:
+            logger.error(f"Error during SABnzbd pause/resume ({query.data}): {e}")
+            text = "❌ SABnzbd error — could not complete action"
 
         enabled = config.get("sabnzbd", {}).get("enable", False)
         keyboard = get_sabnzbd_settings_keyboard(enabled)
