@@ -110,7 +110,13 @@ class SystemHandler:
         elif action == "back":
             await self._handle_back(query)
         else:
+            logger.warning(f"Unknown system action received: {action}")
             await query.answer(self.translation.get_text("UnknownAction"))
+            status_text = self._build_status_text()
+            await query.message.edit_text(
+                status_text,
+                reply_markup=get_system_keyboard(),
+            )
 
     async def _handle_refresh(self, query):
         """Re-run health checks and update the status display."""
