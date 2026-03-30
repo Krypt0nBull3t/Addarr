@@ -453,7 +453,7 @@ class TestSabnzbdSettingsKeyboard:
         assert "dl_sab_speed" in callback_data
 
     @patch("src.bot.keyboards.TranslationService")
-    def test_has_pause_resume_button(self, mock_ts):
+    def test_has_pause_button(self, mock_ts):
         _mock_translation(mock_ts)
         from src.bot.keyboards import get_sabnzbd_settings_keyboard
 
@@ -464,6 +464,20 @@ class TestSabnzbdSettingsKeyboard:
             for btn in row
         ]
         assert "dl_sab_pause" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_resume_button(self, mock_ts):
+        """Resume must be a separate button so dl_sab_resume callback is sent."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_sabnzbd_settings_keyboard
+
+        result = get_sabnzbd_settings_keyboard(enabled=True)
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_sab_resume" in callback_data
 
     @patch("src.bot.keyboards.TranslationService")
     def test_has_back_button(self, mock_ts):
