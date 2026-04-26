@@ -25,4 +25,4 @@ wcwidth>=0.2.5        # Required by questionary
 readchar>=4.0.0
 
 # YAML handling
-ruamel.yaml>=0.17.22
+ruamel.yaml>=0.19.1
