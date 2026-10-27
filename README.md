@@ -370,6 +370,14 @@ After installation:
    docker-compose up -d
    ```
 
+> **File permissions:** the container runs as the non-root user `addarr` (UID 100, GID 101 in the
+> current image; check with `docker-compose run --rm --entrypoint id addarr`).
+> It must be able to write `config.yaml` (`/auth` and settings changes save it), `chatid.txt`,
+> `logs/` and `backup/`, for example with `sudo chown 100:101 config.yaml chatid.txt logs backup`.
+> If `logs/` is not writable, Addarr logs to the console only (`docker-compose logs`) and prints one warning.
+> User preferences (`user_preferences.json`) are kept in the named volume `addarr-data`,
+> so they survive when the container is recreated.
+
 #### Using Docker standalone
 1. **Build the image**
    ```bash
@@ -382,6 +390,7 @@ After installation:
      --name addarr \
      -v $(pwd)/config.yaml:/app/config.yaml \
      -v $(pwd)/logs:/app/logs \
+     -v addarr-data:/app/data \
      addarr
    ```
 
@@ -673,8 +682,7 @@ addarr/
 │   │   ├── radarr.py     # Radarr API client
 │   │   ├── sonarr.py     # Sonarr API client
 │   │   ├── lidarr.py     # Lidarr API client
-│   │   ├── transmission.py # Transmission API client
-│   │   └── sabnzbd.py    # SABnzbd API client
+│   │   └── transmission.py # Transmission API client
 │   ├── bot/              # Telegram bot components
 │   │   ├── __init__.py
 │   │   ├── handlers/     # Command handlers

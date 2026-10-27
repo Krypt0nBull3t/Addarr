@@ -268,9 +268,10 @@ def get_sabnzbd_settings_keyboard(
         [InlineKeyboardButton(
             "⚡ Speed Limit", callback_data="dl_sab_speed"
         )],
-        [InlineKeyboardButton(
-            "⏸ Pause / ▶️ Resume", callback_data="dl_sab_pause"
-        )],
+        [
+            InlineKeyboardButton("⏸ Pause", callback_data="dl_sab_pause"),
+            InlineKeyboardButton("▶️ Resume", callback_data="dl_sab_resume"),
+        ],
         [InlineKeyboardButton(
             f"◀️ {translation.get_text('Back')}",
             callback_data="dl_back"
@@ -325,24 +326,6 @@ def get_quality_profile_keyboard(
             callback_data="settings_back"
         )
     ])
-    return InlineKeyboardMarkup(keyboard)
-
-
-def get_confirmation_keyboard(action: str) -> InlineKeyboardMarkup:
-    """Get confirmation keyboard"""
-    translation = TranslationService()
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                f"✅ {translation.get_text('Add')}",
-                callback_data=f"confirm_{action}"
-            ),
-            InlineKeyboardButton(
-                f"❌ {translation.get_text('Stop')}",
-                callback_data="confirm_cancel"
-            )
-        ]
-    ]
     return InlineKeyboardMarkup(keyboard)
 
 

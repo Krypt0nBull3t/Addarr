@@ -13,6 +13,12 @@ from telegram.ext import ConversationHandler
 from src.bot.handlers.auth import AuthHandler
 
 
+@pytest.fixture(autouse=True)
+def _authenticated():
+    """Handlers require auth; authenticate the default test user 12345."""
+    AuthHandler._authenticated_users = {12345}
+
+
 # ---------------------------------------------------------------------------
 # subtitles_menu
 # ---------------------------------------------------------------------------
@@ -381,170 +387,6 @@ class TestWantedEpisodes:
 
 
 # ---------------------------------------------------------------------------
-# search_subtitles_trigger
-# ---------------------------------------------------------------------------
-
-
-class TestSearchSubtitlesTrigger:
-    @pytest.mark.asyncio
-    @patch("src.bot.handlers.bazarr.TranslationService")
-    @patch("src.bot.handlers.bazarr.BazarrService")
-    async def test_movie_success(
-        self, mock_svc_class, mock_ts_class, make_update, make_context
-    ):
-        """Triggering subtitle search for a movie succeeds."""
-        mock_svc = MagicMock()
-        mock_svc.search_movie_subtitles = AsyncMock(return_value=True)
-        mock_svc_class.return_value = mock_svc
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
-
-        from src.bot.handlers.bazarr import BazarrHandler
-
-        handler = BazarrHandler()
-        update = make_update(callback_data="bazarr_sub_movie_42_en")
-        context = make_context()
-
-        await handler.search_subtitles_trigger(update, context)
-
-        update.callback_query.answer.assert_called_once()
-        update.callback_query.edit_message_text.assert_called_once()
-        call_text = update.callback_query.edit_message_text.call_args[0][0]
-        assert "BazarrSearchTriggered" in call_text
-
-    @pytest.mark.asyncio
-    @patch("src.bot.handlers.bazarr.TranslationService")
-    @patch("src.bot.handlers.bazarr.BazarrService")
-    async def test_episode_success(
-        self, mock_svc_class, mock_ts_class, make_update, make_context
-    ):
-        """Triggering subtitle search for an episode succeeds."""
-        mock_svc = MagicMock()
-        mock_svc.search_episode_subtitles = AsyncMock(return_value=True)
-        mock_svc_class.return_value = mock_svc
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
-
-        from src.bot.handlers.bazarr import BazarrHandler
-
-        handler = BazarrHandler()
-        update = make_update(callback_data="bazarr_sub_episode_10-99_en")
-        context = make_context()
-
-        await handler.search_subtitles_trigger(update, context)
-
-        update.callback_query.answer.assert_called_once()
-        call_text = update.callback_query.edit_message_text.call_args[0][0]
-        assert "BazarrSearchTriggered" in call_text
-        mock_svc.search_episode_subtitles.assert_called_once()
-
-    @pytest.mark.asyncio
-    @patch("src.bot.handlers.bazarr.TranslationService")
-    @patch("src.bot.handlers.bazarr.BazarrService")
-    async def test_movie_failure(
-        self, mock_svc_class, mock_ts_class, make_update, make_context
-    ):
-        """Triggering subtitle search for a movie fails."""
-        mock_svc = MagicMock()
-        mock_svc.search_movie_subtitles = AsyncMock(return_value=False)
-        mock_svc_class.return_value = mock_svc
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
-
-        from src.bot.handlers.bazarr import BazarrHandler
-
-        handler = BazarrHandler()
-        update = make_update(callback_data="bazarr_sub_movie_42_en")
-        context = make_context()
-
-        await handler.search_subtitles_trigger(update, context)
-
-        update.callback_query.answer.assert_called_once()
-        update.callback_query.edit_message_text.assert_called_once()
-        call_text = update.callback_query.edit_message_text.call_args[0][0]
-        assert "BazarrSearchFailed" in call_text
-
-    @pytest.mark.asyncio
-    @patch("src.bot.handlers.bazarr.TranslationService")
-    @patch("src.bot.handlers.bazarr.BazarrService")
-    async def test_malformed_callback_data(
-        self, mock_svc_class, mock_ts_class, make_update, make_context
-    ):
-        """Malformed callback data shows failure message."""
-        mock_svc = MagicMock()
-        mock_svc_class.return_value = mock_svc
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
-
-        from src.bot.handlers.bazarr import BazarrHandler
-
-        handler = BazarrHandler()
-        update = make_update(callback_data="bazarr_sub_bad")
-        context = make_context()
-
-        await handler.search_subtitles_trigger(update, context)
-
-        update.callback_query.answer.assert_called_once()
-        call_text = update.callback_query.edit_message_text.call_args[0][0]
-        assert "BazarrSearchFailed" in call_text
-
-    @pytest.mark.asyncio
-    @patch("src.bot.handlers.bazarr.TranslationService")
-    @patch("src.bot.handlers.bazarr.BazarrService")
-    async def test_malformed_episode_id(
-        self, mock_svc_class, mock_ts_class, make_update, make_context
-    ):
-        """Episode callback with missing hyphen separator shows failure."""
-        mock_svc = MagicMock()
-        mock_svc_class.return_value = mock_svc
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
-
-        from src.bot.handlers.bazarr import BazarrHandler
-
-        handler = BazarrHandler()
-        # Episode ID without hyphen separator
-        update = make_update(callback_data="bazarr_sub_episode_99_en")
-        context = make_context()
-
-        await handler.search_subtitles_trigger(update, context)
-
-        update.callback_query.answer.assert_called_once()
-        call_text = update.callback_query.edit_message_text.call_args[0][0]
-        assert "BazarrSearchFailed" in call_text
-
-    @pytest.mark.asyncio
-    @patch("src.bot.handlers.bazarr.TranslationService")
-    @patch("src.bot.handlers.bazarr.BazarrService")
-    async def test_malformed_movie_id(
-        self, mock_svc_class, mock_ts_class, make_update, make_context
-    ):
-        """Movie callback with non-numeric ID shows failure."""
-        mock_svc = MagicMock()
-        mock_svc_class.return_value = mock_svc
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
-
-        from src.bot.handlers.bazarr import BazarrHandler
-
-        handler = BazarrHandler()
-        update = make_update(callback_data="bazarr_sub_movie_abc_en")
-        context = make_context()
-
-        await handler.search_subtitles_trigger(update, context)
-
-        update.callback_query.answer.assert_called_once()
-        call_text = update.callback_query.edit_message_text.call_args[0][0]
-        assert "BazarrSearchFailed" in call_text
-
-
-# ---------------------------------------------------------------------------
 # cancel
 # ---------------------------------------------------------------------------
 
@@ -624,3 +466,33 @@ class TestGetHandler:
 
         assert isinstance(handlers, list)
         assert len(handlers) > 0
+
+
+# ---------------------------------------------------------------------------
+# Access control
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method, callback_data", [
+    ("prompt_search", "bazarr_search"),
+    ("wanted_movies", "bazarr_wanted_movies"),
+    ("wanted_episodes", "bazarr_wanted_episodes"),
+    ("cancel", "bazarr_cancel"),
+])
+@patch("src.bot.handlers.bazarr.BazarrService")
+async def test_unauthenticated_callback_is_refused(
+    mock_svc_class, method, callback_data, make_update, make_context
+):
+    """Bazarr buttons do nothing for unauthenticated users (audit item 5)."""
+    from src.bot.handlers.bazarr import BazarrHandler
+
+    AuthHandler._authenticated_users = set()
+    handler = BazarrHandler()
+    update = make_update(callback_data=callback_data)
+
+    result = await getattr(handler, method)(update, make_context())
+
+    assert result is None
+    assert mock_svc_class.return_value.method_calls == []
+    update.callback_query.edit_message_text.assert_not_called()

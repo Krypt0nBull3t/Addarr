@@ -3,13 +3,9 @@
 # created date: 2024-11-08
 # description: Dockerfile for Addarr Refresh Telegram Bot.
 
-FROM python:3.11.5-alpine3.18
+FROM python:3.11-alpine3.24
 
 WORKDIR /app
-
-# Install requirements
-RUN apk add --no-cache \
-    transmission-cli
 
 # Copy files to container
 COPY . /app
@@ -19,7 +15,7 @@ RUN	pip install --no-cache-dir -r requirements.txt --upgrade
 
 # Create non-root user, writable directories, and set ownership
 RUN addgroup -S addarr && adduser -S addarr -G addarr \
-    && mkdir -p /app/logs /app/backup \
+    && mkdir -p /app/logs /app/backup /app/data \
     && chown -R addarr:addarr /app
 
 USER addarr

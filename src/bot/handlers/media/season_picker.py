@@ -146,12 +146,14 @@ class SeasonPickerMixin:
         return SEASON_SELECT
 
     async def handle_season_confirm(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle season selection confirmation"""
+        """Handle season selection confirmation.
+
+        Only called from handle_season_selection, which already answered the callback.
+        """
         if not update.callback_query:
             return ConversationHandler.END
 
         query = update.callback_query
-        await query.answer()
 
         try:
             selected = context.user_data.get("selected_media")
@@ -160,35 +162,31 @@ class SeasonPickerMixin:
             selected_seasons = list(context.user_data.get("selected_seasons", set()))
             future_mode = context.user_data.get("future_mode")
             monitor_all = context.user_data.get("monitor_all", False)
+            monitor = None
 
-            # Format seasons data based on selection mode
-            if monitor_all:
-                # Monitor everything (current and future)
-                seasons_data = [{"seasonNumber": season.get("seasonNumber"), "monitored": True}
-                                for season in context.user_data.get("quality_data", {}).get("seasons", [])]
-                future_mode = "future_seasons"
-            elif future_mode == "all":
+            # Format seasons data based on selection mode.
+            # Future seasons need no flag: Sonarr monitors new seasons of a monitored series.
+            if monitor_all or future_mode == "all":
                 # Monitor all current seasons
                 seasons_data = [{"seasonNumber": season.get("seasonNumber"), "monitored": True}
                                 for season in context.user_data.get("quality_data", {}).get("seasons", [])]
             elif future_mode == "future_episodes":
-                # Only monitor future episodes
+                # Only monitor episodes that have not aired yet
                 seasons_data = [{"seasonNumber": season.get("seasonNumber"), "monitored": False}
                                 for season in context.user_data.get("quality_data", {}).get("seasons", [])]
-                seasons_data.append({"seasonNumber": -1, "monitored": True})  # Special flag for future episodes
+                monitor = "future"
             else:
-                # Monitor selected seasons and optionally future seasons
+                # Monitor selected seasons
                 seasons_data = [{"seasonNumber": season.get("seasonNumber"),
                                  "monitored": season.get("seasonNumber") in selected_seasons}
                                 for season in context.user_data.get("quality_data", {}).get("seasons", [])]
-                if future_mode == "future_seasons":
-                    seasons_data.append({"seasonNumber": -1, "monitored": True})  # Special flag for future seasons
 
             success, message = await self.media_service.add_series_with_profile(
                 selected["id"],
                 profile_id,
                 root_folder,
-                seasons_data
+                seasons_data,
+                monitor=monitor,
             )
 
             await send_response(

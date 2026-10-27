@@ -7,6 +7,7 @@ Description: Translation service module.
 This module handles loading and managing translations for the bot.
 """
 
+import re
 import yaml
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -70,36 +71,49 @@ class TranslationService:
         """Get fallback language code"""
         return self._fallback_language
 
-    def get_text(self, key: str, **kwargs) -> str:
+    def _lookup(self, language: str, key: str) -> Any:
+        """Look up a key; dots walk into nested sections (e.g. "Sabnzbd.Speed")."""
+        value: Any = self._translations.get(language, {})
+        for part in key.split("."):
+            value = value.get(part) if isinstance(value, dict) else None
+        return value
+
+    def get_text(self, key: str, default: Optional[str] = None, **kwargs) -> str:
         """
         Get translated text for a given key with parameter substitution.
 
         Args:
-            key: The translation key to look up
-            **kwargs: Format parameters to substitute in the text
+            key: The translation key to look up, dotted for nested sections
+            default: Text to return when the key is missing
+            **kwargs: Values for %{name} (or %(name)s) placeholders
 
         Returns:
             The translated and formatted text
         """
+        fallback = key if default is None else default
         try:
             # Get the translation for the current language
-            current = self._translations.get(self._current_language, {}).get(key)
+            current = self._lookup(self._current_language, key)
 
             # If not found, try fallback language
             if not current:
-                current = self._translations.get(self._fallback_language, {}).get(key)
+                current = self._lookup(self._fallback_language, key)
 
-            # If still not found, return the key itself
             if not current:
                 logger.warning(f"⚠️ Translation not found for key: {key}")
-                return key
+                return fallback
 
-            # Format the string using %-formatting
-            return current % kwargs
+            # The translation files use %{name}; a few strings use %(name)s
+            text = re.sub(
+                r"%\{(\w+)\}",
+                lambda m: str(kwargs.get(m.group(1), m.group(0))),
+                current,
+            )
+            return text % kwargs if "%(" in current else text
 
         except Exception as e:
             logger.error(f"Translation error for key '{key}': {str(e)}")
-            return key
+            return fallback
 
     def get_message(self, key: str, subject: Optional[str] = None, title: Optional[str] = None, **kwargs) -> str:
         """Get a message translation with subject handling
@@ -116,7 +130,8 @@ class TranslationService:
         params = kwargs.copy()
 
         if subject:
-            # Get subject translations
+            # Get subject translations; the keys are capitalized ("Movie")
+            subject = subject.capitalize()
             params["subject"] = self.get_text(subject)
             params["subjectWithArticle"] = self.get_text(f"{subject}WithArticle")
 

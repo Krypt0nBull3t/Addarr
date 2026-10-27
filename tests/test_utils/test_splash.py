@@ -1,5 +1,6 @@
 """Tests for src/utils/splash.py"""
 
+import sys
 from unittest.mock import patch
 
 from src.utils.splash import (
@@ -9,6 +10,10 @@ from src.utils.splash import (
     show_welcome_screen,
     show_token_help,
 )
+
+# conftest puts only this module in sys.modules, so the `src` package has no
+# `config` attribute and patch("src.config.settings.config") fails on Python 3.10
+SETTINGS = sys.modules["src.config.settings"]
 
 
 # ---- get_splash_screen ----
@@ -132,7 +137,7 @@ class TestShowWelcomeScreen:
         assert "Debug Mode" in captured.out
         assert "Disabled" in captured.out
 
-    @patch("src.utils.splash.config")
+    @patch.object(SETTINGS, "config")
     def test_debug_mode_enabled(self, mock_cfg, capsys):
         """When debug is True, output shows enabled indicator."""
         mock_cfg.get.side_effect = lambda key, default=None: {
@@ -154,7 +159,7 @@ class TestShowWelcomeScreen:
         assert "Admin Mode" in captured.out
         assert "Disabled" in captured.out
 
-    @patch("src.utils.splash.config")
+    @patch.object(SETTINGS, "config")
     def test_admin_mode_enabled(self, mock_cfg, capsys):
         """When enableAdmin is True, output shows enabled indicator."""
         mock_cfg.get.side_effect = lambda key, default=None: {
@@ -177,7 +182,7 @@ class TestShowWelcomeScreen:
         captured = capsys.readouterr()
         assert "en-us" in captured.out
 
-    @patch("src.utils.splash.config")
+    @patch.object(SETTINGS, "config")
     def test_shows_custom_language(self, mock_cfg, capsys):
         """Custom language config is displayed."""
         mock_cfg.get.side_effect = lambda key, default=None: {

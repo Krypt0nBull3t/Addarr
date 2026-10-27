@@ -7,7 +7,9 @@ Description: Authentication handler module.
 This module handles user authentication through the bot.
 """
 
-import yaml
+import hmac
+from typing import Optional
+
 from telegram import Update
 from telegram.ext import (
     CommandHandler,
@@ -22,7 +24,7 @@ from functools import wraps
 from src.utils.chat import get_chat_name
 from src.utils.logger import get_logger, log_user_interaction
 from src.config.settings import config
-from src.definitions import CONFIG_PATH
+from src.utils.helpers import admin_only, is_admin, is_allowed
 from src.bot.commands import register_commands_for_chat
 from src.services.translation import TranslationService
 from src.services.rate_limit import rate_limit
@@ -51,6 +53,23 @@ async def _enforce_private_chat(update: Update) -> bool:
     return True
 
 
+async def _refuse(update: Update, text: str) -> None:
+    """Tell the user why a command or button press is refused."""
+    if update.callback_query:
+        # update.message is None for button presses; answer the press instead
+        await update.callback_query.answer(text, show_alert=True)
+    elif update.effective_message:
+        await update.effective_message.reply_text(text)
+
+
+async def _enforce_allowlist(update: Update) -> bool:
+    """Return True if the update should be blocked by the allowlist."""
+    if is_allowed(update.effective_user.id):
+        return False
+    await _refuse(update, TranslationService().get_text("NotAllowed"))
+    return True
+
+
 def require_auth(func):
     """Decorator to require authentication for handlers"""
     @wraps(func)
@@ -61,14 +80,35 @@ def require_auth(func):
         if await _enforce_private_chat(update):
             return
 
+        if await _enforce_allowlist(update):
+            return
+
         if not AuthHandler.is_authenticated(update.effective_user.id):
             translation = TranslationService()
-            await update.message.reply_text(
+            await _refuse(
+                update,
                 translation.get_text("NotAuthorized", default="🔒 You need to authenticate first.\nUse /auth to begin authentication.")
             )
             return
         return await func(self, update, context, *args, **kwargs)
     return wrapped
+
+
+def require_admin(service: Optional[str] = None):
+    """Decorator to refuse non-admins when admin mode applies.
+
+    Use below @require_auth. With a service name, only refuse when that
+    service also sets onlyAdmin.
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapped(self, update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+            if admin_only(service) and not is_admin(update.effective_user.id):
+                await _refuse(update, TranslationService().get_text("NotAdmin"))
+                return
+            return await func(self, update, context, *args, **kwargs)
+        return wrapped
+    return decorator
 
 
 class AuthHandler:
@@ -78,7 +118,9 @@ class AuthHandler:
     _authenticated_users = set()
 
     def __init__(self):
-        self.password = config.get("telegram", {}).get("password", "")
+        password = config.get("telegram", {}).get("password")
+        # YAML loads `password: 123456` as an int
+        self.password = "" if password is None else str(password)
         self.translation = TranslationService()
         # Load authenticated users from config
         AuthHandler._authenticated_users = set(config.get("authenticated_users", []))
@@ -91,17 +133,11 @@ class AuthHandler:
     def _save_authenticated_users(self):
         """Save authenticated users to config file"""
         try:
-            # Load current config
-            with open(CONFIG_PATH, 'r') as f:
-                current_config = yaml.safe_load(f)
-
-            # Update authenticated users
-            current_config["authenticated_users"] = list(AuthHandler._authenticated_users)
-
-            # Save updated config
-            with open(CONFIG_PATH, 'w') as f:
-                yaml.safe_dump(current_config, f, default_flow_style=False)
-
+            # Update the in-memory config too, so a later config.save() keeps them
+            config.update_nested(
+                "authenticated_users", sorted(AuthHandler._authenticated_users)
+            )
+            config.save()
         except Exception as e:
             logger.error(f"Error saving authenticated users to config: {e}")
 
@@ -126,6 +162,9 @@ class AuthHandler:
             return ConversationHandler.END
 
         if await _enforce_private_chat(update):
+            return ConversationHandler.END
+
+        if await _enforce_allowlist(update):
             return ConversationHandler.END
 
         user = update.effective_user
@@ -162,7 +201,9 @@ class AuthHandler:
         # Delete password message for security
         await message.delete()
 
-        if message.text == self.password:
+        if self.password and hmac.compare_digest(
+            (message.text or "").encode(), self.password.encode()
+        ):
             # Add user to authenticated users and save
             AuthHandler._authenticated_users.add(user.id)
             self._save_authenticated_users()

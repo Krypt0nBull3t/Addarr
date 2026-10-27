@@ -417,3 +417,71 @@ def test_get_delete_keyboard_has_media_type_emojis(delete_handler):
     assert any("📺" in t for t in button_texts)  # series
     assert any("🎵" in t for t in button_texts)  # music
     assert any("❌" in t for t in button_texts)  # cancel
+
+
+# ---------------------------------------------------------------------------
+# Access control
+# ---------------------------------------------------------------------------
+
+DELETE_USER_DATA = {
+    "delete_type": "movie",
+    "delete_item": {"id": "123", "title": "Test Item"},
+}
+
+
+@pytest.mark.parametrize("callback_data", [
+    "delete_type_movie", "delete_item_123", "delete_confirm",
+])
+@pytest.mark.asyncio
+async def test_delete_buttons_refuse_unauthenticated_user(
+    delete_handler, make_update, make_context, callback_data
+):
+    """Delete buttons do nothing for unauthenticated users (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(callback_data=callback_data)
+    context = make_context(user_data=dict(DELETE_USER_DATA))
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    assert delete_handler._mock_service.method_calls == []
+    update.callback_query.message.edit_text.assert_not_called()
+
+
+@pytest.mark.parametrize("method, update_kwargs", [
+    ("handle_delete", {"text": "/delete"}),
+    ("handle_delete_selection", {"callback_data": "delete_confirm"}),
+])
+@pytest.mark.asyncio
+async def test_delete_is_admin_only_in_admin_mode(
+    delete_handler, admin_mode, make_update, make_context, method, update_kwargs
+):
+    """With security.enableAdmin, only admins can delete media (audit item 6)."""
+    update = make_update(**update_kwargs)
+    context = make_context(user_data=dict(DELETE_USER_DATA))
+
+    await getattr(delete_handler, method)(update, context)
+
+    assert delete_handler._mock_service.method_calls == []
+    if update.callback_query:
+        update.callback_query.answer.assert_awaited_once_with(
+            "NotAdmin", show_alert=True
+        )
+    else:
+        update.message.reply_text.assert_awaited_once_with("NotAdmin")
+
+
+@pytest.mark.asyncio
+async def test_admin_can_delete_in_admin_mode(
+    delete_handler, admin_mode, make_user, make_update, make_context
+):
+    """Admins still delete media when admin mode is on."""
+    update = make_update(callback_data="delete_confirm", user=make_user(user_id=1))
+    context = make_context(user_data=dict(DELETE_USER_DATA))
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {1}
+
+    await delete_handler.handle_delete_selection(update, context)
+
+    delete_handler._mock_service.delete_movie.assert_awaited_once_with("123")

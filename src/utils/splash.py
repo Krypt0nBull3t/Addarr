@@ -10,7 +10,6 @@ Can be used by both the main application and setup script.
 
 from colorama import Fore, Style
 import platform
-from src.config.settings import config
 
 
 def get_splash_screen() -> str:
@@ -60,6 +59,9 @@ def show_version():
 
 def show_welcome_screen():
     """Show the main application welcome screen with system info and commands"""
+    # Imported here so the setup wizard can use this module without loading config.yaml
+    from src.config.settings import config
+
     # System information
     python_version = platform.python_version()
     system_info = platform.platform()

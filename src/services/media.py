@@ -66,26 +66,6 @@ class MediaService:
                 logger.error(f"Failed to initialize Lidarr client: {e}")
                 cls._lidarr = None
 
-    def __init__(self):
-        """Initialize the service"""
-        self.transmission = None
-        self.sabnzbd = None
-
-        # Initialize download clients if enabled
-        try:
-            if config.get("transmission", {}).get("enable"):
-                from src.api.transmission import TransmissionClient
-                self.transmission = TransmissionClient()
-        except ImportError:
-            logger.warning("Transmission module not available")
-
-        try:
-            if config.get("sabnzbd", {}).get("enable"):
-                from src.api.sabnzbd import SabnzbdClient
-                self.sabnzbd = SabnzbdClient()
-        except ImportError:
-            logger.warning("SABnzbd module not available")
-
     @property
     def radarr(self):
         return self._radarr
@@ -216,7 +196,7 @@ class MediaService:
                             else None)
                     ),
                     "rating": artist.get("ratings", {}).get("value", "N/A"),
-                    "genres": ", ".join(artist.get("genres", ["Unknown"])),
+                    "genres": artist.get("genres", []),
                     "type": artist.get("artistType", "Unknown"),
                     "status": artist.get("status", "unknown"),
                     "music_type": "artist",
@@ -396,31 +376,22 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_series: {str(e)}")
             return False, str(e)
 
-    async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, selected_seasons: Optional[List[int]] = None) -> tuple[bool, str]:
-        """Add a series to Sonarr with selected quality profile and seasons"""
+    async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, seasons: Optional[List[Dict]] = None, monitor: Optional[str] = None) -> tuple[bool, str]:
+        """Add a series to Sonarr with selected quality profile and seasons.
+
+        seasons: [{"seasonNumber": n, "monitored": bool}], or None for Sonarr's default.
+        monitor: Sonarr addOptions.monitor value (e.g. "future"), or None.
+        """
         if not self.sonarr:
             raise ValueError("Sonarr is not enabled or configured")
 
         try:
-            # Get all seasons
-            seasons = await self.sonarr.get_seasons(tvdb_id)
-
-            # Format season data
-            season_data = []
-            for season in seasons:
-                season_number = season.get("seasonNumber")
-                if season_number is not None:
-                    season_data.append({
-                        "seasonNumber": season_number,
-                        "monitored": selected_seasons is None or season_number in selected_seasons
-                    })
-
-            # Add the series with selected profile and seasons
             success, message = await self.sonarr.add_series(
                 int(tvdb_id),
                 root_folder,
                 profile_id,
-                season_data
+                seasons,
+                monitor=monitor,
             )
 
             if success:
@@ -940,38 +911,6 @@ class MediaService:
             logger.error(f"Error deleting music: {e}")
             raise
 
-    async def get_radarr_status(self) -> bool:
-        """Check if Radarr is available"""
-        try:
-            return await self.radarr.check_status() if self.radarr else False
-        except Exception as e:
-            logger.error(f"Error checking Radarr status: {e}")
-            return False
-
-    async def get_sonarr_status(self) -> bool:
-        """Check if Sonarr is available"""
-        try:
-            return await self.sonarr.check_status() if self.sonarr else False
-        except Exception as e:
-            logger.error(f"Error checking Sonarr status: {e}")
-            return False
-
-    async def get_lidarr_status(self) -> bool:
-        """Check if Lidarr is available"""
-        try:
-            return await self.lidarr.check_status() if self.lidarr else False
-        except Exception as e:
-            logger.error(f"Error checking Lidarr status: {e}")
-            return False
-
-    async def get_transmission_status(self) -> bool:
-        """Check if Transmission is available"""
-        try:
-            return await self.transmission.check_status() if self.transmission else False
-        except Exception as e:
-            logger.error(f"Error checking Transmission status: {e}")
-            return False
-
     async def get_history(self, page: int = 1, page_size: int = 20,
                           event_type: Optional[str] = None) -> List[Dict]:
         """Get recent history from Radarr and Sonarr.
@@ -1045,11 +984,3 @@ class MediaService:
             "source_title": record.get("sourceTitle", ""),
             "service": "sonarr",
         }
-
-    async def get_sabnzbd_status(self) -> bool:
-        """Check if SABnzbd is available"""
-        try:
-            return await self.sabnzbd.check_status() if self.sabnzbd else False
-        except Exception as e:
-            logger.error(f"Error checking SABnzbd status: {e}")
-            return False

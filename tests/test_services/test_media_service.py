@@ -3,7 +3,7 @@ Tests for src/services/media.py -- MediaService singleton.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 
 from src.services.media import MediaService
 
@@ -160,155 +160,6 @@ class TestInitializeClients:
             MediaService._lidarr = None
             MediaService._initialize_clients()
             assert MediaService._lidarr is None
-
-
-# ---------------------------------------------------------------------------
-# __init__ download clients
-# ---------------------------------------------------------------------------
-
-
-class TestInitDownloadClients:
-    def test_transmission_enabled(self):
-        import sys
-        import types
-
-        mock_client = MagicMock()
-        mock_trans_module = types.ModuleType("src.api.transmission")
-        mock_trans_module.TransmissionClient = MagicMock(return_value=mock_client)
-
-        with patch(
-            "src.services.media.config"
-        ) as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": True} if key == "transmission"
-                else default
-            )
-            with patch(
-                "src.services.media.RadarrClient"
-            ), patch(
-                "src.services.media.SonarrClient"
-            ), patch(
-                "src.services.media.LidarrClient"
-            ), patch.dict(sys.modules, {"src.api.transmission": mock_trans_module}):
-                MediaService._instance = None
-                MediaService._radarr = None
-                MediaService._sonarr = None
-                MediaService._lidarr = None
-                service = MediaService()
-                assert service.transmission is mock_client
-
-    def test_transmission_import_error(self):
-        """When TransmissionClient can't be imported, transmission stays None."""
-        # The real src.api.transmission module has TransmissionAPI, not TransmissionClient.
-        # So with the real module in sys.modules, the import in media.py will fail
-        # with ImportError. We simulate this by making the module raise ImportError.
-        import sys
-        import types
-
-        types.ModuleType("src.api.transmission")
-        # Don't add TransmissionClient attribute - import will fail
-
-        with patch(
-            "src.services.media.config"
-        ) as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": True} if key == "transmission"
-                else default
-            )
-            with patch(
-                "src.services.media.RadarrClient"
-            ), patch(
-                "src.services.media.SonarrClient"
-            ), patch(
-                "src.services.media.LidarrClient"
-            ):
-                # Remove the module from sys.modules so the import triggers fresh
-                saved = sys.modules.pop("src.api.transmission", None)
-                # Patch __import__ to raise ImportError for this module
-                real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
-
-                def _import(name, *args, **kwargs):
-                    if name == "src.api.transmission":
-                        raise ImportError("No module")
-                    return real_import(name, *args, **kwargs)
-
-                with patch("builtins.__import__", side_effect=_import):
-                    MediaService._instance = None
-                    MediaService._radarr = None
-                    MediaService._sonarr = None
-                    MediaService._lidarr = None
-                    service = MediaService()
-                    assert service.transmission is None
-
-                if saved is not None:
-                    sys.modules["src.api.transmission"] = saved
-
-    def test_sabnzbd_enabled(self):
-        import sys
-        import types
-
-        mock_client = MagicMock()
-        mock_sab_module = types.ModuleType("src.api.sabnzbd")
-        mock_sab_module.SabnzbdClient = MagicMock(return_value=mock_client)
-
-        with patch(
-            "src.services.media.config"
-        ) as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": True} if key == "sabnzbd"
-                else {"enable": False} if key == "transmission"
-                else default
-            )
-            with patch(
-                "src.services.media.RadarrClient"
-            ), patch(
-                "src.services.media.SonarrClient"
-            ), patch(
-                "src.services.media.LidarrClient"
-            ), patch.dict(sys.modules, {"src.api.sabnzbd": mock_sab_module}):
-                MediaService._instance = None
-                MediaService._radarr = None
-                MediaService._sonarr = None
-                MediaService._lidarr = None
-                service = MediaService()
-                assert service.sabnzbd is mock_client
-
-    def test_sabnzbd_import_error(self):
-        import sys
-
-        with patch(
-            "src.services.media.config"
-        ) as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": True} if key == "sabnzbd"
-                else {"enable": False} if key == "transmission"
-                else default
-            )
-            with patch(
-                "src.services.media.RadarrClient"
-            ), patch(
-                "src.services.media.SonarrClient"
-            ), patch(
-                "src.services.media.LidarrClient"
-            ):
-                saved = sys.modules.pop("src.api.sabnzbd", None)
-                real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
-
-                def _import(name, *args, **kwargs):
-                    if name == "src.api.sabnzbd":
-                        raise ImportError("No module")
-                    return real_import(name, *args, **kwargs)
-
-                with patch("builtins.__import__", side_effect=_import):
-                    MediaService._instance = None
-                    MediaService._radarr = None
-                    MediaService._sonarr = None
-                    MediaService._lidarr = None
-                    service = MediaService()
-                    assert service.sabnzbd is None
-
-                if saved is not None:
-                    sys.modules["src.api.sabnzbd"] = saved
 
 
 # ---------------------------------------------------------------------------
@@ -470,6 +321,17 @@ class TestSearchMusic:
         assert results[0]["external_ids"] == {
             "musicbrainz": "some-mbid-123",
         }
+
+    @pytest.mark.asyncio
+    async def test_search_music_artist_genres_stay_a_list(self, mock_lidarr_client):
+        """Artist genres stay a list, so the caption does not split them into letters."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["genres"] == ["Alternative Rock"]
 
     @pytest.mark.asyncio
     async def test_search_music_album_external_ids(self, mock_lidarr_client):
@@ -775,26 +637,35 @@ class TestAddSeriesWithProfile:
         assert message == "Added successfully"
 
     @pytest.mark.asyncio
-    async def test_add_series_with_profile_selected_seasons(self, mock_sonarr_client):
+    async def test_add_series_with_profile_passes_seasons_through(self, mock_sonarr_client):
+        """The handler's season dicts reach Sonarr unchanged, without a re-fetch."""
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.return_value = [
-            {"seasonNumber": 1}, {"seasonNumber": 2}, {"seasonNumber": 3}
-        ]
         mock_sonarr_client.add_series.return_value = (True, "Added")
+        seasons = [
+            {"seasonNumber": 1, "monitored": True},
+            {"seasonNumber": 2, "monitored": False},
+        ]
 
         success, message = await service.add_series_with_profile(
-            "81189", profile_id=1, root_folder="/tv", selected_seasons=[1, 3]
+            "81189", 1, "/tv", seasons
         )
 
         assert success is True
-        # Verify the season_data was constructed correctly
-        call_args = mock_sonarr_client.add_series.call_args
-        season_data = call_args[0][3]  # 4th positional arg
-        monitored_seasons = [s for s in season_data if s["monitored"]]
-        unmonitored_seasons = [s for s in season_data if not s["monitored"]]
-        assert len(monitored_seasons) == 2  # seasons 1 and 3
-        assert len(unmonitored_seasons) == 1  # season 2
+        assert mock_sonarr_client.add_series.call_args[0] == (81189, "/tv", 1, seasons)
+        mock_sonarr_client.get_seasons.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_add_series_with_profile_forwards_monitor(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.add_series.return_value = (True, "Added")
+
+        await service.add_series_with_profile("81189", 1, "/tv", [], monitor="future")
+
+        mock_sonarr_client.add_series.assert_awaited_once_with(
+            81189, "/tv", 1, [], monitor="future"
+        )
 
     @pytest.mark.asyncio
     async def test_add_series_with_profile_failure(self, mock_sonarr_client):
@@ -814,7 +685,7 @@ class TestAddSeriesWithProfile:
     async def test_add_series_with_profile_exception(self, mock_sonarr_client):
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.side_effect = Exception("API error")
+        mock_sonarr_client.add_series.side_effect = Exception("API error")
 
         success, message = await service.add_series_with_profile(
             "81189", profile_id=1, root_folder="/tv"
@@ -964,147 +835,6 @@ class TestAddMusicWithProfile:
             await service.add_music_with_profile(
                 "some-mbid-123", profile_id=1, root_folder="/music"
             )
-
-
-# ---------------------------------------------------------------------------
-# Status checks
-# ---------------------------------------------------------------------------
-
-
-class TestStatusChecks:
-    @pytest.mark.asyncio
-    async def test_get_radarr_status(self, mock_radarr_client):
-        service = MediaService()
-        MediaService._radarr = mock_radarr_client
-        mock_radarr_client.check_status.return_value = True
-
-        result = await service.get_radarr_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_radarr_status_disabled(self):
-        service = MediaService()
-        MediaService._radarr = None
-
-        result = await service.get_radarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_radarr_status_exception(self, mock_radarr_client):
-        service = MediaService()
-        MediaService._radarr = mock_radarr_client
-        mock_radarr_client.check_status.side_effect = Exception("fail")
-
-        result = await service.get_radarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_sonarr_status(self, mock_sonarr_client):
-        service = MediaService()
-        MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.check_status.return_value = True
-
-        result = await service.get_sonarr_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_sonarr_status_disabled(self):
-        service = MediaService()
-        MediaService._sonarr = None
-
-        result = await service.get_sonarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_sonarr_status_exception(self, mock_sonarr_client):
-        service = MediaService()
-        MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.check_status.side_effect = Exception("fail")
-
-        result = await service.get_sonarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_lidarr_status(self, mock_lidarr_client):
-        service = MediaService()
-        MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.check_status.return_value = True
-
-        result = await service.get_lidarr_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_lidarr_status_disabled(self):
-        service = MediaService()
-        MediaService._lidarr = None
-
-        result = await service.get_lidarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_lidarr_status_exception(self, mock_lidarr_client):
-        service = MediaService()
-        MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.check_status.side_effect = Exception("fail")
-
-        result = await service.get_lidarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_transmission_status_enabled(self):
-        service = MediaService()
-        mock_client = AsyncMock()
-        mock_client.check_status.return_value = True
-        service.transmission = mock_client
-
-        result = await service.get_transmission_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_transmission_status_disabled(self):
-        service = MediaService()
-        service.transmission = None
-
-        result = await service.get_transmission_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_transmission_status_exception(self):
-        service = MediaService()
-        mock_client = AsyncMock()
-        mock_client.check_status.side_effect = Exception("fail")
-        service.transmission = mock_client
-
-        result = await service.get_transmission_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_sabnzbd_status_enabled(self):
-        service = MediaService()
-        mock_client = AsyncMock()
-        mock_client.check_status.return_value = True
-        service.sabnzbd = mock_client
-
-        result = await service.get_sabnzbd_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_sabnzbd_status_disabled(self):
-        service = MediaService()
-        service.sabnzbd = None
-
-        result = await service.get_sabnzbd_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_sabnzbd_status_exception(self):
-        service = MediaService()
-        mock_client = AsyncMock()
-        mock_client.check_status.side_effect = Exception("fail")
-        service.sabnzbd = mock_client
-
-        result = await service.get_sabnzbd_status()
-        assert result is False
 
 
 # ---------------------------------------------------------------------------

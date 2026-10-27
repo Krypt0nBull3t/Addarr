@@ -5,7 +5,6 @@ from unittest.mock import patch
 from telegram import InlineKeyboardMarkup
 
 from src.bot.keyboards import (
-    get_confirmation_keyboard,
     get_downloads_history_keyboard,
     get_downloads_queue_keyboard,
     get_history_items_keyboard,
@@ -169,28 +168,6 @@ class TestSettingsKeyboard:
             assert value in callback_data_values, (
                 f"{value} not found in settings keyboard callback data"
             )
-
-
-class TestConfirmationKeyboard:
-    """Tests for get_confirmation_keyboard"""
-
-    @patch("src.bot.keyboards.TranslationService")
-    def test_confirmation_keyboard(self, mock_ts):
-        """get_confirmation_keyboard('add') has confirm_add and confirm_cancel"""
-        _mock_translation(mock_ts)
-
-        result = get_confirmation_keyboard("add")
-
-        assert isinstance(result, InlineKeyboardMarkup)
-
-        callback_data_values = [
-            button.callback_data
-            for row in result.inline_keyboard
-            for button in row
-        ]
-
-        assert "confirm_add" in callback_data_values
-        assert "confirm_cancel" in callback_data_values
 
 
 class TestYesNoKeyboard:
@@ -453,7 +430,7 @@ class TestSabnzbdSettingsKeyboard:
         assert "dl_sab_speed" in callback_data
 
     @patch("src.bot.keyboards.TranslationService")
-    def test_has_pause_resume_button(self, mock_ts):
+    def test_has_pause_button(self, mock_ts):
         _mock_translation(mock_ts)
         from src.bot.keyboards import get_sabnzbd_settings_keyboard
 
@@ -464,6 +441,20 @@ class TestSabnzbdSettingsKeyboard:
             for btn in row
         ]
         assert "dl_sab_pause" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_resume_button(self, mock_ts):
+        """Resume must be a separate button so dl_sab_resume callback is sent."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_sabnzbd_settings_keyboard
+
+        result = get_sabnzbd_settings_keyboard(enabled=True)
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_sab_resume" in callback_data
 
     @patch("src.bot.keyboards.TranslationService")
     def test_has_back_button(self, mock_ts):

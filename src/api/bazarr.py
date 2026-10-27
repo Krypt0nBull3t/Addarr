@@ -76,34 +76,6 @@ class BazarrClient(BaseApiClient):
             )
             return []
 
-    async def _trigger_subtitle_search(
-        self, endpoint: str, label: str
-    ) -> bool:
-        """Trigger a subtitle search via PATCH request."""
-        try:
-            logger.info(
-                Fore.BLUE + f"🔍 Searching subtitles for {label}"
-            )
-            success, _data, error = await self._make_request(
-                endpoint, method="PATCH"
-            )
-            if success:
-                logger.info(
-                    Fore.GREEN
-                    + f"✅ Subtitle search triggered for {label}"
-                )
-            else:
-                logger.error(
-                    Fore.RED + f"❌ Subtitle search failed: {error}"
-                )
-            return success
-        except Exception as e:
-            logger.error(
-                Fore.RED
-                + f"❌ Failed to search subtitles: {str(e)}"
-            )
-            return False
-
     async def search(self, term: str) -> List[Dict]:
         """Search movies by title in Bazarr's tracked library."""
         logger.info(Fore.BLUE + f"🔍 Searching Bazarr for: {term}")
@@ -133,44 +105,4 @@ class BazarrClient(BaseApiClient):
         """Get episodes missing subtitles."""
         return await self._get_list(
             "episodes/wanted", "episodes wanting subtitles"
-        )
-
-    async def search_movie_subtitles(
-        self,
-        radarr_id: int,
-        language: str,
-        forced: bool = False,
-        hi: bool = False,
-    ) -> bool:
-        """Trigger subtitle search for a specific movie."""
-        forced_str = str(forced).lower()
-        hi_str = str(hi).lower()
-        endpoint = (
-            f"movies/subtitles?radarrid={radarr_id}"
-            f"&language={language}"
-            f"&forced={forced_str}&hi={hi_str}"
-        )
-        return await self._trigger_subtitle_search(
-            endpoint, f"movie {radarr_id}"
-        )
-
-    async def search_episode_subtitles(
-        self,
-        sonarr_series_id: int,
-        sonarr_episode_id: int,
-        language: str,
-        forced: bool = False,
-        hi: bool = False,
-    ) -> bool:
-        """Trigger subtitle search for a specific episode."""
-        forced_str = str(forced).lower()
-        hi_str = str(hi).lower()
-        endpoint = (
-            f"episodes/subtitles?seriesid={sonarr_series_id}"
-            f"&episodeid={sonarr_episode_id}"
-            f"&language={language}"
-            f"&forced={forced_str}&hi={hi_str}"
-        )
-        return await self._trigger_subtitle_search(
-            endpoint, f"episode {sonarr_episode_id}"
         )

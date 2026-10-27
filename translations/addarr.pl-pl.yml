@@ -61,6 +61,7 @@ pl-pl:
   What is this?: "❓ Co chcesz wyszukać?"
   NotAuthorized: "🔒 Musisz się najpierw uwierzytelnić.\nUżyj /auth aby rozpocząć uwierzytelnianie."
   PrivateChatOnly: "🔒 Ten bot działa tylko w czatach prywatnych. Napisz do mnie bezpośrednio."
+  NotAllowed: "⛔ Nie masz uprawnień do korzystania z tego bota."
   mainMenu: "🏠 Menu główne - Wybierz akcję."
 
   messages:
@@ -144,8 +145,6 @@ pl-pl:
   BazarrSearchPrompt: "🎭 Enter a movie title to search for subtitles:"
   BazarrNoResults: "❌ No subtitle results found."
   BazarrWantedEmpty: "✅ No media is missing subtitles."
-  BazarrSearchTriggered: "✅ Subtitle search triggered successfully!"
-  BazarrSearchFailed: "❌ Subtitle search failed."
   BazarrCancelled: "👍 Subtitle operation cancelled."
 
   # Help sections
@@ -350,8 +349,8 @@ pl-pl:
   WebhookSetupService: "🔧 Setup %{service}"
   WebhookServiceConfigured: "✅ %{service}: configured"
   WebhookServiceNotConfigured: "⚙️ %{service}: not configured"
-  WebhookSecretGenerated: "🔑 Secret generated for %{service}.\n\nAdd this webhook URL to %{service}:\n%{url}\n\nSecret: %{secret}"
-  WebhookSecretRegenerated: "🔑 Secret regenerated for %{service}.\n\nUpdate your webhook URL in %{service}:\n%{url}\n\nNew secret: %{secret}"
+  WebhookSecretGenerated: "🔑 Secret generated for %{service}.\n\nAdd this webhook URL to %{service}:\n%{url}\n\nSecret (X-Api-Secret header): %{secret}"
+  WebhookSecretRegenerated: "🔑 Secret regenerated for %{service}.\n\nUpdate your webhook URL in %{service}:\n%{url}\n\nNew secret (X-Api-Secret header): %{secret}"
   WebhookPortPrompt: "🔢 Enter the webhook server port (1024-65535):"
   WebhookPortInvalid: "❌ Invalid port. Please enter a number between 1024 and 65535."
   WebhookPortSaved: "✅ Webhook port set to %{port}.\n⚠️ Restart the bot for this to take effect."

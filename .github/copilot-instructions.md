@@ -8,10 +8,9 @@ Addarr is a Python 3.11 Telegram bot for managing media collections through Rada
 
 - **Language**: Python 3.11
 - **Bot Framework**: python-telegram-bot v20+ (async)
-- **HTTP**: aiohttp for async API clients, requests for Transmission RPC
+- **HTTP**: aiohttp for all API clients (including Transmission RPC)
 - **Config**: YAML (config.yaml validated against config_example.yaml)
-- **i18n**: python-i18n with YAML translation files (9 languages)
-- **Scheduling**: aiocron
+- **i18n**: YAML translation files (9 languages) loaded by `TranslationService`
 - **Linting**: flake8 (max line length 88, ignoring E203/E501/W503)
 - **Testing**: pytest with aioresponses, unittest.mock, factory fixtures
 
@@ -21,7 +20,7 @@ Three-layer design with strict separation:
 
 1. **Handlers** (`src/bot/handlers/`) — Telegram command/callback handlers. Each class exposes `get_handler()` returning `ConversationHandler` or `CommandHandler` instances. Multi-step flows use `ConversationHandler` with states from `src/bot/states.py`.
 
-2. **Services** (`src/services/`) — Business logic singletons (`__new__` override). `MediaService` aggregates API clients. `HealthService` runs periodic checks. `TranslationService` wraps python-i18n.
+2. **Services** (`src/services/`) — Business logic singletons (`__new__` override). `MediaService` aggregates API clients. `HealthService` runs periodic checks. `TranslationService` loads the YAML translation files.
 
 3. **API Clients** (`src/api/`) — Inherit from `BaseApiClient` (`src/api/base.py`) which provides async `_make_request()`, URL construction, and error parsing. Media clients implement the `search()` abstract method.
 
@@ -46,7 +45,7 @@ src/
   config/
     settings.py  # Config singleton, YAML loading/validation
   models/        # Data models
-  services/      # Business logic singletons (media, health, translation, scheduler)
+  services/      # Business logic singletons (media, health, translation, notification, ...)
   utils/         # Error handling, pre-run checks, helpers
   definitions.py # Path constants
   main.py        # Bot initialization and startup
@@ -81,8 +80,7 @@ pytest -x                           # Stop on first failure
 
 - Tests mirror `src/` structure in `tests/`
 - Config is mocked via `MockConfig` injected into `sys.modules` (see `tests/conftest.py`)
-- Use `aioresponses` for mocking async HTTP (Radarr, Sonarr, Lidarr, SABnzbd)
-- Use `unittest.mock.patch("requests.post")` for Transmission (sync requests)
+- Use `aioresponses` for mocking async HTTP (Radarr, Sonarr, Lidarr, Bazarr, SABnzbd, Transmission)
 - Factory fixtures: `make_user`, `make_message`, `make_update`, `make_context`
 - Singleton `_instance` is auto-reset between tests via autouse fixture
 

@@ -7,6 +7,7 @@ Dockerfile
 config.yaml
 admin.txt
 chatid.txt
+user_preferences.json
 **/.flake8
 **/__pycache__
 **/logs

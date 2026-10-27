@@ -159,12 +159,14 @@ class AlbumPickerMixin:
         return ALBUM_SELECT
 
     async def handle_album_confirm(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle album selection confirmation"""
+        """Handle album selection confirmation.
+
+        Only called from handle_album_selection, which already answered the callback.
+        """
         if not update.callback_query:
             return ConversationHandler.END
 
         query = update.callback_query
-        await query.answer()
 
         try:
             selected = context.user_data.get("selected_media")
@@ -173,15 +175,11 @@ class AlbumPickerMixin:
             selected_albums = list(context.user_data.get("selected_albums", set()))
             future_albums = context.user_data.get("future_albums", False)
 
-            kwargs = {}
-            if selected_albums:
-                kwargs["albums_to_monitor"] = selected_albums
-            if future_albums:
-                kwargs["future_albums"] = True
-
+            # Always pass the list: an empty pick means "monitor none", not "monitor all"
             success, message = await self.media_service.add_music_with_profile(
                 selected["id"], profile_id, root_folder,
-                **kwargs,
+                albums_to_monitor=selected_albums,
+                future_albums=future_albums,
             )
 
             await send_response(

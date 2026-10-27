@@ -56,3 +56,11 @@ class TestDockerfileSecurity:
         assert "/app/run.py" in entrypoint_lines[-1], (
             "ENTRYPOINT should use /app/run.py"
         )
+
+    def test_creates_data_dir_for_named_volume(self, dockerfile_lines):
+        """/app/data must exist in the image, owned by the app user.
+
+        Docker copies that ownership into a new named volume.
+        """
+        full_text = "".join(dockerfile_lines)
+        assert "/app/data" in full_text

@@ -59,6 +59,8 @@ class AddarrBot:
     def __init__(self):
         self.application = None
         self._running = False
+        # Set by stop(), which can run before start() (a signal during start-up)
+        self._stop_requested = False
         self.health_checker = health_service
         self._webhook_service = None
 
@@ -91,7 +93,7 @@ class AddarrBot:
                 await self._register_commands()
                 logger.info("🚀 Bot initialized successfully")
             except InvalidToken:
-                if handle_token_error(token):
+                if handle_token_error():
                     # Token was updated, restart the bot
                     logger.info("🔄 Restarting with new token...")
                     python = sys.executable
@@ -112,11 +114,6 @@ class AddarrBot:
     def _add_handlers(self):
         """Add all handlers to the application"""
         try:
-            # Start handler
-            start_handler = StartHandler()
-            for handler in start_handler.get_handler():
-                self.application.add_handler(handler)
-
             # Auth handler
             auth_handler = AuthHandler()
             for handler in auth_handler.get_handler():
@@ -205,6 +202,12 @@ class AddarrBot:
             for handler in system_handler.get_handler():
                 self.application.add_handler(handler)
 
+            # Start handler last: its menu_cancel must not steal Cancel
+            # taps from an open media or settings conversation
+            start_handler = StartHandler()
+            for handler in start_handler.get_handler():
+                self.application.add_handler(handler)
+
         except Exception as e:
             logger.error(f"❌ Error adding handlers: {str(e)}", exc_info=True)
             raise
@@ -227,6 +230,10 @@ class AddarrBot:
 
     async def start(self):
         """Start the bot"""
+        if self._stop_requested:
+            logger.info("🛑 Shutdown requested during start-up, not starting")
+            await self.application.shutdown()
+            return
         try:
             logger.info("🚀 Starting bot...")
             await self.application.start()
@@ -249,7 +256,7 @@ class AddarrBot:
             )
 
             # Keep the bot running until stopped
-            while self._running:
+            while self._running and not self._stop_requested:
                 await asyncio.sleep(1)
 
         except Exception as e:
@@ -258,6 +265,7 @@ class AddarrBot:
 
     async def stop(self):
         """Stop the bot gracefully"""
+        self._stop_requested = True
         if self.application:
             try:
                 logger.info("🛑 Stopping bot...")

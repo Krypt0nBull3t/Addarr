@@ -5,6 +5,7 @@ Note: The autouse mock_translation fixture in root conftest patches
 _load_translations, so we set _translations manually in tests.
 """
 
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from src.services.translation import TranslationService
@@ -185,6 +186,90 @@ class TestGetText:
         # Should return the key because %(missing)s causes KeyError
         assert result == "broken"
 
+    def test_get_text_curly_placeholders(self):
+        """%{name} placeholders, as used in the translation files, are filled."""
+        service = TranslationService()
+        TranslationService._translations = {
+            "en-us": {"saved": "Port set to %{port} on %{host}."}
+        }
+        TranslationService._current_language = "en-us"
+
+        result = service.get_text("saved", port=8080, host="pi")
+        assert result == "Port set to 8080 on pi."
+
+    def test_get_text_literal_percent_sign(self):
+        """A literal % in a string without %(name)s placeholders is kept."""
+        service = TranslationService()
+        TranslationService._translations = {
+            "en-us": {"limit": "Limit set to 50%"}
+        }
+        TranslationService._current_language = "en-us"
+
+        assert service.get_text("limit") == "Limit set to 50%"
+
+    def test_get_text_dotted_key(self):
+        """A dotted key walks into a nested section."""
+        service = TranslationService()
+        TranslationService._translations = {
+            "en-us": {"Sabnzbd": {"Speed": "Which speed?"}}
+        }
+        TranslationService._current_language = "en-us"
+
+        assert service.get_text("Sabnzbd.Speed") == "Which speed?"
+
+    def test_get_text_dotted_key_fallback_language(self):
+        """A dotted key missing in the current language uses the fallback."""
+        service = TranslationService()
+        TranslationService._current_language = "de-de"
+        TranslationService._fallback_language = "en-us"
+        TranslationService._translations = {
+            "de-de": {"Sabnzbd": {}},
+            "en-us": {"Sabnzbd": {"Speed": "Which speed?"}},
+        }
+
+        assert service.get_text("Sabnzbd.Speed") == "Which speed?"
+
+    def test_get_text_section_returns_key(self):
+        """A key that names a whole section is not a string: return the key."""
+        service = TranslationService()
+        TranslationService._translations = {
+            "en-us": {"Sabnzbd": {"Speed": "Which speed?"}}
+        }
+        TranslationService._current_language = "en-us"
+
+        assert service.get_text("Sabnzbd") == "Sabnzbd"
+
+    def test_get_text_default_when_missing(self):
+        """default= is returned when the key is missing."""
+        service = TranslationService()
+        TranslationService._translations = {"en-us": {"hello": "Hello"}}
+        TranslationService._current_language = "en-us"
+
+        assert service.get_text("missing", default="Fallback") == "Fallback"
+        assert service.get_text("missing") == "missing"
+        assert service.get_text("Sabnzbd.Missing", default="Fallback") == "Fallback"
+        assert service.get_text("hello", default="Fallback") == "Hello"
+
+    def test_shipped_files_resolve_keys(self, monkeypatch):
+        """Keys used by the handlers resolve and format in every shipped locale."""
+        monkeypatch.chdir(Path(__file__).resolve().parents[2])
+        TranslationService._translations = {}
+        _real_load_translations(TranslationService)
+        service = TranslationService()
+
+        assert len(TranslationService._translations) == 10  # 9 locales + template
+        for lang in TranslationService._translations:
+            TranslationService._current_language = lang
+            for key in ("Sabnzbd.Speed", "Sabnzbd.ChangedTo50",
+                        "Settings.AdminOnly", "messages.NoExist"):
+                assert service.get_text(key) != key, (lang, key)
+            saved = service.get_text("WebhookPortSaved", port=8080)
+            assert "8080" in saved and "%{" not in saved, lang
+            for subject in ("movie", "series", "music"):
+                message = service.get_message("NoExist", subject=subject)
+                assert "WithArticle" not in message, (lang, subject)
+                assert "%{" not in message, (lang, subject)
+
 
 # ---------------------------------------------------------------------------
 # Properties
@@ -216,11 +301,11 @@ class TestGetMessage:
         TranslationService._current_language = "en-us"
         TranslationService._translations = {
             "en-us": {
-                "movie": "movie",
-                "movieWithArticle": "a movie",
-                "messages.searchFor": (
-                    "Searching for %(subject)s: %(title)s"
-                ),
+                "Movie": "Movie",
+                "MovieWithArticle": "The movie",
+                "messages": {
+                    "searchFor": "%{subjectWithArticle} (%{subject}): %{title}",
+                },
             }
         }
 
@@ -228,15 +313,15 @@ class TestGetMessage:
             "searchFor", subject="movie", title="Fight Club"
         )
 
-        assert "movie" in result
-        assert "Fight Club" in result
+        # Handlers pass "movie"; the subject keys are capitalized in the files
+        assert result == "The movie (Movie): Fight Club"
 
     def test_get_message_without_subject(self):
         service = TranslationService()
         TranslationService._current_language = "en-us"
         TranslationService._translations = {
             "en-us": {
-                "messages.generic": "A generic message",
+                "messages": {"generic": "A generic message"},
             }
         }
 
@@ -248,7 +333,7 @@ class TestGetMessage:
         TranslationService._current_language = "en-us"
         TranslationService._translations = {
             "en-us": {
-                "messages.found": "Found: %(title)s",
+                "messages": {"found": "Found: %{title}"},
             }
         }
 

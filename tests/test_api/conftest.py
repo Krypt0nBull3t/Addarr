@@ -37,11 +37,6 @@ def lidarr_url():
 
 
 @pytest.fixture
-def sabnzbd_url():
-    return "http://localhost:8090"
-
-
-@pytest.fixture
 def radarr_client():
     from src.api.radarr import RadarrClient
     return RadarrClient()
@@ -57,12 +52,6 @@ def sonarr_client():
 def lidarr_client():
     from src.api.lidarr import LidarrClient
     return LidarrClient()
-
-
-@pytest.fixture
-def sabnzbd_client():
-    from src.api.sabnzbd import SabnzbdClient
-    return SabnzbdClient()
 
 
 @pytest.fixture

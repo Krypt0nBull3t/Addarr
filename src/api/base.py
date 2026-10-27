@@ -44,6 +44,15 @@ def filter_root_folders(paths: List[str], service_config: dict) -> List[str]:
     return paths
 
 
+def filter_quality_profiles(profiles: List[dict], service_config: dict) -> List[dict]:
+    """Drop profiles listed in the service's quality.excludedProfiles (names or IDs)."""
+    excluded = service_config.get("quality", {}).get("excludedProfiles") or []
+    return [
+        p for p in profiles
+        if p["name"] not in excluded and p["id"] not in excluded
+    ]
+
+
 class APIError(Exception):
     """Custom exception for API errors"""
     def __init__(self, message: str, status_code: Optional[int] = None, response_text: Optional[str] = None):
@@ -104,7 +113,7 @@ class BaseApiClient(ABC):
         """Build the full API URL for an endpoint."""
         return f"{self.base_url}/api/{self.API_VERSION}/{endpoint}"
 
-    def _parse_error_response(self, response_text: str, title: Optional[str] = None) -> str:
+    def _parse_error_response(self, response_text: str, title: Optional[str] = None) -> Optional[str]:
         """Parse error response from API
 
         Args:
@@ -112,7 +121,7 @@ class BaseApiClient(ABC):
             title: Title/name of the item being processed
 
         Returns:
-            str: User-friendly error message
+            Optional[str]: The API's errorMessage, or None when the body has none
         """
         try:
             if response_text.startswith("["):
@@ -124,15 +133,15 @@ class BaseApiClient(ABC):
                         if "already" in error_msg.lower() and title:
                             return f"{title} is already in your library"
                         return error_msg
-            return response_text
+            return None
         except json.JSONDecodeError:
-            return response_text
+            return None
 
     def _is_retryable_status(self, status_code: int) -> bool:
         """Check if an HTTP status code is retryable."""
         return status_code in self.RETRYABLE_STATUS_CODES
 
-    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: Optional[str] = None, timeout: Optional[int] = None, max_retries: Optional[int] = None) -> Tuple[bool, Any, Optional[str]]:
+    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: Optional[str] = None, timeout: Optional[int] = None, max_retries: Optional[int] = None, params: Optional[dict] = None) -> Tuple[bool, Any, Optional[str]]:
         """Make an API request with retry and exponential backoff.
 
         Args:
@@ -142,6 +151,7 @@ class BaseApiClient(ABC):
             title: Title/name of the item being processed
             timeout: Per-request timeout in seconds (overrides instance default)
             max_retries: Max retry attempts (overrides instance default)
+            params: Query parameters (URL-encoded by aiohttp)
 
         Returns:
             Tuple[bool, Any, Optional[str]]: (success, data, error_message)
@@ -155,6 +165,7 @@ class BaseApiClient(ABC):
         request_kwargs = {
             "headers": self._get_headers(),
             "json": data,
+            "params": params,
         }
         if timeout is not None:
             request_kwargs["timeout"] = aiohttp.ClientTimeout(total=timeout)
@@ -175,9 +186,13 @@ class BaseApiClient(ABC):
                             data = None
                         return True, data, None
 
-                    # Parse error response with title context
+                    # Parse error response with title context. Never return the raw
+                    # body: a proxy error page can be long HTML with internal details.
                     error_message = self._parse_error_response(
                         response_text, title
+                    ) or (
+                        f"{self.service_name.capitalize()} returned "
+                        f"HTTP {response.status}"
                     )
 
                     # Retry on retryable status codes
@@ -200,7 +215,7 @@ class BaseApiClient(ABC):
                     else:
                         self.logger.error(
                             f"❌ API request failed ({response.status}): "
-                            f"{error_message}"
+                            f"{response_text[:500]}"
                         )
                     return False, None, error_message
 
@@ -210,7 +225,8 @@ class BaseApiClient(ABC):
                 else:
                     error_message = f"Connection error: {str(e)}"
 
-                if attempt < retries:
+                # A timeout already waited the full timeout; retrying would multiply it
+                if attempt < retries and not isinstance(e, asyncio.TimeoutError):
                     delay = self.DEFAULT_BACKOFF_BASE * (2 ** attempt)
                     self.logger.warning(
                         f"⚠️ {error_message}, retrying in {delay}s "
@@ -255,12 +271,3 @@ class BaseApiClient(ABC):
         except Exception as e:
             self.logger.error(f"Error getting disk space: {e}")
             return []
-
-    async def check_status(self) -> bool:
-        """Check if the service is available"""
-        try:
-            success, _data, _error = await self._make_request("system/status")
-            return success
-        except Exception as e:
-            self.logger.error(f"Error checking API status: {e}")
-            return False

@@ -11,7 +11,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
 from src.services.media import MediaService
-from src.bot.handlers.auth import require_auth
+from src.bot.handlers.auth import require_admin, require_auth
 from src.services.rate_limit import rate_limit
 from src.services.translation import TranslationService
 
@@ -61,6 +61,7 @@ class DeleteHandler:
         return InlineKeyboardMarkup(keyboard)
 
     @require_auth
+    @require_admin()
     @rate_limit("modify")
     async def handle_delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle delete command"""
@@ -77,6 +78,8 @@ class DeleteHandler:
             reply_markup=self.get_delete_keyboard()
         )
 
+    @require_auth
+    @require_admin()
     async def handle_delete_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle delete selection"""
         if not update.callback_query:

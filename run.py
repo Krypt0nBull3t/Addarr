@@ -33,23 +33,26 @@ def main():
     if args.validate_i18n:
         # Import only what's needed for validation
         from src.utils.validate_translations import main as validate_translations
-        validate_translations()
-        return
+        sys.exit(validate_translations())
 
     # Run pre-run checks (unless we're running setup)
     if not args.setup and not prerun_checker.run_checks():
         sys.exit(1)
 
-    # Now we can safely initialize everything else
-    from src.utils import init_utils
-    init_utils()
-
-    # Import other modules after checks pass
     from src.setup import SetupWizard
-    from src.utils.splash import show_splash_screen, show_version
-    from src.main import run_bot
-    from src.utils.validation import check_config
-    from src.utils.backup import create_backup
+
+    # The wizard must be able to repair a broken config.yaml, so its flags
+    # skip the imports below: they load and validate that file
+    if not (args.setup or args.configure or args.reset):
+        # Now we can safely initialize everything else
+        from src.utils import init_utils
+        init_utils()
+
+        # Import other modules after checks pass
+        from src.utils.splash import show_splash_screen, show_version
+        from src.main import run_bot
+        from src.utils.validation import check_config
+        from src.utils.backup import create_backup
 
     try:
         # Handle command line arguments
