@@ -50,14 +50,14 @@ class RateLimitExceededError(AddarrError):
 # Error Handlers
 
 
-def handle_token_error(token: str) -> bool:
+def handle_token_error() -> bool:
     """Handle invalid or missing Telegram token errors
 
     Returns:
         bool: True if token was updated, False otherwise
     """
     print(f"\n{Fore.RED}❌ Error: Invalid Telegram Bot Token!")
-    print(f"\n{Fore.YELLOW}The token '{token}' was rejected by Telegram.")
+    print(f"\n{Fore.YELLOW}The token in config.yaml was rejected by Telegram.")
 
     while True:
         choice = input(f"\n{Fore.CYAN}Would you like to update the token now? (y/n): {Style.RESET_ALL}").lower()

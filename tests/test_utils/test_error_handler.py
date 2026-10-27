@@ -82,7 +82,7 @@ class TestHandleTokenError:
             patch("yaml.safe_load", return_value=yaml_data),
             patch("yaml.dump"),
         ):
-            result = handle_token_error("old-token")
+            result = handle_token_error()
         assert result is True
         # Verify token was updated in the config dict
         assert yaml_data["telegram"]["token"] == "new-valid-token"
@@ -96,7 +96,7 @@ class TestHandleTokenError:
             patch("yaml.safe_load", return_value=yaml_data),
             patch("yaml.dump"),
         ):
-            result = handle_token_error("old")
+            result = handle_token_error()
         assert result is True
 
     def test_user_says_yes_no_telegram_section(self):
@@ -108,7 +108,7 @@ class TestHandleTokenError:
             patch("yaml.safe_load", return_value=yaml_data),
             patch("yaml.dump"),
         ):
-            result = handle_token_error("bad")
+            result = handle_token_error()
         assert result is True
         assert yaml_data["telegram"]["token"] == "new-token"
 
@@ -118,19 +118,19 @@ class TestHandleTokenError:
             patch("builtins.input", side_effect=["y", "new-token"]),
             patch("builtins.open", side_effect=IOError("disk full")),
         ):
-            result = handle_token_error("bad")
+            result = handle_token_error()
         assert result is False
 
     def test_user_says_no(self):
         """Returns False when user declines."""
         with patch("builtins.input", return_value="n"):
-            result = handle_token_error("bad-token")
+            result = handle_token_error()
         assert result is False
 
     def test_invalid_then_no(self):
         """Prompts again after invalid input, then user says n."""
         with patch("builtins.input", side_effect=["maybe", "n"]):
-            result = handle_token_error("bad-token")
+            result = handle_token_error()
         assert result is False
 
 
