@@ -468,7 +468,7 @@ class TestRadarrAddMovie:
         )
         success, message = await radarr_client.add_movie(550, "/movies", 1)
         assert success is False
-        assert message == "not json"
+        assert message == "Radarr returned HTTP 500"
 
     @pytest.mark.asyncio
     async def test_add_movie_client_error(self, aio_mock, radarr_client):

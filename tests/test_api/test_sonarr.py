@@ -108,7 +108,7 @@ class TestSonarrSearch:
     async def test_search_failure_raises(self, aio_mock, sonarr_client):
         """A failed request is an error, not an empty result."""
         aio_mock.get(f"{BASE}/series/lookup?term=test", status=401, body="Unauthorized")
-        with pytest.raises(APIError, match="Unauthorized"):
+        with pytest.raises(APIError, match="HTTP 401"):
             await sonarr_client.search("test")
 
     @pytest.mark.asyncio
@@ -466,7 +466,7 @@ class TestSonarrAddSeries:
         )
         success, message = await sonarr_client.add_series(81189, "/tv", 1)
         assert success is False
-        assert message == "not json"
+        assert message == "Sonarr returned HTTP 500"
 
     @pytest.mark.asyncio
     async def test_add_series_client_error(self, aio_mock, sonarr_client):

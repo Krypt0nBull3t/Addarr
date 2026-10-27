@@ -113,7 +113,7 @@ class BaseApiClient(ABC):
         """Build the full API URL for an endpoint."""
         return f"{self.base_url}/api/{self.API_VERSION}/{endpoint}"
 
-    def _parse_error_response(self, response_text: str, title: Optional[str] = None) -> str:
+    def _parse_error_response(self, response_text: str, title: Optional[str] = None) -> Optional[str]:
         """Parse error response from API
 
         Args:
@@ -121,7 +121,7 @@ class BaseApiClient(ABC):
             title: Title/name of the item being processed
 
         Returns:
-            str: User-friendly error message
+            Optional[str]: The API's errorMessage, or None when the body has none
         """
         try:
             if response_text.startswith("["):
@@ -133,9 +133,9 @@ class BaseApiClient(ABC):
                         if "already" in error_msg.lower() and title:
                             return f"{title} is already in your library"
                         return error_msg
-            return response_text
+            return None
         except json.JSONDecodeError:
-            return response_text
+            return None
 
     def _is_retryable_status(self, status_code: int) -> bool:
         """Check if an HTTP status code is retryable."""
@@ -186,9 +186,13 @@ class BaseApiClient(ABC):
                             data = None
                         return True, data, None
 
-                    # Parse error response with title context
+                    # Parse error response with title context. Never return the raw
+                    # body: a proxy error page can be long HTML with internal details.
                     error_message = self._parse_error_response(
                         response_text, title
+                    ) or (
+                        f"{self.service_name.capitalize()} returned "
+                        f"HTTP {response.status}"
                     )
 
                     # Retry on retryable status codes
@@ -211,7 +215,7 @@ class BaseApiClient(ABC):
                     else:
                         self.logger.error(
                             f"❌ API request failed ({response.status}): "
-                            f"{error_message}"
+                            f"{response_text[:500]}"
                         )
                     return False, None, error_message
 

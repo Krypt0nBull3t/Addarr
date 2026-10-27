@@ -124,7 +124,7 @@ class TestLidarrSearch:
     async def test_search_failure_raises(self, aio_mock, lidarr_client):
         """A failed request is an error, not an empty result."""
         aio_mock.get(f"{BASE}/artist/lookup?term=test", status=401, body="Unauthorized")
-        with pytest.raises(APIError, match="Unauthorized"):
+        with pytest.raises(APIError, match="HTTP 401"):
             await lidarr_client.search("test")
 
     @pytest.mark.asyncio
@@ -395,7 +395,7 @@ class TestLidarrAddArtist:
             ARTIST_ID, root_folder="/music", quality_profile_id=1
         )
         assert success is False
-        assert message == "not json"
+        assert message == "Lidarr returned HTTP 500"
 
     @pytest.mark.asyncio
     async def test_add_artist_client_error(self, aio_mock, lidarr_client):
@@ -903,7 +903,7 @@ class TestLidarrSearchAlbums:
     async def test_search_albums_failure_raises(self, aio_mock, lidarr_client):
         """A failed request is an error, not an empty result."""
         aio_mock.get(f"{BASE}/album/lookup?term=test", status=401, body="Unauthorized")
-        with pytest.raises(APIError, match="Unauthorized"):
+        with pytest.raises(APIError, match="HTTP 401"):
             await lidarr_client.search_albums("test")
 
     @pytest.mark.asyncio
