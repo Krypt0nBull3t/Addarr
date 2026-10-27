@@ -59,6 +59,8 @@ class AddarrBot:
     def __init__(self):
         self.application = None
         self._running = False
+        # Set by stop(), which can run before start() (a signal during start-up)
+        self._stop_requested = False
         self.health_checker = health_service
         self._webhook_service = None
 
@@ -228,6 +230,10 @@ class AddarrBot:
 
     async def start(self):
         """Start the bot"""
+        if self._stop_requested:
+            logger.info("🛑 Shutdown requested during start-up, not starting")
+            await self.application.shutdown()
+            return
         try:
             logger.info("🚀 Starting bot...")
             await self.application.start()
@@ -250,7 +256,7 @@ class AddarrBot:
             )
 
             # Keep the bot running until stopped
-            while self._running:
+            while self._running and not self._stop_requested:
                 await asyncio.sleep(1)
 
         except Exception as e:
@@ -259,6 +265,7 @@ class AddarrBot:
 
     async def stop(self):
         """Stop the bot gracefully"""
+        self._stop_requested = True
         if self.application:
             try:
                 logger.info("🛑 Stopping bot...")
