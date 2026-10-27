@@ -8,13 +8,26 @@ module into sys.modules so all `from src.config.settings import config`
 statements get our mock instead.
 """
 
+import inspect
 import os
 import sys
 import types
 from copy import deepcopy
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
+import aioresponses.core
 import pytest
+
+# shortcut: aioresponses 0.7.9 builds ClientResponse without the stream_writer
+# argument that aiohttp 3.14 requires; remove once aioresponses supports 3.14.
+if "stream_writer" in inspect.signature(aiohttp.ClientResponse.__init__).parameters:
+    class _CompatClientResponse(aiohttp.ClientResponse):
+        def __init__(self, *args, **kwargs):
+            kwargs.setdefault("stream_writer", types.SimpleNamespace(output_size=0))
+            super().__init__(*args, **kwargs)
+
+    aioresponses.core.ClientResponse = _CompatClientResponse  # type: ignore[misc]
 
 # ---------------------------------------------------------------------------
 # 1. Mock config -- injected into sys.modules BEFORE any src imports
