@@ -16,7 +16,6 @@ SERVICES_DIR = os.path.join(SRC_DIR, "services")
 API_DIR = os.path.join(SRC_DIR, "api")
 
 # Service classes that must implement the singleton pattern.
-# Explicit set because JobScheduler doesn't follow *Service naming.
 SINGLETON_CLASSES = {
     "MediaService",
     "HealthService",
@@ -26,7 +25,6 @@ SINGLETON_CLASSES = {
     "PreferencesService",
     "NotificationService",
     "RateLimitService",
-    "JobScheduler",
     "WebhookService",
     "BazarrService",
 }

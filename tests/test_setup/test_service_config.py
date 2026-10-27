@@ -95,7 +95,6 @@ class TestGetDefaultServiceConfig:
             assert config["auth"]["apikey"] == ""
             assert config["paths"]["excludedRootFolders"] == []
             assert config["quality"]["excludedProfiles"] == []
-            assert config["tags"]["default"] == ["telegram"]
             assert config["adminRestrictions"] is False
 
     def test_unknown_service_fallthrough(self):

@@ -75,7 +75,7 @@ Tests live in `tests/` mirroring `src/` structure. Key patterns:
 - **Config mock**: `tests/conftest.py` injects a `MockConfig` into `sys.modules["src.config.settings"]` before any `src` imports, bypassing the real `Config()` which reads from disk at import time.
 - **Singleton reset**: An `autouse=True` fixture resets `_instance = None` on all singleton services between tests.
 - **Telegram factories**: Factory fixtures (`make_user`, `make_message`, `make_update`, `make_context`) return callables for per-test customization.
-- **API mocking**: `aioresponses` for async HTTP clients (Radarr, Sonarr, Lidarr, SABnzbd). `unittest.mock.patch("requests.post")` for Transmission (uses sync `requests`).
+- **API mocking**: `aioresponses` for all async HTTP clients (Radarr, Sonarr, Lidarr, Bazarr, SABnzbd, Transmission). Transmission also uses `aiohttp`, so mock it with `aioresponses` too.
 - **Translation mock**: `autouse=True` fixture patches `TranslationService._load_translations` so tests don't need YAML files.
 - **Config patching gotcha**: Module-level `from src.config.settings import config` binds at import time. To override in tests, patch at the import site: `patch("src.the_module.config", mock_config)` — replacing `sys.modules` won't affect modules that already imported `config`.
 
@@ -117,7 +117,7 @@ The codebase follows a three-layer architecture with strict separation:
 
 1. **Handlers** (`src/bot/handlers/`) — Telegram command/callback handlers. Each handler class exposes `get_handler()` returning a list of `ConversationHandler` or `CommandHandler` instances. Multi-step interactions use `ConversationHandler` with states defined in `src/bot/states.py`.
 
-2. **Services** (`src/services/`) — Business logic layer using singleton pattern (`__new__` override). `MediaService` aggregates all API clients. `HealthService` runs periodic health checks. `TranslationService` wraps python-i18n.
+2. **Services** (`src/services/`) — Business logic layer using singleton pattern (`__new__` override). `MediaService` aggregates all API clients. `HealthService` runs periodic health checks. `TranslationService` loads the YAML translation files.
 
 3. **API Clients** (`src/api/`) — All inherit from `BaseApiClient` (`src/api/base.py`), which provides async `_make_request()`, URL construction from config, and standard error parsing. Each client (Radarr, Sonarr, Lidarr) implements the `search()` abstract method.
 
@@ -176,8 +176,7 @@ Templates include ConfigMap, Deployment, and PersistentVolumeClaim. See `helm/RE
 Imports were cleaned up during a lint pass. If implementing the following, re-add the corresponding imports:
 
 - **Colored handler logging**: `delete.py`, `help.py`, `sabnzbd.py`, `start.py`, `system.py` handlers currently log without color. Other handlers (auth, media) use `from colorama import Fore` for colored log messages. Re-add if adding colored logging to these files.
-- **Exception-based service checks**: `src/bot/handlers/transmission.py` checks `is_enabled()` and sends a reply directly. `ServiceNotEnabledError` from `src/utils/error_handler` was removed but may be needed if refactoring to exception-based handling.
-- **Scheduler enhancements**: `src/services/scheduler.py` uses `aiocron` for scheduling. `asyncio`, `datetime`/`timedelta`, and `typing.Optional`/`Any` were removed but may be needed for time-based scheduling features beyond cron expressions.
+- **Exception-based service checks**: `src/bot/handlers/transmission.py` checks `is_enabled()` and sends a reply directly. There is no `ServiceNotEnabledError` (the unused exception classes were removed from `src/utils/error_handler.py`); add one if refactoring to exception-based handling.
 
 ## Planning & Task Conventions
 

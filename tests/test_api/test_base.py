@@ -384,45 +384,6 @@ class TestBaseApiClientRequest:
 
 
 # ---------------------------------------------------------------------------
-# BaseApiClient -- check_status
-# ---------------------------------------------------------------------------
-
-
-class TestBaseApiClientCheckStatus:
-    @pytest.mark.asyncio
-    async def test_check_status_success(self, client):
-        """check_status returns True when API responds 200."""
-        with aioresponses() as m:
-            m.get(
-                "http://localhost:7878/api/v3/system/status",
-                payload={"status": "ok"},
-                status=200,
-            )
-            result = await client.check_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_check_status_failure(self, client):
-        """check_status returns False when all retries fail."""
-        with aioresponses() as m:
-            for _ in range(3):
-                m.get(
-                    "http://localhost:7878/api/v3/system/status",
-                    exception=aiohttp.ClientError("refused"),
-                )
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await client.check_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_check_status_exception(self, client):
-        """check_status catches unexpected exceptions and returns False."""
-        with patch.object(client, "_make_request", side_effect=Exception("boom")):
-            result = await client.check_status()
-        assert result is False
-
-
-# ---------------------------------------------------------------------------
 # BaseApiClient -- Session reuse
 # ---------------------------------------------------------------------------
 

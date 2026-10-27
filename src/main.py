@@ -93,7 +93,7 @@ class AddarrBot:
                 await self._register_commands()
                 logger.info("🚀 Bot initialized successfully")
             except InvalidToken:
-                if handle_token_error(token):
+                if handle_token_error():
                     # Token was updated, restart the bot
                     logger.info("🔄 Restarting with new token...")
                     python = sys.executable

@@ -8,7 +8,7 @@ Usage:
     python scripts/test_runner.py all -x -v
 
 Domains:
-    api         API clients (radarr, sonarr, lidarr, transmission, sabnzbd)
+    api         API clients (radarr, sonarr, lidarr, bazarr, transmission)
     services    Service layer (media, health, translation, notification, etc.)
     handlers    Telegram bot handlers (auth, media, start, help, etc.)
     models      Data models (media, notification)

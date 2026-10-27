@@ -23,11 +23,6 @@ def mock_media_service():
     service.add_series_with_profile = AsyncMock(return_value=(True, "Success"))
     service.add_music = AsyncMock(return_value=(False, "Not found"))
     service.add_music_with_profile = AsyncMock(return_value=(True, "Success"))
-    service.get_radarr_status = AsyncMock(return_value=True)
-    service.get_sonarr_status = AsyncMock(return_value=True)
-    service.get_lidarr_status = AsyncMock(return_value=True)
-    service.get_transmission_status = AsyncMock(return_value=False)
-    service.get_sabnzbd_status = AsyncMock(return_value=False)
     service.get_artist_albums = AsyncMock(return_value=[])
     service.get_movies = AsyncMock(return_value=[])
     service.get_series = AsyncMock(return_value=[])
@@ -61,8 +56,6 @@ def mock_notification_service():
     """Mock NotificationService."""
     service = MagicMock()
     service.notify_admin = AsyncMock()
-    service.notify_user = AsyncMock()
-    service.notify_action = AsyncMock()
     return service
 
 

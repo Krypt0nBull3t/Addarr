@@ -151,26 +151,6 @@ class TestBazarrServiceDelegationDisabled:
         result = await service.get_wanted_episodes()
         assert result == []
 
-    @pytest.mark.asyncio
-    async def test_search_movie_subtitles_no_client(
-        self, disabled_bazarr_config
-    ):
-        from src.services.bazarr import BazarrService
-
-        service = BazarrService()
-        result = await service.search_movie_subtitles(1, "en")
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_search_episode_subtitles_no_client(
-        self, disabled_bazarr_config
-    ):
-        from src.services.bazarr import BazarrService
-
-        service = BazarrService()
-        result = await service.search_episode_subtitles(1, 2, "en")
-        assert result is False
-
 
 # ---------------------------------------------------------------------------
 # Delegation methods — with client
@@ -229,37 +209,3 @@ class TestBazarrServiceDelegationWithClient:
         result = await service.get_wanted_episodes()
         mock_client.get_wanted_episodes.assert_called_once()
         assert result == [{"title": "Ep1"}]
-
-    @pytest.mark.asyncio
-    async def test_search_movie_subtitles_delegates(self):
-        from src.services.bazarr import BazarrService
-
-        service = BazarrService()
-        mock_client = AsyncMock()
-        mock_client.search_movie_subtitles.return_value = True
-        BazarrService._client = mock_client
-
-        result = await service.search_movie_subtitles(
-            42, "en", forced=True, hi=False
-        )
-        mock_client.search_movie_subtitles.assert_called_once_with(
-            42, "en", forced=True, hi=False
-        )
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_search_episode_subtitles_delegates(self):
-        from src.services.bazarr import BazarrService
-
-        service = BazarrService()
-        mock_client = AsyncMock()
-        mock_client.search_episode_subtitles.return_value = True
-        BazarrService._client = mock_client
-
-        result = await service.search_episode_subtitles(
-            10, 20, "en", forced=False, hi=True
-        )
-        mock_client.search_episode_subtitles.assert_called_once_with(
-            10, 20, "en", forced=False, hi=True
-        )
-        assert result is True

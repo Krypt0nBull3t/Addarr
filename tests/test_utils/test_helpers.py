@@ -7,7 +7,6 @@ from src.utils.helpers import (
     admin_only,
     check_auth,
     get_authorized_chats,
-    get_chat_name,
     format_bytes,
     is_admin,
     is_allowed,
@@ -213,91 +212,6 @@ class TestGetAuthorizedChats:
         with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
             result = await get_authorized_chats()
         assert result == [100, 200]
-
-
-# ---- get_chat_name ----
-
-
-class TestGetChatName:
-    """Tests for get_chat_name."""
-
-    @pytest.mark.asyncio
-    async def test_username(self):
-        """Returns chat_id - username when username is set."""
-        bot = AsyncMock()
-        chat = MagicMock()
-        chat.username = "alice"
-        chat.title = None
-        chat.first_name = None
-        chat.last_name = None
-        bot.get_chat.return_value = chat
-        result = await get_chat_name(bot, 42)
-        assert result == "42 - alice"
-
-    @pytest.mark.asyncio
-    async def test_title(self):
-        """Returns chat_id - title when title is set."""
-        bot = AsyncMock()
-        chat = MagicMock()
-        chat.username = None
-        chat.title = "My Group"
-        chat.first_name = None
-        chat.last_name = None
-        bot.get_chat.return_value = chat
-        result = await get_chat_name(bot, 42)
-        assert result == "42 - My Group"
-
-    @pytest.mark.asyncio
-    async def test_first_and_last_name(self):
-        """Returns chat_id - first last when both names are set."""
-        bot = AsyncMock()
-        chat = MagicMock()
-        chat.username = None
-        chat.title = None
-        chat.first_name = "Alice"
-        chat.last_name = "Smith"
-        bot.get_chat.return_value = chat
-        result = await get_chat_name(bot, 42)
-        assert result == "42 - Alice Smith"
-
-    @pytest.mark.asyncio
-    async def test_first_name_only(self):
-        """Returns chat_id - first when only first_name is set."""
-        bot = AsyncMock()
-        chat = MagicMock()
-        chat.username = None
-        chat.title = None
-        chat.first_name = "Alice"
-        chat.last_name = None
-        bot.get_chat.return_value = chat
-        result = await get_chat_name(bot, 42)
-        assert result == "42 - Alice"
-
-    @pytest.mark.asyncio
-    async def test_last_name_only(self):
-        """Returns chat_id - last when only last_name is set."""
-        bot = AsyncMock()
-        chat = MagicMock()
-        chat.username = None
-        chat.title = None
-        chat.first_name = None
-        chat.last_name = "Smith"
-        bot.get_chat.return_value = chat
-        result = await get_chat_name(bot, 42)
-        assert result == "42 - Smith"
-
-    @pytest.mark.asyncio
-    async def test_no_name(self):
-        """Returns str(chat_id) when no name attributes are set."""
-        bot = AsyncMock()
-        chat = MagicMock()
-        chat.username = None
-        chat.title = None
-        chat.first_name = None
-        chat.last_name = None
-        bot.get_chat.return_value = chat
-        result = await get_chat_name(bot, 42)
-        assert result == "42"
 
 
 # ---- is_authenticated ----

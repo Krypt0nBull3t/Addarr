@@ -70,7 +70,6 @@ def get_default_service_config(service: str) -> Dict[str, Any]:
         "features": {"search": True},
         "paths": {"excludedRootFolders": [], "narrowRootFolderNames": True},
         "quality": {"excludedProfiles": []},
-        "tags": {"default": ["telegram"], "addRequesterIdTag": True},
         "adminRestrictions": False,
     }
 

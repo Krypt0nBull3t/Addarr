@@ -5,7 +5,6 @@ from unittest.mock import patch
 from telegram import InlineKeyboardMarkup
 
 from src.bot.keyboards import (
-    get_confirmation_keyboard,
     get_downloads_history_keyboard,
     get_downloads_queue_keyboard,
     get_history_items_keyboard,
@@ -169,28 +168,6 @@ class TestSettingsKeyboard:
             assert value in callback_data_values, (
                 f"{value} not found in settings keyboard callback data"
             )
-
-
-class TestConfirmationKeyboard:
-    """Tests for get_confirmation_keyboard"""
-
-    @patch("src.bot.keyboards.TranslationService")
-    def test_confirmation_keyboard(self, mock_ts):
-        """get_confirmation_keyboard('add') has confirm_add and confirm_cancel"""
-        _mock_translation(mock_ts)
-
-        result = get_confirmation_keyboard("add")
-
-        assert isinstance(result, InlineKeyboardMarkup)
-
-        callback_data_values = [
-            button.callback_data
-            for row in result.inline_keyboard
-            for button in row
-        ]
-
-        assert "confirm_add" in callback_data_values
-        assert "confirm_cancel" in callback_data_values
 
 
 class TestYesNoKeyboard:

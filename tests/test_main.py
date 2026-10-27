@@ -193,6 +193,8 @@ class TestInitialize:
             except Exception:
                 pass
         mock_execl.assert_called_once()
+        # The token is a secret: it must not be handed to the console prompt
+        mock_hte.assert_called_once_with()
 
     @pytest.mark.asyncio
     @patch("src.main.show_welcome_screen")
