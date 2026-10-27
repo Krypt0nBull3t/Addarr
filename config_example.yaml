@@ -33,7 +33,7 @@ radarr:
   tags:
     default: ["telegram"]
     addRequesterIdTag: true
-  adminRestrictions: false
+  adminRestrictions: false  # Only admins can search and add movies (works without enableAdmin)
 
 # Sonarr Configuration (TV Shows)
 sonarr:
@@ -58,7 +58,7 @@ sonarr:
   tags:
     default: ["telegram"]
     addRequesterIdTag: true
-  adminRestrictions: false
+  adminRestrictions: false  # Only admins can search and add series (works without enableAdmin)
 
 # Lidarr Configuration (Music)
 lidarr:
@@ -84,7 +84,7 @@ lidarr:
   tags:
     default: ["telegram"]
     addRequesterIdTag: true
-  adminRestrictions: false
+  adminRestrictions: false  # Only admins can search and add music (works without enableAdmin)
   metadataProfileId: 1
 
 # Bazarr Configuration (Subtitles — Optional)
@@ -123,7 +123,7 @@ webhooks:
 # Transmission Configuration (Optional)
 transmission:
   enable: false  # Set to true to enable Transmission
-  onlyAdmin: true  # Restrict to admin users only
+  onlyAdmin: true  # Restrict to admins (only when security.enableAdmin is true)
   host: localhost
   authentication: false
   username:  # Required if authentication is true
@@ -132,7 +132,7 @@ transmission:
 # SABnzbd Configuration (Optional)
 sabnzbd:
   enable: false  # Set to true to enable SABnzbd
-  onlyAdmin: true  # Restrict to admin users only
+  onlyAdmin: true  # Restrict to admins (only when security.enableAdmin is true)
   server:
     addr: localhost
     port: 8090
@@ -164,8 +164,8 @@ entrypoints:
 
 # Security Configuration
 security:
-  enableAdmin: false  # Enable admin features
-  enableAllowlist: false  # Enable allowlist restriction
+  enableAdmin: false  # Admin mode: only admins can delete media and control download clients that set onlyAdmin
+  enableAllowlist: false  # Only users in allow_list (and admins) can use the bot
   chatMode: private_only  # Options: private_only (reject group chats), allow_all (no restriction)
 
 # Rate Limiting Configuration

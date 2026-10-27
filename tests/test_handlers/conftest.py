@@ -66,6 +66,17 @@ def mock_notification_service():
     return service
 
 
+@pytest.fixture
+def admin_mode(mock_config):
+    """Admin mode on with admin user 1, so the default test user 12345 is no admin."""
+    mock_config._set("security", {
+        "enableAdmin": True, "enableAllowlist": False, "chatMode": "private_only",
+    })
+    mock_config._set("admins", [1])
+    with patch("src.utils.helpers.config", mock_config):
+        yield mock_config
+
+
 # ---------------------------------------------------------------------------
 # Handler factory fixtures -- encapsulate patching + mock setup + auth
 # ---------------------------------------------------------------------------

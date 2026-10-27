@@ -61,6 +61,7 @@ pl-pl:
   What is this?: "❓ Co chcesz wyszukać?"
   NotAuthorized: "🔒 Musisz się najpierw uwierzytelnić.\nUżyj /auth aby rozpocząć uwierzytelnianie."
   PrivateChatOnly: "🔒 Ten bot działa tylko w czatach prywatnych. Napisz do mnie bezpośrednio."
+  NotAllowed: "⛔ Nie masz uprawnień do korzystania z tego bota."
   mainMenu: "🏠 Menu główne - Wybierz akcję."
 
   messages:

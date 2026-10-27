@@ -61,6 +61,7 @@ es-es:
   What is this?: "❓ ¿Qué estás buscando?"
   NotAuthorized: "🔒 Necesitas autorizarte primero.\nUsa /auth para comenzar la autenticación."
   PrivateChatOnly: "🔒 Este bot solo funciona en chats privados. Por favor, escríbeme directamente."
+  NotAllowed: "⛔ No tienes permiso para usar este bot."
   mainMenu: "🏠 Menú principal - Elige una acción."
 
   messages:

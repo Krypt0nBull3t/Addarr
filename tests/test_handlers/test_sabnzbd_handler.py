@@ -9,6 +9,13 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
 
+@pytest.fixture(autouse=True)
+def _authenticated():
+    """Handlers require auth; authenticate the default test user 12345."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+
+
 # ---------------------------------------------------------------------------
 # handle_sabnzbd
 # ---------------------------------------------------------------------------
@@ -310,3 +317,47 @@ def test_downloads_command_not_registered_when_neither_enabled(
     command_names = [c.command for c in commands]
 
     assert "downloads" not in command_names
+
+
+# ---------------------------------------------------------------------------
+# Access control
+# ---------------------------------------------------------------------------
+
+SABNZBD_ENTRY_POINTS = [
+    ("handle_sabnzbd", {"text": "/sabnzbd"}),
+    ("handle_speed_selection", {"callback_data": "sabnzbd_speed_25"}),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method, update_kwargs", SABNZBD_ENTRY_POINTS)
+@patch("src.bot.handlers.sabnzbd.SABnzbdService")
+async def test_unauthenticated_user_is_refused(
+    mock_sab_class, method, update_kwargs, make_update, make_context
+):
+    """Unauthenticated users cannot use SABnzbd (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    from src.bot.handlers.sabnzbd import SabnzbdHandler
+
+    AuthHandler._authenticated_users = set()
+    handler = SabnzbdHandler()
+
+    await getattr(handler, method)(make_update(**update_kwargs), make_context())
+
+    assert mock_sab_class.return_value.method_calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method, update_kwargs", SABNZBD_ENTRY_POINTS)
+@patch("src.bot.handlers.sabnzbd.SABnzbdService")
+async def test_non_admin_is_refused_when_only_admin(
+    mock_sab_class, method, update_kwargs, admin_mode, make_update, make_context
+):
+    """Admin mode plus sabnzbd.onlyAdmin refuses non-admins (audit item 6)."""
+    from src.bot.handlers.sabnzbd import SabnzbdHandler
+
+    handler = SabnzbdHandler()
+
+    await getattr(handler, method)(make_update(**update_kwargs), make_context())
+
+    assert mock_sab_class.return_value.method_calls == []

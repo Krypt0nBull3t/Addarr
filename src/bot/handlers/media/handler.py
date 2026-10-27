@@ -25,6 +25,7 @@ from src.bot.keyboards import get_album_monitor_mode_keyboard
 from src.services.media import MediaService
 from src.services.translation import TranslationService
 from src.services.preferences import PreferencesService
+from src.utils.helpers import is_admin
 
 from .dispatch import (
     SEARCHING,
@@ -151,6 +152,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             ),
         ]
 
+    @require_auth
     async def handle_menu_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle menu callbacks from StartHandler"""
         if not update.callback_query:
@@ -193,14 +195,6 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         """Shared entry point for movie/series/music search"""
         if not update.effective_message or not update.effective_user:
             return ConversationHandler.END
-
-        media_cfg = MEDIA_CONFIG[search_type]
-        if config.get(media_cfg["config_key"], {}).get("adminRestrictions", False):
-            if update.effective_user.id not in config.get("admins", []):
-                await update.message.reply_text(
-                    self.translation.get_text("NotAdmin")
-                )
-                return ConversationHandler.END
 
         log_user_interaction(logger, update.effective_user, f"/{search_type}")
 
@@ -259,6 +253,17 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             if not media_cfg:
                 await update.message.reply_text(
                     self.translation.get_text("SearchInvalidType")
+                )
+                return ConversationHandler.END
+
+            # Checked here, not at the entry points, so every path to a search
+            # (/movie, the menu buttons, /start) is covered
+            restricted = config.get(media_cfg["config_key"], {}).get(
+                "adminRestrictions", False
+            )
+            if restricted and not is_admin(update.effective_user.id):
+                await update.message.reply_text(
+                    self.translation.get_text("NotAdmin")
                 )
                 return ConversationHandler.END
 
