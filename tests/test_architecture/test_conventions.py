@@ -500,3 +500,55 @@ def test_no_config_bracket_access_in_business_logic():
         "Found config['key'] bracket access (use config.get() instead):\n"
         + "\n".join(f"  {v}" for v in violations)
     )
+
+
+def _real_config_methods():
+    """Method names defined on the real Config class in settings.py."""
+    settings = os.path.join(SRC_DIR, "config", "settings.py")
+    for class_node in _get_classes_in_file(settings):
+        if class_node.name == "Config":
+            return {
+                node.name for node in class_node.body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+    return set()
+
+
+def _imports_global_config(tree):
+    """Check if a module does `from src.config.settings import config`."""
+    return any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "src.config.settings"
+        and any(alias.name == "config" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+
+
+def test_config_calls_exist_on_real_config():
+    """Business logic may only call methods the real Config defines.
+
+    The test MockConfig has extra helpers (e.g. _set). Calling one of
+    them from src/ passes every test but crashes at runtime.
+    """
+    methods = _real_config_methods()
+    violations = []
+    for filepath in _get_python_files(SRC_DIR):
+        with open(filepath, "r", encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=filepath)
+        if not _imports_global_config(tree):
+            continue
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "config"
+                and node.attr not in methods
+            ):
+                rel = os.path.relpath(filepath, PROJECT_ROOT)
+                violations.append(f"{rel}:{node.lineno} config.{node.attr}")
+
+    assert methods, "Could not find class Config in src/config/settings.py"
+    assert not violations, (
+        "Found calls to methods the real Config does not define:\n"
+        + "\n".join(violations)
+    )

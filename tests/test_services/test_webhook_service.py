@@ -111,17 +111,31 @@ class TestSecretValidation:
     def test_invalid_secret(self, webhook_service):
         assert webhook_service._validate_secret("radarr", "wrong-secret") is False
 
-    def test_no_secret_configured_passes(self, webhook_service):
-        """When no secret is configured for a service, any request should pass."""
-        assert webhook_service._validate_secret("lidarr", "anything") is True
+    def test_no_secret_configured_rejects(self, webhook_service):
+        """When no secret is configured for a service, every request is rejected."""
+        assert webhook_service._validate_secret("lidarr", "anything") is False
+
+    def test_no_secret_configured_warns_once(self, webhook_service):
+        """The missing-secret warning is logged once per service, not per request."""
+        with patch("src.services.webhook.logger") as mock_logger:
+            webhook_service._validate_secret("lidarr", "anything")
+            webhook_service._validate_secret("lidarr", None)
+        mock_logger.warning.assert_called_once()
+        assert "lidarr_secret" in mock_logger.warning.call_args[0][0]
+
+    def test_numeric_secret_in_config(self, webhook_service, webhook_config):
+        """A secret YAML parsed as a number still compares against the header."""
+        webhook_config.get("webhooks")["radarr_secret"] = 12345
+        assert webhook_service._validate_secret("radarr", "12345") is True
+        assert webhook_service._validate_secret("radarr", "54321") is False
 
     def test_no_header_sent_fails_when_secret_configured(self, webhook_service):
         """When a secret IS configured but no header sent, should fail."""
         assert webhook_service._validate_secret("radarr", None) is False
 
-    def test_no_header_sent_passes_when_no_secret_configured(self, webhook_service):
-        """When no secret configured and no header sent, should pass."""
-        assert webhook_service._validate_secret("lidarr", None) is True
+    def test_no_header_sent_fails_when_no_secret_configured(self, webhook_service):
+        """When no secret configured and no header sent, should fail."""
+        assert webhook_service._validate_secret("lidarr", None) is False
 
 
 # ---------------------------------------------------------------------------
@@ -176,8 +190,9 @@ class TestWebhookEndpoints:
             mock_ns.notify_admin.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_lidarr_endpoint_valid_payload(self, webhook_client):
-        """Valid Lidarr payload (no secret configured) should return 200."""
+    async def test_lidarr_endpoint_valid_payload(self, webhook_client, webhook_config):
+        """Valid Lidarr payload with matching secret should return 200."""
+        webhook_config.get("webhooks")["lidarr_secret"] = "lidarr-secret-789"
         payload = {
             "eventType": "Grab",
             "artist": {"name": "Pink Floyd"},
@@ -192,6 +207,7 @@ class TestWebhookEndpoints:
             resp = await webhook_client.post(
                 "/webhooks/lidarr",
                 json=payload,
+                headers={"X-Api-Secret": "lidarr-secret-789"},
             )
             assert resp.status == 200
             mock_ns.notify_admin.assert_awaited_once()
@@ -204,6 +220,16 @@ class TestWebhookEndpoints:
             "/webhooks/radarr",
             json=payload,
             headers={"X-Api-Secret": "wrong-secret"},
+        )
+        assert resp.status == 401
+
+    @pytest.mark.asyncio
+    async def test_service_without_secret_returns_401(self, webhook_client):
+        """A service with no configured secret rejects every POST."""
+        resp = await webhook_client.post(
+            "/webhooks/lidarr",
+            json={"eventType": "Test"},
+            headers={"X-Api-Secret": "anything"},
         )
         assert resp.status == 401
 
@@ -232,7 +258,7 @@ class TestEventFiltering:
             "enable": True,
             "port": 9999,
             "host": "0.0.0.0",
-            "radarr_secret": None,
+            "radarr_secret": "radarr-secret-123",
             "sonarr_secret": None,
             "lidarr_secret": None,
             "events": {
@@ -272,7 +298,11 @@ class TestEventFiltering:
             mock_ns.notify_admin = AsyncMock()
             mock_ns_cls.return_value = mock_ns
 
-            resp = await filtered_client.post("/webhooks/radarr", json=payload)
+            resp = await filtered_client.post(
+                "/webhooks/radarr",
+                json=payload,
+                headers={"X-Api-Secret": "radarr-secret-123"},
+            )
             assert resp.status == 200
             mock_ns.notify_admin.assert_not_awaited()
 
