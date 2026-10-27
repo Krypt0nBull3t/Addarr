@@ -328,24 +328,6 @@ def get_quality_profile_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_confirmation_keyboard(action: str) -> InlineKeyboardMarkup:
-    """Get confirmation keyboard"""
-    translation = TranslationService()
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                f"✅ {translation.get_text('Add')}",
-                callback_data=f"confirm_{action}"
-            ),
-            InlineKeyboardButton(
-                f"❌ {translation.get_text('Stop')}",
-                callback_data="confirm_cancel"
-            )
-        ]
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-
 def get_search_results_list_keyboard(
     results: list, page: int, page_size: int = 5, search_type: str = "movie"
 ) -> InlineKeyboardMarkup:

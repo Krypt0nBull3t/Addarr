@@ -50,8 +50,6 @@ RADARR_QUALITY_PROFILES = [
     {"id": 2, "name": "Ultra-HD", "upgradeAllowed": False},
 ]
 
-RADARR_SYSTEM_STATUS = {"version": "5.0.0", "appName": "Radarr"}
-
 SONARR_SEARCH_RESULTS = [
     {
         "tvdbId": 81189,

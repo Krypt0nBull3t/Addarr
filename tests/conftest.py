@@ -42,7 +42,6 @@ MOCK_CONFIG_DATA = {
         "features": {"search": True, "minimumAvailability": "announced"},
         "paths": {"excludedRootFolders": [], "narrowRootFolderNames": True},
         "quality": {"excludedProfiles": []},
-        "tags": {"default": ["telegram"], "addRequesterIdTag": True},
         "adminRestrictions": False,
     },
     "sonarr": {
@@ -52,7 +51,6 @@ MOCK_CONFIG_DATA = {
         "features": {"search": True, "seasonFolder": True},
         "paths": {"excludedRootFolders": [], "narrowRootFolderNames": True},
         "quality": {"excludedProfiles": []},
-        "tags": {"default": ["telegram"], "addRequesterIdTag": True},
         "adminRestrictions": False,
     },
     "lidarr": {
@@ -62,7 +60,6 @@ MOCK_CONFIG_DATA = {
         "features": {"search": True, "albumFolder": True, "monitorOption": "all"},
         "paths": {"excludedRootFolders": [], "narrowRootFolderNames": True},
         "quality": {"excludedProfiles": []},
-        "tags": {"default": ["telegram"], "addRequesterIdTag": True},
         "adminRestrictions": False,
         "metadataProfileId": 1,
     },
@@ -243,7 +240,6 @@ def reset_singletons():
     from src.services.health import HealthService
     from src.services.translation import TranslationService
     from src.services.notification import NotificationService
-    from src.services.scheduler import JobScheduler
     from src.services.transmission import TransmissionService
     from src.services.sabnzbd import SABnzbdService
     from src.services.bazarr import BazarrService
@@ -253,8 +249,6 @@ def reset_singletons():
     from src.bot.handlers.auth import AuthHandler
 
     # Reset singletons
-    JobScheduler._instance = None
-
     TransmissionService._instance = None
 
     SABnzbdService._instance = None

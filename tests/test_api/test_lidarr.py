@@ -692,41 +692,6 @@ class TestLidarrQualityProfiles:
 
 
 # ---------------------------------------------------------------------------
-# check_status
-# ---------------------------------------------------------------------------
-
-
-class TestLidarrCheckStatus:
-    @pytest.mark.asyncio
-    async def test_check_status_online(self, aio_mock, lidarr_client):
-        aio_mock.get(
-            f"{BASE}/system/status",
-            payload={"version": "2.0.0", "appName": "Lidarr"},
-            status=200,
-        )
-        result = await lidarr_client.check_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_check_status_offline(self, aio_mock, lidarr_client):
-        for _ in range(3):
-            aio_mock.get(
-                f"{BASE}/system/status",
-                exception=aiohttp.ClientError("connection refused"),
-            )
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            result = await lidarr_client.check_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_check_status_exception(self, lidarr_client):
-        """Lines 263-265: Exception in check_status."""
-        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
-            result = await lidarr_client.check_status()
-        assert result is False
-
-
-# ---------------------------------------------------------------------------
 # get_artists
 # ---------------------------------------------------------------------------
 

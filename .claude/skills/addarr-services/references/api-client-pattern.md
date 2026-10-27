@@ -154,19 +154,6 @@ async def delete_movie(self, movie_id: int) -> bool:
         return response.status == 200
 ```
 
-## check_status()
-
-Inherited from BaseApiClient — calls `system/status` endpoint:
-
-```python
-# Usually no override needed. BaseApiClient provides:
-async def check_status(self) -> bool:
-    success, _data, _error = await self._make_request("system/status")
-    return success
-```
-
-Override only if the service uses a different status endpoint.
-
 ## API Version
 
 | Service | API_VERSION | Base Endpoint |
@@ -183,10 +170,9 @@ class LidarrClient(BaseApiClient):
 
 ## Standalone Clients (No BaseApiClient)
 
-SABnzbd and Transmission don't inherit from BaseApiClient:
+Transmission doesn't inherit from BaseApiClient, and SABnzbd has no API client (`SABnzbdService` makes its own `aiohttp` calls):
 
-- **SabnzbdClient**: Uses query-param-based API (`?mode=queue&apikey=...`), creates new session per request
-- **TransmissionClient**: Uses sync `requests.post()` with RPC protocol and session ID negotiation
+- **TransmissionClient**: Uses `aiohttp` with the RPC protocol and session ID negotiation
 
 If your new API uses a non-REST pattern, consider a standalone client instead.
 
@@ -199,4 +185,3 @@ If your new API uses a non-REST pattern, consider a standalone client instead.
 | `get_<items>()` | `List[Dict]` or `List[str]` (empty on failure) |
 | `add_<item>(...)` | `tuple[bool, str]` (success, message) |
 | `delete_<item>(id)` | `bool` |
-| `check_status()` | `bool` |

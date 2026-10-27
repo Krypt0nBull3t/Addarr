@@ -11,7 +11,6 @@ These functions provide common functionality needed by multiple components.
 
 import os
 from typing import List, Optional
-from telegram import Bot
 from ..config.settings import config
 from ..definitions import CHATID_PATH, ADMIN_PATH, ALLOWLIST_PATH
 
@@ -39,36 +38,6 @@ async def get_authorized_chats() -> List[int]:
             for line in f.readlines()
             if line.strip()
         ]
-
-
-async def get_chat_name(bot: Bot, chat_id: int) -> str:
-    """Get chat name for a given chat ID
-
-    Args:
-        bot: Telegram bot instance
-        chat_id: Chat ID to get name for
-
-    Returns:
-        str: Chat name in format "chat_id - name"
-    """
-    chat = await bot.get_chat(chat_id)
-
-    # Try different chat attributes in order of preference
-    name = None
-    if chat.username:
-        name = chat.username
-    elif chat.title:
-        name = chat.title
-    elif chat.last_name and chat.first_name:
-        name = f"{chat.first_name} {chat.last_name}"
-    elif chat.first_name:
-        name = chat.first_name
-    elif chat.last_name:
-        name = chat.last_name
-
-    if name:
-        return f"{chat_id} - {name}"
-    return str(chat_id)
 
 
 def save_chat_id(chat_id: int, chat_name: Optional[str] = None):

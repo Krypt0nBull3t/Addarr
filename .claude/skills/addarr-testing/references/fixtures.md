@@ -134,7 +134,6 @@ Real client instances, safe because the config mock is active:
 - `radarr_client` — `RadarrClient()`
 - `sonarr_client` — `SonarrClient()`
 - `lidarr_client` — `LidarrClient()`
-- `sabnzbd_client` — `SabnzbdClient()`
 
 ---
 
@@ -150,7 +149,6 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `add_movie()` -> `(True, "Success")`
 - `get_root_folders()` -> `["/movies"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "HD-1080p"}]`
-- `check_status()` -> `True`
 
 ### mock_sonarr_client
 
@@ -161,7 +159,6 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `get_root_folders()` -> `["/tv"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "HD-1080p"}]`
 - `get_seasons()` -> `[]`
-- `check_status()` -> `True`
 
 ### mock_lidarr_client
 
@@ -172,7 +169,6 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `get_root_folders()` -> `["/music"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "Lossless"}]`
 - `get_metadata_profiles()` -> `[{"id": 1, "name": "Standard"}]`
-- `check_status()` -> `True`
 
 ---
 
@@ -182,7 +178,7 @@ Defined in `tests/test_handlers/conftest.py`. Available to `tests/test_handlers/
 
 ### mock_media_service
 
-`MagicMock` with `AsyncMock` methods: `search_movies`, `search_series`, `search_music`, `add_movie`, `add_movie_with_profile`, `add_series`, `add_series_with_profile`, `add_music`, `add_music_with_profile`, `get_radarr_status`, `get_sonarr_status`, `get_lidarr_status`. Also has `.radarr`, `.sonarr`, `.lidarr` as `MagicMock`.
+`MagicMock` with `AsyncMock` methods: `search_movies`, `search_series`, `search_music`, `add_movie`, `add_movie_with_profile`, `add_series`, `add_series_with_profile`, `add_music`, `add_music_with_profile`, and the library/wanted/delete methods. Also has `.radarr`, `.sonarr`, `.lidarr` as `MagicMock`.
 
 ### mock_translation_service
 
@@ -190,7 +186,7 @@ Defined in `tests/test_handlers/conftest.py`. Available to `tests/test_handlers/
 
 ### mock_notification_service
 
-`MagicMock` with `AsyncMock` methods: `notify_admin`, `notify_user`, `notify_action`.
+`MagicMock` with `AsyncMock` methods: `notify_admin`.
 
 ---
 

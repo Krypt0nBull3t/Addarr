@@ -106,47 +106,6 @@ class TestCreateFromExample:
         assert "Error creating config" in captured.out
 
 
-# ---- create_backup ----
-
-
-class TestCreateBackup:
-    """Tests for create_backup."""
-
-    def test_creates_timestamped_backup(self, handler, config_yaml):
-        """Creates backup file with timestamp in name."""
-        result = handler.create_backup()
-        assert result != ""
-        assert os.path.exists(result)
-        assert "config_" in os.path.basename(result)
-        assert result.endswith(".yaml")
-
-    def test_creates_backup_dir(self, handler, config_yaml):
-        """Creates the backup/ directory if it doesn't exist."""
-        backup_dir = os.path.join(handler.root_dir, "backup")
-        assert not os.path.exists(backup_dir)
-        handler.create_backup()
-        assert os.path.isdir(backup_dir)
-
-    def test_returns_empty_when_no_config(self, handler):
-        """Returns empty string when config.yaml does not exist."""
-        result = handler.create_backup()
-        assert result == ""
-
-    @patch("src.utils.config_handler.datetime")
-    def test_timestamp_format(self, mock_dt, handler, config_yaml):
-        """Backup filename uses YYYYMMDD_HHMMSS format."""
-        mock_dt.now.return_value.strftime.return_value = "20260302_120000"
-        result = handler.create_backup()
-        assert "config_20260302_120000.yaml" in result
-
-    def test_backup_preserves_content(self, handler, config_yaml):
-        """Backup file has identical content to original."""
-        result = handler.create_backup()
-        original = Path(handler.config_path).read_text(encoding="utf-8")
-        backup = Path(result).read_text(encoding="utf-8")
-        assert original == backup
-
-
 # ---- load_config ----
 
 

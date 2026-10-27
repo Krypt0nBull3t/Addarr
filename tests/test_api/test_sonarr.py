@@ -526,41 +526,6 @@ class TestSonarrAddSeries:
 
 
 # ---------------------------------------------------------------------------
-# check_status
-# ---------------------------------------------------------------------------
-
-
-class TestSonarrCheckStatus:
-    @pytest.mark.asyncio
-    async def test_check_status_online(self, aio_mock, sonarr_client):
-        aio_mock.get(
-            f"{BASE}/system/status",
-            payload={"version": "4.0.0", "appName": "Sonarr"},
-            status=200,
-        )
-        result = await sonarr_client.check_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_check_status_offline(self, aio_mock, sonarr_client):
-        for _ in range(3):
-            aio_mock.get(
-                f"{BASE}/system/status",
-                exception=aiohttp.ClientError("connection refused"),
-            )
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            result = await sonarr_client.check_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_check_status_exception(self, sonarr_client):
-        """Lines 234-236: Exception in check_status."""
-        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
-            result = await sonarr_client.check_status()
-        assert result is False
-
-
-# ---------------------------------------------------------------------------
 # get_all_series
 # ---------------------------------------------------------------------------
 

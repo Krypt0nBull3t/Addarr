@@ -673,8 +673,7 @@ addarr/
 │   │   ├── radarr.py     # Radarr API client
 │   │   ├── sonarr.py     # Sonarr API client
 │   │   ├── lidarr.py     # Lidarr API client
-│   │   ├── transmission.py # Transmission API client
-│   │   └── sabnzbd.py    # SABnzbd API client
+│   │   └── transmission.py # Transmission API client
 │   ├── bot/              # Telegram bot components
 │   │   ├── __init__.py
 │   │   ├── handlers/     # Command handlers

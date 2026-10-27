@@ -255,12 +255,3 @@ class BaseApiClient(ABC):
         except Exception as e:
             self.logger.error(f"Error getting disk space: {e}")
             return []
-
-    async def check_status(self) -> bool:
-        """Check if the service is available"""
-        try:
-            success, _data, _error = await self._make_request("system/status")
-            return success
-        except Exception as e:
-            self.logger.error(f"Error checking API status: {e}")
-            return False

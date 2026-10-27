@@ -117,12 +117,10 @@ Defined in `src/definitions.py`:
 | `ROOT_DIR` | Project root |
 | `CONFIG_PATH` | `config.yaml` |
 | `CONFIG_EXAMPLE_PATH` | `config_example.yaml` |
-| `TRANSLATIONS_PATH` | `translations/` |
 | `CHATID_PATH` | `chatid.txt` |
 | `LOG_PATH` | `logs/addarr.log` |
 | `ADMIN_PATH` | `admin.txt` |
 | `ALLOWLIST_PATH` | `allowlist.txt` |
-| `DATA_PATH` | `data/` |
 | `PREFERENCES_PATH` | `user_preferences.json` |
 
 Helper functions: `is_admin(user_id)`, `is_allowed_user(user_id)`, `get_admins()`, `get_allowed_users()`

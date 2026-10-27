@@ -30,9 +30,6 @@ radarr:
     narrowRootFolderNames: true
   quality:
     excludedProfiles: []
-  tags:
-    default: ["telegram"]
-    addRequesterIdTag: true
   adminRestrictions: false
 
 # Sonarr Configuration (TV Shows)
@@ -55,9 +52,6 @@ sonarr:
     narrowRootFolderNames: true
   quality:
     excludedProfiles: []
-  tags:
-    default: ["telegram"]
-    addRequesterIdTag: true
   adminRestrictions: false
 
 # Lidarr Configuration (Music)
@@ -81,9 +75,6 @@ lidarr:
     narrowRootFolderNames: true
   quality:
     excludedProfiles: []
-  tags:
-    default: ["telegram"]
-    addRequesterIdTag: true
   adminRestrictions: false
   metadataProfileId: 1
 

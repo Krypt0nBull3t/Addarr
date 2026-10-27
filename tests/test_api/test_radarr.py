@@ -10,7 +10,6 @@ from tests.fixtures.sample_data import (
     RADARR_SEARCH_RESULTS,
     RADARR_MOVIE_DETAIL,
     RADARR_QUALITY_PROFILES,
-    RADARR_SYSTEM_STATUS,
     RADARR_LIBRARY_MOVIES,
     RADARR_LIBRARY_MOVIE_DETAIL,
     RADARR_WANTED_MISSING,
@@ -552,41 +551,6 @@ class TestRadarrAddMovie:
             success, message = await radarr_client.add_movie(550, "/movies", 1)
         assert success is False
         assert "outer boom" in message
-
-
-# ---------------------------------------------------------------------------
-# check_status
-# ---------------------------------------------------------------------------
-
-
-class TestRadarrCheckStatus:
-    @pytest.mark.asyncio
-    async def test_check_status_online(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/system/status",
-            payload=RADARR_SYSTEM_STATUS,
-            status=200,
-        )
-        result = await radarr_client.check_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_check_status_offline(self, aio_mock, radarr_client):
-        for _ in range(3):
-            aio_mock.get(
-                f"{BASE}/system/status",
-                exception=aiohttp.ClientError("connection refused"),
-            )
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            result = await radarr_client.check_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_check_status_exception(self, radarr_client):
-        """Lines 232-234: Exception in check_status."""
-        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
-            result = await radarr_client.check_status()
-        assert result is False
 
 
 # ---------------------------------------------------------------------------
