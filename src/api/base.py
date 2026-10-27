@@ -132,7 +132,7 @@ class BaseApiClient(ABC):
         """Check if an HTTP status code is retryable."""
         return status_code in self.RETRYABLE_STATUS_CODES
 
-    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: Optional[str] = None, timeout: Optional[int] = None, max_retries: Optional[int] = None) -> Tuple[bool, Any, Optional[str]]:
+    async def _make_request(self, endpoint: str, method: str = "GET", data: Optional[dict] = None, title: Optional[str] = None, timeout: Optional[int] = None, max_retries: Optional[int] = None, params: Optional[dict] = None) -> Tuple[bool, Any, Optional[str]]:
         """Make an API request with retry and exponential backoff.
 
         Args:
@@ -142,6 +142,7 @@ class BaseApiClient(ABC):
             title: Title/name of the item being processed
             timeout: Per-request timeout in seconds (overrides instance default)
             max_retries: Max retry attempts (overrides instance default)
+            params: Query parameters (URL-encoded by aiohttp)
 
         Returns:
             Tuple[bool, Any, Optional[str]]: (success, data, error_message)
@@ -155,6 +156,7 @@ class BaseApiClient(ABC):
         request_kwargs = {
             "headers": self._get_headers(),
             "json": data,
+            "params": params,
         }
         if timeout is not None:
             request_kwargs["timeout"] = aiohttp.ClientTimeout(total=timeout)
@@ -210,7 +212,8 @@ class BaseApiClient(ABC):
                 else:
                     error_message = f"Connection error: {str(e)}"
 
-                if attempt < retries:
+                # A timeout already waited the full timeout; retrying would multiply it
+                if attempt < retries and not isinstance(e, asyncio.TimeoutError):
                     delay = self.DEFAULT_BACKOFF_BASE * (2 ** attempt)
                     self.logger.warning(
                         f"⚠️ {error_message}, retrying in {delay}s "

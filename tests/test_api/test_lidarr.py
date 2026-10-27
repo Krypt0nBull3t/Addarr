@@ -8,6 +8,9 @@ import pytest
 import aiohttp
 from unittest.mock import AsyncMock, patch
 from aioresponses import CallbackResult
+from yarl import URL
+
+from src.api.base import APIError
 
 from tests.fixtures.sample_data import (
     LIDARR_SEARCH_RESULTS,
@@ -115,11 +118,21 @@ class TestLidarrSearch:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_search_exception(self, lidarr_client):
-        """Lines 88-90: Exception during search."""
-        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
-            results = await lidarr_client.search("test")
-        assert results == []
+    async def test_search_failure_raises(self, aio_mock, lidarr_client):
+        """A failed request is an error, not an empty result."""
+        aio_mock.get(f"{BASE}/artist/lookup?term=test", status=401, body="Unauthorized")
+        with pytest.raises(APIError, match="Unauthorized"):
+            await lidarr_client.search("test")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("term", ["Law & Order", "C#", "1+1"])
+    async def test_search_url_encodes_term(self, aio_mock, lidarr_client, term):
+        aio_mock.get(
+            URL(f"{BASE}/artist/lookup").with_query(term=term),
+            payload=LIDARR_SEARCH_RESULTS,
+        )
+        results = await lidarr_client.search(term)
+        assert len(results) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -884,13 +897,21 @@ class TestLidarrSearchAlbums:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_search_albums_exception(self, lidarr_client):
-        """search_albums returns [] on exception."""
-        with patch.object(
-            lidarr_client, "_make_request", side_effect=Exception("boom")
-        ):
-            results = await lidarr_client.search_albums("test")
-        assert results == []
+    async def test_search_albums_failure_raises(self, aio_mock, lidarr_client):
+        """A failed request is an error, not an empty result."""
+        aio_mock.get(f"{BASE}/album/lookup?term=test", status=401, body="Unauthorized")
+        with pytest.raises(APIError, match="Unauthorized"):
+            await lidarr_client.search_albums("test")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("term", ["Law & Order", "C#", "1+1"])
+    async def test_search_albums_url_encodes_term(self, aio_mock, lidarr_client, term):
+        aio_mock.get(
+            URL(f"{BASE}/album/lookup").with_query(term=term),
+            payload=LIDARR_ALBUM_SEARCH_RESULTS,
+        )
+        results = await lidarr_client.search_albums(term)
+        assert len(results) == 2
 
 
 # ---------------------------------------------------------------------------

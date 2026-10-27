@@ -10,7 +10,7 @@ import aiohttp
 from typing import Any, Optional, List, Dict
 from colorama import Fore
 
-from src.api.base import BaseApiClient, filter_root_folders
+from src.api.base import APIError, BaseApiClient, filter_root_folders
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -44,41 +44,35 @@ class LidarrClient(BaseApiClient):
 
     async def search(self, term: str) -> List[Dict]:
         """Search for artists"""
-        try:
-            logger.info(Fore.BLUE + f"🔍 Searching Lidarr for: {term}")
-            results = await self._request(f"artist/lookup?term={term}")
+        logger.info(Fore.BLUE + f"🔍 Searching Lidarr for: {term}")
+        success, results, error = await self._make_request(
+            "artist/lookup", params={"term": term}
+        )
+        if not success:
+            raise APIError(f"Lidarr search failed: {error}")
 
-            if not results:
-                logger.warning(Fore.YELLOW + f"⚠️ No results found for: {term}")
-                return []
-
-            logger.info(Fore.GREEN + f"✅ Found {len(results)} results for: {term}")
-            return results
-
-        except Exception as e:
-            logger.error(Fore.RED + f"❌ Search failed: {str(e)}")
+        if not results:
+            logger.warning(Fore.YELLOW + f"⚠️ No results found for: {term}")
             return []
+
+        logger.info(Fore.GREEN + f"✅ Found {len(results)} results for: {term}")
+        return results
 
     async def search_albums(self, term: str) -> List[Dict]:
         """Search for albums"""
-        try:
-            logger.info(Fore.BLUE + f"🔍 Searching Lidarr albums for: {term}")
-            results = await self._request(f"album/lookup?term={term}")
+        logger.info(Fore.BLUE + f"🔍 Searching Lidarr albums for: {term}")
+        success, results, error = await self._make_request(
+            "album/lookup", params={"term": term}
+        )
+        if not success:
+            raise APIError(f"Lidarr album search failed: {error}")
 
-            if not results:
-                logger.warning(
-                    Fore.YELLOW + f"⚠️ No album results found for: {term}"
-                )
-                return []
-
-            logger.info(
-                Fore.GREEN + f"✅ Found {len(results)} album results for: {term}"
-            )
-            return results
-
-        except Exception as e:
-            logger.error(Fore.RED + f"❌ Album search failed: {str(e)}")
+        if not results:
+            logger.warning(Fore.YELLOW + f"⚠️ No album results found for: {term}")
             return []
+
+        logger.info(Fore.GREEN + f"✅ Found {len(results)} album results for: {term}")
+        return results
 
     async def get_album_tracks(self, foreign_album_id: str) -> List[Dict]:
         """Get track data from an album's media array.

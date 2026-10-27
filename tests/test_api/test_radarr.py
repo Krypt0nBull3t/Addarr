@@ -5,6 +5,9 @@ Tests for src/api/radarr.py -- RadarrClient.
 import pytest
 import aiohttp
 from unittest.mock import AsyncMock, patch
+from yarl import URL
+
+from src.api.base import APIError
 
 from tests.fixtures.sample_data import (
     RADARR_SEARCH_RESULTS,
@@ -108,15 +111,18 @@ class TestRadarrSearch:
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            results = await radarr_client.search("test")
-        assert results == []
+            with pytest.raises(APIError, match="refused"):
+                await radarr_client.search("test")
 
     @pytest.mark.asyncio
-    async def test_search_exception(self, radarr_client):
-        """Lines 88-90: Exception during search."""
-        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
-            results = await radarr_client.search("test")
-        assert results == []
+    @pytest.mark.parametrize("term", ["Law & Order", "C#", "1+1"])
+    async def test_search_url_encodes_term(self, aio_mock, radarr_client, term):
+        aio_mock.get(
+            URL(f"{BASE}/movie/lookup").with_query(term=term),
+            payload=RADARR_SEARCH_RESULTS,
+        )
+        results = await radarr_client.search(term)
+        assert len(results) == 2
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,9 @@ import pytest
 import aiohttp
 from unittest.mock import AsyncMock, patch
 from aioresponses import CallbackResult
+from yarl import URL
+
+from src.api.base import APIError
 
 from tests.fixtures.sample_data import (
     SONARR_SEARCH_RESULTS,
@@ -99,11 +102,21 @@ class TestSonarrSearch:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_search_exception(self, sonarr_client):
-        """Lines 88-90: Exception during search."""
-        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
-            results = await sonarr_client.search("test")
-        assert results == []
+    async def test_search_failure_raises(self, aio_mock, sonarr_client):
+        """A failed request is an error, not an empty result."""
+        aio_mock.get(f"{BASE}/series/lookup?term=test", status=401, body="Unauthorized")
+        with pytest.raises(APIError, match="Unauthorized"):
+            await sonarr_client.search("test")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("term", ["Law & Order", "C#", "1+1"])
+    async def test_search_url_encodes_term(self, aio_mock, sonarr_client, term):
+        aio_mock.get(
+            URL(f"{BASE}/series/lookup").with_query(term=term),
+            payload=SONARR_SEARCH_RESULTS,
+        )
+        results = await sonarr_client.search(term)
+        assert len(results) == 2
 
 
 # ---------------------------------------------------------------------------

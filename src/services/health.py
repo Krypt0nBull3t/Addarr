@@ -293,9 +293,11 @@ class HealthService:
             server_url = url.rstrip('/')
             api_url = f"{server_url}/api"
 
+            # mode=version skips the key check, so a wrong key would still show Online
             params = {
                 'apikey': api_key,
-                'mode': 'version',
+                'mode': 'queue',
+                'limit': '1',
                 'output': 'json'
             }
 
@@ -305,13 +307,9 @@ class HealthService:
                     if response.status == 200:
                         try:
                             data = await response.json()
-                            version = data.get('version', 'Unknown')
+                            version = data['queue'].get('version', 'Unknown')
                         except Exception:
-                            text = await response.text()
-                            if text and len(text) < 20:
-                                version = text.strip()
-                            else:
-                                return False, "Error: Invalid response format"
+                            return False, "Error: Invalid response format"
 
                         return True, f"Online (v{version})"
                     else:
