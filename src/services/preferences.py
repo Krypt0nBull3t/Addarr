@@ -9,9 +9,10 @@ Singleton pattern matching TranslationService.
 """
 
 import json
+import os
 from typing import Any, Optional
 
-from src.definitions import PREFERENCES_PATH
+from src.definitions import LEGACY_PREFERENCES_PATH, PREFERENCES_PATH
 from src.utils.logger import get_logger
 
 logger = get_logger("addarr.preferences")
@@ -32,8 +33,11 @@ class PreferencesService:
 
     def _load(self):
         """Load preferences from disk."""
+        path = PREFERENCES_PATH
+        if not os.path.exists(path) and os.path.exists(LEGACY_PREFERENCES_PATH):
+            path = LEGACY_PREFERENCES_PATH
         try:
-            with open(PREFERENCES_PATH, "r") as f:
+            with open(path, "r") as f:
                 self._preferences = json.load(f)
         except FileNotFoundError:
             self._preferences = {}
@@ -44,9 +48,18 @@ class PreferencesService:
             self._preferences = {}
 
     def _save(self):
-        """Persist preferences to disk."""
-        with open(PREFERENCES_PATH, "w") as f:
+        """Persist preferences to disk.
+
+        Writes a temp file in the same folder and renames it over the old
+        file, so a crash mid-write never leaves a half-written file.
+        """
+        os.makedirs(os.path.dirname(PREFERENCES_PATH), exist_ok=True)
+        tmp_path = PREFERENCES_PATH + ".tmp"
+        with open(tmp_path, "w") as f:
             json.dump(self._preferences, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, PREFERENCES_PATH)
 
     def get_preference(
         self, user_id: str, key: str, default: Optional[Any] = None

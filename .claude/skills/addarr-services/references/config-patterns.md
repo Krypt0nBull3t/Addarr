@@ -123,6 +123,7 @@ Defined in `src/definitions.py`:
 | `ADMIN_PATH` | `admin.txt` |
 | `ALLOWLIST_PATH` | `allowlist.txt` |
 | `DATA_PATH` | `data/` |
-| `PREFERENCES_PATH` | `user_preferences.json` |
+| `PREFERENCES_PATH` | `data/user_preferences.json` |
+| `LEGACY_PREFERENCES_PATH` | `user_preferences.json` (read only when the `data/` file does not exist) |
 
 Helper functions: `is_admin(user_id)`, `is_allowed_user(user_id)`, `get_admins()`, `get_allowed_users()`
