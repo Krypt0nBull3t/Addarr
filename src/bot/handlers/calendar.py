@@ -10,6 +10,7 @@ import asyncio
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 
+from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
@@ -21,6 +22,14 @@ from src.services.media import MediaService
 from src.services.translation import TranslationService
 
 logger = get_logger("addarr.calendar")
+
+
+def _pick_profile_id(service, profiles):
+    """Default profile saved in /settings if it still exists, else the first one."""
+    default_id = config.get(service, {}).get("quality", {}).get("defaultProfileId")
+    return next(
+        (p["id"] for p in profiles if p["id"] == default_id), profiles[0]["id"]
+    )
 
 
 class CalendarHandler:
@@ -128,7 +137,7 @@ class CalendarHandler:
         await query.answer()
 
     async def _handle_add(self, query, context):
-        """Quick-add media from calendar using first root folder and profile."""
+        """Quick-add media from calendar using first root folder and default profile."""
         # Parse: cal_add_movie_12345 or cal_add_episode_67890
         parts = query.data.split("_")
         media_type = parts[2]
@@ -141,7 +150,7 @@ class CalendarHandler:
                     self.media_service.radarr.get_quality_profiles(),
                 )
                 success, msg = await self.media_service.add_movie_with_profile(
-                    media_id, profiles[0]["id"], root_folders[0]
+                    media_id, _pick_profile_id("radarr", profiles), root_folders[0]
                 )
             elif media_type == "episode":
                 root_folders, profiles = await asyncio.gather(
@@ -149,7 +158,7 @@ class CalendarHandler:
                     self.media_service.sonarr.get_quality_profiles(),
                 )
                 success, msg = await self.media_service.add_series_with_profile(
-                    media_id, profiles[0]["id"], root_folders[0]
+                    media_id, _pick_profile_id("sonarr", profiles), root_folders[0]
                 )
             else:
                 await query.answer(

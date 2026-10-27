@@ -112,11 +112,6 @@ class AddarrBot:
     def _add_handlers(self):
         """Add all handlers to the application"""
         try:
-            # Start handler
-            start_handler = StartHandler()
-            for handler in start_handler.get_handler():
-                self.application.add_handler(handler)
-
             # Auth handler
             auth_handler = AuthHandler()
             for handler in auth_handler.get_handler():
@@ -203,6 +198,12 @@ class AddarrBot:
             # System handler
             system_handler = SystemHandler()
             for handler in system_handler.get_handler():
+                self.application.add_handler(handler)
+
+            # Start handler last: its menu_cancel must not steal Cancel
+            # taps from an open media or settings conversation
+            start_handler = StartHandler()
+            for handler in start_handler.get_handler():
                 self.application.add_handler(handler)
 
         except Exception as e:

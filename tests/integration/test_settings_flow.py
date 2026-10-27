@@ -73,3 +73,14 @@ async def test_settings_back_ends_conversation(harness):
         edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "End" in edit_resp.text
+
+
+@pytest.mark.asyncio
+async def test_settings_command_reenters_open_conversation(harness):
+    """/settings while settings is already open shows the menu again."""
+    with patch("src.bot.handlers.settings.is_admin", return_value=True):
+        await harness.send_command("/settings")
+        resp = await harness.send_command("/settings")
+
+    assert resp is not None
+    assert "Settings.Menu" in resp.text
