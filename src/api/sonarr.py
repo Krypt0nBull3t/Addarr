@@ -99,7 +99,7 @@ class SonarrClient(BaseApiClient):
             logger.error(f"❌ Failed to get seasons: {str(e)}")
             return []
 
-    async def add_series(self, tvdb_id: int, root_folder: str, quality_profile_id: int, seasons: Optional[List[Dict]] = None) -> tuple[bool, str]:
+    async def add_series(self, tvdb_id: int, root_folder: str, quality_profile_id: int, seasons: Optional[List[Dict]] = None, monitor: Optional[str] = None) -> tuple[bool, str]:
         """Add a TV series to Sonarr with optional season selection"""
         try:
             # Get series details from search results
@@ -128,6 +128,9 @@ class SonarrClient(BaseApiClient):
             # Add season selection if provided
             if seasons is not None:
                 data["seasons"] = seasons
+            # Sonarr monitor option, e.g. "future" = only episodes not aired yet
+            if monitor:
+                data["addOptions"]["monitor"] = monitor
 
             try:
                 session = await self._get_session()

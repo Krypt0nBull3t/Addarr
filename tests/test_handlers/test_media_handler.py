@@ -428,12 +428,30 @@ async def test_handle_selection_dispatches_by_type(
 async def test_handle_menu_callback_cancel(media_handler, make_update, make_context):
     """menu_cancel callback edits message with 'Canceled' and returns END."""
     update = make_update(callback_data="menu_cancel")
+    update.callback_query.message.photo = None
     context = make_context()
 
     result = await media_handler.handle_menu_callback(update, context)
 
     assert result == ConversationHandler.END
     update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_callback_cancel_on_poster(
+    media_handler, make_update, make_context
+):
+    """menu_cancel on a poster photo edits the caption and answers the callback."""
+    update = make_update(callback_data="menu_cancel")
+    update.callback_query.message.photo = [MagicMock()]
+    context = make_context()
+
+    result = await media_handler.handle_menu_callback(update, context)
+
+    assert result == ConversationHandler.END
+    update.callback_query.answer.assert_awaited_once()
+    update.callback_query.message.edit_caption.assert_called_once()
+    update.callback_query.message.edit_text.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -963,7 +981,7 @@ async def test_handle_season_confirm_all_mode(
 async def test_handle_season_confirm_future_episodes(
     media_handler, make_update, make_context
 ):
-    """Future episodes mode adds -1 season flag."""
+    """Future episodes mode sends Sonarr's 'future' monitor option, no fake season."""
     media_handler._mock_service.add_series_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -984,9 +1002,8 @@ async def test_handle_season_confirm_future_episodes(
 
     assert result == ConversationHandler.END
     call_args = media_handler._mock_service.add_series_with_profile.call_args
-    seasons_data = call_args[0][3]
-    # Should have -1 season flag
-    assert any(s["seasonNumber"] == -1 for s in seasons_data)
+    assert call_args[0][3] == [{"seasonNumber": 1, "monitored": False}]
+    assert call_args[1] == {"monitor": "future"}
 
 
 @pytest.mark.asyncio
@@ -1023,7 +1040,7 @@ async def test_handle_season_confirm_selected_seasons(
 async def test_handle_season_confirm_selected_with_future(
     media_handler, make_update, make_context
 ):
-    """Selected seasons + future_seasons mode."""
+    """Selected seasons + future_seasons sends only real seasons (Sonarr monitors new seasons itself)."""
     media_handler._mock_service.add_series_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -1044,8 +1061,43 @@ async def test_handle_season_confirm_selected_with_future(
 
     assert result == ConversationHandler.END
     call_args = media_handler._mock_service.add_series_with_profile.call_args
-    seasons_data = call_args[0][3]
-    assert any(s["seasonNumber"] == -1 for s in seasons_data)
+    assert call_args[0][3] == [
+        {"seasonNumber": 1, "monitored": True},
+        {"seasonNumber": 2, "monitored": False},
+    ]
+    assert call_args[1] == {"monitor": None}
+
+
+@pytest.mark.asyncio
+async def test_season_confirm_answers_callback_once(
+    media_handler, make_update, make_context
+):
+    """Confirm still adds the series when Telegram rejects a second answer()."""
+    from telegram.error import BadRequest
+
+    media_handler._mock_service.add_series_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="season_confirm")
+    update.callback_query.message.photo = None
+    update.callback_query.answer = AsyncMock(
+        side_effect=[True, BadRequest("Query is too old")]
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "123", "title": "Test"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/tv",
+        "selected_seasons": {1},
+        "future_mode": None,
+        "monitor_all": False,
+        "quality_data": {"seasons": [{"seasonNumber": 1}]},
+    })
+
+    result = await media_handler.handle_season_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_series_with_profile.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -2791,6 +2843,62 @@ async def test_handle_album_confirm_passes_selected_albums(
 
 
 @pytest.mark.asyncio
+async def test_handle_album_confirm_none_ticked_passes_empty_list(
+    media_handler, make_update, make_context
+):
+    """Pick albums with none ticked monitors no albums, not every album."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": set(),
+        "future_albums": False,
+    })
+
+    await media_handler.handle_album_confirm(update, context)
+
+    call_kwargs = media_handler._mock_service.add_music_with_profile.call_args[1]
+    assert call_kwargs["albums_to_monitor"] == []
+
+
+@pytest.mark.asyncio
+async def test_album_confirm_answers_callback_once(
+    media_handler, make_update, make_context
+):
+    """Confirm still adds the artist when Telegram rejects a second answer()."""
+    from telegram.error import BadRequest
+
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    update.callback_query.answer = AsyncMock(
+        side_effect=[True, BadRequest("Query is too old")]
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": {"abc-123"},
+        "future_albums": False,
+        "artist_albums": [],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music_with_profile.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_album_confirm_passes_future_albums(
     media_handler, make_update, make_context
 ):
@@ -2820,7 +2928,7 @@ async def test_handle_album_confirm_passes_future_albums(
 async def test_handle_album_confirm_no_future_albums(
     media_handler, make_update, make_context
 ):
-    """Confirm does not pass future_albums when False."""
+    """Confirm passes future_albums=False when not enabled."""
     media_handler._mock_service.add_music_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -2839,7 +2947,7 @@ async def test_handle_album_confirm_no_future_albums(
 
     assert result == ConversationHandler.END
     call_kwargs = media_handler._mock_service.add_music_with_profile.call_args[1]
-    assert "future_albums" not in call_kwargs
+    assert call_kwargs["future_albums"] is False
 
 
 @pytest.mark.asyncio

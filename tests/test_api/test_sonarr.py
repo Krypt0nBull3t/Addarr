@@ -372,6 +372,29 @@ class TestSonarrAddSeries:
         assert "Successfully added" in message
 
     @pytest.mark.asyncio
+    async def test_add_series_monitor_option(self, aio_mock, sonarr_client):
+        """monitor goes into addOptions; without it addOptions stays as before."""
+        for monitor, expected in [
+            ("future", {"searchForMissingEpisodes": True, "monitor": "future"}),
+            (None, {"searchForMissingEpisodes": True}),
+        ]:
+            aio_mock.requests.clear()
+            aio_mock.get(
+                f"{BASE}/series/lookup?term=tvdb:81189",
+                payload=SONARR_SEARCH_RESULTS[:1],
+                status=200,
+            )
+            aio_mock.post(
+                f"{BASE}/series",
+                payload={"id": 1, "title": "Breaking Bad"},
+                status=200,
+            )
+            await sonarr_client.add_series(81189, "/tv", 1, [], monitor=monitor)
+
+            post = next(v for k, v in aio_mock.requests.items() if k[0] == "POST")
+            assert post[0].kwargs["json"]["addOptions"] == expected
+
+    @pytest.mark.asyncio
     async def test_add_series_already_exists(self, aio_mock, sonarr_client):
         # 1. Lookup
         aio_mock.get(

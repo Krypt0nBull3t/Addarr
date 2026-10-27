@@ -115,13 +115,10 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                         )
                     ],
                     SEASON_SELECT: [
+                        # Also routes season_confirm and the picker's select_cancel button
                         CallbackQueryHandler(
                             self.handle_season_selection,
-                            pattern="^season_"
-                        ),
-                        CallbackQueryHandler(
-                            self.handle_season_confirm,
-                            pattern="^season_confirm$"
+                            pattern="^(season_|select_cancel$)"
                         ),
                         CallbackQueryHandler(
                             self.handle_menu_callback,
@@ -150,6 +147,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 name="media_conversation",
                 persistent=False,
                 per_message=False,
+                allow_reentry=True,
             ),
         ]
 
@@ -161,10 +159,11 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         query = update.callback_query
         action = query.data.replace("menu_", "")
 
-        # Handle cancel action
+        # Handle cancel action (the keyboard may sit on a poster photo)
         if action == "cancel":
-            await query.message.edit_text(
-                self.translation.get_text("Canceled")
+            await query.answer()
+            await send_response(
+                query.message, self.translation.get_text("Canceled")
             )
             return ConversationHandler.END
 

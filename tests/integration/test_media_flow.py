@@ -211,3 +211,38 @@ async def test_music_album_direct_add(harness):
         resp = await harness.tap_button("quality_1")
         assert resp is not None
         assert "added" in resp.text.lower() or "Hybrid Theory" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_series_cancel_at_season_picker(harness):
+    """Cancel on the season picker ends the conversation."""
+    with (
+        patch.object(MediaService, "search_series", new_callable=AsyncMock, return_value=SERIES_SEARCH_RESULTS),
+        patch.object(MediaService, "add_series", new_callable=AsyncMock, return_value=SERIES_QUALITY_RESULT),
+        patch.object(MediaService, "add_series_with_profile", new_callable=AsyncMock) as add,
+    ):
+        await harness.send_command("/series")
+        await harness.send_text("breaking bad")
+        await harness.tap_button("select_81189")
+        await harness.tap_button("quality_1")
+
+        resp = await harness.tap_button("select_cancel")
+
+    assert resp is not None
+    assert "cancel" in resp.text.lower()
+    assert harness.get_conversation_state(MEDIA_CONVERSATION) is None
+    add.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_new_command_restarts_abandoned_search(harness):
+    """/movie left unanswered, then /series starts a fresh series search."""
+    with patch.object(MediaService, "search_series", new_callable=AsyncMock, return_value=SERIES_SEARCH_RESULTS) as search:
+        await harness.send_command("/movie")
+        resp = await harness.send_command("/series")
+        assert resp is not None
+        assert "Title" in resp.text
+
+        await harness.send_text("breaking bad")
+
+    search.assert_awaited_once_with("breaking bad")

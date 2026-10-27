@@ -7,18 +7,14 @@ Description: Start handler module.
 This module handles the main entry point and menu for the bot.
 """
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     CommandHandler,
     ContextTypes,
     CallbackQueryHandler,
-    ConversationHandler,
-    MessageHandler,
-    filters
 )
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
-from src.bot.handlers.media import MediaHandler, SEARCHING, SELECTING
 from src.bot.handlers.calendar import CalendarHandler
 from src.bot.handlers.help import HelpHandler
 from src.bot.handlers.system import SystemHandler
@@ -34,7 +30,6 @@ class StartHandler:
     """Handler for start command and main menu"""
 
     def __init__(self):
-        self.media_handler = MediaHandler()
         self.calendar_handler = CalendarHandler()
         self.help_handler = HelpHandler()
         self.system_handler = SystemHandler()
@@ -42,61 +37,19 @@ class StartHandler:
         self.translation = TranslationService()
 
     def get_handler(self):
-        """Get the command handlers"""
-        MENU_STATE = 1  # Add a state for menu interactions
+        """Get the command handlers.
 
+        Plain handlers, no conversation: menu_movie/series/music start
+        MediaHandler's conversation, menu_settings SettingsHandler's and
+        menu_back is HelpHandler's. Register these after those conversations,
+        so a Cancel tap inside one of them ends that conversation.
+        """
         return [
-            ConversationHandler(
-                entry_points=[CommandHandler("start", self.show_menu)],
-                states={
-                    MENU_STATE: [
-                        CallbackQueryHandler(self.handle_menu_selection, pattern="^menu_"),
-                    ],
-                    SEARCHING: [
-                        MessageHandler(
-                            filters.TEXT & ~filters.COMMAND,
-                            self.media_handler.handle_search
-                        ),
-                        CallbackQueryHandler(self.handle_menu_selection, pattern="^menu_")
-                    ],
-                    SELECTING: [
-                        CallbackQueryHandler(
-                            self.media_handler.handle_selection,
-                            pattern="^select_"
-                        ),
-                        CallbackQueryHandler(
-                            self.media_handler.handle_navigation,
-                            pattern="^nav_"
-                        ),
-                        CallbackQueryHandler(
-                            self.media_handler.handle_list_select,
-                            pattern="^listsel_"
-                        ),
-                        CallbackQueryHandler(
-                            self.media_handler.handle_list_back,
-                            pattern="^listback$"
-                        ),
-                        CallbackQueryHandler(
-                            self.media_handler.handle_list_page,
-                            pattern="^listpage_"
-                        ),
-                        CallbackQueryHandler(
-                            self.media_handler.handle_view_toggle,
-                            pattern="^viewtoggle$"
-                        ),
-                        CallbackQueryHandler(
-                            self.handle_menu_selection,
-                            pattern="^menu_"
-                        )
-                    ]
-                },
-                fallbacks=[
-                    CommandHandler("cancel", self.media_handler.cancel_search),
-                ],
-                name="start_conversation",
-                persistent=False,
-                per_message=False,
-            )
+            CommandHandler("start", self.show_menu),
+            CallbackQueryHandler(
+                self.handle_menu_selection,
+                pattern="^menu_(cancel|status|upcoming|library|help|delete)$",
+            ),
         ]
 
     @require_auth
@@ -106,22 +59,11 @@ class StartHandler:
 
         welcome_text = self.translation.get_text("mainMenu")
 
-        if update.callback_query:
-            # Handle callback query
-            query = update.callback_query
-            await query.answer()
-            await query.message.edit_text(
-                welcome_text,
-                reply_markup=get_main_menu_keyboard()
-            )
-        elif update.effective_message:
-            # Handle direct command
+        if update.effective_message:
             await update.effective_message.reply_text(
                 welcome_text,
                 reply_markup=get_main_menu_keyboard()
             )
-
-        return 1  # Return MENU_STATE to enter the menu state
 
     @require_auth
     async def handle_menu_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -143,11 +85,6 @@ class StartHandler:
         logger.info(f"Menu button pressed - Action: {action}, User: {user.first_name} (ID: {user.id})")
         log_user_interaction(logger, user, f"menu_{action}")
 
-        if action == "back":
-            logger.info(f"Back to menu requested by user {user.first_name} (ID: {user.id})")
-            await self.show_menu(update, context)
-            return
-
         if action == "cancel":
             logger.info(f"Cancel action triggered by user {user.first_name} (ID: {user.id})")
             if context.user_data:
@@ -155,78 +92,31 @@ class StartHandler:
             await query.message.edit_text(
                 self.translation.get_text("Canceled")
             )
-            return ConversationHandler.END
-
-        if action in ["movie", "series", "music"]:
-            logger.info(f"Search initiated for {action} by user {user.first_name} (ID: {user.id})")
-            # Set search type in context
-            context.user_data["search_type"] = action
-
-            # Get translated prompt based on media type
-            prompts = {
-                "movie": self.translation.get_text("Title", subject="Movie"),
-                "series": self.translation.get_text("Title", subject="Series"),
-                "music": self.translation.get_text("Title", subject="Music")
-            }
-
-            # Create keyboard with cancel button
-            keyboard = [
-                [InlineKeyboardButton(
-                    f"❌ {self.translation.get_text('Cancel')}",
-                    callback_data="menu_cancel"
-                )]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
-            await query.message.edit_text(
-                prompts[action],
-                reply_markup=reply_markup
-            )
-
-            return SEARCHING
+            return
 
         if action == "upcoming":
             await self.calendar_handler.show_upcoming(update, context)
-            return ConversationHandler.END
+            return
 
         if action == "library":
             await query.message.edit_text(
                 self.translation.get_text("LibraryPrompt"),
                 reply_markup=get_library_menu_keyboard()
             )
-            return ConversationHandler.END
+            return
 
-        # For commands that end the conversation
-        if action in ["status", "help", "delete"]:
-            if action == "status":
-                await self.system_handler.show_status(update, context)
-            elif action == "help":
-                await self.help_handler.show_help(update, context)
-            elif action == "delete":
-                keyboard = self.delete_handler.get_delete_keyboard()
-                await query.message.edit_text(
-                    self.translation.get_text(
-                        "DeletePrompt",
-                        default="Select what you want to delete"
-                    ),
-                    reply_markup=keyboard,
-                )
-            return ConversationHandler.END
-
-        # Settings is handled by its own ConversationHandler;
-        # end this conversation so the SettingsHandler can pick it up.
-        if action == "settings":
-            return ConversationHandler.END
-
-        logger.warning(f"Unknown menu action '{action}' from user {user.first_name} (ID: {user.id})")
-        return ConversationHandler.END
-
-    async def start_movie_search(self, query):
-        """Start movie search conversation"""
-        await query.message.edit_text(
-            "🎬 Please enter the name of the movie you want to search for:\n"
-            "(Use /cancel to cancel)"
-        )
-        # Set conversation state for movie search
-
-    # ... (similar methods for other menu options)
+        if action == "status":
+            await self.system_handler.show_status(update, context)
+        elif action == "help":
+            await self.help_handler.show_help(update, context)
+        elif action == "delete":
+            keyboard = self.delete_handler.get_delete_keyboard()
+            await query.message.edit_text(
+                self.translation.get_text(
+                    "DeletePrompt",
+                    default="Select what you want to delete"
+                ),
+                reply_markup=keyboard,
+            )
+        else:
+            logger.warning(f"Unknown menu action '{action}' from user {user.first_name} (ID: {user.id})")

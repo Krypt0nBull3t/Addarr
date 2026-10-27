@@ -171,6 +171,7 @@ class SettingsHandler:
                 name="settings_conversation",
                 persistent=False,
                 per_message=False,
+                allow_reentry=True,
             )
         ]
 
