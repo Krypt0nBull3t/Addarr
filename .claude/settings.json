@@ -1,4 +1,13 @@
 {
+  "env": {
+    "PYTHONIOENCODING": "utf-8"
+  },
+  "permissions": {
+    "allow": [
+      "mcp__qmd__query",
+      "mcp__qmd__get"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -10,9 +19,23 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-check.sh\"",
+            "timeout": 30,
+            "statusMessage": "Checking edited file..."
+          }
+        ]
+      }
     ]
   },
-  "env": {
-    "PYTHONIOENCODING": "utf-8"
+  "enabledPlugins": {
+    "context7@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true
   }
 }
