@@ -186,7 +186,6 @@ class TestGetText:
         # Should return the key because %(missing)s causes KeyError
         assert result == "broken"
 
-
     def test_get_text_curly_placeholders(self):
         """%{name} placeholders, as used in the translation files, are filled."""
         service = TranslationService()
