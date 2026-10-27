@@ -44,6 +44,15 @@ def filter_root_folders(paths: List[str], service_config: dict) -> List[str]:
     return paths
 
 
+def filter_quality_profiles(profiles: List[dict], service_config: dict) -> List[dict]:
+    """Drop profiles listed in the service's quality.excludedProfiles (names or IDs)."""
+    excluded = service_config.get("quality", {}).get("excludedProfiles") or []
+    return [
+        p for p in profiles
+        if p["name"] not in excluded and p["id"] not in excluded
+    ]
+
+
 class APIError(Exception):
     """Custom exception for API errors"""
     def __init__(self, message: str, status_code: Optional[int] = None, response_text: Optional[str] = None):

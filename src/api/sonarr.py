@@ -5,12 +5,12 @@ Created Date: 2024-11-08
 Description: Sonarr API client module.
 """
 
-import json
-import aiohttp
 from typing import Optional, List, Dict
 from colorama import Fore
 
-from src.api.base import APIError, BaseApiClient, filter_root_folders
+from src.api.base import (
+    APIError, BaseApiClient, filter_quality_profiles, filter_root_folders
+)
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -73,7 +73,8 @@ class SonarrClient(BaseApiClient):
         try:
             results = await self._request("qualityProfile")
             if results:
-                return [{"id": profile["id"], "name": profile["name"]} for profile in results]
+                profiles = [{"id": profile["id"], "name": profile["name"]} for profile in results]
+                return filter_quality_profiles(profiles, config.get("sonarr", {}))
             return []
         except Exception as e:
             logger.error(f"Failed to get quality profiles: {str(e)}")
@@ -109,8 +110,8 @@ class SonarrClient(BaseApiClient):
 
             series = lookup_response[0]  # Use first result
 
-            # Read seasonFolder from config
-            season_folder = config.get("sonarr", {}).get("features", {}).get("seasonFolder", True)
+            features = config.get("sonarr", {}).get("features", {})
+            season_folder = features.get("seasonFolder", True)
 
             data = {
                 "tvdbId": series["tvdbId"],
@@ -120,7 +121,7 @@ class SonarrClient(BaseApiClient):
                 "seasonFolder": season_folder,
                 "monitored": True,
                 "addOptions": {
-                    "searchForMissingEpisodes": True
+                    "searchForMissingEpisodes": features.get("search", True)
                 }
             }
 
@@ -128,48 +129,13 @@ class SonarrClient(BaseApiClient):
             if seasons is not None:
                 data["seasons"] = seasons
 
-            try:
-                session = await self._get_session()
-                url = f"{self.base_url}/api/{self.API_VERSION}/series"
-                async with session.post(url, headers=self._get_headers(), json=data) as response:
-                    response_text = await response.text()
-
-                    # Check if response can be parsed as JSON
-                    try:
-                        response_data = json.loads(response_text)
-
-                        # If we get a series object back, it was successful
-                        if isinstance(response_data, dict) and response_data.get("id"):
-                            logger.info(f"✅ Successfully added series: {series['title']}")
-                            return True, f"Successfully added {series['title']}"
-
-                        # If we get an error array back
-                        if isinstance(response_data, list) and response_data:
-                            error_msg = response_data[0].get("errorMessage")
-                            if error_msg:
-                                if "already" in error_msg.lower():
-                                    logger.info(f"ℹ️ Series already exists: {series['title']}")
-                                    return False, f"{series['title']} is already in your library"
-                                logger.warning(f"⚠️ API Error: {error_msg}")
-                                return False, error_msg
-
-                    except json.JSONDecodeError:
-                        pass
-
-                    # If we can't parse the response or don't recognize the format
-                    if response.status == 201 or response.status == 200:
-                        logger.info(f"✅ Successfully added series: {series['title']}")
-                        return True, f"Successfully added {series['title']}"
-                    else:
-                        logger.error(f"❌ Failed to add series: {response_text}")
-                        return False, f"Failed to add {series['title']}"
-
-            except aiohttp.ClientError as e:
-                logger.error(f"❌ Connection error: {str(e)}")
-                return False, f"Connection error: {str(e)}"
-            except Exception as e:
-                logger.error(f"❌ Error adding series: {str(e)}")
-                return False, str(e)
+            success, _result, error = await self._make_request(
+                "series", method="POST", data=data, title=series["title"], max_retries=0
+            )
+            if success:
+                logger.info(f"✅ Successfully added series: {series['title']}")
+                return True, f"Successfully added {series['title']}"
+            return False, error or f"Failed to add {series['title']}"
 
         except Exception as e:
             logger.error(f"❌ Error in add_series: {str(e)}")
@@ -358,25 +324,10 @@ class SonarrClient(BaseApiClient):
 
     async def delete_series(self, series_id: int) -> bool:
         """Delete a series from Sonarr by internal ID"""
-        try:
-            logger.info(f"🗑️ Deleting series with ID: {series_id}")
-            url = f"{self.base_url}/api/{self.API_VERSION}/series/{series_id}?deleteFiles=true"
-
-            session = await self._get_session()
-            async with session.delete(url, headers=self._get_headers()) as response:
-                if response.status == 200:
-                    logger.info(f"✅ Successfully deleted series {series_id}")
-                    return True
-                else:
-                    error_text = await response.text()
-                    logger.error(
-                        f"❌ Failed to delete series ({response.status}): {error_text}"
-                    )
-                    return False
-
-        except aiohttp.ClientError as e:
-            logger.error(f"❌ Connection error deleting series: {str(e)}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ Error deleting series: {str(e)}")
-            return False
+        logger.info(f"🗑️ Deleting series with ID: {series_id}")
+        success, _data, _error = await self._make_request(
+            f"series/{series_id}?deleteFiles=true", method="DELETE", max_retries=0
+        )
+        if success:
+            logger.info(f"✅ Successfully deleted series {series_id}")
+        return success

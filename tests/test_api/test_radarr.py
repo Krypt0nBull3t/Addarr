@@ -2,12 +2,16 @@
 Tests for src/api/radarr.py -- RadarrClient.
 """
 
+import asyncio
+
 import pytest
 import aiohttp
 from unittest.mock import AsyncMock, patch
+from aioresponses import CallbackResult
 from yarl import URL
 
 from src.api.base import APIError
+from tests.conftest import _mock_config
 
 from tests.fixtures.sample_data import (
     RADARR_SEARCH_RESULTS,
@@ -374,13 +378,7 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        # 2. Quality profiles check
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
-        # 3. POST movie
+        # 2. POST movie
         aio_mock.post(
             f"{BASE}/movie",
             payload={"id": 1, "title": "Fight Club"},
@@ -399,13 +397,7 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        # 2. Quality profiles
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
-        # 3. POST returns already-exists error
+        # 2. POST returns already-exists error
         aio_mock.post(
             f"{BASE}/movie",
             payload=[{"errorMessage": "This movie has already been added"}],
@@ -428,33 +420,11 @@ class TestRadarrAddMovie:
         assert "not found" in message.lower()
 
     @pytest.mark.asyncio
-    async def test_add_movie_invalid_quality_profile(self, aio_mock, radarr_client):
-        """Lines 166-167: invalid quality profile ID."""
-        aio_mock.get(
-            f"{BASE}/movie/lookup?term=tmdb:550",
-            payload=[RADARR_MOVIE_DETAIL],
-            status=200,
-        )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
-        success, message = await radarr_client.add_movie(550, "/movies", 999)
-        assert success is False
-        assert "Invalid quality profile" in message
-
-    @pytest.mark.asyncio
     async def test_add_movie_api_error_non_already(self, aio_mock, radarr_client):
         """Lines 202-203: error array with non-'already' message."""
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:550",
             payload=[RADARR_MOVIE_DETAIL],
-            status=200,
-        )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
             status=200,
         )
         aio_mock.post(
@@ -474,11 +444,6 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
         aio_mock.post(
             f"{BASE}/movie",
             body="not json",
@@ -496,11 +461,6 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
         aio_mock.post(
             f"{BASE}/movie",
             body="not json",
@@ -508,7 +468,7 @@ class TestRadarrAddMovie:
         )
         success, message = await radarr_client.add_movie(550, "/movies", 1)
         assert success is False
-        assert "Failed to add" in message
+        assert message == "not json"
 
     @pytest.mark.asyncio
     async def test_add_movie_client_error(self, aio_mock, radarr_client):
@@ -516,11 +476,6 @@ class TestRadarrAddMovie:
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:550",
             payload=[RADARR_MOVIE_DETAIL],
-            status=200,
-        )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
             status=200,
         )
         aio_mock.post(
@@ -537,11 +492,6 @@ class TestRadarrAddMovie:
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:550",
             payload=[RADARR_MOVIE_DETAIL],
-            status=200,
-        )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
             status=200,
         )
         aio_mock.post(
@@ -1068,3 +1018,88 @@ class TestRadarrGetHistory:
         with patch.object(radarr_client, "_request", return_value=None):
             results = await radarr_client.get_history()
         assert results == []
+
+
+# ---------------------------------------------------------------------------
+# add options, add errors and excluded quality profiles
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrAddConfigAndErrors:
+    @pytest.mark.asyncio
+    async def test_add_timeout_returns_message(self, aio_mock, radarr_client):
+        """A timeout has an empty str(); the user must still see why it failed."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550", payload=[RADARR_MOVIE_DETAIL]
+        )
+        aio_mock.post(f"{BASE}/movie", exception=asyncio.TimeoutError())
+        success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is False
+        assert message == "Connection error: timeout"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("features,search", [({}, True), ({"search": False}, False)])
+    async def test_add_honors_features_search(self, aio_mock, radarr_client, monkeypatch, features, search):
+        monkeypatch.setitem(_mock_config._config["radarr"], "features", features)
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550", payload=[RADARR_MOVIE_DETAIL]
+        )
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs["json"])
+            return CallbackResult(payload={"id": 1}, status=201)
+
+        aio_mock.post(f"{BASE}/movie", callback=capture)
+        success, _ = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is True
+        assert posted["addOptions"]["searchForMovie"] is search
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("features,availability", [
+        ({}, None),
+        ({"minimumAvailability": "released"}, "released"),
+    ])
+    async def test_add_honors_minimum_availability(self, aio_mock, radarr_client, monkeypatch, features, availability):
+        """Without the key Radarr keeps its own default, as before."""
+        monkeypatch.setitem(_mock_config._config["radarr"], "features", features)
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550", payload=[RADARR_MOVIE_DETAIL]
+        )
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs["json"])
+            return CallbackResult(payload={"id": 1}, status=201)
+
+        aio_mock.post(f"{BASE}/movie", callback=capture)
+        success, _ = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is True
+        assert posted.get("minimumAvailability") == availability
+
+    @pytest.mark.asyncio
+    async def test_add_does_not_depend_on_quality_profile_fetch(self, aio_mock, radarr_client):
+        """A passing 503 on qualityProfile used to fail the add as 'Invalid quality profile'."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550", payload=[RADARR_MOVIE_DETAIL]
+        )
+        aio_mock.get(f"{BASE}/qualityProfile", status=503, repeat=True)
+        aio_mock.post(f"{BASE}/movie", payload={"id": 1}, status=201)
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is True
+        assert "Successfully added" in message
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("excluded", [["Ultra-HD"], [2]])
+    async def test_get_quality_profiles_hides_excluded(self, aio_mock, radarr_client, monkeypatch, excluded):
+        """quality.excludedProfiles may list profile names or IDs."""
+        monkeypatch.setitem(
+            _mock_config._config["radarr"], "quality", {"excludedProfiles": excluded}
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=[{"id": 1, "name": "HD-1080p"}, {"id": 2, "name": "Ultra-HD"}],
+        )
+        profiles = await radarr_client.get_quality_profiles()
+        assert [p["id"] for p in profiles] == [1]

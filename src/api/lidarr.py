@@ -5,12 +5,12 @@ Created Date: 2024-11-08
 Description: Lidarr API client module.
 """
 
-import json
-import aiohttp
 from typing import Any, Optional, List, Dict
 from colorama import Fore
 
-from src.api.base import APIError, BaseApiClient, filter_root_folders
+from src.api.base import (
+    APIError, BaseApiClient, filter_quality_profiles, filter_root_folders
+)
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -175,7 +175,7 @@ class LidarrClient(BaseApiClient):
             album_folder = lidarr_features.get("albumFolder", False)
 
             add_options: Dict[str, Any] = {
-                "searchForMissingAlbums": True
+                "searchForMissingAlbums": lidarr_features.get("search", True)
             }
 
             if future_albums:
@@ -199,48 +199,13 @@ class LidarrClient(BaseApiClient):
                 "addOptions": add_options
             }
 
-            try:
-                session = await self._get_session()
-                url = f"{self.base_url}/api/{self.API_VERSION}/artist"
-                async with session.post(url, headers=self._get_headers(), json=data) as response:
-                    response_text = await response.text()
-
-                    # Check if response can be parsed as JSON
-                    try:
-                        response_data = json.loads(response_text)
-
-                        # If we get an artist object back, it was successful
-                        if isinstance(response_data, dict) and response_data.get("id"):
-                            logger.info(f"✅ Successfully added artist: {artist['artistName']}")
-                            return True, f"Successfully added {artist['artistName']}"
-
-                        # If we get an error array back
-                        if isinstance(response_data, list) and response_data:
-                            error_msg = response_data[0].get("errorMessage")
-                            if error_msg:
-                                if "already exists" in error_msg.lower():
-                                    logger.info(f"ℹ️ Artist already exists: {artist['artistName']}")
-                                    return False, f"{artist['artistName']} is already in your library"
-                                logger.warning(f"⚠️ API Error: {error_msg}")
-                                return False, error_msg
-
-                    except json.JSONDecodeError:
-                        pass
-
-                    # If we can't parse the response or don't recognize the format
-                    if response.status == 201 or response.status == 200:
-                        logger.info(f"✅ Successfully added artist: {artist['artistName']}")
-                        return True, f"Successfully added {artist['artistName']}"
-                    else:
-                        logger.error(f"❌ Failed to add artist: {response_text}")
-                        return False, f"Failed to add {artist['artistName']}"
-
-            except aiohttp.ClientError as e:
-                logger.error(f"❌ Connection error: {str(e)}")
-                return False, f"Connection error: {str(e)}"
-            except Exception as e:
-                logger.error(f"❌ Error adding artist: {str(e)}")
-                return False, str(e)
+            success, _result, error = await self._make_request(
+                "artist", method="POST", data=data, title=artist["artistName"], max_retries=0
+            )
+            if success:
+                logger.info(f"✅ Successfully added artist: {artist['artistName']}")
+                return True, f"Successfully added {artist['artistName']}"
+            return False, error or f"Failed to add {artist['artistName']}"
 
         except Exception as e:
             logger.error(f"❌ Error in add_artist: {str(e)}")
@@ -276,6 +241,7 @@ class LidarrClient(BaseApiClient):
                 }
                 for profile in results
             ]
+            profiles = filter_quality_profiles(profiles, config.get("lidarr", {}))
 
             logger.info(f"✅ Found {len(profiles)} quality profiles")
             return profiles
@@ -351,25 +317,10 @@ class LidarrClient(BaseApiClient):
 
     async def delete_artist(self, artist_id: int) -> bool:
         """Delete an artist from Lidarr by internal ID"""
-        try:
-            logger.info(f"🗑️ Deleting artist with ID: {artist_id}")
-            url = f"{self.base_url}/api/{self.API_VERSION}/artist/{artist_id}"
-
-            session = await self._get_session()
-            async with session.delete(url, headers=self._get_headers()) as response:
-                if response.status == 200:
-                    logger.info(f"✅ Successfully deleted artist {artist_id}")
-                    return True
-                else:
-                    error_text = await response.text()
-                    logger.error(
-                        f"❌ Failed to delete artist ({response.status}): {error_text}"
-                    )
-                    return False
-
-        except aiohttp.ClientError as e:
-            logger.error(f"❌ Connection error deleting artist: {str(e)}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ Error deleting artist: {str(e)}")
-            return False
+        logger.info(f"🗑️ Deleting artist with ID: {artist_id}")
+        success, _data, _error = await self._make_request(
+            f"artist/{artist_id}?deleteFiles=true", method="DELETE", max_retries=0
+        )
+        if success:
+            logger.info(f"✅ Successfully deleted artist {artist_id}")
+        return success
