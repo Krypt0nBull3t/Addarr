@@ -49,12 +49,6 @@ def get_admins():
     return config.get('admins', [])
 
 
-def get_allowed_users():
-    """Get list of allowed user IDs from config"""
-    config = load_config()
-    return config.get('allow_list', [])
-
-
 def get_allowed_chats():
     """Get list of allowed chat IDs from config"""
     config = load_config()
@@ -64,15 +58,6 @@ def get_allowed_chats():
 def is_admin(user_id: int) -> bool:
     """Check if user ID is an admin"""
     return user_id in get_admins()
-
-
-def is_allowed_user(user_id: int) -> bool:
-    """Check if user ID is allowed"""
-    # If allowlist is disabled, all users are allowed
-    config = load_config()
-    if not config.get('security', {}).get('enableAllowlist', False):
-        return True
-    return user_id in get_allowed_users()
 
 
 def is_allowed_chat(chat_id: int) -> bool:
