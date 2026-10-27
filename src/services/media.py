@@ -216,7 +216,7 @@ class MediaService:
                             else None)
                     ),
                     "rating": artist.get("ratings", {}).get("value", "N/A"),
-                    "genres": ", ".join(artist.get("genres", ["Unknown"])),
+                    "genres": artist.get("genres", []),
                     "type": artist.get("artistType", "Unknown"),
                     "status": artist.get("status", "unknown"),
                     "music_type": "artist",

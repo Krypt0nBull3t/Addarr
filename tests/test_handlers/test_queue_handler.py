@@ -229,6 +229,21 @@ async def test_page_change(
 
 
 @pytest.mark.asyncio
+async def test_refresh_unchanged_message(
+    queue_handler, make_update, make_context, unchanged_edit
+):
+    """queue_refresh answers first and ignores an unchanged message."""
+    queue_handler._mock_service.get_queue_media = AsyncMock(return_value=[])
+    update = make_update(callback_data="queue_refresh")
+    calls = unchanged_edit(update.callback_query)
+    context = make_context(user_data={"queue_filter": "all"})
+
+    await queue_handler.handle_queue_action(update, context)
+
+    assert calls == ["answer", "edit"]
+
+
+@pytest.mark.asyncio
 async def test_refresh(
     queue_handler, make_update, make_context
 ):

@@ -12,6 +12,8 @@ from src.bot.handlers.media.formatters import (
     _build_external_links,
     build_result_caption,
     send_response,
+    show_list_detail,
+    show_result,
 )
 
 
@@ -34,7 +36,7 @@ def test_build_result_caption_movie():
 
     caption = build_result_caption(result)
 
-    assert "*Test Movie*" in caption
+    assert "<b>Test Movie</b>" in caption
     assert "A great movie" in caption
     assert "2024" in caption
     assert "8.5/10" in caption
@@ -59,7 +61,7 @@ def test_build_result_caption_series():
 
     caption = build_result_caption(result)
 
-    assert "*Test Series*" in caption
+    assert "<b>Test Series</b>" in caption
     assert "7.8/10" in caption
     assert "1,500 votes" in caption
     assert "HBO Max" in caption
@@ -76,7 +78,7 @@ def test_build_result_caption_album():
 
     caption = build_result_caption(result)
 
-    assert "*💿 Test Album*" in caption
+    assert "<b>💿 Test Album</b>" in caption
     assert "Test Artist" in caption
     assert "2024-01-15" in caption
 
@@ -92,7 +94,7 @@ def test_build_result_caption_song():
 
     caption = build_result_caption(result)
 
-    assert "*🎵 Test Song*" in caption
+    assert "<b>🎵 Test Song</b>" in caption
     assert "Test Album" in caption
     assert "Test Artist" in caption
 
@@ -122,6 +124,72 @@ def test_build_result_caption_long_overview_truncated():
     assert "A" * 298 not in caption
 
 
+def test_build_result_caption_escapes_api_text():
+    """Markup characters in API text are escaped, so Telegram cannot reject them."""
+    result = {
+        "title": "M*A*S*H <3",
+        "overview": "Tom & Jerry_fan",
+        "studio": "Snake_Case <Studio>",
+        "genres": ["R&B", "Rock"],
+    }
+
+    caption = build_result_caption(result)
+
+    assert "<b>M*A*S*H &lt;3</b>" in caption
+    assert "<i>Tom &amp; Jerry_fan</i>" in caption
+    assert "Snake_Case &lt;Studio&gt;" in caption
+    assert "R&amp;B, Rock" in caption
+
+
+def test_build_result_caption_escapes_network():
+    """Network name from the API is escaped."""
+    result = {
+        "title": "*NSYNC Live",
+        "overview": "Overview",
+        "studio": "A&E",
+        "network": "<Net>",
+    }
+
+    caption = build_result_caption(result)
+
+    assert "<b>*NSYNC Live</b>" in caption
+    assert "📺 Network: &lt;Net&gt; (A&amp;E)" in caption
+
+
+def test_build_result_caption_album_escapes_api_text():
+    """Album caption escapes title, artist, release date, and overview."""
+    result = {
+        "title": "Songs & <Stuff>",
+        "music_type": "album",
+        "artist_name": "*NSYNC",
+        "release_date": "2024<01>15",
+        "overview": "Rock & roll",
+    }
+
+    caption = build_result_caption(result)
+
+    assert "<b>💿 Songs &amp; &lt;Stuff&gt;</b>" in caption
+    assert "🎤 Artist: *NSYNC" in caption
+    assert "📅 Released: 2024&lt;01&gt;15" in caption
+    assert "<i>Rock &amp; roll</i>" in caption
+
+
+def test_build_result_caption_song_escapes_api_text():
+    """Song caption escapes title, album, and artist."""
+    result = {
+        "title": "A <B>",
+        "music_type": "song",
+        "album_title": "C & D",
+        "artist_name": "E_F <G>",
+    }
+
+    caption = build_result_caption(result)
+
+    assert "<b>🎵 A &lt;B&gt;</b>" in caption
+    assert "💿 Album: C &amp; D" in caption
+    assert "🎤 Artist: E_F &lt;G&gt;" in caption
+
+
 # ---------------------------------------------------------------------------
 # _build_external_links
 # ---------------------------------------------------------------------------
@@ -135,8 +203,8 @@ def test_build_external_links_movie():
 
     links = _build_external_links(result)
 
-    assert "[IMDB](https://www.imdb.com/title/tt0137523/)" in links
-    assert "[TMDB](https://www.themoviedb.org/movie/550)" in links
+    assert '<a href="https://www.imdb.com/title/tt0137523/">IMDB</a>' in links
+    assert '<a href="https://www.themoviedb.org/movie/550">TMDB</a>' in links
     assert links.startswith("\n")
     assert " | " in links
 
@@ -149,8 +217,8 @@ def test_build_external_links_series_with_imdb():
 
     links = _build_external_links(result)
 
-    assert "[TVDB](https://thetvdb.com/?id=81189&tab=series)" in links
-    assert "[IMDB](https://www.imdb.com/title/tt0903747/)" in links
+    assert '<a href="https://thetvdb.com/?id=81189&amp;tab=series">TVDB</a>' in links
+    assert '<a href="https://www.imdb.com/title/tt0903747/">IMDB</a>' in links
 
 
 def test_build_external_links_series_tvdb_only():
@@ -161,7 +229,7 @@ def test_build_external_links_series_tvdb_only():
 
     links = _build_external_links(result)
 
-    assert "[TVDB](" in links
+    assert ">TVDB</a>" in links
     assert "IMDB" not in links
 
 
@@ -174,7 +242,7 @@ def test_build_external_links_album():
 
     links = _build_external_links(result)
 
-    assert "[MusicBrainz](https://musicbrainz.org/release-group/album-id-abc)" in links
+    assert '<a href="https://musicbrainz.org/release-group/album-id-abc">MusicBrainz</a>' in links
 
 
 def test_build_external_links_artist():
@@ -186,7 +254,7 @@ def test_build_external_links_artist():
 
     links = _build_external_links(result)
 
-    assert "[MusicBrainz](https://musicbrainz.org/artist/some-mbid-123)" in links
+    assert '<a href="https://musicbrainz.org/artist/some-mbid-123">MusicBrainz</a>' in links
 
 
 def test_build_external_links_song():
@@ -198,7 +266,7 @@ def test_build_external_links_song():
 
     links = _build_external_links(result)
 
-    assert "[MusicBrainz](https://musicbrainz.org/release-group/album-id-abc)" in links
+    assert '<a href="https://musicbrainz.org/release-group/album-id-abc">MusicBrainz</a>' in links
 
 
 def test_build_external_links_no_key():
@@ -236,7 +304,7 @@ def test_build_external_links_tmdb_with_tvdb_uses_tv_path():
 
     links = _build_external_links(result)
 
-    assert "[TMDB](https://www.themoviedb.org/tv/1396)" in links
+    assert '<a href="https://www.themoviedb.org/tv/1396">TMDB</a>' in links
 
 
 # ---------------------------------------------------------------------------
@@ -254,10 +322,10 @@ def test_build_result_caption_movie_with_links():
 
     caption = build_result_caption(result, index=0, total=1)
 
-    assert "[IMDB](" in caption
-    assert "[TMDB](" in caption
+    assert ">IMDB</a>" in caption
+    assert ">TMDB</a>" in caption
     # Links should appear before counter
-    links_pos = caption.index("[IMDB]")
+    links_pos = caption.index(">IMDB</a>")
     counter_pos = caption.index("Result 1 of 1")
     assert links_pos < counter_pos
 
@@ -274,7 +342,7 @@ def test_build_result_caption_album_with_links():
 
     caption = build_result_caption(result)
 
-    assert "[MusicBrainz](" in caption
+    assert ">MusicBrainz</a>" in caption
 
 
 def test_build_result_caption_song_with_links():
@@ -289,7 +357,78 @@ def test_build_result_caption_song_with_links():
 
     caption = build_result_caption(result)
 
-    assert "[MusicBrainz](" in caption
+    assert ">MusicBrainz</a>" in caption
+
+
+# ---------------------------------------------------------------------------
+# show_result / show_list_detail parse mode
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_show_result_sends_html_caption(make_message):
+    """Card view sends the HTML caption with parse_mode HTML."""
+    message = make_message()
+    result = {"id": "1", "title": "M*A*S*H", "overview": "O", "poster": None}
+
+    await show_result(message, result, 0, 1)
+
+    call = message.reply_text.call_args
+    assert "<b>M*A*S*H</b>" in call.args[0]
+    assert call.kwargs["parse_mode"] == "HTML"
+
+
+@pytest.mark.asyncio
+async def test_show_list_detail_sends_html_caption(make_message):
+    """List detail view sends the HTML caption with parse_mode HTML."""
+    message = make_message()
+    result = {
+        "id": "1",
+        "title": "*NSYNC",
+        "overview": "O",
+        "poster": "https://example.com/p.jpg",
+    }
+
+    await show_list_detail(message, result)
+
+    call = message.reply_photo.call_args
+    assert "<b>*NSYNC</b>" in call.kwargs["caption"]
+    assert call.kwargs["parse_mode"] == "HTML"
+
+
+HOSTILE_TITLE = "M*A*S*H <b>&"
+ESCAPED_TITLE = "<b>M*A*S*H &lt;b&gt;&amp;</b>"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("show", ["card", "list_detail"])
+@pytest.mark.parametrize("path", ["photo", "photo_failed", "text"])
+async def test_every_caption_send_uses_html(make_message, show, path):
+    """Every send of the built caption escapes the title and uses parse_mode HTML.
+
+    Search, card navigation (nav_prev/nav_next) and list selection all send
+    the caption through show_result or show_list_detail.
+    """
+    message = make_message()
+    if path == "photo_failed":
+        message.reply_photo = AsyncMock(side_effect=Exception("bad photo"))
+    result = {
+        "id": "1",
+        "title": HOSTILE_TITLE,
+        "overview": "O",
+        "poster": None if path == "text" else "https://example.com/p.jpg",
+    }
+
+    if show == "card":
+        await show_result(message, result, 0, 2)
+    else:
+        await show_list_detail(message, result)
+
+    send = message.reply_text if path != "photo" else message.reply_photo
+    call = send.call_args
+    caption = call.kwargs.get("caption") or call.args[0]
+    assert ESCAPED_TITLE in caption
+    assert call.kwargs["parse_mode"] == "HTML"
 
 
 # ---------------------------------------------------------------------------

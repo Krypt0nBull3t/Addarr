@@ -49,7 +49,7 @@ async def test_start_then_settings_opens_in_one_tap(harness):
         resp = await harness.tap_button("menu_settings")
 
     assert resp is not None
-    assert "Settings.Menu" in resp.text
+    assert resp.text == "⚙️ Settings"
 
 
 @pytest.mark.asyncio

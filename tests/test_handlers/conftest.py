@@ -510,6 +510,30 @@ def history_handler(mock_media_service, mock_translation_service):
 
 
 @pytest.fixture
+def unchanged_edit():
+    """Make a query's edit_text fail as Telegram does for identical text.
+
+    Returns a function that wires the query and returns a list that records
+    the order of answer() and edit_text() calls.
+    """
+    from telegram.error import BadRequest
+
+    def _wire(query):
+        calls = []
+        query.answer.side_effect = lambda *args, **kwargs: calls.append("answer")
+
+        def _edit(*args, **kwargs):
+            calls.append("edit")
+            raise BadRequest("Message is not modified: specified new message "
+                             "content and reply markup are exactly the same")
+
+        query.message.edit_text.side_effect = _edit
+        return calls
+
+    return _wire
+
+
+@pytest.fixture
 def preferences_handler(mock_translation_service):
     """Create a PreferencesHandler with patched services."""
     with (

@@ -152,6 +152,27 @@ async def test_handle_refresh(system_handler, make_update, make_context):
 
 
 @pytest.mark.asyncio
+async def test_handle_refresh_unchanged_message(
+    system_handler, make_update, make_context, unchanged_edit
+):
+    """system_refresh answers first and ignores an unchanged message."""
+    system_handler._mock_health.run_health_checks = AsyncMock(return_value={
+        "media_services": [], "download_clients": [],
+    })
+    update = make_update(callback_data="system_refresh")
+    calls = unchanged_edit(update.callback_query)
+
+    await system_handler.handle_system_action(update, make_context())
+
+    assert calls == ["answer", "edit"]
+    system_handler._mock_ts.get_text.assert_any_call("StatusRefreshed")
+    assert all(
+        c.args != ("StatusRefreshError",)
+        for c in system_handler._mock_ts.get_text.call_args_list
+    )
+
+
+@pytest.mark.asyncio
 async def test_handle_refresh_error(system_handler, make_update, make_context):
     """system_refresh shows error on exception."""
     system_handler._mock_health.run_health_checks = AsyncMock(

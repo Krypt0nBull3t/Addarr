@@ -10,6 +10,7 @@ all required keys are present and properly formatted.
 
 import yaml
 import re
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple, Set
 from colorama import Fore, init
@@ -121,8 +122,8 @@ def check_emoji_consistency(template_data: Dict[str, Any], translations: Dict[st
     return errors
 
 
-def main():
-    """Main validation function"""
+def main() -> int:
+    """Main validation function. Returns the exit code: 0 if valid, else 1."""
     print(f"{Fore.CYAN}🔍 Validating translation files...")
 
     # Load template
@@ -130,7 +131,7 @@ def main():
     template_data = load_yaml(template_path)
     if not template_data:
         print(f"{Fore.RED}❌ Failed to load template file")
-        return
+        return 1
 
     # Get all translation files
     translations_dir = Path("translations")
@@ -189,10 +190,12 @@ def main():
 
     if all_valid:
         print(f"\n{Fore.GREEN}✅ All translations are valid!")
-    else:
-        print(f"\n{Fore.YELLOW}⚠️ Some translations need attention")
-        print("Run this script again after fixing the issues")
+        return 0
+
+    print(f"\n{Fore.YELLOW}⚠️ Some translations need attention")
+    print("Run this script again after fixing the issues")
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

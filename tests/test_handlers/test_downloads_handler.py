@@ -862,7 +862,8 @@ class TestDownloadsAccessControl:
         assert mock_tx.method_calls == []
         assert context.user_data == {"dl_client": "sabnzbd"}
         update.callback_query.answer.assert_awaited_once_with(
-            "NotAuthorized", show_alert=True
+            "🔒 You need to authenticate first.\nUse /auth to begin authentication.",
+            show_alert=True,
         )
 
     @pytest.mark.asyncio

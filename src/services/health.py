@@ -208,33 +208,23 @@ class HealthService:
                 logger.info(f"{Fore.CYAN}{'═' * 50}")
                 logger.info(f"{Fore.CYAN}🏥 Running health check...{Style.RESET_ALL}")
 
-                results = await self.run_health_checks()
-                self._last_check = datetime.now()
-                next_check = self._last_check + timedelta(seconds=self.interval)
-
-                current_unhealthy = set()
-
-                # Process results and update status
-                for service_type in ["media_services", "download_clients"]:
-                    for service in results[service_type]:
-                        if not service["healthy"]:
-                            error_msg = f"{service['name']}: {service['status']}"
-                            current_unhealthy.add(error_msg)
+                previous_unhealthy = self._unhealthy_services
+                await self.run_health_checks()
+                current_unhealthy = self._unhealthy_services
+                next_check = datetime.now() + timedelta(seconds=self.interval)
 
                 # Log changes in service health
-                new_failures = current_unhealthy - self._unhealthy_services
+                new_failures = current_unhealthy - previous_unhealthy
                 if new_failures:
                     logger.error("❌ Services became unhealthy:")
                     for service in new_failures:
                         logger.error(f"  • {service}")
 
-                recovered = self._unhealthy_services - current_unhealthy
+                recovered = previous_unhealthy - current_unhealthy
                 if recovered:
                     logger.info("✅ Services recovered:")
                     for service in recovered:
                         logger.info(f"  • {service}")
-
-                self._unhealthy_services = current_unhealthy
 
                 # Send alerts if enabled
                 alert_config = config.get("health_alerts", {})
@@ -438,6 +428,12 @@ class HealthService:
                 "status": status
             })
 
+        self._last_check = datetime.now()
+        self._unhealthy_services = {
+            f"{service['name']}: {service['status']}"
+            for service in results["media_services"] + results["download_clients"]
+            if not service["healthy"]
+        }
         return results
 
     def _get_api_client(self, service_key: str) -> Optional[Any]:

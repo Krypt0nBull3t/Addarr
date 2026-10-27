@@ -135,7 +135,7 @@ All configuration lives in `config.yaml` (YAML). `config_example.yaml` serves as
 
 ### Internationalization
 
-Translation files in `translations/addarr.<locale>.yml` (9 languages). Access via `TranslationService().get_text(key, default=...)`. Template for new languages: `translations/addarr.template.yml`. **Important:** `get_text()` does a single-level `.get(key)` lookup — nested keys like `Commands.start` don't resolve. Always use flat top-level keys (e.g., `CommandStart`).
+Translation files in `translations/addarr.<locale>.yml` (9 languages). Access via `TranslationService().get_text(key, default=...)`; `default` is returned when the key is missing. Template for new languages: `translations/addarr.template.yml`. Dotted keys walk into nested sections (e.g., `Sabnzbd.Speed` reads `Speed` under `Sabnzbd:`). Placeholders use `%{name}` (a few older strings use `%(name)s`); pass values as keyword arguments.
 
 ### Entry Point Flow
 

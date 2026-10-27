@@ -472,6 +472,17 @@ class TestSearchMusic:
         }
 
     @pytest.mark.asyncio
+    async def test_search_music_artist_genres_stay_a_list(self, mock_lidarr_client):
+        """Artist genres stay a list, so the caption does not split them into letters."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["genres"] == ["Alternative Rock"]
+
+    @pytest.mark.asyncio
     async def test_search_music_album_external_ids(self, mock_lidarr_client):
         """Normalized album results include musicbrainz external_id."""
         service = MediaService()
