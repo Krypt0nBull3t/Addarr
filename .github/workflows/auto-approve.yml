@@ -33,11 +33,13 @@ jobs:
               state: 'open',
               head: `${context.repo.owner}:${context.payload.workflow_run.head_branch}`
             });
-            if (pulls.data.length === 0) {
-              core.setFailed('No open PR found for this branch');
+            // Match on the commit CI ran on, so a fork branch with the same
+            // name as one of ours can never resolve to our PR.
+            const pr = pulls.data.find(p => p.head.sha === context.payload.workflow_run.head_sha);
+            if (!pr) {
+              core.setFailed('No open PR found for this commit');
               return;
             }
-            const pr = pulls.data[0];
             const prNumber = pr.number;
             core.setOutput('number', prNumber);
 
