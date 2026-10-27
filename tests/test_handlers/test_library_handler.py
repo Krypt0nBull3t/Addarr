@@ -253,6 +253,23 @@ async def test_navigation_callback(
 
 
 @pytest.mark.asyncio
+async def test_navigation_refuses_unauthenticated_user(
+    library_handler, make_update, make_context
+):
+    """Page buttons do nothing for unauthenticated users (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = set()
+
+    items = [{"id": str(i), "title": f"Item {i:02d}"} for i in range(25)]
+    update = make_update(callback_data="lib_m_1")
+    context = make_context(user_data={"library_m": items})
+
+    await library_handler.handle_page_navigation(update, context)
+
+    update.callback_query.message.edit_text.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_navigation_expired_session(
     library_handler, make_update, make_context
 ):

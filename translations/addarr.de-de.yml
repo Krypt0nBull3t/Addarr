@@ -61,6 +61,7 @@ de-de:
   What is this?: "❓ Wonach möchtest du suchen?"
   NotAuthorized: "🔒 Du musst dich zuerst authentifizieren.\nBenutze /auth um die Authentifizierung zu starten."
   PrivateChatOnly: "🔒 Dieser Bot funktioniert nur in privaten Chats. Bitte schreibe mir direkt."
+  NotAllowed: "⛔ Du darfst diesen Bot nicht benutzen."
   mainMenu: "🏠 Hauptmenü - Wähle eine Aktion aus."
 
   messages:

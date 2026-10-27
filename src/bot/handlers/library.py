@@ -214,6 +214,7 @@ class LibraryHandler:
         reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
         return text, reply_markup
 
+    @require_auth
     async def handle_page_navigation(self, update, context):
         """Handle pagination callback queries (lib_{type}_{page})."""
         if not update.callback_query:

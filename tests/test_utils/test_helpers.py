@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from src.utils.helpers import (
+    admin_only,
     check_auth,
     get_authorized_chats,
     get_chat_name,
@@ -51,94 +52,40 @@ class TestFormatBytes:
 
 
 class TestIsAdmin:
-    """Tests for is_admin -- patches ADMIN_PATH to use tmp_path files."""
+    """Tests for is_admin -- reads the admins list from config."""
 
-    @patch("src.utils.helpers.ADMIN_PATH")
-    def test_is_admin_true(self, mock_path, tmp_path):
-        """Returns True when user_id is present in the admin file."""
-        admin_file = tmp_path / "admin.txt"
-        admin_file.write_text("100\n200\n300\n")
-        mock_path.__str__ = lambda self: str(admin_file)
-        # os.path.exists and open use the string value, so patch the name
-        with patch("src.utils.helpers.ADMIN_PATH", str(admin_file)):
-            assert is_admin(200) is True
-
-    @patch("src.utils.helpers.ADMIN_PATH")
-    def test_is_admin_false(self, mock_path, tmp_path):
-        """Returns False when user_id is NOT in the admin file."""
-        admin_file = tmp_path / "admin.txt"
-        admin_file.write_text("100\n200\n300\n")
-        with patch("src.utils.helpers.ADMIN_PATH", str(admin_file)):
-            assert is_admin(999) is False
-
-    def test_is_admin_no_file(self, tmp_path):
-        """Returns False when the admin file does not exist."""
-        missing = str(tmp_path / "nonexistent_admin.txt")
-        with patch("src.utils.helpers.ADMIN_PATH", missing):
-            assert is_admin(100) is False
+    @pytest.mark.parametrize("admins, expected", [
+        ([100, 200], True),
+        (["200"], True),  # IDs quoted in YAML still match
+        ([100], False),
+        (None, False),    # `admins:` left empty in YAML
+    ])
+    def test_is_admin(self, admins, expected, mock_config):
+        mock_config._set("admins", admins)
+        with patch("src.utils.helpers.config", mock_config):
+            assert is_admin(200) is expected
 
 
 # ---- is_allowed ----
 
 
 class TestIsAllowed:
-    """Tests for is_allowed -- patches ALLOWLIST_PATH and config."""
+    """Tests for is_allowed -- reads security.enableAllowlist and allow_list."""
 
-    def _make_config(self, allowlist_enabled):
-        """Build a mock config with enableAllowlist under security section."""
-        mock_cfg = MagicMock()
-
-        def get_side_effect(key, default=None):
-            config_data = {
-                "security": {"enableAllowlist": allowlist_enabled},
-            }
-            return config_data.get(key, default)
-
-        mock_cfg.get.side_effect = get_side_effect
-        return mock_cfg
-
-    def test_is_allowed_allowlist_disabled(self):
-        """Returns True when enableAllowlist is False in config."""
-        mock_cfg = self._make_config(allowlist_enabled=False)
-        with patch("src.utils.helpers.config", mock_cfg):
-            assert is_allowed(999) is True
-
-    def test_is_allowed_in_list(self, tmp_path):
-        """Returns True when user_id is in the allowlist file."""
-        allow_file = tmp_path / "allowlist.txt"
-        allow_file.write_text("100\n200\n300\n")
-
-        mock_cfg = self._make_config(allowlist_enabled=True)
-
-        with (
-            patch("src.utils.helpers.config", mock_cfg),
-            patch("src.utils.helpers.ALLOWLIST_PATH", str(allow_file)),
-        ):
-            assert is_allowed(200) is True
-
-    def test_is_allowed_not_in_list(self, tmp_path):
-        """Returns False when user_id is NOT in the allowlist file."""
-        allow_file = tmp_path / "allowlist.txt"
-        allow_file.write_text("100\n200\n300\n")
-
-        mock_cfg = self._make_config(allowlist_enabled=True)
-
-        with (
-            patch("src.utils.helpers.config", mock_cfg),
-            patch("src.utils.helpers.ALLOWLIST_PATH", str(allow_file)),
-        ):
-            assert is_allowed(999) is False
-
-    def test_is_allowed_no_file(self, tmp_path):
-        """Returns False when allowlist is enabled but file is missing."""
-        mock_cfg = self._make_config(allowlist_enabled=True)
-        missing = str(tmp_path / "nonexistent_allowlist.txt")
-
-        with (
-            patch("src.utils.helpers.config", mock_cfg),
-            patch("src.utils.helpers.ALLOWLIST_PATH", missing),
-        ):
-            assert is_allowed(100) is False
+    @pytest.mark.parametrize("enabled, allow_list, admins, expected", [
+        (False, [], [], True),     # allowlist off: everyone may use the bot
+        (True, [200], [], True),
+        (True, ["200"], [], True),
+        (True, [100], [], False),
+        (True, [], [200], True),   # admins are always allowed
+        (True, None, [], False),
+    ])
+    def test_is_allowed(self, enabled, allow_list, admins, expected, mock_config):
+        mock_config._set("security", {"enableAllowlist": enabled})
+        mock_config._set("allow_list", allow_list)
+        mock_config._set("admins", admins)
+        with patch("src.utils.helpers.config", mock_config):
+            assert is_allowed(200) is expected
 
     def test_is_allowed_missing_security_section_defaults_false(self):
         """Returns True (allowlist disabled) when security section is absent."""
@@ -147,27 +94,26 @@ class TestIsAllowed:
         with patch("src.utils.helpers.config", mock_cfg):
             assert is_allowed(999) is True
 
-    def test_is_allowed_reads_nested_security_config(self, tmp_path):
-        """is_allowed reads enableAllowlist from security section, not root."""
-        allow_file = tmp_path / "allowlist.txt"
-        allow_file.write_text("100\n200\n")
 
-        mock_cfg = MagicMock()
+# ---- admin_only ----
 
-        def get_side_effect(key, default=None):
-            config_data = {
-                "security": {"enableAllowlist": True},
-            }
-            return config_data.get(key, default)
 
-        mock_cfg.get.side_effect = get_side_effect
+class TestAdminOnly:
+    """Tests for admin_only -- security.enableAdmin plus per-service onlyAdmin."""
 
-        with (
-            patch("src.utils.helpers.config", mock_cfg),
-            patch("src.utils.helpers.ALLOWLIST_PATH", str(allow_file)),
-        ):
-            # User 999 NOT in allowlist — should be denied
-            assert is_allowed(999) is False
+    @pytest.mark.parametrize("enable_admin, service, only_admin, expected", [
+        (False, None, True, False),       # admin mode off
+        (True, None, True, True),
+        (True, "sabnzbd", True, True),
+        (True, "sabnzbd", False, False),
+        (False, "sabnzbd", True, False),  # onlyAdmin needs admin mode
+    ])
+    def test_admin_only(self, enable_admin, service, only_admin, expected,
+                        mock_config):
+        mock_config._set("security", {"enableAdmin": enable_admin})
+        mock_config._set("sabnzbd", {"onlyAdmin": only_admin})
+        with patch("src.utils.helpers.config", mock_config):
+            assert admin_only(service) is expected
 
 
 # ---- save_chat_id ----

@@ -146,6 +146,7 @@ class BazarrHandler:
             update, t.get_text("BazarrMenu"), reply_markup=keyboard
         )
 
+    @require_auth
     async def prompt_search(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -175,6 +176,7 @@ class BazarrHandler:
         await update.message.reply_text(_format_movie_list(results))
         return ConversationHandler.END
 
+    @require_auth
     async def wanted_movies(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
@@ -193,6 +195,7 @@ class BazarrHandler:
             _format_movie_list(movies)
         )
 
+    @require_auth
     async def wanted_episodes(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
@@ -220,6 +223,7 @@ class BazarrHandler:
 
         await update.callback_query.edit_message_text("\n".join(lines))
 
+    @require_auth
     async def search_subtitles_trigger(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
@@ -261,6 +265,7 @@ class BazarrHandler:
         key = "BazarrSearchTriggered" if success else "BazarrSearchFailed"
         await update.callback_query.edit_message_text(t.get_text(key))
 
+    @require_auth
     async def cancel(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):

@@ -16,6 +16,7 @@ from src.bot.keyboards import (
     get_downloads_history_keyboard,
 )
 from src.services.translation import TranslationService
+from src.utils.helpers import admin_only, is_admin
 
 logger = get_logger("addarr.handlers.downloads")
 
@@ -151,6 +152,7 @@ class DownloadsHandler:
     # Client switching
     # -----------------------------------------------------------------
 
+    @require_auth
     async def handle_client_switch(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -173,6 +175,7 @@ class DownloadsHandler:
     # Tab / page / refresh / noop
     # -----------------------------------------------------------------
 
+    @require_auth
     async def handle_downloads_tab(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -185,6 +188,7 @@ class DownloadsHandler:
 
         await self._refresh_current_view(query, context)
 
+    @require_auth
     async def handle_downloads_page(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -196,6 +200,7 @@ class DownloadsHandler:
 
         await self._refresh_current_view(query, context)
 
+    @require_auth
     async def handle_downloads_refresh(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -205,6 +210,7 @@ class DownloadsHandler:
 
         await self._refresh_current_view(query, context)
 
+    @require_auth
     async def handle_downloads_noop(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -215,6 +221,7 @@ class DownloadsHandler:
     # Pause / resume
     # -----------------------------------------------------------------
 
+    @require_auth
     async def handle_downloads_pause_item(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -227,6 +234,7 @@ class DownloadsHandler:
             "DownloadsItemPaused", "DownloadsPauseError",
         )
 
+    @require_auth
     async def handle_downloads_resume_item(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -239,6 +247,7 @@ class DownloadsHandler:
             "DownloadsItemResumed", "DownloadsResumeError",
         )
 
+    @require_auth
     async def handle_downloads_pauseall(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -248,6 +257,7 @@ class DownloadsHandler:
             "DownloadsPaused", "DownloadsPauseError",
         )
 
+    @require_auth
     async def handle_downloads_resumeall(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -266,6 +276,12 @@ class DownloadsHandler:
         success_key, error_key,
     ):
         """Execute a service action and show result toast."""
+        client = self._get_client_name(context)
+        if admin_only(client) and not is_admin(query.from_user.id):
+            await query.answer(
+                text=self.translation.get_text("NotAdmin"), show_alert=True,
+            )
+            return
         service = self._get_active_service(context)
         method = getattr(service, method_name)
         success = await (method(item_id) if item_id is not None else method())

@@ -61,6 +61,7 @@ nl-be:
   What is this?: "❓ Wat zoek je?"
   NotAuthorized: "🔒 Je moet eerst inloggen.\nGebruik /auth om te beginnen met authenticatie."
   PrivateChatOnly: "🔒 Deze bot werkt alleen in privéchats. Stuur me alsjeblieft een direct bericht."
+  NotAllowed: "⛔ Je mag deze bot niet gebruiken."
   mainMenu: "🏠 Hoofdmenu - Kies een actie."
 
   messages:

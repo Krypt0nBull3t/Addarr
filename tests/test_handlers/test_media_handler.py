@@ -69,40 +69,47 @@ async def test_handle_media_no_message_returns_end(
     assert result == ConversationHandler.END
 
 
-@pytest.mark.parametrize("media_type,handler_method,service", [
-    ("movie", "handle_movie", "radarr"),
-    ("series", "handle_series", "sonarr"),
-    ("music", "handle_music", "lidarr"),
+@pytest.mark.parametrize("search_type,service,search_method", [
+    ("movie", "radarr", "search_movies"),
+    ("series", "sonarr", "search_series"),
+    ("music", "lidarr", "search_music"),
 ])
 @pytest.mark.asyncio
-async def test_handle_media_admin_restriction_denies_non_admin(
-    media_handler, make_update, make_context, make_user,
-    media_type, handler_method, service
+async def test_handle_search_admin_restriction_denies_non_admin(
+    media_handler, make_update, make_context, mock_config,
+    search_type, service, search_method
 ):
-    """When adminRestrictions is True, non-admin users get denied."""
-    from src.config.settings import config
-    original = config._config[service].get("adminRestrictions", False)
-    config._config[service]["adminRestrictions"] = True
-    try:
-        # User 99999 is NOT in admins list
-        user = make_user(user_id=99999)
-        update = make_update(text=f"/{media_type}", user=user)
-        context = make_context()
+    """adminRestrictions refuses non-admins at the search step (audit item 6).
 
-        # Ensure the user is authenticated but not admin
-        from src.bot.handlers.auth import AuthHandler
-        AuthHandler._authenticated_users.add(99999)
+    /movie, the menu button and the /start menu all reach handle_search.
+    """
+    mock_config._config[service]["adminRestrictions"] = True
+    update = make_update(text="Some Title")
+    context = make_context(user_data={"search_type": search_type})
 
-        method = getattr(media_handler, handler_method)
-        result = await method(update, context)
+    with patch("src.bot.handlers.media.handler.config", mock_config):
+        result = await media_handler.handle_search(update, context)
 
-        assert result == ConversationHandler.END
-        # Should have replied with a restriction message
-        update.message.reply_text.assert_called_once()
-        call_args = update.message.reply_text.call_args
-        assert "NotAdmin" in call_args[0][0]
-    finally:
-        config._config[service]["adminRestrictions"] = original
+    assert result == ConversationHandler.END
+    update.message.reply_text.assert_called_once_with("NotAdmin")
+    getattr(media_handler._mock_service, search_method).assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_search_admin_restriction_allows_admin(
+    media_handler, make_update, make_context, mock_config
+):
+    """Admins still search when adminRestrictions is on."""
+    mock_config._config["radarr"]["adminRestrictions"] = True
+    mock_config._set("admins", [12345])
+    update = make_update(text="Some Title")
+    context = make_context(user_data={"search_type": "movie"})
+
+    with patch("src.bot.handlers.media.handler.config", mock_config), \
+         patch("src.utils.helpers.config", mock_config):
+        await media_handler.handle_search(update, context)
+
+    media_handler._mock_service.search_movies.assert_awaited_once_with("Some Title")
 
 
 # ---------------------------------------------------------------------------
@@ -448,6 +455,23 @@ async def test_handle_menu_callback_movie(media_handler, make_update, make_conte
 
     assert result == SEARCHING
     assert context.user_data["search_type"] == "movie"
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_callback_refuses_unauthenticated_user(
+    media_handler, make_update, make_context
+):
+    """An old menu button cannot start a search without auth (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(callback_data="menu_movie")
+    context = make_context()
+
+    result = await media_handler.handle_menu_callback(update, context)
+
+    assert result is None
+    assert "search_type" not in context.user_data
 
 
 @pytest.mark.asyncio

@@ -110,6 +110,8 @@ def _extract_entry_point_methods(class_node):
 
     Entry points are:
     - Callback methods in standalone CommandHandler calls
+    - Callback methods in standalone CallbackQueryHandler calls (any user who
+      can press the button reaches them, outside any conversation)
     - Callback methods in ConversationHandler entry_points lists
     """
     get_handler = None
@@ -142,10 +144,12 @@ def _extract_entry_point_methods(class_node):
             for kw in elt.keywords:
                 if kw.arg == "entry_points":
                     methods.extend(_extract_self_methods(kw.value))
-        elif func_name == "CommandHandler":
-            # The callback is the 2nd positional arg: CommandHandler(cmd, self.method)
-            if len(elt.args) >= 2:
-                arg = elt.args[1]
+        elif func_name in ("CommandHandler", "CallbackQueryHandler"):
+            # The callback is CommandHandler(cmd, self.method) or
+            # CallbackQueryHandler(self.method, pattern=...)
+            index = 1 if func_name == "CommandHandler" else 0
+            if len(elt.args) > index:
+                arg = elt.args[index]
                 if (isinstance(arg, ast.Attribute)
                         and isinstance(arg.value, ast.Name)
                         and arg.value.id == "self"):
@@ -186,10 +190,6 @@ def _method_has_decorator(class_node, method_name, decorator_name):
 AUTH_ALLOWLIST = {
     # AuthHandler IS the auth flow — requiring auth to authenticate is circular
     "AuthHandler.start_auth",
-    # TransmissionHandler uses is_enabled() check instead
-    "TransmissionHandler.transmission_command",
-    # Triggered from StartHandler menu which already enforces auth
-    "MediaHandler.handle_menu_callback",
 }
 
 
