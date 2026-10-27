@@ -132,7 +132,7 @@ class TestShowWelcomeScreen:
         assert "Debug Mode" in captured.out
         assert "Disabled" in captured.out
 
-    @patch("src.utils.splash.config")
+    @patch("src.config.settings.config")
     def test_debug_mode_enabled(self, mock_cfg, capsys):
         """When debug is True, output shows enabled indicator."""
         mock_cfg.get.side_effect = lambda key, default=None: {
@@ -154,7 +154,7 @@ class TestShowWelcomeScreen:
         assert "Admin Mode" in captured.out
         assert "Disabled" in captured.out
 
-    @patch("src.utils.splash.config")
+    @patch("src.config.settings.config")
     def test_admin_mode_enabled(self, mock_cfg, capsys):
         """When enableAdmin is True, output shows enabled indicator."""
         mock_cfg.get.side_effect = lambda key, default=None: {
@@ -177,7 +177,7 @@ class TestShowWelcomeScreen:
         captured = capsys.readouterr()
         assert "en-us" in captured.out
 
-    @patch("src.utils.splash.config")
+    @patch("src.config.settings.config")
     def test_shows_custom_language(self, mock_cfg, capsys):
         """Custom language config is displayed."""
         mock_cfg.get.side_effect = lambda key, default=None: {
