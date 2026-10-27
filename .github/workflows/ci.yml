@@ -161,7 +161,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Install pip-audit
-        run: pip install pip-audit
+        run: pip install --upgrade pip-audit setuptools
       - name: Run dependency audit
         run: pip-audit
 

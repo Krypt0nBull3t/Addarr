@@ -26,8 +26,8 @@ class TransmissionClient:
 
         protocol = "https" if ssl else "http"
         self.rpc_url = f"{protocol}://{host}:{port}/transmission/rpc"
-        self._auth = (
-            aiohttp.BasicAuth(username, password)
+        self._auth: Optional[str] = (
+            aiohttp.encode_basic_auth(username, password)
             if username and password
             else None
         )
@@ -41,7 +41,7 @@ class TransmissionClient:
 
         async with aiohttp.ClientSession() as session:
             for attempt in range(2):
-                headers = {}
+                headers = {"Authorization": self._auth} if self._auth else {}
                 if self._session_id:
                     headers["X-Transmission-Session-Id"] = self._session_id
 
@@ -49,7 +49,6 @@ class TransmissionClient:
                     self.rpc_url,
                     json=payload,
                     headers=headers,
-                    auth=self._auth,
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     if response.status == 409:
