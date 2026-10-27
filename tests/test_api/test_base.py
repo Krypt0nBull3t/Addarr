@@ -567,15 +567,15 @@ class TestBaseApiClientRetry:
         assert data == {"ok": True}
 
     @pytest.mark.asyncio
-    async def test_retry_on_timeout_error_then_success(self, client):
-        """asyncio.TimeoutError triggers retry; second attempt succeeds."""
+    async def test_no_retry_on_timeout_error(self, client):
+        """A timeout already took the full timeout; retrying would multiply the wait."""
         with aioresponses() as m:
             m.get(URL, exception=asyncio.TimeoutError())
             m.get(URL, payload={"ok": True}, status=200)
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 success, data, error = await client._make_request("system/status")
-        assert success is True
-        assert data == {"ok": True}
+        assert success is False
+        assert error == "Connection error: timeout"
 
     @pytest.mark.asyncio
     async def test_no_retry_on_400(self, client):

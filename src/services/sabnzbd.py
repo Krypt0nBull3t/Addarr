@@ -63,44 +63,9 @@ class SABnzbdService:
         """Check if SABnzbd is enabled and properly configured."""
         return bool(self._enabled)
 
-    async def get_status(self) -> Dict[str, Any]:
-        """Get SABnzbd queue status"""
-        try:
-            params = {
-                'mode': 'queue',
-                'output': 'json',
-                'apikey': self.api_key
-            }
-
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"{self.base_url}/api", params=params) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        queue = data.get('queue', {})
-
-                        return {
-                            'active': len([job for job in queue.get('slots', []) if job.get('status') == 'Downloading']),
-                            'queued': queue.get('noofslots', 0),
-                            'speed': queue.get('speed', '0 KB/s'),
-                            'size': queue.get('size', '0 MB')
-                        }
-                    else:
-                        logger.error(f"SABnzbd API returned status {response.status}")
-                        return {
-                            'active': 0,
-                            'queued': 0,
-                            'speed': '0 KB/s',
-                            'size': '0 MB'
-                        }
-
-        except Exception as e:
-            logger.error(f"Error getting SABnzbd status: {e}")
-            return {
-                'active': 0,
-                'queued': 0,
-                'speed': '0 KB/s',
-                'size': '0 MB'
-            }
+    def _session(self) -> aiohttp.ClientSession:
+        """New session with a 10 s timeout, so a hung SABnzbd cannot block the bot for 300 s."""
+        return aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
 
     async def set_speed_limit(self, percentage: int) -> bool:
         """Set SABnzbd speed limit percentage"""
@@ -113,7 +78,7 @@ class SABnzbdService:
                 'apikey': self.api_key
             }
 
-            async with aiohttp.ClientSession() as session:
+            async with self._session() as session:
                 async with session.get(f"{self.base_url}/api", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -126,34 +91,6 @@ class SABnzbdService:
             logger.error(f"Error setting SABnzbd speed limit: {e}")
             return False
 
-    async def add_nzb(self, url: str, name: Optional[str] = None, category: Optional[str] = None) -> bool:
-        """Add an NZB to SABnzbd queue"""
-        try:
-            params = {
-                'mode': 'addurl',
-                'name': url,
-                'output': 'json',
-                'apikey': self.api_key
-            }
-
-            if name:
-                params['nzbname'] = name
-            if category:
-                params['cat'] = category
-
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"{self.base_url}/api", params=params) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return data.get('status', False)
-                    else:
-                        logger.error(f"SABnzbd API returned status {response.status}")
-                        return False
-
-        except Exception as e:
-            logger.error(f"Error adding NZB to SABnzbd: {e}")
-            return False
-
     async def pause_queue(self) -> bool:
         """Pause the SABnzbd download queue"""
         try:
@@ -163,7 +100,7 @@ class SABnzbdService:
                 'apikey': self.api_key
             }
 
-            async with aiohttp.ClientSession() as session:
+            async with self._session() as session:
                 async with session.get(f"{self.base_url}/api", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -185,7 +122,7 @@ class SABnzbdService:
                 'apikey': self.api_key
             }
 
-            async with aiohttp.ClientSession() as session:
+            async with self._session() as session:
                 async with session.get(f"{self.base_url}/api", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -209,7 +146,7 @@ class SABnzbdService:
                 'apikey': self.api_key
             }
 
-            async with aiohttp.ClientSession() as session:
+            async with self._session() as session:
                 async with session.get(f"{self.base_url}/api", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -233,7 +170,7 @@ class SABnzbdService:
                 'apikey': self.api_key
             }
 
-            async with aiohttp.ClientSession() as session:
+            async with self._session() as session:
                 async with session.get(f"{self.base_url}/api", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -262,7 +199,7 @@ class SABnzbdService:
                 'apikey': self.api_key
             }
 
-            async with aiohttp.ClientSession() as session:
+            async with self._session() as session:
                 async with session.get(f"{self.base_url}/api", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -310,7 +247,7 @@ class SABnzbdService:
                 'apikey': self.api_key
             }
 
-            async with aiohttp.ClientSession() as session:
+            async with self._session() as session:
                 async with session.get(f"{self.base_url}/api", params=params) as response:
                     if response.status == 200:
                         data = await response.json()

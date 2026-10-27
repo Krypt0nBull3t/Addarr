@@ -10,7 +10,7 @@ import aiohttp
 from typing import Optional, List, Dict
 from colorama import Fore
 
-from src.api.base import BaseApiClient, filter_root_folders
+from src.api.base import APIError, BaseApiClient, filter_root_folders
 from src.config.settings import config
 from src.utils.logger import get_logger
 
@@ -42,20 +42,19 @@ class SonarrClient(BaseApiClient):
 
     async def search(self, term: str) -> List[Dict]:
         """Search for TV series"""
-        try:
-            logger.info(Fore.BLUE + f"🔍 Searching Sonarr for: {term}")
-            results = await self._request(f"series/lookup?term={term}")
+        logger.info(Fore.BLUE + f"🔍 Searching Sonarr for: {term}")
+        success, results, error = await self._make_request(
+            "series/lookup", params={"term": term}
+        )
+        if not success:
+            raise APIError(f"Sonarr search failed: {error}")
 
-            if not results:
-                logger.warning(Fore.YELLOW + f"⚠️ No results found for: {term}")
-                return []
-
-            logger.info(Fore.GREEN + f"✅ Found {len(results)} results for: {term}")
-            return results
-
-        except Exception as e:
-            logger.error(Fore.RED + f"❌ Search failed: {str(e)}")
+        if not results:
+            logger.warning(Fore.YELLOW + f"⚠️ No results found for: {term}")
             return []
+
+        logger.info(Fore.GREEN + f"✅ Found {len(results)} results for: {term}")
+        return results
 
     async def get_root_folders(self) -> List[str]:
         """Get available root folders"""
