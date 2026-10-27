@@ -12,7 +12,7 @@ python=python
 case "$file" in
   "$CLAUDE_PROJECT_DIR"/translations/*.yml)
     out=$(PYTHONIOENCODING=utf-8 "$python" run.py --validate-i18n 2>&1)
-    # The validator always exits 0, so check for its success line instead.
+    # Older validators always exit 0, so check for the success line instead.
     if ! grep -q "All translations are valid" <<< "$out"; then
       echo "$out" >&2
       exit 2
