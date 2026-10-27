@@ -718,6 +718,82 @@ class TestSabnzbdInitError:
             assert handler.sabnzbd_service.is_enabled() is False
 
 
+class TestQualityErrorHandling:
+    """Error handling in quality profile selection"""
+
+    @pytest.mark.asyncio
+    async def test_handle_quality_select_malformed_callback_data(
+        self, settings_handler, make_update, make_context
+    ):
+        """Malformed callback_data (non-int profile id) shows error message"""
+        update = make_update(callback_data="setquality_radarr_notanint")
+        context = make_context()
+
+        result = await settings_handler.handle_quality_select(update, context)
+
+        assert result == States.SETTINGS_MENU
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+        settings_handler._mock_cfg.save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_handle_quality_select_config_save_error(
+        self, settings_handler, make_update, make_context
+    ):
+        """Config save failure shows error message"""
+        settings_handler._mock_cfg.save.side_effect = Exception("Disk full")
+        update = make_update(callback_data="setquality_radarr_4")
+        context = make_context()
+
+        result = await settings_handler.handle_quality_select(update, context)
+
+        assert result == States.SETTINGS_MENU
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+
+
+class TestSabnzbdPauseResumeErrorHandling:
+    """Error handling in SABnzbd pause/resume"""
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_pause_service_error(
+        self, settings_handler, make_update, make_context
+    ):
+        """Service exception during pause shows error message"""
+        settings_handler._mock_sab.pause_queue = AsyncMock(
+            side_effect=Exception("Connection refused")
+        )
+        update = make_update(callback_data="dl_sab_pause")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_resume_service_error(
+        self, settings_handler, make_update, make_context
+    ):
+        """Service exception during resume shows error message"""
+        settings_handler._mock_sab.resume_queue = AsyncMock(
+            side_effect=Exception("Timeout")
+        )
+        update = make_update(callback_data="dl_sab_resume")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+
+
 class TestDownloadsEdgeCases:
     """Edge cases for downloads sub-menu handlers"""
 
