@@ -207,4 +207,4 @@ docker-compose up -d
 docker build -t addarr . && docker run -d -v $(pwd)/config.yaml:/app/config.yaml addarr
 ```
 
-Base image: `python:3.11.5-alpine3.18`. Uses host networking. Persistent files to mount: `config.yaml`, `logs/`, `chatid.txt`, `admin.txt`, `allowlist.txt`. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.
+Base image: `python:3.11-alpine3.24`. Uses host networking. Runs as the non-root user `addarr`. Persistent files to mount: `config.yaml` (writable: `/auth` and settings save it), `logs/`, `backup/`, `chatid.txt`, `admin.txt`, `allowlist.txt`. `user_preferences.json` lives in `data/`, which compose keeps in the named volume `addarr-data`. If `logs/` is not writable, the logger falls back to console-only output with one warning. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.

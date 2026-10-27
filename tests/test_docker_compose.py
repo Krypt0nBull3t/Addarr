@@ -52,3 +52,23 @@ class TestDockerCompose:
         service = compose_config["services"]["addarr"]
         env = service.get("environment", [])
         assert any("PYTHONPATH=/app" in e for e in env), "PYTHONPATH=/app must be set"
+
+    def test_config_volume_is_writable(self, compose_config):
+        """/auth and settings changes save config.yaml, so it must not be :ro."""
+        volumes = compose_config["services"]["addarr"].get("volumes", [])
+        config_mounts = [v for v in volumes if v.startswith("./config.yaml:")]
+        assert config_mounts, "config.yaml must be mounted"
+        assert not any(v.endswith(":ro") for v in config_mounts)
+
+    def test_data_folder_is_a_named_volume(self, compose_config):
+        """user_preferences.json lives in /app/data and must survive recreates.
+
+        A named volume (not a ./data bind mount) starts with the image's
+        ownership, so the non-root user can write it on a fresh install.
+        """
+        volumes = compose_config["services"]["addarr"].get("volumes", [])
+        data_mounts = [v for v in volumes if ":/app/data" in v]
+        assert len(data_mounts) == 1
+        name = data_mounts[0].split(":")[0]
+        assert not name.startswith((".", "/")), "must be a named volume"
+        assert name in compose_config.get("volumes", {})

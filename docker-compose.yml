@@ -20,12 +20,16 @@ services:
     # your media services via their container names or host.docker.internal.
     network_mode: host
     volumes:
-      - ./config.yaml:/app/config.yaml:ro
+      # Writable: /auth and settings changes save config.yaml
+      - ./config.yaml:/app/config.yaml:rw
       - ./chatid.txt:/app/chatid.txt:rw
       - ./admin.txt:/app/admin.txt:ro
       - ./allowlist.txt:/app/allowlist.txt:ro
       - ./logs:/app/logs:rw
       - ./backup:/app/backup:rw
+      # Named volume for user_preferences.json. A new named volume gets the
+      # image's ownership, so the non-root user can write it on a fresh install
+      - addarr-data:/app/data
     environment:
       - PYTHONPATH=/app
     healthcheck:
@@ -38,3 +42,6 @@ services:
       resources:
         limits:
           memory: 256M
+
+volumes:
+  addarr-data:
