@@ -52,6 +52,7 @@ class WebhookService:
     _runner: Optional[web.AppRunner] = None
     _port: int = 8080
     _host: str = "0.0.0.0"
+    _warned_no_secret: set[str] = set()
 
     def __new__(cls):
         if cls._instance is None:
@@ -67,6 +68,7 @@ class WebhookService:
         cls._runner = None
         cls._port = 8080
         cls._host = "0.0.0.0"
+        cls._warned_no_secret = set()
 
         webhook_config = config.get("webhooks", {})
         if not webhook_config.get("enable", False):
@@ -84,20 +86,26 @@ class WebhookService:
     def _validate_secret(self, service: str, provided_secret: Optional[str]) -> bool:
         """Validate the webhook secret for a service.
 
-        Returns True if:
-        - No secret is configured for the service (skip validation)
-        - The provided secret matches the configured secret
+        Returns True only if a secret is configured for the service and
+        the provided secret matches it.
         """
         webhook_config = config.get("webhooks", {})
         configured_secret = webhook_config.get(f"{service}_secret")
 
         if not configured_secret:
-            return True
+            if service not in self._warned_no_secret:
+                self._warned_no_secret.add(service)
+                logger.warning(
+                    f"Rejecting {service} webhooks: webhooks.{service}_secret "
+                    f"is not set. Use /webhooks to generate one."
+                )
+            return False
 
         if provided_secret is None:
             return False
 
-        return hmac.compare_digest(provided_secret, configured_secret)
+        # str(): YAML loads an all-digit secret as int
+        return hmac.compare_digest(str(provided_secret), str(configured_secret))
 
     def _is_event_enabled(self, event_type: WebhookEventType) -> bool:
         """Check if the given event type is enabled in config."""

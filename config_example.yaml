@@ -104,7 +104,8 @@ webhooks:
   enable: false  # Set to true to enable webhook receiver
   port: 8080  # Port for the webhook HTTP server
   host: 0.0.0.0  # Host to bind the webhook server to
-  # Per-service webhook secrets (must match X-Webhook-Secret header in each *arr app)
+  # Per-service webhook secrets (each *arr app must send it in the X-Api-Secret header).
+  # A service without a secret has its webhooks rejected (401).
   radarr_secret:
   sonarr_secret:
   lidarr_secret:
