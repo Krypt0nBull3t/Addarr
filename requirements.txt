@@ -10,7 +10,7 @@ python-i18n>=0.3.9
 colorama>=0.4.6
 
 # Async support
-aiohttp>=3.8.5
+aiohttp>=3.14.4
 aiocron>=1.8
 
 # Type hints (required by transmission-rpc)

@@ -38,7 +38,7 @@ class TestTransmissionInit:
             _mock_config._config["transmission"]["ssl"] = original
 
     def test_init_with_auth(self):
-        """When username and password are set, _auth is an aiohttp.BasicAuth."""
+        """When username and password are set, _auth is a Basic auth header value."""
         from tests.conftest import _mock_config
 
         orig_user = _mock_config._config["transmission"]["username"]
@@ -47,8 +47,7 @@ class TestTransmissionInit:
         _mock_config._config["transmission"]["password"] = "secret"
         try:
             client = TransmissionClient()
-            assert client._auth is not None
-            assert isinstance(client._auth, aiohttp.BasicAuth)
+            assert client._auth == "Basic YWRtaW46c2VjcmV0"
         finally:
             _mock_config._config["transmission"]["username"] = orig_user
             _mock_config._config["transmission"]["password"] = orig_pass
@@ -71,6 +70,16 @@ class TestTransmissionMakeRequest:
 
         result = await transmission_client._make_request("session-get")
         assert result == expected
+
+    @pytest.mark.asyncio
+    async def test_make_request_sends_auth_header(self, aio_mock, transmission_client):
+        transmission_client._auth = "Basic YWRtaW46c2VjcmV0"
+        aio_mock.post(RPC_URL, payload={"result": "success"}, status=200)
+
+        await transmission_client._make_request("session-get")
+
+        sent = aio_mock.requests[RPC_URL_KEY][0].kwargs["headers"]
+        assert sent["Authorization"] == "Basic YWRtaW46c2VjcmV0"
 
     @pytest.mark.asyncio
     async def test_session_id_negotiation(self, aio_mock, transmission_client):
