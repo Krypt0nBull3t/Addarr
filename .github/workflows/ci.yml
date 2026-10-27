@@ -19,7 +19,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -37,7 +37,7 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -54,7 +54,7 @@ jobs:
     name: Validate Translations
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -71,7 +71,7 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -95,7 +95,7 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -112,7 +112,7 @@ jobs:
     name: Architecture Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -132,7 +132,7 @@ jobs:
       matrix:
         python-version: ["3.10", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -170,6 +170,6 @@ jobs:
     needs: [unit-test, integration-test, architecture-test, compatibility]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Build Docker image
         run: docker build -t addarr-test .
