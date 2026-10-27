@@ -103,7 +103,9 @@ def _make_handler(mock_sab_class, mock_ts_class, mock_tx_class,
     mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
     mock_ts_class.return_value = mock_ts
 
+    from src.bot.handlers.auth import AuthHandler
     from src.bot.handlers.downloads import DownloadsHandler
+    AuthHandler._authenticated_users = {12345}
     handler = DownloadsHandler()
     return handler, mock_sab, mock_tx, mock_ts
 
@@ -812,3 +814,99 @@ class TestDownloadsTextFormatting:
 
         text_arg = update.callback_query.message.edit_text.call_args[0][0]
         assert "Failed" in text_arg
+
+
+# ---------------------------------------------------------------------------
+# Access control
+# ---------------------------------------------------------------------------
+
+CONTROL_CALLBACKS = [
+    ("handle_downloads_pause_item", "dl_pause_nzo_abc"),
+    ("handle_downloads_resume_item", "dl_resume_nzo_abc"),
+    ("handle_downloads_pauseall", "dl_pauseall"),
+    ("handle_downloads_resumeall", "dl_resumeall"),
+]
+
+
+class TestDownloadsAccessControl:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method, callback_data", CONTROL_CALLBACKS + [
+        ("handle_client_switch", "dl_client_tx"),
+        ("handle_downloads_tab", "dl_tab_history"),
+        ("handle_downloads_page", "dl_page_1"),
+        ("handle_downloads_refresh", "dl_refresh"),
+        ("handle_downloads_noop", "dl_noop"),
+    ])
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_unauthenticated_callback_is_refused(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        method, callback_data, make_update, make_context
+    ):
+        """Download buttons do nothing for unauthenticated users (audit item 5)."""
+        from src.bot.handlers.auth import AuthHandler
+        handler, mock_sab, mock_tx, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        mock_sab.reset_mock()
+        mock_tx.reset_mock()
+        AuthHandler._authenticated_users = set()
+
+        update = make_update(callback_data=callback_data)
+        context = make_context(user_data={"dl_client": "sabnzbd"})
+
+        await getattr(handler, method)(update, context)
+
+        assert mock_sab.method_calls == []
+        assert mock_tx.method_calls == []
+        assert context.user_data == {"dl_client": "sabnzbd"}
+        update.callback_query.answer.assert_awaited_once_with(
+            "🔒 You need to authenticate first.\nUse /auth to begin authentication.",
+            show_alert=True,
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("method, callback_data", CONTROL_CALLBACKS)
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_non_admin_cannot_control_only_admin_client(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        method, callback_data, admin_mode, make_update, make_context
+    ):
+        """Admin mode plus the client's onlyAdmin blocks pause/resume (audit item 6)."""
+        handler, mock_sab, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+
+        update = make_update(callback_data=callback_data)
+        context = make_context(user_data={"dl_client": "sabnzbd", "dl_tab": "queue"})
+
+        await getattr(handler, method)(update, context)
+
+        for name in ("pause_item", "resume_item", "pause_queue", "resume_queue"):
+            getattr(mock_sab, name).assert_not_awaited()
+        update.callback_query.answer.assert_awaited_once_with(
+            text="NotAdmin", show_alert=True
+        )
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_non_admin_can_still_view_queue(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        admin_mode, make_update, make_context
+    ):
+        """onlyAdmin guards control actions; viewing the queue stays open."""
+        handler, mock_sab, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+
+        update = make_update(callback_data="dl_refresh")
+        context = make_context(user_data={"dl_client": "sabnzbd", "dl_tab": "queue"})
+
+        await handler.handle_downloads_refresh(update, context)
+
+        mock_sab.get_queue_details.assert_awaited_once()

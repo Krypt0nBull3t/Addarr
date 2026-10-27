@@ -223,6 +223,21 @@ async def test_page_change(
 
 
 @pytest.mark.asyncio
+async def test_refresh_unchanged_message(
+    missing_handler, make_update, make_context, unchanged_edit
+):
+    """missing_refresh answers first and ignores an unchanged message."""
+    missing_handler._mock_service.get_missing_media = AsyncMock(return_value=[])
+    update = make_update(callback_data="missing_refresh")
+    calls = unchanged_edit(update.callback_query)
+    context = make_context(user_data={"missing_filter": "all"})
+
+    await missing_handler.handle_missing_action(update, context)
+
+    assert calls == ["answer", "edit"]
+
+
+@pytest.mark.asyncio
 async def test_refresh(
     missing_handler, make_update, make_context
 ):
@@ -317,8 +332,9 @@ async def test_search_success(
     missing_handler._mock_service.trigger_missing_search.assert_awaited_once_with(
         "radarr", 1
     )
-    # Should call answer twice: first "Searching...", then result alert
-    assert update.callback_query.answer.call_count == 2
+    # A callback query can be answered only once: with the result alert
+    update.callback_query.answer.assert_called_once()
+    assert update.callback_query.answer.call_args.kwargs["show_alert"] is True
 
 
 @pytest.mark.asyncio
@@ -339,7 +355,7 @@ async def test_search_failure(
     missing_handler._mock_service.trigger_missing_search.assert_awaited_once_with(
         "sonarr", 101
     )
-    assert update.callback_query.answer.call_count == 2
+    update.callback_query.answer.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

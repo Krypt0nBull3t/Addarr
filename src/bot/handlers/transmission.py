@@ -13,6 +13,7 @@ from typing import List
 
 from src.services.transmission import transmission_service
 from src.services.translation import TranslationService
+from src.bot.handlers.auth import require_admin, require_auth
 from src.utils.logger import get_logger
 from src.bot.keyboards import get_yes_no_keyboard
 
@@ -38,6 +39,8 @@ class TransmissionHandler:
             CallbackQueryHandler(self.handle_callback, pattern=r"^transmission_.*")
         ]
 
+    @require_auth
+    @require_admin("transmission")
     async def transmission_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /transmission command
 
@@ -82,6 +85,8 @@ class TransmissionHandler:
             parse_mode=ParseMode.MARKDOWN
         )
 
+    @require_auth
+    @require_admin("transmission")
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle callback queries for Transmission commands"""
         query = update.callback_query

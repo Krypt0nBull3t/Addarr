@@ -13,6 +13,12 @@ from telegram.ext import ConversationHandler
 from src.bot.handlers.auth import AuthHandler
 
 
+@pytest.fixture(autouse=True)
+def _authenticated():
+    """Handlers require auth; authenticate the default test user 12345."""
+    AuthHandler._authenticated_users = {12345}
+
+
 # ---------------------------------------------------------------------------
 # subtitles_menu
 # ---------------------------------------------------------------------------
@@ -460,3 +466,33 @@ class TestGetHandler:
 
         assert isinstance(handlers, list)
         assert len(handlers) > 0
+
+
+# ---------------------------------------------------------------------------
+# Access control
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method, callback_data", [
+    ("prompt_search", "bazarr_search"),
+    ("wanted_movies", "bazarr_wanted_movies"),
+    ("wanted_episodes", "bazarr_wanted_episodes"),
+    ("cancel", "bazarr_cancel"),
+])
+@patch("src.bot.handlers.bazarr.BazarrService")
+async def test_unauthenticated_callback_is_refused(
+    mock_svc_class, method, callback_data, make_update, make_context
+):
+    """Bazarr buttons do nothing for unauthenticated users (audit item 5)."""
+    from src.bot.handlers.bazarr import BazarrHandler
+
+    AuthHandler._authenticated_users = set()
+    handler = BazarrHandler()
+    update = make_update(callback_data=callback_data)
+
+    result = await getattr(handler, method)(update, make_context())
+
+    assert result is None
+    assert mock_svc_class.return_value.method_calls == []
+    update.callback_query.edit_message_text.assert_not_called()

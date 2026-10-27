@@ -79,7 +79,7 @@ MUSIC_ARTIST_RESULTS = [
         "year": 1996,
         "poster": None,
         "rating": 8.5,
-        "genres": "Rock, Nu Metal",
+        "genres": ["Rock", "Nu Metal"],
         "type": "Group",
         "status": "active",
         "music_type": "artist",

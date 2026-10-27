@@ -8,6 +8,8 @@ Standalone functions extracted from MediaHandler for building captions,
 showing search results in card/list views, and editing messages.
 """
 
+from html import escape
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.utils.logger import get_logger
@@ -34,19 +36,19 @@ def _build_external_links(result):
 
     imdb_id = external_ids.get("imdb")
     if imdb_id:
-        links.append(f"[IMDB](https://www.imdb.com/title/{imdb_id}/)")
+        links.append(("IMDB", f"https://www.imdb.com/title/{imdb_id}/"))
 
     tmdb_id = external_ids.get("tmdb")
     if tmdb_id is not None:
         # TMDB uses /tv/ for series, /movie/ for movies
         tmdb_type = "tv" if external_ids.get("tvdb") is not None else "movie"
         links.append(
-            f"[TMDB](https://www.themoviedb.org/{tmdb_type}/{tmdb_id})"
+            ("TMDB", f"https://www.themoviedb.org/{tmdb_type}/{tmdb_id}")
         )
 
     tvdb_id = external_ids.get("tvdb")
     if tvdb_id is not None:
-        links.append(f"[TVDB](https://thetvdb.com/?id={tvdb_id}&tab=series)")
+        links.append(("TVDB", f"https://thetvdb.com/?id={tvdb_id}&tab=series"))
 
     mb_id = external_ids.get("musicbrainz")
     if mb_id:
@@ -54,12 +56,14 @@ def _build_external_links(result):
             mb_url = f"https://musicbrainz.org/artist/{mb_id}"
         else:
             mb_url = f"https://musicbrainz.org/release-group/{mb_id}"
-        links.append(f"[MusicBrainz]({mb_url})")
+        links.append(("MusicBrainz", mb_url))
 
     if not links:
         return ""
 
-    return "\n" + " | ".join(links) + "\n"
+    return "\n" + " | ".join(
+        f'<a href="{escape(url)}">{name}</a>' for name, url in links
+    ) + "\n"
 
 
 def build_result_caption(result, index=None, total=None):
@@ -71,22 +75,22 @@ def build_result_caption(result, index=None, total=None):
         total: Total results count (optional, for card view counter).
 
     Returns:
-        Formatted caption string.
+        Caption string for parse_mode='HTML'. API text is escaped.
     """
     music_type = result.get("music_type")
 
     # Album-specific caption
     if music_type == "album":
-        caption = f"*💿 {result['title']}*\n\n"
+        caption = f"<b>💿 {escape(result['title'])}</b>\n\n"
         if result.get("artist_name"):
-            caption += f"🎤 Artist: {result['artist_name']}\n"
+            caption += f"🎤 Artist: {escape(result['artist_name'])}\n"
         if result.get("release_date"):
-            caption += f"📅 Released: {result['release_date'][:10]}\n"
+            caption += f"📅 Released: {escape(result['release_date'][:10])}\n"
         if result.get("overview", "No overview available") != "No overview available":
             overview = result["overview"]
             if len(overview) > 300:
                 overview = overview[:297] + "..."
-            caption += f"\n_{overview}_\n"
+            caption += f"\n<i>{escape(overview)}</i>\n"
         caption += _build_external_links(result)
         if index is not None and total is not None:
             caption += f"\n📊 Result {index + 1} of {total}"
@@ -94,11 +98,11 @@ def build_result_caption(result, index=None, total=None):
 
     # Song-specific caption
     if music_type == "song":
-        caption = f"*🎵 {result['title']}*\n\n"
+        caption = f"<b>🎵 {escape(result['title'])}</b>\n\n"
         if result.get("album_title"):
-            caption += f"💿 Album: {result['album_title']}\n"
+            caption += f"💿 Album: {escape(result['album_title'])}\n"
         if result.get("artist_name"):
-            caption += f"🎤 Artist: {result['artist_name']}\n"
+            caption += f"🎤 Artist: {escape(result['artist_name'])}\n"
         caption += _build_external_links(result)
         if index is not None and total is not None:
             caption += f"\n📊 Result {index + 1} of {total}"
@@ -109,8 +113,8 @@ def build_result_caption(result, index=None, total=None):
         overview = overview[:297] + "..."
 
     caption = (
-        f"*{result['title']}*\n\n"
-        f"_{overview}_\n\n"
+        f"<b>{escape(result['title'])}</b>\n\n"
+        f"<i>{escape(overview)}</i>\n\n"
     )
 
     if "year" in result:
@@ -140,11 +144,11 @@ def build_result_caption(result, index=None, total=None):
         if "network" in result:
             network = result.get("network", "N/A")
             if studio and studio != network:
-                caption += f"📺 Network: {network} ({studio})\n"
+                caption += f"📺 Network: {escape(str(network))} ({escape(str(studio))})\n"
             else:
-                caption += f"📺 Network: {network}\n"
+                caption += f"📺 Network: {escape(str(network))}\n"
         else:
-            caption += f"🎬 Studio: {studio}\n"
+            caption += f"🎬 Studio: {escape(str(studio))}\n"
 
     if "runtime" in result and result["runtime"] != "N/A":
         caption += f"⏱️ Runtime: {result['runtime']} minutes\n"
@@ -152,7 +156,7 @@ def build_result_caption(result, index=None, total=None):
     if "genres" in result:
         genres = result.get("genres", [])
         if genres:
-            caption += f"🎭 Genres: {', '.join(genres[:3])}"
+            caption += f"🎭 Genres: {escape(', '.join(genres[:3]))}"
             if len(genres) > 3:
                 caption += f" +{len(genres) - 3} more"
             caption += "\n"
@@ -201,7 +205,7 @@ async def show_result(message, result, index: int, total: int):
                 new_message = await message.reply_photo(
                     photo=poster_url,
                     caption=caption,
-                    parse_mode='Markdown',
+                    parse_mode='HTML',
                     reply_markup=reply_markup
                 )
                 await message.delete()
@@ -210,7 +214,7 @@ async def show_result(message, result, index: int, total: int):
                 logger.error(f"Error sending photo: {e}")
                 new_message = await message.reply_text(
                     caption,
-                    parse_mode='Markdown',
+                    parse_mode='HTML',
                     reply_markup=reply_markup
                 )
                 await message.delete()
@@ -218,7 +222,7 @@ async def show_result(message, result, index: int, total: int):
         else:
             new_message = await message.reply_text(
                 caption,
-                parse_mode='Markdown',
+                parse_mode='HTML',
                 reply_markup=reply_markup
             )
             await message.delete()
@@ -277,7 +281,7 @@ async def show_list_detail(message, result):
             new_message = await message.reply_photo(
                 photo=poster_url,
                 caption=caption,
-                parse_mode='Markdown',
+                parse_mode='HTML',
                 reply_markup=reply_markup
             )
             await message.delete()
@@ -286,7 +290,7 @@ async def show_list_detail(message, result):
             logger.error(f"Error sending photo in list detail: {e}")
             new_message = await message.reply_text(
                 caption,
-                parse_mode='Markdown',
+                parse_mode='HTML',
                 reply_markup=reply_markup
             )
             await message.delete()
@@ -294,7 +298,7 @@ async def show_list_detail(message, result):
     else:
         new_message = await message.reply_text(
             caption,
-            parse_mode='Markdown',
+            parse_mode='HTML',
             reply_markup=reply_markup
         )
         await message.delete()

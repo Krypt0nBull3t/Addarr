@@ -61,6 +61,7 @@ ru-ru:
   What is this?: "❓ Что вы ищете?"
   NotAuthorized: "🔒 Сначала вам нужно авторизоваться.\nИспользуйте /auth для начала аутентификации."
   PrivateChatOnly: "🔒 Этот бот работает только в личных чатах. Пожалуйста, напишите мне напрямую."
+  NotAllowed: "⛔ У вас нет доступа к этому боту."
   mainMenu: "🏠 Главное меню - Выберите действие."
 
   messages:
@@ -348,8 +349,8 @@ ru-ru:
   WebhookSetupService: "🔧 Setup %{service}"
   WebhookServiceConfigured: "✅ %{service}: configured"
   WebhookServiceNotConfigured: "⚙️ %{service}: not configured"
-  WebhookSecretGenerated: "🔑 Secret generated for %{service}.\n\nAdd this webhook URL to %{service}:\n%{url}\n\nSecret: %{secret}"
-  WebhookSecretRegenerated: "🔑 Secret regenerated for %{service}.\n\nUpdate your webhook URL in %{service}:\n%{url}\n\nNew secret: %{secret}"
+  WebhookSecretGenerated: "🔑 Secret generated for %{service}.\n\nAdd this webhook URL to %{service}:\n%{url}\n\nSecret (X-Api-Secret header): %{secret}"
+  WebhookSecretRegenerated: "🔑 Secret regenerated for %{service}.\n\nUpdate your webhook URL in %{service}:\n%{url}\n\nNew secret (X-Api-Secret header): %{secret}"
   WebhookPortPrompt: "🔢 Enter the webhook server port (1024-65535):"
   WebhookPortInvalid: "❌ Invalid port. Please enter a number between 1024 and 65535."
   WebhookPortSaved: "✅ Webhook port set to %{port}.\n⚠️ Restart the bot for this to take effect."

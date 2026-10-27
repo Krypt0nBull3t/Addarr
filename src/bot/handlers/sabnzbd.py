@@ -9,7 +9,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
 from src.services.sabnzbd import SABnzbdService
-from src.bot.handlers.auth import require_auth
+from src.bot.handlers.auth import require_admin, require_auth
 from src.services.translation import TranslationService
 
 logger = get_logger("addarr.handlers.sabnzbd")
@@ -34,6 +34,7 @@ class SabnzbdHandler:
         ]
 
     @require_auth
+    @require_admin("sabnzbd")
     async def handle_sabnzbd(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle SABnzbd command"""
         if not update.effective_user:  # pragma: no cover
@@ -72,6 +73,8 @@ class SabnzbdHandler:
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
+    @require_auth
+    @require_admin("sabnzbd")
     async def handle_speed_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle speed selection"""
         if not update.callback_query:

@@ -162,6 +162,21 @@ async def test_pagination(
 
 
 @pytest.mark.asyncio
+async def test_refresh_unchanged_message(
+    calendar_handler, make_update, make_context, unchanged_edit
+):
+    """cal_refresh answers first and ignores an unchanged message."""
+    calendar_handler._mock_service.get_upcoming = AsyncMock(return_value=[])
+    update = make_update(callback_data="cal_refresh")
+    calls = unchanged_edit(update.callback_query)
+    context = make_context(user_data={"cal_days": 7})
+
+    await calendar_handler.handle_calendar_action(update, context)
+
+    assert calls == ["answer", "edit"]
+
+
+@pytest.mark.asyncio
 async def test_refresh(
     calendar_handler, make_update, make_context
 ):
@@ -268,6 +283,36 @@ async def test_add_episode_success(
     )
     update.callback_query.answer.assert_called_once()
     assert "CalendarAddSuccess" in str(update.callback_query.answer.call_args)
+
+
+@pytest.mark.parametrize("service,data,add_method", [
+    ("radarr", "cal_add_movie_12345", "add_movie_with_profile"),
+    ("sonarr", "cal_add_episode_67890", "add_series_with_profile"),
+])
+@pytest.mark.parametrize("saved_default,expected_profile", [
+    (2, 2),   # saved default from /settings is used
+    (99, 1),  # default no longer exists in the service: first profile
+])
+@pytest.mark.asyncio
+async def test_add_uses_saved_default_profile(
+    calendar_handler, make_update, make_context,
+    service, data, add_method, saved_default, expected_profile,
+):
+    """Quick-add uses the defaultProfileId saved in settings when it exists."""
+    from src.config.settings import config
+
+    client = getattr(calendar_handler._mock_service, service)
+    client.get_quality_profiles = AsyncMock(
+        return_value=[{"id": 1, "name": "HD"}, {"id": 2, "name": "4K"}]
+    )
+    update = make_update(callback_data=data)
+    context = make_context(user_data={"cal_days": 7, "cal_items": []})
+
+    with patch.dict(config.get(service)["quality"], {"defaultProfileId": saved_default}):
+        await calendar_handler.handle_calendar_action(update, context)
+
+    add = getattr(calendar_handler._mock_service, add_method)
+    assert add.call_args[0][1] == expected_profile
 
 
 # ---------------------------------------------------------------------------

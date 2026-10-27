@@ -407,6 +407,45 @@ class TestStart:
             await bot.start()
 
 
+class TestShutdownDuringStartup:
+    """A shutdown signal (SIGTERM) during start-up must stop the bot."""
+
+    @pytest.mark.asyncio
+    async def test_stop_during_initialize_prevents_start(self, bot, mock_app):
+        """stop() before the application exists is remembered by start()."""
+        await bot.stop()  # signal arrives while initialize() runs
+        bot.application = mock_app
+
+        with (
+            patch("src.main.asyncio.sleep", side_effect=AssertionError("bot kept running")),
+            patch("src.main.asyncio.create_task"),
+        ):
+            await bot.start()
+
+        mock_app.start.assert_not_awaited()
+        mock_app.updater.start_polling.assert_not_awaited()
+        mock_app.shutdown.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_stop_during_application_start_ends_loop(self, bot, mock_app):
+        """stop() while application.start() runs is not undone by start()."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+        bot.health_checker.stop = AsyncMock()
+
+        async def signal_during_start():
+            await bot.stop()
+
+        mock_app.start = AsyncMock(side_effect=signal_during_start)
+
+        with (
+            patch("src.main.asyncio.sleep", side_effect=AssertionError("bot kept running")),
+            patch("src.main.asyncio.create_task"),
+        ):
+            await bot.start()
+
+
 # ---- AddarrBot.stop ----
 
 

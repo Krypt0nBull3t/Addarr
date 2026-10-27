@@ -323,6 +323,17 @@ class TestSearchMusic:
         }
 
     @pytest.mark.asyncio
+    async def test_search_music_artist_genres_stay_a_list(self, mock_lidarr_client):
+        """Artist genres stay a list, so the caption does not split them into letters."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["genres"] == ["Alternative Rock"]
+
+    @pytest.mark.asyncio
     async def test_search_music_album_external_ids(self, mock_lidarr_client):
         """Normalized album results include musicbrainz external_id."""
         service = MediaService()
@@ -626,26 +637,35 @@ class TestAddSeriesWithProfile:
         assert message == "Added successfully"
 
     @pytest.mark.asyncio
-    async def test_add_series_with_profile_selected_seasons(self, mock_sonarr_client):
+    async def test_add_series_with_profile_passes_seasons_through(self, mock_sonarr_client):
+        """The handler's season dicts reach Sonarr unchanged, without a re-fetch."""
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.return_value = [
-            {"seasonNumber": 1}, {"seasonNumber": 2}, {"seasonNumber": 3}
-        ]
         mock_sonarr_client.add_series.return_value = (True, "Added")
+        seasons = [
+            {"seasonNumber": 1, "monitored": True},
+            {"seasonNumber": 2, "monitored": False},
+        ]
 
         success, message = await service.add_series_with_profile(
-            "81189", profile_id=1, root_folder="/tv", selected_seasons=[1, 3]
+            "81189", 1, "/tv", seasons
         )
 
         assert success is True
-        # Verify the season_data was constructed correctly
-        call_args = mock_sonarr_client.add_series.call_args
-        season_data = call_args[0][3]  # 4th positional arg
-        monitored_seasons = [s for s in season_data if s["monitored"]]
-        unmonitored_seasons = [s for s in season_data if not s["monitored"]]
-        assert len(monitored_seasons) == 2  # seasons 1 and 3
-        assert len(unmonitored_seasons) == 1  # season 2
+        assert mock_sonarr_client.add_series.call_args[0] == (81189, "/tv", 1, seasons)
+        mock_sonarr_client.get_seasons.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_add_series_with_profile_forwards_monitor(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.add_series.return_value = (True, "Added")
+
+        await service.add_series_with_profile("81189", 1, "/tv", [], monitor="future")
+
+        mock_sonarr_client.add_series.assert_awaited_once_with(
+            81189, "/tv", 1, [], monitor="future"
+        )
 
     @pytest.mark.asyncio
     async def test_add_series_with_profile_failure(self, mock_sonarr_client):
@@ -665,7 +685,7 @@ class TestAddSeriesWithProfile:
     async def test_add_series_with_profile_exception(self, mock_sonarr_client):
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.side_effect = Exception("API error")
+        mock_sonarr_client.add_series.side_effect = Exception("API error")
 
         success, message = await service.add_series_with_profile(
             "81189", profile_id=1, root_folder="/tv"

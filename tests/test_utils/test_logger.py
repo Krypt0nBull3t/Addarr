@@ -1,13 +1,14 @@
 """Tests for src/utils/logger.py"""
 
 import logging
-import os
+from logging.handlers import RotatingFileHandler
 from unittest.mock import patch, MagicMock
+
+import pytest
 
 from src.utils.logger import (
     ColoredFormatter,
     ColoredLogger,
-    LoggerSetup,
     get_logger,
     log_exception,
     log_user_interaction,
@@ -80,205 +81,94 @@ class TestColoredLogger:
             mock_log.assert_not_called()
 
 
-class TestLoggerSetup:
-    """Tests for LoggerSetup class."""
-
-    def test_init_debug_on(self):
-        """When debugLogging is True, log_level is DEBUG."""
-        mock_cfg = MagicMock()
-        mock_cfg.get = lambda key, default=None: {
-            "debugLogging": True, "logToConsole": True
-        }.get(key, default)
-        with patch("src.utils.logger.config", mock_cfg):
-            setup = LoggerSetup()
-        assert setup.log_level == logging.DEBUG
-
-    def test_init_debug_off(self):
-        """When debugLogging is False, log_level is INFO."""
-        mock_cfg = MagicMock()
-        mock_cfg.get = lambda key, default=None: {
-            "debugLogging": False, "logToConsole": False
-        }.get(key, default)
-        with patch("src.utils.logger.config", mock_cfg):
-            setup = LoggerSetup()
-        assert setup.log_level == logging.INFO
-        assert setup.log_to_console is False
-
-    def test_get_logger(self, tmp_path):
-        """get_logger returns a configured logger with handlers."""
-        log_file = str(tmp_path / "test.log")
-        mock_cfg = MagicMock()
-        mock_cfg.get = lambda key, default=None: {
-            "debugLogging": False, "logToConsole": True
-        }.get(key, default)
-        with (
-            patch("src.utils.logger.config", mock_cfg),
-            patch("src.utils.logger.LOG_PATH", log_file),
-        ):
-            setup = LoggerSetup()
-            logger = setup.get_logger("test_setup_logger")
-        assert logger.name == "test_setup_logger"
-        assert logger.level == logging.INFO
-        assert logger.propagate is False
-        assert len(logger.handlers) >= 1
-        # Cleanup handlers to avoid ResourceWarning
-        for h in logger.handlers[:]:
-            logger.removeHandler(h)
+@pytest.fixture
+def fresh_loggers():
+    """Detach the shared handlers so setup runs again, then restore them."""
+    saved = {}
+    for name in ("addarr", "interactions"):
+        lg = logging.getLogger(name)
+        saved[name] = lg.handlers[:]
+        lg.handlers.clear()
+    with patch("src.utils.logger._shared_handlers_ready", False):
+        yield
+    for name, handlers in saved.items():
+        lg = logging.getLogger(name)
+        for h in lg.handlers:
             h.close()
-
-    def test_get_logger_removes_existing_handlers(self, tmp_path):
-        """get_logger removes existing handlers before adding new ones."""
-        log_file = str(tmp_path / "test.log")
-        mock_cfg = MagicMock()
-        mock_cfg.get = lambda key, default=None: {
-            "debugLogging": False, "logToConsole": False
-        }.get(key, default)
-        with (
-            patch("src.utils.logger.config", mock_cfg),
-            patch("src.utils.logger.LOG_PATH", log_file),
-        ):
-            setup = LoggerSetup()
-            # Pre-add a handler to the logger
-            test_name = "test_remove_existing"
-            logger = logging.getLogger(test_name)
-            dummy_handler = logging.StreamHandler()
-            logger.addHandler(dummy_handler)
-            assert len(logger.handlers) >= 1
-            # Now call get_logger - it should remove existing and add new
-            result = setup.get_logger(test_name)
-        # Dummy handler should have been removed
-        assert dummy_handler not in result.handlers
-        for h in result.handlers[:]:
-            result.removeHandler(h)
-            h.close()
-        dummy_handler.close()
-
-    def test_get_logger_no_log_path(self):
-        """get_logger skips file handler when LOG_PATH is falsy."""
-        mock_cfg = MagicMock()
-        mock_cfg.get = lambda key, default=None: {
-            "debugLogging": False, "logToConsole": True
-        }.get(key, default)
-        with (
-            patch("src.utils.logger.config", mock_cfg),
-            patch("src.utils.logger.LOG_PATH", ""),
-        ):
-            setup = LoggerSetup()
-            logger = setup.get_logger("test_no_file")
-        # Only console handler, no file handler
-        assert len(logger.handlers) == 1
-        for h in logger.handlers[:]:
-            logger.removeHandler(h)
-            h.close()
-
-    def test_get_logger_no_console(self, tmp_path):
-        """get_logger skips console handler when log_to_console is False."""
-        log_file = str(tmp_path / "test.log")
-        mock_cfg = MagicMock()
-        mock_cfg.get = lambda key, default=None: {
-            "debugLogging": False, "logToConsole": False
-        }.get(key, default)
-        with (
-            patch("src.utils.logger.config", mock_cfg),
-            patch("src.utils.logger.LOG_PATH", log_file),
-        ):
-            setup = LoggerSetup()
-            logger = setup.get_logger("test_no_console")
-        # Only file handler, no console
-        assert len(logger.handlers) == 1
-        for h in logger.handlers[:]:
-            logger.removeHandler(h)
-            h.close()
-
-    def test_add_file_handler(self, tmp_path):
-        """_add_file_handler creates log dir and adds a TimedRotatingFileHandler."""
-        log_file = str(tmp_path / "logs" / "test.log")
-        mock_cfg = MagicMock()
-        mock_cfg.get = lambda key, default=None: {
-            "debugLogging": False, "logToConsole": False
-        }.get(key, default)
-        with (
-            patch("src.utils.logger.config", mock_cfg),
-            patch("src.utils.logger.LOG_PATH", log_file),
-        ):
-            setup = LoggerSetup()
-            logger = logging.getLogger("test_file_handler")
-            setup._add_file_handler(logger)
-        assert os.path.isdir(str(tmp_path / "logs"))
-        assert len(logger.handlers) >= 1
-        for h in logger.handlers[:]:
-            logger.removeHandler(h)
-            h.close()
-
-    def test_add_console_handler(self):
-        """_add_console_handler adds a StreamHandler with ColoredFormatter."""
-        mock_cfg = MagicMock()
-        mock_cfg.get = lambda key, default=None: {
-            "debugLogging": False, "logToConsole": True
-        }.get(key, default)
-        with patch("src.utils.logger.config", mock_cfg):
-            setup = LoggerSetup()
-            logger = logging.getLogger("test_console_handler")
-            setup._add_console_handler(logger)
-        assert any(
-            isinstance(h, logging.StreamHandler) for h in logger.handlers
-        )
-        for h in logger.handlers[:]:
-            logger.removeHandler(h)
-            h.close()
+        lg.handlers[:] = handlers
 
 
 class TestGetLoggerModule:
     """Tests for the module-level get_logger function."""
 
-    def test_get_logger_creates_handlers(self, tmp_path):
-        """get_logger creates file, error, and console handlers."""
+    def test_child_loggers_share_one_file_handler(self, tmp_path, fresh_loggers):
+        """Every addarr.* logger writes through one handler per log file."""
         log_file = str(tmp_path / "addarr.log")
         err_file = str(tmp_path / "error.log")
-
-        # Clear any existing logger with this name
-        test_name = "test_module_get_logger"
-        existing = logging.getLogger(test_name)
-        for h in existing.handlers[:]:
-            existing.removeHandler(h)
-            h.close()
 
         with (
             patch("src.utils.logger.LOG_PATH", log_file),
             patch("src.utils.logger.ERROR_LOG_PATH", err_file),
         ):
-            logger = get_logger(test_name)
+            first = get_logger("addarr.test_first")
+            second = get_logger("addarr.test_second")
 
-        assert logger.name == test_name
-        assert logger.propagate is False
-        assert len(logger.handlers) == 3  # file, error, console
-        for h in logger.handlers[:]:
-            logger.removeHandler(h)
-            h.close()
+        assert first.handlers == [] and second.handlers == []
+        assert first.propagate and second.propagate
+        files = [
+            h.baseFilename for h in logging.getLogger("addarr").handlers
+            if isinstance(h, RotatingFileHandler)
+        ]
+        assert sorted(files) == sorted([log_file, err_file])
 
-    def test_get_logger_no_duplicate_handlers(self, tmp_path):
-        """Calling get_logger twice does not duplicate handlers."""
-        log_file = str(tmp_path / "addarr.log")
-        err_file = str(tmp_path / "error.log")
-
-        test_name = "test_no_dup_handlers"
-        existing = logging.getLogger(test_name)
-        for h in existing.handlers[:]:
-            existing.removeHandler(h)
-            h.close()
+    def test_child_logger_writes_to_shared_file(self, tmp_path, fresh_loggers):
+        """A child logger's records reach addarr.log through the parent."""
+        log_file = tmp_path / "addarr.log"
 
         with (
-            patch("src.utils.logger.LOG_PATH", log_file),
-            patch("src.utils.logger.ERROR_LOG_PATH", err_file),
+            patch("src.utils.logger.LOG_PATH", str(log_file)),
+            patch("src.utils.logger.ERROR_LOG_PATH", str(tmp_path / "error.log")),
         ):
-            logger1 = get_logger(test_name)
-            handler_count = len(logger1.handlers)
-            logger2 = get_logger(test_name)
+            get_logger("addarr.test_write").info("hello file")
 
-        assert len(logger2.handlers) == handler_count
-        for h in logger2.handlers[:]:
-            logger2.removeHandler(h)
-            h.close()
+        assert "hello file" in log_file.read_text(encoding="utf-8")
+
+    def test_unwritable_log_folder_logs_to_console_with_one_warning(
+        self, tmp_path, fresh_loggers, capsys
+    ):
+        """No crash when log files cannot be opened: console only, one warning."""
+        with (
+            patch("src.utils.logger.LOG_PATH", str(tmp_path / "addarr.log")),
+            patch(
+                "src.utils.logger.RotatingFileHandler",
+                side_effect=PermissionError("Permission denied"),
+            ),
+        ):
+            get_logger("addarr.test_unwritable_a")
+            get_logger("addarr.test_unwritable_b").info("still visible")
+
+        err = capsys.readouterr().err
+        assert err.count("Logging to the console only") == 1
+        assert "still visible" in err
+        for name in ("addarr", "interactions"):
+            handlers = logging.getLogger(name).handlers
+            assert not any(isinstance(h, RotatingFileHandler) for h in handlers)
+
+    def test_interaction_log_rotates(self, tmp_path, fresh_loggers):
+        """interactions.log gets a size-based rotating handler."""
+        with (
+            patch("src.utils.logger.LOG_PATH", str(tmp_path / "addarr.log")),
+            patch("src.utils.logger.ERROR_LOG_PATH", str(tmp_path / "error.log")),
+        ):
+            get_logger("addarr.test_interactions")
+
+        handlers = [
+            h for h in logging.getLogger("interactions").handlers
+            if isinstance(h, RotatingFileHandler)
+        ]
+        assert len(handlers) == 1
+        assert handlers[0].baseFilename == str(tmp_path / "interactions.log")
+        assert handlers[0].maxBytes > 0
 
 
 class TestLogException:
@@ -348,18 +238,18 @@ class TestLogUserInteraction:
         call_msg = mock_logger.info.call_args[0][0]
         assert "Unknown" in call_msg
 
-    def test_log_interaction_file_write_error(self, tmp_path):
-        """Logs error when interaction log file write fails."""
-        mock_logger = MagicMock()
+    def test_log_interaction_writes_to_interaction_log(self, tmp_path, fresh_loggers):
+        """The interaction line goes to interactions.log via its own logger."""
+        with (
+            patch("src.utils.logger.LOG_PATH", str(tmp_path / "addarr.log")),
+            patch("src.utils.logger.ERROR_LOG_PATH", str(tmp_path / "error.log")),
+        ):
+            get_logger("addarr.test_interaction_write")
         user = MagicMock()
         user.username = "alice"
         user.id = 42
 
-        # Use a path that will fail (directory as file)
-        bad_path = str(tmp_path / "nonexistent_dir" / "subdir" / "addarr.log")
-        with patch("src.utils.logger.LOG_PATH", bad_path):
-            log_user_interaction(mock_logger, user, "/start")
+        log_user_interaction(MagicMock(), user, "/start")
 
-        # Should log the error
-        mock_logger.error.assert_called_once()
-        assert "Failed to write" in mock_logger.error.call_args[0][0]
+        content = (tmp_path / "interactions.log").read_text(encoding="utf-8")
+        assert "User: alice (42) - Action: /start" in content

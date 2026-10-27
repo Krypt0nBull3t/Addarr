@@ -6,7 +6,7 @@ import asyncio
 
 import aiohttp
 import pytest
-from aioresponses import aioresponses
+from aioresponses import CallbackResult, aioresponses
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.services.health import HealthService, display_health_status
@@ -280,7 +280,7 @@ class TestCheckSabnzbdHealth:
         with aioresponses() as m:
             m.get(
                 pattern,
-                payload={"version": "3.5.0"},
+                payload={"queue": {"version": "3.5.0", "slots": []}},
                 status=200,
             )
             healthy, status = await service.check_sabnzbd_health(
@@ -291,62 +291,37 @@ class TestCheckSabnzbdHealth:
         assert "v3.5.0" in status
 
     @pytest.mark.asyncio
-    async def test_check_sabnzbd_health_json_fail_valid_text(self):
-        """When JSON decode fails, fall back to text response."""
+    async def test_check_sabnzbd_health_wrong_api_key(self):
+        """SABnzbd skips the key check for mode=version, so the check must use a keyed mode."""
         service = HealthService()
         url = "http://localhost:8090/"
 
-        with patch(
-            "src.services.health.aiohttp.ClientSession"
-        ) as mock_session_cls:
-            mock_resp = AsyncMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(side_effect=Exception("JSON decode error"))
-            mock_resp.text = AsyncMock(return_value="3.5.0")
+        def sabnzbd_with_other_key(request_url, **kwargs):
+            if request_url.query.get("mode") in ("version", "auth"):
+                return CallbackResult(payload={"version": "4.3.2"})
+            return CallbackResult(status=403, body="API Key Incorrect")
 
-            mock_ctx = AsyncMock()
-            mock_ctx.get = MagicMock(return_value=AsyncMock(
-                __aenter__=AsyncMock(return_value=mock_resp),
-                __aexit__=AsyncMock(return_value=False),
-            ))
-            mock_session_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_ctx
-            )
-            mock_session_cls.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+        import re
+        pattern = re.compile(r"^http://localhost:8090/api\b.*$")
 
-            healthy, status = await service.check_sabnzbd_health(url, "key")
+        with aioresponses() as m:
+            m.get(pattern, callback=sabnzbd_with_other_key, repeat=True)
+            healthy, status = await service.check_sabnzbd_health(url, "wrong-key")
 
-        assert healthy is True
-        assert "v3.5.0" in status
+        assert healthy is False
+        assert "HTTP 403" in status
 
     @pytest.mark.asyncio
-    async def test_check_sabnzbd_health_json_fail_invalid_text(self):
-        """When JSON decode fails and text is too long, return error."""
+    async def test_check_sabnzbd_health_non_json_body(self):
+        """SABnzbd 3.x answers a wrong key with HTTP 200 and a plain-text body."""
         service = HealthService()
         url = "http://localhost:8090/"
 
-        with patch(
-            "src.services.health.aiohttp.ClientSession"
-        ) as mock_session_cls:
-            mock_resp = AsyncMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(side_effect=Exception("JSON decode error"))
-            mock_resp.text = AsyncMock(return_value="A" * 50)
+        import re
+        pattern = re.compile(r"^http://localhost:8090/api\b.*$")
 
-            mock_ctx = AsyncMock()
-            mock_ctx.get = MagicMock(return_value=AsyncMock(
-                __aenter__=AsyncMock(return_value=mock_resp),
-                __aexit__=AsyncMock(return_value=False),
-            ))
-            mock_session_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_ctx
-            )
-            mock_session_cls.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
-
+        with aioresponses() as m:
+            m.get(pattern, status=200, body="API Key Incorrect")
             healthy, status = await service.check_sabnzbd_health(url, "key")
 
         assert healthy is False
@@ -620,6 +595,32 @@ class TestRunHealthChecks:
 
         for svc in results["media_services"]:
             assert svc["healthy"] is True
+
+    @pytest.mark.asyncio
+    async def test_run_health_checks_updates_status(self):
+        """A manual check updates the status, not only the periodic loop."""
+        service = HealthService()
+
+        with patch.object(
+            service,
+            "check_service_health",
+            new_callable=AsyncMock,
+            return_value=(False, "Error: HTTP 500"),
+        ), patch.object(
+            service,
+            "check_bazarr_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online (v1.4.0)"),
+        ):
+            await service.run_health_checks()
+
+        status = service.get_status()
+        assert status["last_check"] is not None
+        assert sorted(status["unhealthy_services"]) == [
+            "Lidarr: Error: HTTP 500",
+            "Radarr: Error: HTTP 500",
+            "Sonarr: Error: HTTP 500",
+        ]
 
     @pytest.mark.asyncio
     async def test_run_health_checks_sabnzbd_enabled(self):
@@ -930,24 +931,22 @@ class TestMonitorLoop:
         service._running = True
         service.interval = 0.01  # Very short interval
 
-        healthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online"},
-            ],
-            "download_clients": [],
-        }
-
         call_count = 0
 
-        async def _mock_run_health_checks():
+        async def _mock_bazarr_check(url, api_key):
             nonlocal call_count
             call_count += 1
             if call_count >= 2:
                 service._running = False
-            return healthy_results
+            return True, "Online"
 
         with patch.object(
-            service, "run_health_checks", side_effect=_mock_run_health_checks
+            service,
+            "check_service_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online"),
+        ), patch.object(
+            service, "check_bazarr_health", side_effect=_mock_bazarr_check
         ):
             await service._monitor_loop()
 
@@ -960,36 +959,43 @@ class TestMonitorLoop:
         service._running = True
         service.interval = 0.01
 
-        unhealthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": False, "status": "Error: HTTP 500"},
-            ],
-            "download_clients": [],
-        }
-        healthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online"},
-            ],
-            "download_clients": [],
-        }
+        rounds = 0
+        unhealthy_seen = []
 
-        call_count = 0
+        async def _mock_service_check(url, api_key, service_type):
+            # Unhealthy in the first round, healthy after that
+            if rounds == 0:
+                return False, "Error: HTTP 500"
+            return True, "Online"
 
-        async def _mock_checks():
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return unhealthy_results
-            elif call_count == 2:
-                return healthy_results
-            else:
+        async def _mock_bazarr_check(url, api_key):
+            nonlocal rounds
+            rounds += 1
+            if rounds >= 3:
                 service._running = False
-                return healthy_results
+            return True, "Online"
 
-        with patch.object(service, "run_health_checks", side_effect=_mock_checks):
+        async def _record_unhealthy(current_unhealthy, alert_config):
+            unhealthy_seen.append(set(current_unhealthy))
+
+        with patch.object(
+            service, "check_service_health", side_effect=_mock_service_check
+        ), patch.object(
+            service, "check_bazarr_health", side_effect=_mock_bazarr_check
+        ), patch.object(
+            service, "_check_alerts", side_effect=_record_unhealthy
+        ), patch("src.services.health.config") as mock_config:
+            # Radarr, Bazarr, and alerts enabled; everything else off
+            mock_config.get.side_effect = lambda key, default=None: (
+                {"enable": True}
+                if key in ("health_alerts", "radarr", "bazarr")
+                else default
+            )
             await service._monitor_loop()
 
-        # After recovery, unhealthy should be empty
+        # Unhealthy in round 1, recovered in round 2
+        assert unhealthy_seen[0] == {"Radarr: Error: HTTP 500"}
+        assert unhealthy_seen[1] == set()
         assert len(service._unhealthy_services) == 0
 
     @pytest.mark.asyncio
