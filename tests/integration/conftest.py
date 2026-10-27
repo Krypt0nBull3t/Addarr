@@ -317,7 +317,6 @@ class BotHarness:
 def _register_handlers(app: Application):
     """Register handlers in the same order as AddarrBot._add_handlers()."""
     handler_classes = [
-        StartHandler,
         AuthHandler,
         MediaHandler,
         SettingsHandler,
@@ -346,8 +345,8 @@ def _register_handlers(app: Application):
     # Downloads handler checks is_enabled internally
     handler_classes.append(DownloadsHandler)
 
-    # These come after downloads in main.py
-    handler_classes.extend([HelpHandler, PreferencesHandler, SystemHandler])
+    # These come after downloads in main.py; StartHandler is last
+    handler_classes.extend([HelpHandler, PreferencesHandler, SystemHandler, StartHandler])
 
     for cls in handler_classes:
         instance = cls()

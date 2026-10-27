@@ -91,6 +91,7 @@ class WebhooksHandler:
                 name="webhooks_conversation",
                 persistent=False,
                 per_message=False,
+                allow_reentry=True,
             ),
         ]
 
@@ -158,7 +159,7 @@ class WebhooksHandler:
         # Save secret to config
         webhook_config = config.get("webhooks", {})
         webhook_config[f"{service}_secret"] = secret
-        config._set("webhooks", webhook_config)
+        config.update_nested("webhooks", webhook_config)
         config.save()
 
         port = webhook_config.get("port", 8080)
@@ -194,7 +195,7 @@ class WebhooksHandler:
         # Save new secret
         webhook_config = config.get("webhooks", {})
         webhook_config[f"{service}_secret"] = secret
-        config._set("webhooks", webhook_config)
+        config.update_nested("webhooks", webhook_config)
         config.save()
 
         port = webhook_config.get("port", 8080)
@@ -247,7 +248,7 @@ class WebhooksHandler:
         events = webhook_config.get("events", {})
         events[event_key] = not events.get(event_key, True)
         webhook_config["events"] = events
-        config._set("webhooks", webhook_config)
+        config.update_nested("webhooks", webhook_config)
         config.save()
 
         # Refresh the events keyboard
@@ -295,7 +296,7 @@ class WebhooksHandler:
 
         webhook_config = config.get("webhooks", {})
         webhook_config["port"] = port
-        config._set("webhooks", webhook_config)
+        config.update_nested("webhooks", webhook_config)
         config.save()
 
         msg = self.translation.get_text("WebhookPortSaved", port=port)

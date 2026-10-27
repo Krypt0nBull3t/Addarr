@@ -61,6 +61,7 @@ it-it:
   What is this?: "❓ Cosa stai cercando?"
   NotAuthorized: "🔒 Devi prima autenticarti.\nUsa /auth per iniziare l'autenticazione."
   PrivateChatOnly: "🔒 Questo bot funziona solo nelle chat private. Per favore, scrivimi direttamente."
+  NotAllowed: "⛔ Non sei autorizzato a usare questo bot."
   mainMenu: "🏠 Menu principale - Scegli un'azione."
 
   messages:
@@ -350,8 +351,8 @@ it-it:
   WebhookSetupService: "🔧 Setup %{service}"
   WebhookServiceConfigured: "✅ %{service}: configured"
   WebhookServiceNotConfigured: "⚙️ %{service}: not configured"
-  WebhookSecretGenerated: "🔑 Secret generated for %{service}.\n\nAdd this webhook URL to %{service}:\n%{url}\n\nSecret: %{secret}"
-  WebhookSecretRegenerated: "🔑 Secret regenerated for %{service}.\n\nUpdate your webhook URL in %{service}:\n%{url}\n\nNew secret: %{secret}"
+  WebhookSecretGenerated: "🔑 Secret generated for %{service}.\n\nAdd this webhook URL to %{service}:\n%{url}\n\nSecret (X-Api-Secret header): %{secret}"
+  WebhookSecretRegenerated: "🔑 Secret regenerated for %{service}.\n\nUpdate your webhook URL in %{service}:\n%{url}\n\nNew secret (X-Api-Secret header): %{secret}"
   WebhookPortPrompt: "🔢 Enter the webhook server port (1024-65535):"
   WebhookPortInvalid: "❌ Invalid port. Please enter a number between 1024 and 65535."
   WebhookPortSaved: "✅ Webhook port set to %{port}.\n⚠️ Restart the bot for this to take effect."

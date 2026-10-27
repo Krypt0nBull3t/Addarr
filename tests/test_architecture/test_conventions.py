@@ -110,6 +110,8 @@ def _extract_entry_point_methods(class_node):
 
     Entry points are:
     - Callback methods in standalone CommandHandler calls
+    - Callback methods in standalone CallbackQueryHandler calls (any user who
+      can press the button reaches them, outside any conversation)
     - Callback methods in ConversationHandler entry_points lists
     """
     get_handler = None
@@ -142,10 +144,12 @@ def _extract_entry_point_methods(class_node):
             for kw in elt.keywords:
                 if kw.arg == "entry_points":
                     methods.extend(_extract_self_methods(kw.value))
-        elif func_name == "CommandHandler":
-            # The callback is the 2nd positional arg: CommandHandler(cmd, self.method)
-            if len(elt.args) >= 2:
-                arg = elt.args[1]
+        elif func_name in ("CommandHandler", "CallbackQueryHandler"):
+            # The callback is CommandHandler(cmd, self.method) or
+            # CallbackQueryHandler(self.method, pattern=...)
+            index = 1 if func_name == "CommandHandler" else 0
+            if len(elt.args) > index:
+                arg = elt.args[index]
                 if (isinstance(arg, ast.Attribute)
                         and isinstance(arg.value, ast.Name)
                         and arg.value.id == "self"):
@@ -186,10 +190,6 @@ def _method_has_decorator(class_node, method_name, decorator_name):
 AUTH_ALLOWLIST = {
     # AuthHandler IS the auth flow — requiring auth to authenticate is circular
     "AuthHandler.start_auth",
-    # TransmissionHandler uses is_enabled() check instead
-    "TransmissionHandler.transmission_command",
-    # Triggered from StartHandler menu which already enforces auth
-    "MediaHandler.handle_menu_callback",
 }
 
 
@@ -499,4 +499,56 @@ def test_no_config_bracket_access_in_business_logic():
     assert not violations, (
         "Found config['key'] bracket access (use config.get() instead):\n"
         + "\n".join(f"  {v}" for v in violations)
+    )
+
+
+def _real_config_methods():
+    """Method names defined on the real Config class in settings.py."""
+    settings = os.path.join(SRC_DIR, "config", "settings.py")
+    for class_node in _get_classes_in_file(settings):
+        if class_node.name == "Config":
+            return {
+                node.name for node in class_node.body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+    return set()
+
+
+def _imports_global_config(tree):
+    """Check if a module does `from src.config.settings import config`."""
+    return any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "src.config.settings"
+        and any(alias.name == "config" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+
+
+def test_config_calls_exist_on_real_config():
+    """Business logic may only call methods the real Config defines.
+
+    The test MockConfig has extra helpers (e.g. _set). Calling one of
+    them from src/ passes every test but crashes at runtime.
+    """
+    methods = _real_config_methods()
+    violations = []
+    for filepath in _get_python_files(SRC_DIR):
+        with open(filepath, "r", encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=filepath)
+        if not _imports_global_config(tree):
+            continue
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "config"
+                and node.attr not in methods
+            ):
+                rel = os.path.relpath(filepath, PROJECT_ROOT)
+                violations.append(f"{rel}:{node.lineno} config.{node.attr}")
+
+    assert methods, "Could not find class Config in src/config/settings.py"
+    assert not violations, (
+        "Found calls to methods the real Config does not define:\n"
+        + "\n".join(violations)
     )

@@ -125,7 +125,8 @@ def rate_limit(category):
         ):
             service = RateLimitService()
 
-            if not service.is_enabled:
+            # Auth attempts are always limited: they guard the bot password
+            if not service.is_enabled and category != "auth":
                 return await func(self, update, context, *args, **kwargs)
 
             if not update.effective_user:

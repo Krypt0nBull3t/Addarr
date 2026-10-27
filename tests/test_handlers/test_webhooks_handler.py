@@ -490,3 +490,7 @@ class TestGetHandler:
         assert isinstance(handlers, list)
         assert len(handlers) > 0
         assert isinstance(handlers[0], ConversationHandler)
+
+    def test_allows_reentry(self, handler):
+        """/webhooks restarts the wizard even if a previous one was abandoned."""
+        assert handler.get_handler()[0].allow_reentry is True

@@ -6,7 +6,7 @@ import asyncio
 
 import aiohttp
 import pytest
-from aioresponses import aioresponses
+from aioresponses import CallbackResult, aioresponses
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.services.health import HealthService, display_health_status
@@ -280,7 +280,7 @@ class TestCheckSabnzbdHealth:
         with aioresponses() as m:
             m.get(
                 pattern,
-                payload={"version": "3.5.0"},
+                payload={"queue": {"version": "3.5.0", "slots": []}},
                 status=200,
             )
             healthy, status = await service.check_sabnzbd_health(
@@ -291,62 +291,37 @@ class TestCheckSabnzbdHealth:
         assert "v3.5.0" in status
 
     @pytest.mark.asyncio
-    async def test_check_sabnzbd_health_json_fail_valid_text(self):
-        """When JSON decode fails, fall back to text response."""
+    async def test_check_sabnzbd_health_wrong_api_key(self):
+        """SABnzbd skips the key check for mode=version, so the check must use a keyed mode."""
         service = HealthService()
         url = "http://localhost:8090/"
 
-        with patch(
-            "src.services.health.aiohttp.ClientSession"
-        ) as mock_session_cls:
-            mock_resp = AsyncMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(side_effect=Exception("JSON decode error"))
-            mock_resp.text = AsyncMock(return_value="3.5.0")
+        def sabnzbd_with_other_key(request_url, **kwargs):
+            if request_url.query.get("mode") in ("version", "auth"):
+                return CallbackResult(payload={"version": "4.3.2"})
+            return CallbackResult(status=403, body="API Key Incorrect")
 
-            mock_ctx = AsyncMock()
-            mock_ctx.get = MagicMock(return_value=AsyncMock(
-                __aenter__=AsyncMock(return_value=mock_resp),
-                __aexit__=AsyncMock(return_value=False),
-            ))
-            mock_session_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_ctx
-            )
-            mock_session_cls.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+        import re
+        pattern = re.compile(r"^http://localhost:8090/api\b.*$")
 
-            healthy, status = await service.check_sabnzbd_health(url, "key")
+        with aioresponses() as m:
+            m.get(pattern, callback=sabnzbd_with_other_key, repeat=True)
+            healthy, status = await service.check_sabnzbd_health(url, "wrong-key")
 
-        assert healthy is True
-        assert "v3.5.0" in status
+        assert healthy is False
+        assert "HTTP 403" in status
 
     @pytest.mark.asyncio
-    async def test_check_sabnzbd_health_json_fail_invalid_text(self):
-        """When JSON decode fails and text is too long, return error."""
+    async def test_check_sabnzbd_health_non_json_body(self):
+        """SABnzbd 3.x answers a wrong key with HTTP 200 and a plain-text body."""
         service = HealthService()
         url = "http://localhost:8090/"
 
-        with patch(
-            "src.services.health.aiohttp.ClientSession"
-        ) as mock_session_cls:
-            mock_resp = AsyncMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(side_effect=Exception("JSON decode error"))
-            mock_resp.text = AsyncMock(return_value="A" * 50)
+        import re
+        pattern = re.compile(r"^http://localhost:8090/api\b.*$")
 
-            mock_ctx = AsyncMock()
-            mock_ctx.get = MagicMock(return_value=AsyncMock(
-                __aenter__=AsyncMock(return_value=mock_resp),
-                __aexit__=AsyncMock(return_value=False),
-            ))
-            mock_session_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_ctx
-            )
-            mock_session_cls.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
-
+        with aioresponses() as m:
+            m.get(pattern, status=200, body="API Key Incorrect")
             healthy, status = await service.check_sabnzbd_health(url, "key")
 
         assert healthy is False

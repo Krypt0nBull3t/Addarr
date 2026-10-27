@@ -10,6 +10,13 @@ import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
 
+@pytest.fixture(autouse=True)
+def _authenticated():
+    """Handlers require auth; authenticate the default test user 12345."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+
+
 # ---------------------------------------------------------------------------
 # transmission_command
 # ---------------------------------------------------------------------------
@@ -199,3 +206,49 @@ def test_get_handler_returns_list(mock_service):
 
     assert isinstance(handlers, list)
     assert len(handlers) > 0
+
+
+# ---------------------------------------------------------------------------
+# Access control
+# ---------------------------------------------------------------------------
+
+TRANSMISSION_ENTRY_POINTS = [
+    ("transmission_command", {"text": "/transmission"}),
+    ("handle_callback", {"callback_data": "transmission_toggle_yes"}),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method, update_kwargs", TRANSMISSION_ENTRY_POINTS)
+@patch("src.bot.handlers.transmission.transmission_service")
+async def test_unauthenticated_user_is_refused(
+    mock_service, method, update_kwargs, make_update, make_context
+):
+    """Unauthenticated users cannot use Transmission (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    from src.bot.handlers.transmission import TransmissionHandler
+
+    AuthHandler._authenticated_users = set()
+    handler = TransmissionHandler()
+    handler.service = mock_service
+
+    await getattr(handler, method)(make_update(**update_kwargs), make_context())
+
+    assert mock_service.method_calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method, update_kwargs", TRANSMISSION_ENTRY_POINTS)
+@patch("src.bot.handlers.transmission.transmission_service")
+async def test_non_admin_is_refused_when_only_admin(
+    mock_service, method, update_kwargs, admin_mode, make_update, make_context
+):
+    """Admin mode plus transmission.onlyAdmin refuses non-admins (audit item 6)."""
+    from src.bot.handlers.transmission import TransmissionHandler
+
+    handler = TransmissionHandler()
+    handler.service = mock_service
+
+    await getattr(handler, method)(make_update(**update_kwargs), make_context())
+
+    assert mock_service.method_calls == []

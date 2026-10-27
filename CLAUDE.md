@@ -143,7 +143,7 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 ### Handler Registration Order
 
-Handlers are registered in `AddarrBot._add_handlers()` in this order: Start, Auth, Media, Transmission (if enabled), SABnzbd (if enabled), Help, Status. Order matters because `python-telegram-bot` matches the first matching handler.
+Handlers are registered in `AddarrBot._add_handlers()` in this order: Auth, Media, Settings, the other feature handlers, Help, Preferences, System, and Start last. Order matters because `python-telegram-bot` matches the first matching handler. Start is last because its `menu_cancel` handler must not take a Cancel tap from an open media or settings conversation.
 
 ## Git Branching
 

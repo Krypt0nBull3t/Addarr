@@ -13,7 +13,7 @@ import os
 from typing import List, Optional
 from telegram import Bot
 from ..config.settings import config
-from ..definitions import CHATID_PATH, ADMIN_PATH, ALLOWLIST_PATH
+from ..definitions import CHATID_PATH
 
 
 def check_auth(func):
@@ -92,26 +92,27 @@ def format_bytes(size: float) -> str:
 
 
 def is_admin(user_id: int) -> bool:
-    """Check if user is admin"""
-    if not os.path.exists(ADMIN_PATH):
-        return False
-
-    with open(ADMIN_PATH, 'r') as f:
-        admin_ids = [line.strip() for line in f.readlines()]
-        return str(user_id) in admin_ids
+    """Check if user is in the config admins list"""
+    # str(): IDs may be quoted in YAML, and `admins:` may be left empty (None)
+    return str(user_id) in map(str, config.get("admins") or [])
 
 
 def is_allowed(user_id: int) -> bool:
-    """Check if user is in allowlist"""
+    """Check if user passes the allowlist (admins always do)"""
     if not config.get("security", {}).get("enableAllowlist", False):
         return True
+    return str(user_id) in map(str, config.get("allow_list") or []) or is_admin(user_id)
 
-    if not os.path.exists(ALLOWLIST_PATH):
+
+def admin_only(service: Optional[str] = None) -> bool:
+    """Check if admin mode restricts this action to admins.
+
+    With a service name (transmission, sabnzbd), that service's onlyAdmin
+    flag must also be set.
+    """
+    if not config.get("security", {}).get("enableAdmin", False):
         return False
-
-    with open(ALLOWLIST_PATH, 'r') as f:
-        allowed_ids = [line.strip() for line in f.readlines()]
-        return str(user_id) in allowed_ids
+    return service is None or config.get(service, {}).get("onlyAdmin", True)
 
 
 async def is_authenticated(chat_id: int) -> bool:

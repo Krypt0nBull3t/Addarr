@@ -2,10 +2,16 @@
 Tests for src/api/sonarr.py -- SonarrClient.
 """
 
+import asyncio
+
 import pytest
 import aiohttp
 from unittest.mock import AsyncMock, patch
 from aioresponses import CallbackResult
+from yarl import URL
+
+from src.api.base import APIError
+from tests.conftest import _mock_config
 
 from tests.fixtures.sample_data import (
     SONARR_SEARCH_RESULTS,
@@ -99,11 +105,21 @@ class TestSonarrSearch:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_search_exception(self, sonarr_client):
-        """Lines 88-90: Exception during search."""
-        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
-            results = await sonarr_client.search("test")
-        assert results == []
+    async def test_search_failure_raises(self, aio_mock, sonarr_client):
+        """A failed request is an error, not an empty result."""
+        aio_mock.get(f"{BASE}/series/lookup?term=test", status=401, body="Unauthorized")
+        with pytest.raises(APIError, match="HTTP 401"):
+            await sonarr_client.search("test")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("term", ["Law & Order", "C#", "1+1"])
+    async def test_search_url_encodes_term(self, aio_mock, sonarr_client, term):
+        aio_mock.get(
+            URL(f"{BASE}/series/lookup").with_query(term=term),
+            payload=SONARR_SEARCH_RESULTS,
+        )
+        results = await sonarr_client.search(term)
+        assert len(results) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +388,29 @@ class TestSonarrAddSeries:
         assert "Successfully added" in message
 
     @pytest.mark.asyncio
+    async def test_add_series_monitor_option(self, aio_mock, sonarr_client):
+        """monitor goes into addOptions; without it addOptions stays as before."""
+        for monitor, expected in [
+            ("future", {"searchForMissingEpisodes": True, "monitor": "future"}),
+            (None, {"searchForMissingEpisodes": True}),
+        ]:
+            aio_mock.requests.clear()
+            aio_mock.get(
+                f"{BASE}/series/lookup?term=tvdb:81189",
+                payload=SONARR_SEARCH_RESULTS[:1],
+                status=200,
+            )
+            aio_mock.post(
+                f"{BASE}/series",
+                payload={"id": 1, "title": "Breaking Bad"},
+                status=200,
+            )
+            await sonarr_client.add_series(81189, "/tv", 1, [], monitor=monitor)
+
+            post = next(v for k, v in aio_mock.requests.items() if k[0] == "POST")
+            assert post[0].kwargs["json"]["addOptions"] == expected
+
+    @pytest.mark.asyncio
     async def test_add_series_already_exists(self, aio_mock, sonarr_client):
         # 1. Lookup
         aio_mock.get(
@@ -450,7 +489,7 @@ class TestSonarrAddSeries:
         )
         success, message = await sonarr_client.add_series(81189, "/tv", 1)
         assert success is False
-        assert "Failed to add" in message
+        assert message == "Sonarr returned HTTP 500"
 
     @pytest.mark.asyncio
     async def test_add_series_client_error(self, aio_mock, sonarr_client):
@@ -987,3 +1026,53 @@ class TestSonarrGetHistory:
         with patch.object(sonarr_client, "_request", return_value=None):
             results = await sonarr_client.get_history()
         assert results == []
+
+
+# ---------------------------------------------------------------------------
+# add options, add errors and excluded quality profiles
+# ---------------------------------------------------------------------------
+
+
+class TestSonarrAddConfigAndErrors:
+    @pytest.mark.asyncio
+    async def test_add_timeout_returns_message(self, aio_mock, sonarr_client):
+        """A timeout has an empty str(); the user must still see why it failed."""
+        aio_mock.get(
+            f"{BASE}/series/lookup?term=tvdb:81189", payload=SONARR_SEARCH_RESULTS[:1]
+        )
+        aio_mock.post(f"{BASE}/series", exception=asyncio.TimeoutError())
+        success, message = await sonarr_client.add_series(81189, "/tv", 1)
+        assert success is False
+        assert message == "Connection error: timeout"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("features,search", [({}, True), ({"search": False}, False)])
+    async def test_add_honors_features_search(self, aio_mock, sonarr_client, monkeypatch, features, search):
+        monkeypatch.setitem(_mock_config._config["sonarr"], "features", features)
+        aio_mock.get(
+            f"{BASE}/series/lookup?term=tvdb:81189", payload=SONARR_SEARCH_RESULTS[:1]
+        )
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs["json"])
+            return CallbackResult(payload={"id": 1}, status=201)
+
+        aio_mock.post(f"{BASE}/series", callback=capture)
+        success, _ = await sonarr_client.add_series(81189, "/tv", 1)
+        assert success is True
+        assert posted["addOptions"]["searchForMissingEpisodes"] is search
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("excluded", [["Ultra-HD"], [2]])
+    async def test_get_quality_profiles_hides_excluded(self, aio_mock, sonarr_client, monkeypatch, excluded):
+        """quality.excludedProfiles may list profile names or IDs."""
+        monkeypatch.setitem(
+            _mock_config._config["sonarr"], "quality", {"excludedProfiles": excluded}
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=[{"id": 1, "name": "HD-1080p"}, {"id": 2, "name": "Ultra-HD"}],
+        )
+        profiles = await sonarr_client.get_quality_profiles()
+        assert [p["id"] for p in profiles] == [1]
