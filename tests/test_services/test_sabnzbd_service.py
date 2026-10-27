@@ -10,6 +10,7 @@ import re
 
 import pytest
 from aioresponses import aioresponses
+from unittest.mock import patch
 
 from tests.conftest import _mock_config
 
@@ -17,17 +18,6 @@ from tests.conftest import _mock_config
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-SABNZBD_QUEUE = {
-    "queue": {
-        "slots": [
-            {"status": "Downloading", "filename": "test.nzb"},
-        ],
-        "noofslots": 3,
-        "speed": "5.2 MB/s",
-        "size": "1.2 GB",
-    }
-}
 
 # Pattern to match SABnzbd API URLs regardless of query param ordering
 SABNZBD_API_PATTERN = re.compile(r"^http://localhost:8090//api\?.*$")
@@ -104,96 +94,6 @@ class TestSABnzbdServiceInit:
             assert service.is_enabled() is False
         finally:
             _mock_config._config["sabnzbd"]["server"] = original_server
-
-
-# ---------------------------------------------------------------------------
-# get_status
-# ---------------------------------------------------------------------------
-
-
-class TestGetStatus:
-    @pytest.mark.asyncio
-    async def test_get_status_success(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                payload=SABNZBD_QUEUE,
-                status=200,
-            )
-            status = await sabnzbd_service.get_status()
-
-        assert status["active"] == 1
-        assert status["queued"] == 3
-        assert status["speed"] == "5.2 MB/s"
-        assert status["size"] == "1.2 GB"
-
-    @pytest.mark.asyncio
-    async def test_get_status_http_error(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                status=500,
-            )
-            status = await sabnzbd_service.get_status()
-
-        assert status["active"] == 0
-        assert status["queued"] == 0
-        assert status["speed"] == "0 KB/s"
-
-    @pytest.mark.asyncio
-    async def test_get_status_error(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                exception=Exception("Connection refused"),
-            )
-            status = await sabnzbd_service.get_status()
-
-        assert status["active"] == 0
-        assert status["queued"] == 0
-
-
-# ---------------------------------------------------------------------------
-# add_nzb
-# ---------------------------------------------------------------------------
-
-
-class TestAddNzb:
-    @pytest.mark.asyncio
-    async def test_add_nzb_success(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                payload={"status": True, "nzo_ids": ["SABnzbd_nzo_abc"]},
-                status=200,
-            )
-            result = await sabnzbd_service.add_nzb(
-                "http://example.com/test.nzb", name="test", category="movies"
-            )
-
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_add_nzb_http_error(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                status=500,
-            )
-            result = await sabnzbd_service.add_nzb("http://example.com/test.nzb")
-
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_add_nzb_failure(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                exception=Exception("Connection refused"),
-            )
-            result = await sabnzbd_service.add_nzb("http://example.com/test.nzb")
-
-        assert result is False
 
 
 # ---------------------------------------------------------------------------
@@ -574,3 +474,28 @@ class TestGetHistory:
             result = await sabnzbd_service.get_history()
 
         assert result == {"total": 0, "items": []}
+
+
+# ---------------------------------------------------------------------------
+# request timeout
+# ---------------------------------------------------------------------------
+
+
+class TestRequestTimeout:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("call", [
+        lambda s: s.set_speed_limit(50),
+        lambda s: s.pause_queue(),
+        lambda s: s.resume_queue(),
+        lambda s: s.pause_item("nzo_1"),
+        lambda s: s.resume_item("nzo_1"),
+        lambda s: s.get_queue_details(),
+        lambda s: s.get_history(),
+    ])
+    async def test_every_request_has_10s_timeout(self, sabnzbd_service, call):
+        """Without a timeout a hung SABnzbd blocks the bot for aiohttp's 300 s default."""
+        with patch(
+            "src.services.sabnzbd.aiohttp.ClientSession", side_effect=RuntimeError
+        ) as session_cls:
+            await call(sabnzbd_service)
+        assert session_cls.call_args.kwargs["timeout"].total == 10

@@ -66,6 +66,17 @@ def mock_notification_service():
     return service
 
 
+@pytest.fixture
+def admin_mode(mock_config):
+    """Admin mode on with admin user 1, so the default test user 12345 is no admin."""
+    mock_config._set("security", {
+        "enableAdmin": True, "enableAllowlist": False, "chatMode": "private_only",
+    })
+    mock_config._set("admins", [1])
+    with patch("src.utils.helpers.config", mock_config):
+        yield mock_config
+
+
 # ---------------------------------------------------------------------------
 # Handler factory fixtures -- encapsulate patching + mock setup + auth
 # ---------------------------------------------------------------------------
@@ -122,7 +133,6 @@ def delete_handler(mock_media_service, mock_translation_service):
 def start_handler(mock_media_service, mock_translation_service):
     """Create a StartHandler with patched services."""
     with (
-        patch("src.bot.handlers.start.MediaHandler") as mock_mh_class,
         patch("src.bot.handlers.start.CalendarHandler") as mock_ch_class,
         patch("src.bot.handlers.start.HelpHandler") as mock_hh_class,
         patch("src.bot.handlers.start.SystemHandler") as mock_sh_class,
@@ -132,16 +142,6 @@ def start_handler(mock_media_service, mock_translation_service):
     ):
         mock_ts_class.return_value = mock_translation_service
         mock_lib_kbd.return_value = MagicMock()
-        mock_media_handler = MagicMock()
-        mock_media_handler.handle_search = AsyncMock()
-        mock_media_handler.handle_selection = AsyncMock()
-        mock_media_handler.handle_navigation = AsyncMock()
-        mock_media_handler.handle_list_select = AsyncMock()
-        mock_media_handler.handle_list_back = AsyncMock()
-        mock_media_handler.handle_list_page = AsyncMock()
-        mock_media_handler.handle_view_toggle = AsyncMock()
-        mock_media_handler.cancel_search = AsyncMock()
-        mock_mh_class.return_value = mock_media_handler
         mock_calendar_handler = MagicMock()
         mock_calendar_handler.show_upcoming = AsyncMock()
         mock_ch_class.return_value = mock_calendar_handler
@@ -158,7 +158,6 @@ def start_handler(mock_media_service, mock_translation_service):
 
         AuthHandler._authenticated_users = {12345}
         handler = StartHandler()
-        handler._mock_media_handler = mock_media_handler
         handler._mock_calendar_handler = mock_calendar_handler
         handler._mock_help_handler = mock_help_handler
         handler._mock_system_handler = mock_system_handler
@@ -508,6 +507,30 @@ def history_handler(mock_media_service, mock_translation_service):
         handler._mock_empty_kbd = mock_empty_kbd
         handler._mock_menu_kbd = mock_menu_kbd
         yield handler
+
+
+@pytest.fixture
+def unchanged_edit():
+    """Make a query's edit_text fail as Telegram does for identical text.
+
+    Returns a function that wires the query and returns a list that records
+    the order of answer() and edit_text() calls.
+    """
+    from telegram.error import BadRequest
+
+    def _wire(query):
+        calls = []
+        query.answer.side_effect = lambda *args, **kwargs: calls.append("answer")
+
+        def _edit(*args, **kwargs):
+            calls.append("edit")
+            raise BadRequest("Message is not modified: specified new message "
+                             "content and reply markup are exactly the same")
+
+        query.message.edit_text.side_effect = _edit
+        return calls
+
+    return _wire
 
 
 @pytest.fixture

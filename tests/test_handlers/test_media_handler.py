@@ -69,40 +69,47 @@ async def test_handle_media_no_message_returns_end(
     assert result == ConversationHandler.END
 
 
-@pytest.mark.parametrize("media_type,handler_method,service", [
-    ("movie", "handle_movie", "radarr"),
-    ("series", "handle_series", "sonarr"),
-    ("music", "handle_music", "lidarr"),
+@pytest.mark.parametrize("search_type,service,search_method", [
+    ("movie", "radarr", "search_movies"),
+    ("series", "sonarr", "search_series"),
+    ("music", "lidarr", "search_music"),
 ])
 @pytest.mark.asyncio
-async def test_handle_media_admin_restriction_denies_non_admin(
-    media_handler, make_update, make_context, make_user,
-    media_type, handler_method, service
+async def test_handle_search_admin_restriction_denies_non_admin(
+    media_handler, make_update, make_context, mock_config,
+    search_type, service, search_method
 ):
-    """When adminRestrictions is True, non-admin users get denied."""
-    from src.config.settings import config
-    original = config._config[service].get("adminRestrictions", False)
-    config._config[service]["adminRestrictions"] = True
-    try:
-        # User 99999 is NOT in admins list
-        user = make_user(user_id=99999)
-        update = make_update(text=f"/{media_type}", user=user)
-        context = make_context()
+    """adminRestrictions refuses non-admins at the search step (audit item 6).
 
-        # Ensure the user is authenticated but not admin
-        from src.bot.handlers.auth import AuthHandler
-        AuthHandler._authenticated_users.add(99999)
+    /movie, the menu button and the /start menu all reach handle_search.
+    """
+    mock_config._config[service]["adminRestrictions"] = True
+    update = make_update(text="Some Title")
+    context = make_context(user_data={"search_type": search_type})
 
-        method = getattr(media_handler, handler_method)
-        result = await method(update, context)
+    with patch("src.bot.handlers.media.handler.config", mock_config):
+        result = await media_handler.handle_search(update, context)
 
-        assert result == ConversationHandler.END
-        # Should have replied with a restriction message
-        update.message.reply_text.assert_called_once()
-        call_args = update.message.reply_text.call_args
-        assert "NotAdmin" in call_args[0][0]
-    finally:
-        config._config[service]["adminRestrictions"] = original
+    assert result == ConversationHandler.END
+    update.message.reply_text.assert_called_once_with("NotAdmin")
+    getattr(media_handler._mock_service, search_method).assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_search_admin_restriction_allows_admin(
+    media_handler, make_update, make_context, mock_config
+):
+    """Admins still search when adminRestrictions is on."""
+    mock_config._config["radarr"]["adminRestrictions"] = True
+    mock_config._set("admins", [12345])
+    update = make_update(text="Some Title")
+    context = make_context(user_data={"search_type": "movie"})
+
+    with patch("src.bot.handlers.media.handler.config", mock_config), \
+         patch("src.utils.helpers.config", mock_config):
+        await media_handler.handle_search(update, context)
+
+    media_handler._mock_service.search_movies.assert_awaited_once_with("Some Title")
 
 
 # ---------------------------------------------------------------------------
@@ -428,12 +435,30 @@ async def test_handle_selection_dispatches_by_type(
 async def test_handle_menu_callback_cancel(media_handler, make_update, make_context):
     """menu_cancel callback edits message with 'Canceled' and returns END."""
     update = make_update(callback_data="menu_cancel")
+    update.callback_query.message.photo = None
     context = make_context()
 
     result = await media_handler.handle_menu_callback(update, context)
 
     assert result == ConversationHandler.END
     update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_callback_cancel_on_poster(
+    media_handler, make_update, make_context
+):
+    """menu_cancel on a poster photo edits the caption and answers the callback."""
+    update = make_update(callback_data="menu_cancel")
+    update.callback_query.message.photo = [MagicMock()]
+    context = make_context()
+
+    result = await media_handler.handle_menu_callback(update, context)
+
+    assert result == ConversationHandler.END
+    update.callback_query.answer.assert_awaited_once()
+    update.callback_query.message.edit_caption.assert_called_once()
+    update.callback_query.message.edit_text.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -448,6 +473,23 @@ async def test_handle_menu_callback_movie(media_handler, make_update, make_conte
 
     assert result == SEARCHING
     assert context.user_data["search_type"] == "movie"
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_callback_refuses_unauthenticated_user(
+    media_handler, make_update, make_context
+):
+    """An old menu button cannot start a search without auth (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(callback_data="menu_movie")
+    context = make_context()
+
+    result = await media_handler.handle_menu_callback(update, context)
+
+    assert result is None
+    assert "search_type" not in context.user_data
 
 
 @pytest.mark.asyncio
@@ -963,7 +1005,7 @@ async def test_handle_season_confirm_all_mode(
 async def test_handle_season_confirm_future_episodes(
     media_handler, make_update, make_context
 ):
-    """Future episodes mode adds -1 season flag."""
+    """Future episodes mode sends Sonarr's 'future' monitor option, no fake season."""
     media_handler._mock_service.add_series_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -984,9 +1026,8 @@ async def test_handle_season_confirm_future_episodes(
 
     assert result == ConversationHandler.END
     call_args = media_handler._mock_service.add_series_with_profile.call_args
-    seasons_data = call_args[0][3]
-    # Should have -1 season flag
-    assert any(s["seasonNumber"] == -1 for s in seasons_data)
+    assert call_args[0][3] == [{"seasonNumber": 1, "monitored": False}]
+    assert call_args[1] == {"monitor": "future"}
 
 
 @pytest.mark.asyncio
@@ -1023,7 +1064,7 @@ async def test_handle_season_confirm_selected_seasons(
 async def test_handle_season_confirm_selected_with_future(
     media_handler, make_update, make_context
 ):
-    """Selected seasons + future_seasons mode."""
+    """Selected seasons + future_seasons sends only real seasons (Sonarr monitors new seasons itself)."""
     media_handler._mock_service.add_series_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -1044,8 +1085,43 @@ async def test_handle_season_confirm_selected_with_future(
 
     assert result == ConversationHandler.END
     call_args = media_handler._mock_service.add_series_with_profile.call_args
-    seasons_data = call_args[0][3]
-    assert any(s["seasonNumber"] == -1 for s in seasons_data)
+    assert call_args[0][3] == [
+        {"seasonNumber": 1, "monitored": True},
+        {"seasonNumber": 2, "monitored": False},
+    ]
+    assert call_args[1] == {"monitor": None}
+
+
+@pytest.mark.asyncio
+async def test_season_confirm_answers_callback_once(
+    media_handler, make_update, make_context
+):
+    """Confirm still adds the series when Telegram rejects a second answer()."""
+    from telegram.error import BadRequest
+
+    media_handler._mock_service.add_series_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="season_confirm")
+    update.callback_query.message.photo = None
+    update.callback_query.answer = AsyncMock(
+        side_effect=[True, BadRequest("Query is too old")]
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "123", "title": "Test"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/tv",
+        "selected_seasons": {1},
+        "future_mode": None,
+        "monitor_all": False,
+        "quality_data": {"seasons": [{"seasonNumber": 1}]},
+    })
+
+    result = await media_handler.handle_season_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_series_with_profile.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -2791,6 +2867,62 @@ async def test_handle_album_confirm_passes_selected_albums(
 
 
 @pytest.mark.asyncio
+async def test_handle_album_confirm_none_ticked_passes_empty_list(
+    media_handler, make_update, make_context
+):
+    """Pick albums with none ticked monitors no albums, not every album."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": set(),
+        "future_albums": False,
+    })
+
+    await media_handler.handle_album_confirm(update, context)
+
+    call_kwargs = media_handler._mock_service.add_music_with_profile.call_args[1]
+    assert call_kwargs["albums_to_monitor"] == []
+
+
+@pytest.mark.asyncio
+async def test_album_confirm_answers_callback_once(
+    media_handler, make_update, make_context
+):
+    """Confirm still adds the artist when Telegram rejects a second answer()."""
+    from telegram.error import BadRequest
+
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    update.callback_query.answer = AsyncMock(
+        side_effect=[True, BadRequest("Query is too old")]
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": {"abc-123"},
+        "future_albums": False,
+        "artist_albums": [],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music_with_profile.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_album_confirm_passes_future_albums(
     media_handler, make_update, make_context
 ):
@@ -2820,7 +2952,7 @@ async def test_handle_album_confirm_passes_future_albums(
 async def test_handle_album_confirm_no_future_albums(
     media_handler, make_update, make_context
 ):
-    """Confirm does not pass future_albums when False."""
+    """Confirm passes future_albums=False when not enabled."""
     media_handler._mock_service.add_music_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -2839,7 +2971,7 @@ async def test_handle_album_confirm_no_future_albums(
 
     assert result == ConversationHandler.END
     call_kwargs = media_handler._mock_service.add_music_with_profile.call_args[1]
-    assert "future_albums" not in call_kwargs
+    assert call_kwargs["future_albums"] is False
 
 
 @pytest.mark.asyncio

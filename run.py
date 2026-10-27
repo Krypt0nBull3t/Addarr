@@ -33,8 +33,7 @@ def main():
     if args.validate_i18n:
         # Import only what's needed for validation
         from src.utils.validate_translations import main as validate_translations
-        validate_translations()
-        return
+        sys.exit(validate_translations())
 
     # Run pre-run checks (unless we're running setup)
     if not args.setup and not prerun_checker.run_checks():

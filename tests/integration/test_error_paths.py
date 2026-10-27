@@ -5,10 +5,13 @@ Handlers catch exceptions internally and send error text to the user.
 These tests verify that error responses are sent, not that exceptions propagate.
 """
 
+import re
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
 from src.services.media import MediaService
+from src.services.translation import TranslationService
 
 from tests.integration.fixtures import (
     MOVIE_SEARCH_RESULTS,
@@ -90,3 +93,24 @@ async def test_delete_confirm_returns_false_shows_failure(harness):
         edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "DeleteFailed" in edit_resp.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("command,endpoint", [
+    ("/movie", "localhost:7878/api/v3/movie/lookup"),
+    ("/series", "localhost:8989/api/v3/series/lookup"),
+    ("/music", "localhost:8686/api/v1/artist/lookup"),
+])
+async def test_search_server_error_shows_search_error(harness, aio_mock, command, endpoint):
+    """A server that rejects the search shows SearchError, not 'no results'."""
+    aio_mock.get(
+        re.compile(rf"^http://{re.escape(endpoint)}\?.*$"),
+        status=401, body="Unauthorized", repeat=True,
+    )
+    aio_mock.get(
+        re.compile(r"^http://localhost:8686/api/v1/album/lookup\?.*$"),
+        payload=[], repeat=True,
+    )
+    await harness.send_command(command)
+    resp = await harness.send_text("law & order")
+    assert resp.text == TranslationService().get_text("SearchError")

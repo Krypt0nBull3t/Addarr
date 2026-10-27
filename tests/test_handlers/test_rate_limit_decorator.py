@@ -298,3 +298,32 @@ async def test_stacking_not_authenticated(
         assert result is None
         # Auth message should be sent (via update.message.reply_text)
         update.message.reply_text.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Auth attempts are always limited
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_auth_is_limited_when_rate_limiting_disabled(
+    mock_ts_class, make_update, make_context
+):
+    """Password guesses stay limited with rateLimit.enable false (audit item 14)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+
+    from src.services.rate_limit import rate_limit
+
+    # Default mock config: rateLimit.enable is false, auth allows 3 per 300 s
+    class DummyHandler:
+        @rate_limit("auth")
+        async def guarded(self, update, context):
+            return "allowed"
+
+    handler = DummyHandler()
+    update = make_update(text="/auth")
+
+    results = [await handler.guarded(update, make_context()) for _ in range(4)]
+
+    assert results == ["allowed", "allowed", "allowed", None]

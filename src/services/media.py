@@ -216,7 +216,7 @@ class MediaService:
                             else None)
                     ),
                     "rating": artist.get("ratings", {}).get("value", "N/A"),
-                    "genres": ", ".join(artist.get("genres", ["Unknown"])),
+                    "genres": artist.get("genres", []),
                     "type": artist.get("artistType", "Unknown"),
                     "status": artist.get("status", "unknown"),
                     "music_type": "artist",
@@ -396,31 +396,22 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_series: {str(e)}")
             return False, str(e)
 
-    async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, selected_seasons: Optional[List[int]] = None) -> tuple[bool, str]:
-        """Add a series to Sonarr with selected quality profile and seasons"""
+    async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, seasons: Optional[List[Dict]] = None, monitor: Optional[str] = None) -> tuple[bool, str]:
+        """Add a series to Sonarr with selected quality profile and seasons.
+
+        seasons: [{"seasonNumber": n, "monitored": bool}], or None for Sonarr's default.
+        monitor: Sonarr addOptions.monitor value (e.g. "future"), or None.
+        """
         if not self.sonarr:
             raise ValueError("Sonarr is not enabled or configured")
 
         try:
-            # Get all seasons
-            seasons = await self.sonarr.get_seasons(tvdb_id)
-
-            # Format season data
-            season_data = []
-            for season in seasons:
-                season_number = season.get("seasonNumber")
-                if season_number is not None:
-                    season_data.append({
-                        "seasonNumber": season_number,
-                        "monitored": selected_seasons is None or season_number in selected_seasons
-                    })
-
-            # Add the series with selected profile and seasons
             success, message = await self.sonarr.add_series(
                 int(tvdb_id),
                 root_folder,
                 profile_id,
-                season_data
+                seasons,
+                monitor=monitor,
             )
 
             if success:

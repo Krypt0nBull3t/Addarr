@@ -73,17 +73,17 @@ def _add_handlers(self):
 
 **Registration order matters.** PTB matches the first matching handler. Current order:
 
-1. StartHandler
-2. AuthHandler
-3. MediaHandler
-4. SettingsHandler
-5. DeleteHandler
-6. LibraryHandler
-7. TransmissionHandler *(conditional)*
-8. SabnzbdHandler *(conditional)*
-9. HelpHandler
-10. PreferencesHandler
-11. SystemHandler
+1. AuthHandler
+2. MediaHandler
+3. SettingsHandler
+4. DeleteHandler
+5. LibraryHandler
+6. TransmissionHandler *(conditional)*
+7. SabnzbdHandler *(conditional)*
+8. HelpHandler
+9. PreferencesHandler
+10. SystemHandler
+11. StartHandler *(last: its `menu_cancel` must not take Cancel taps from an open conversation)*
 
 **Placement rules:**
 - Handlers with unique command names (`/myfeature`) can go anywhere

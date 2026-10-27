@@ -268,9 +268,10 @@ def get_sabnzbd_settings_keyboard(
         [InlineKeyboardButton(
             "⚡ Speed Limit", callback_data="dl_sab_speed"
         )],
-        [InlineKeyboardButton(
-            "⏸ Pause / ▶️ Resume", callback_data="dl_sab_pause"
-        )],
+        [
+            InlineKeyboardButton("⏸ Pause", callback_data="dl_sab_pause"),
+            InlineKeyboardButton("▶️ Resume", callback_data="dl_sab_resume"),
+        ],
         [InlineKeyboardButton(
             f"◀️ {translation.get_text('Back')}",
             callback_data="dl_back"
