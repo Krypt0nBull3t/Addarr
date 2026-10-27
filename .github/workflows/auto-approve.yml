@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Get PR number and diff
         id: pr
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             // Find the PR for this branch
@@ -328,7 +328,7 @@ jobs:
 
       - name: Post review comment
         if: steps.pr.outputs.number
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.REVIEWER_BOT_TOKEN }}
           script: |
@@ -368,7 +368,7 @@ jobs:
         if: >
           steps.pr.outputs.number &&
           github.event.workflow_run.conclusion == 'success'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const owner = context.repo.owner;
@@ -422,7 +422,7 @@ jobs:
       - name: Approve PR
         if: >
           steps.all_checks.outputs.ready == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.REVIEWER_BOT_TOKEN }}
           script: |
