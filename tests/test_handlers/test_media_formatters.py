@@ -396,6 +396,41 @@ async def test_show_list_detail_sends_html_caption(make_message):
     assert call.kwargs["parse_mode"] == "HTML"
 
 
+HOSTILE_TITLE = "M*A*S*H <b>&"
+ESCAPED_TITLE = "<b>M*A*S*H &lt;b&gt;&amp;</b>"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("show", ["card", "list_detail"])
+@pytest.mark.parametrize("path", ["photo", "photo_failed", "text"])
+async def test_every_caption_send_uses_html(make_message, show, path):
+    """Every send of the built caption escapes the title and uses parse_mode HTML.
+
+    Search, card navigation (nav_prev/nav_next) and list selection all send
+    the caption through show_result or show_list_detail.
+    """
+    message = make_message()
+    if path == "photo_failed":
+        message.reply_photo = AsyncMock(side_effect=Exception("bad photo"))
+    result = {
+        "id": "1",
+        "title": HOSTILE_TITLE,
+        "overview": "O",
+        "poster": None if path == "text" else "https://example.com/p.jpg",
+    }
+
+    if show == "card":
+        await show_result(message, result, 0, 2)
+    else:
+        await show_list_detail(message, result)
+
+    send = message.reply_text if path != "photo" else message.reply_photo
+    call = send.call_args
+    caption = call.kwargs.get("caption") or call.args[0]
+    assert ESCAPED_TITLE in caption
+    assert call.kwargs["parse_mode"] == "HTML"
+
+
 # ---------------------------------------------------------------------------
 # send_response
 # ---------------------------------------------------------------------------

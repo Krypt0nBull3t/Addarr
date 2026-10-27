@@ -246,6 +246,8 @@ class TestGetText:
         TranslationService._current_language = "en-us"
 
         assert service.get_text("missing", default="Fallback") == "Fallback"
+        assert service.get_text("missing") == "missing"
+        assert service.get_text("Sabnzbd.Missing", default="Fallback") == "Fallback"
         assert service.get_text("hello", default="Fallback") == "Hello"
 
     def test_shipped_files_resolve_keys(self, monkeypatch):
