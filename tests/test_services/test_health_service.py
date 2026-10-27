@@ -622,6 +622,32 @@ class TestRunHealthChecks:
             assert svc["healthy"] is True
 
     @pytest.mark.asyncio
+    async def test_run_health_checks_updates_status(self):
+        """A manual check updates the status, not only the periodic loop."""
+        service = HealthService()
+
+        with patch.object(
+            service,
+            "check_service_health",
+            new_callable=AsyncMock,
+            return_value=(False, "Error: HTTP 500"),
+        ), patch.object(
+            service,
+            "check_bazarr_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online (v1.4.0)"),
+        ):
+            await service.run_health_checks()
+
+        status = service.get_status()
+        assert status["last_check"] is not None
+        assert sorted(status["unhealthy_services"]) == [
+            "Lidarr: Error: HTTP 500",
+            "Radarr: Error: HTTP 500",
+            "Sonarr: Error: HTTP 500",
+        ]
+
+    @pytest.mark.asyncio
     async def test_run_health_checks_sabnzbd_enabled(self):
         """Test that SABnzbd is checked when enabled in config."""
         service = HealthService()
@@ -930,24 +956,22 @@ class TestMonitorLoop:
         service._running = True
         service.interval = 0.01  # Very short interval
 
-        healthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online"},
-            ],
-            "download_clients": [],
-        }
-
         call_count = 0
 
-        async def _mock_run_health_checks():
+        async def _mock_bazarr_check(url, api_key):
             nonlocal call_count
             call_count += 1
             if call_count >= 2:
                 service._running = False
-            return healthy_results
+            return True, "Online"
 
         with patch.object(
-            service, "run_health_checks", side_effect=_mock_run_health_checks
+            service,
+            "check_service_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online"),
+        ), patch.object(
+            service, "check_bazarr_health", side_effect=_mock_bazarr_check
         ):
             await service._monitor_loop()
 
@@ -960,36 +984,43 @@ class TestMonitorLoop:
         service._running = True
         service.interval = 0.01
 
-        unhealthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": False, "status": "Error: HTTP 500"},
-            ],
-            "download_clients": [],
-        }
-        healthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online"},
-            ],
-            "download_clients": [],
-        }
+        rounds = 0
+        unhealthy_seen = []
 
-        call_count = 0
+        async def _mock_service_check(url, api_key, service_type):
+            # Unhealthy in the first round, healthy after that
+            if rounds == 0:
+                return False, "Error: HTTP 500"
+            return True, "Online"
 
-        async def _mock_checks():
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return unhealthy_results
-            elif call_count == 2:
-                return healthy_results
-            else:
+        async def _mock_bazarr_check(url, api_key):
+            nonlocal rounds
+            rounds += 1
+            if rounds >= 3:
                 service._running = False
-                return healthy_results
+            return True, "Online"
 
-        with patch.object(service, "run_health_checks", side_effect=_mock_checks):
+        async def _record_unhealthy(current_unhealthy, alert_config):
+            unhealthy_seen.append(set(current_unhealthy))
+
+        with patch.object(
+            service, "check_service_health", side_effect=_mock_service_check
+        ), patch.object(
+            service, "check_bazarr_health", side_effect=_mock_bazarr_check
+        ), patch.object(
+            service, "_check_alerts", side_effect=_record_unhealthy
+        ), patch("src.services.health.config") as mock_config:
+            # Radarr, Bazarr, and alerts enabled; everything else off
+            mock_config.get.side_effect = lambda key, default=None: (
+                {"enable": True}
+                if key in ("health_alerts", "radarr", "bazarr")
+                else default
+            )
             await service._monitor_loop()
 
-        # After recovery, unhealthy should be empty
+        # Unhealthy in round 1, recovered in round 2
+        assert unhealthy_seen[0] == {"Radarr: Error: HTTP 500"}
+        assert unhealthy_seen[1] == set()
         assert len(service._unhealthy_services) == 0
 
     @pytest.mark.asyncio

@@ -17,6 +17,7 @@ from src.bot.keyboards import (
 )
 from src.services.media import MediaService
 from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
 
 logger = get_logger("addarr.missing")
 
@@ -135,8 +136,10 @@ class MissingHandler:
         filtered = self._apply_filter(items, active_filter)
 
         text, keyboard = self._build_response(filtered, active_filter=active_filter)
-        await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
 
     async def _handle_back(self, query):
         """Return to the main menu."""
@@ -152,10 +155,6 @@ class MissingHandler:
         parts = query.data.split("_")
         service = parts[2]
         item_id = int(parts[3])
-
-        await query.answer(
-            self.translation.get_text("MissingSearching")
-        )
 
         success = await self.media_service.trigger_missing_search(
             service, item_id

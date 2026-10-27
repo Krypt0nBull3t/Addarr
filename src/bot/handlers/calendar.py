@@ -19,6 +19,7 @@ from src.bot.keyboards import (
 )
 from src.services.media import MediaService
 from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
 
 logger = get_logger("addarr.calendar")
 
@@ -96,8 +97,10 @@ class CalendarHandler:
         context.user_data["cal_items"] = items
 
         text, keyboard = self._build_response(items, days)
-        await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
 
     async def _handle_period(self, query, context):
         """Change the calendar period and re-fetch."""

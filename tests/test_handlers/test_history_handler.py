@@ -198,6 +198,21 @@ async def test_page_navigation(
 
 
 @pytest.mark.asyncio
+async def test_refresh_unchanged_message(
+    history_handler, make_update, make_context, unchanged_edit
+):
+    """hist_refresh answers first and ignores an unchanged message."""
+    history_handler._mock_service.get_history = AsyncMock(return_value=[])
+    update = make_update(callback_data="hist_refresh")
+    calls = unchanged_edit(update.callback_query)
+    context = make_context(user_data={})
+
+    await history_handler.handle_history_action(update, context)
+
+    assert calls == ["answer", "edit"]
+
+
+@pytest.mark.asyncio
 async def test_refresh(
     history_handler, make_update, make_context
 ):

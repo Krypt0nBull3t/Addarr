@@ -13,6 +13,7 @@ from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import get_system_keyboard, get_main_menu_keyboard
 from src.services.health import health_service
 from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
 
 logger = get_logger("addarr.system")
 
@@ -117,12 +118,13 @@ class SystemHandler:
         try:
             await health_service.run_health_checks()
             status_text = self._build_status_text()
-            await query.message.edit_text(
-                status_text,
-                reply_markup=get_system_keyboard(),
-            )
             await query.answer(
                 self.translation.get_text("StatusRefreshed")
+            )
+            await edit_text_ignoring_unmodified(
+                query.message,
+                status_text,
+                reply_markup=get_system_keyboard(),
             )
         except Exception as e:
             logger.error(f"Error refreshing status: {e}")
