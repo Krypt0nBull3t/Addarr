@@ -250,7 +250,7 @@ async def test_handle_back(system_handler, make_update, make_context):
 async def test_handle_unknown_action(
     system_handler, make_update, make_context
 ):
-    """Unknown system action answers with error."""
+    """Unknown system action answers with error toast and re-renders status."""
     update = make_update(callback_data="system_foobar")
     context = make_context()
 
@@ -258,6 +258,24 @@ async def test_handle_unknown_action(
 
     update.callback_query.answer.assert_called_once()
     system_handler._mock_ts.get_text.assert_any_call("UnknownAction")
+    # Message must be edited so the loading animation clears
+    update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_unknown_action_logs_warning(
+    system_handler, make_update, make_context
+):
+    """Unknown system action logs a warning with the action name."""
+    update = make_update(callback_data="system_foobar")
+    context = make_context()
+
+    with patch("src.bot.handlers.system.logger") as mock_logger:
+        await system_handler.handle_system_action(update, context)
+
+    mock_logger.warning.assert_called_once()
+    warning_msg = mock_logger.warning.call_args[0][0]
+    assert "foobar" in warning_msg
 
 
 @pytest.mark.asyncio
