@@ -89,10 +89,6 @@ class BazarrHandler:
                 self.wanted_episodes, pattern=r"^bazarr_wanted_episodes$"
             ),
             CallbackQueryHandler(
-                self.search_subtitles_trigger,
-                pattern=r"^bazarr_sub_(movie|episode)_",
-            ),
-            CallbackQueryHandler(
                 self.cancel, pattern=r"^bazarr_cancel$"
             ),
         ]
@@ -219,47 +215,6 @@ class BazarrHandler:
             )
 
         await update.callback_query.edit_message_text("\n".join(lines))
-
-    async def search_subtitles_trigger(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        """Trigger subtitle search for a movie or episode."""
-        await update.callback_query.answer()
-        data = update.callback_query.data
-        t = self.translation
-
-        try:
-            # Format: bazarr_sub_movie_{id}_{lang}
-            # or: bazarr_sub_episode_{series_id}-{episode_id}_{lang}
-            parts = data.split("_", 4)
-            media_type = parts[2]  # "movie" or "episode"
-            raw_id = parts[3]
-            language = parts[4]
-        except (IndexError, ValueError):
-            await update.callback_query.edit_message_text(
-                t.get_text("BazarrSearchFailed")
-            )
-            return
-
-        try:
-            if media_type == "movie":
-                success = await self.service.search_movie_subtitles(
-                    int(raw_id), language
-                )
-            else:
-                # Episode IDs: "{series_id}-{episode_id}"
-                series_id, episode_id = raw_id.split("-", 1)
-                success = await self.service.search_episode_subtitles(
-                    int(series_id), int(episode_id), language
-                )
-        except (ValueError, IndexError):
-            await update.callback_query.edit_message_text(
-                t.get_text("BazarrSearchFailed")
-            )
-            return
-
-        key = "BazarrSearchTriggered" if success else "BazarrSearchFailed"
-        await update.callback_query.edit_message_text(t.get_text(key))
 
     async def cancel(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE

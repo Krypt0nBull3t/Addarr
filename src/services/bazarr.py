@@ -73,33 +73,3 @@ class BazarrService:
         if not self.client:
             return []
         return await self.client.get_wanted_episodes()
-
-    async def search_movie_subtitles(
-        self,
-        radarr_id: int,
-        language: str,
-        forced: bool = False,
-        hi: bool = False,
-    ) -> bool:
-        """Trigger subtitle search for a specific movie."""
-        if not self.client:
-            return False
-        return await self.client.search_movie_subtitles(
-            radarr_id, language, forced=forced, hi=hi
-        )
-
-    async def search_episode_subtitles(
-        self,
-        sonarr_series_id: int,
-        sonarr_episode_id: int,
-        language: str,
-        forced: bool = False,
-        hi: bool = False,
-    ) -> bool:
-        """Trigger subtitle search for a specific episode."""
-        if not self.client:
-            return False
-        return await self.client.search_episode_subtitles(
-            sonarr_series_id, sonarr_episode_id, language,
-            forced=forced, hi=hi
-        )

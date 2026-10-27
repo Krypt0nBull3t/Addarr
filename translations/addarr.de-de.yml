@@ -144,8 +144,6 @@ de-de:
   BazarrSearchPrompt: "🎭 Enter a movie title to search for subtitles:"
   BazarrNoResults: "❌ No subtitle results found."
   BazarrWantedEmpty: "✅ No media is missing subtitles."
-  BazarrSearchTriggered: "✅ Subtitle search triggered successfully!"
-  BazarrSearchFailed: "❌ Subtitle search failed."
   BazarrCancelled: "👍 Subtitle operation cancelled."
 
   # Help sections
