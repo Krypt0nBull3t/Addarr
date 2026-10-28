@@ -289,3 +289,25 @@ for dec in node.decorator_list:
 ```
 
 **Why**: Python decorators appear as `ast.Name` when bare (`@decorator`) but as `ast.Call` when parameterized (`@decorator()` or `@decorator(args)`). Missing either form causes false negatives in convention tests like `test_handler_entry_points_have_require_auth`.
+
+## Vacuous Loop Assertions
+
+**Don't** assert only inside a loop over matches:
+
+```python
+# BAD - passes when the regex finds no heredoc bodies at all
+for body in re.findall(r"<<'GRAPHIFY_PY'\n(.*?)\nGRAPHIFY_PY\n", text, re.S):
+    assert not re.search(PLACEHOLDER, body)
+```
+
+**Instead**, assert that the collection is not empty, then check each item:
+
+```python
+# GOOD - fails when the pattern stops matching
+bodies = skill_hits(r"<<'GRAPHIFY_PY'\n(.*?)\nGRAPHIFY_PY\n", re.S)
+assert bodies
+for path, body in bodies:
+    assert not re.search(PLACEHOLDER, body), path
+```
+
+**Why**: A loop over zero items asserts nothing. In issue #199, two RED tests passed before the fix for this reason: no heredocs existed yet, and a regex only matched the quoted form. Watch each new test fail before you trust it.

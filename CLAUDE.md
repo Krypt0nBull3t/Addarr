@@ -222,3 +222,4 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- `.claude/skills/graphify/` is a changed copy of graphify's own skill. After a graphify upgrade or `graphify install`, re-apply the changes: quoted interpreter, `<<'GRAPHIFY_PY'` heredocs, `SKILL_ARG_*` env vars, pinned installs. Update the version in `GRAPHIFY_VERSION` (`tests/test_architecture/test_agent_tooling.py`), `scripts/cloud-setup.sh`, this file and the skill. `test_agent_tooling.py` lists what to fix.
