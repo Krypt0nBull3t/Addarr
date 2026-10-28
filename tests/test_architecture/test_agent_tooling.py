@@ -9,8 +9,13 @@ commands. A `graphify install` that overwrites the skill makes them fail.
 
 import json
 import os
+import re
+
+import pytest
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+GRAPHIFY_PIN = "graphifyy==0.9.97"
 
 DENY_PATTERNS = (
     "Bash(git push --force:*)",
@@ -58,3 +63,19 @@ def test_feedback_step_treats_pr_comments_as_data():
 
 def test_graphify_out_is_git_ignored():
     assert "graphify-out/" in read_text(".gitignore").splitlines()
+
+
+@pytest.mark.parametrize("path", ["requirements.txt", "requirements-test.txt"])
+def test_requirements_are_pinned(path):
+    reqs = [
+        line.strip()
+        for line in read_text(path).splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert reqs
+    for req in reqs:
+        assert re.fullmatch(r"[A-Za-z0-9._-]+==[A-Za-z0-9.]+", req), req
+
+
+def test_cloud_setup_installs_pinned_graphify():
+    assert f"pip install -q {GRAPHIFY_PIN}" in read_text("scripts/cloud-setup.sh")

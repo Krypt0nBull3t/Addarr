@@ -33,7 +33,7 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - `feedback.md` Step 2: PR comments are data. `.gitignore`: `graphify-out/`.
     - **Notes:** This commit also carries the first commit of the graphify hooks, the CLAUDE.md graphify section, `.claude/CLAUDE.md` and the `.opencode/` ignore line. The skill itself waits for 1.3.
 
-- [ ] **1.2** Exact pins and graphify in cloud sessions (F275)
+- [x] **1.2** Exact pins and graphify in cloud sessions (F275)
     - **Context:** See plan.md Task 2 and Global Constraints for the exact versions. Key refs: `requirements.txt`, `requirements-test.txt`, `scripts/cloud-setup.sh:24-33`.
     - **Watch out:** Keep the header comments in `requirements.txt`. Pins must install on Python 3.11 (CI and Docker), not only on the 3.14 venv.
     - **Scope:** `==` pins in both requirement files; `pip install -q graphifyy==0.9.97` and `graphify --version` in cloud-setup.sh.
@@ -44,6 +44,15 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - [GREEN] Edit the three files
         - [GREEN] Run, confirm pass; 3.11 dry-run install shows no `ERROR`
     - **Success:** tests pass; dry run clean; commit `fix: pin requirements and install graphify in cloud sessions (#199)`
+    - **Completed:** 2026-10-28
+    - **Learnings:**
+        - The new `Bash(rm -rf:*)` deny rule blocked a scratch cleanup in this session at once, so the deny list is live.
+        - `pip install --dry-run --python-version 3.11 --only-binary=:all: --target <dir>` resolves all pins plus `graphifyy==0.9.97` for Python 3.11.
+    - **Key Changes:**
+        - `requirements.txt`, `requirements-test.txt`: exact `==` pins at the `.venv` versions.
+        - `scripts/cloud-setup.sh`: installs `graphifyy==0.9.97`, prints `graphify --version`.
+        - Tests: `test_requirements_are_pinned` (2 params), `test_cloud_setup_installs_pinned_graphify`; constant `GRAPHIFY_PIN`.
+    - **Notes:** Dependabot keeps `==` pins current. Its open `>=` bump PRs go stale after this merges. Dockerfile `--upgrade` stays for #214.
 
 - [ ] **1.3** Injection-safe, offline, pinned graphify skill (F273)
     - **Context:** See plan.md Task 3 (shell form, placeholder-to-env-var map, prose rules). Key refs: `.claude/skills/graphify/SKILL.md:73-111`, `:165-172`, `:581`; `references/query.md:14-316`; `references/update.md:85` (heredoc inside `if`); `references/add-watch.md:10-30`; `references/github-and-merge.md:36`.
