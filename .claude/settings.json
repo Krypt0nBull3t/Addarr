@@ -6,6 +6,13 @@
     "allow": [
       "mcp__qmd__query",
       "mcp__qmd__get"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(gh auth token:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(rm -rf:*)"
     ]
   },
   "hooks": {
@@ -29,6 +36,28 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-check.sh\"",
             "timeout": 30,
             "statusMessage": "Checking edited file..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard search",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard read",
+            "timeout": 10
           }
         ]
       }
