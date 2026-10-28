@@ -52,7 +52,7 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - `requirements.txt`, `requirements-test.txt`: exact `==` pins at the `.venv` versions.
         - `scripts/cloud-setup.sh`: installs `graphifyy==0.9.97`, prints `graphify --version`.
         - Tests: `test_requirements_are_pinned` (2 params), `test_cloud_setup_installs_pinned_graphify`; constant `GRAPHIFY_PIN`.
-    - **Notes:** Dependabot keeps `==` pins current. Its open `>=` bump PRs go stale after this merges. Dockerfile `--upgrade` stays for #214.
+    - **Notes:** CI's Compatibility matrix also runs Python 3.10, and `pytestarch==5.1.0` needs 3.11, so PR #229 CI failed there. Pinned `pytestarch==4.0.1` (needs 3.9 or newer); all pins now resolve on 3.10, 3.11 and 3.14, and the suite passes on 3.14. Check pins against the lowest matrix Python, not only the Docker one. Dependabot keeps `==` pins current. Its open `>=` bump PRs go stale after this merges. Dockerfile `--upgrade` stays for #214.
 
 - [x] **1.3** Injection-safe, offline, pinned graphify skill (F273)
     - **Context:** See plan.md Task 3 (shell form, placeholder-to-env-var map, prose rules). Key refs: `.claude/skills/graphify/SKILL.md:73-111`, `:165-172`, `:581`; `references/query.md:14-316`; `references/update.md:85` (heredoc inside `if`); `references/add-watch.md:10-30`; `references/github-and-merge.md:36`.
