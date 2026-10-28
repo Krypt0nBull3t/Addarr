@@ -54,7 +54,7 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - Tests: `test_requirements_are_pinned` (2 params), `test_cloud_setup_installs_pinned_graphify`; constant `GRAPHIFY_PIN`.
     - **Notes:** Dependabot keeps `==` pins current. Its open `>=` bump PRs go stale after this merges. Dockerfile `--upgrade` stays for #214.
 
-- [ ] **1.3** Injection-safe, offline, pinned graphify skill (F273)
+- [x] **1.3** Injection-safe, offline, pinned graphify skill (F273)
     - **Context:** See plan.md Task 3 (shell form, placeholder-to-env-var map, prose rules). Key refs: `.claude/skills/graphify/SKILL.md:73-111`, `:165-172`, `:581`; `references/query.md:14-316`; `references/update.md:85` (heredoc inside `if`); `references/add-watch.md:10-30`; `references/github-and-merge.md:36`.
     - **Watch out:** Heredoc terminator at column 0, also inside the `if`. Undo the `\"` escapes when a script leaves the double-quoted string. No converted body may read `sys.stdin`. `uv tool run --from graphifyy` is an install too: pin it. `extract_corpus_parallel(backend=...)` overrides `GRAPHIFY_BACKEND=none`, so the skill must never pass `backend=` unless the user asks.
     - **Scope:** 32 interpreter calls quoted and moved to `<<'GRAPHIFY_PY'` heredocs; values via `SKILL_ARG_*`; CLI args in single quotes; Gemini auto path removed; installs pinned; `GRAPHIFY_BACKEND=none` in settings.json `env`.
@@ -66,6 +66,19 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - [GREEN] Add `GRAPHIFY_BACKEND` to settings.json `env`
         - [GREEN] Smoke test: query vocab and BFS blocks with `SKILL_ARG_QUESTION='what'\''s $(id) `uname` handler'` run nothing; update.md `if` block does not hang; `graphify update .` exits 0
     - **Success:** 6 tests pass; smoke tests clean; commit `fix: make the graphify skill injection-safe, offline and pinned (#199)`
+    - **Completed:** 2026-10-28
+    - **Learnings:**
+        - Two RED tests first passed for the wrong reason (no heredocs yet; the `-c` check only matched the quoted form). Made them strict: `\.graphify_python\)"? -c` and `assert bodies`.
+        - The pristine skill ships inside the package: `graphify/skill.md` and `graphify/skills/claude/references/`. Re-running the converter on that copy gives a byte-identical result, so the only changes are the conversion and the hand edits.
+        - A heredoc inside an indented `if` works with the terminator at column 0.
+        - `extract_corpus_parallel(backend=...)` overrides `GRAPHIFY_BACKEND=none`, so the skill now forbids an explicit backend unless the user asks.
+        - Smoke: `SKILL_ARG_QUESTION` holding `'`, `"`, `$(touch ..)` and a backtick `touch` reached Python as text; no marker file appeared. The detect block works with a path that has spaces.
+    - **Key Changes:**
+        - 30 `-c "..."` blocks in `SKILL.md`, `references/{query,update,add-watch,transcribe}.md` now run `"$(cat graphify-out/.graphify_python)" - <<'GRAPHIFY_PY'` and read `SKILL_ARG_*` env vars.
+        - `-m` calls quote the interpreter; `graphify query/path/explain`, `save-result` args, `graphify clone` and `GRAPHIFY_WHISPER_PROMPT` use single quotes.
+        - Installs pinned to `graphifyy==0.9.97` (also `uv tool run --from` and `graphifyy[video]`). Gemini auto path removed.
+        - `.claude/settings.json` `env`: `GRAPHIFY_BACKEND=none`. 6 new tests.
+    - **Notes:** The converter lives only in the session scratchpad. After a graphify upgrade, re-apply by hand; the tests show what to fix. `graphify update .` still prints a Gemini tip from the CLI itself; that is graphify output, not the skill.
 
 - [ ] **1.4** Verify
     - **Context:** See plan.md Task 4 and the issue's acceptance criteria.

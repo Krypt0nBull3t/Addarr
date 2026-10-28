@@ -31,6 +31,32 @@ DATA_RULE = (
 )
 
 
+GRAPHIFY_SKILL_DIR = os.path.join(PROJECT_ROOT, ".claude", "skills", "graphify")
+
+# Values the agent pastes into graphify commands. They must reach Python
+# through SKILL_ARG_* env vars, never inside a script or double quotes.
+PLACEHOLDERS = (
+    "INPUT_PATH",
+    "SPEC_PATH",
+    "LABELS_DICT",
+    "IS_DIRECTED",
+    "QUESTION",
+    "ORIGINAL_QUESTION",
+    "MODE",
+    "BUDGET",
+    "URL",
+    "AUTHOR",
+    "CONTRIBUTOR",
+    "NODE_A",
+    "NODE_B",
+    "NODE_NAME",
+    "ANSWER",
+    "NODE1",
+    "NODE2",
+)
+PLACEHOLDER = r"\b(?:" + "|".join(PLACEHOLDERS) + r")\b"
+
+
 def read_text(rel_path):
     with open(os.path.join(PROJECT_ROOT, rel_path), encoding="utf-8") as f:
         return f.read()
@@ -38,6 +64,17 @@ def read_text(rel_path):
 
 def load_settings():
     return json.loads(read_text(".claude/settings.json"))
+
+
+def skill_files():
+    files = []
+    for dirpath, _, filenames in os.walk(GRAPHIFY_SKILL_DIR):
+        for name in filenames:
+            if name.endswith(".md"):
+                path = os.path.join(dirpath, name)
+                files.append((os.path.relpath(path, PROJECT_ROOT), read_text(path)))
+    assert files
+    return files
 
 
 def test_settings_deny_dangerous_commands():
@@ -79,3 +116,42 @@ def test_requirements_are_pinned(path):
 
 def test_cloud_setup_installs_pinned_graphify():
     assert f"pip install -q {GRAPHIFY_PIN}" in read_text("scripts/cloud-setup.sh")
+
+
+def test_graphify_skill_quotes_interpreter():
+    for path, text in skill_files():
+        assert not re.search(
+            r'(?<!")\$\(cat graphify-out/\.graphify_python\)', text
+        ), path
+
+
+def test_graphify_skill_has_no_inline_c_scripts():
+    for path, text in skill_files():
+        assert not re.search(r'\.graphify_python\)"? -c', text), path
+
+
+def test_graphify_scripts_read_values_from_env():
+    bodies = []
+    for path, text in skill_files():
+        for body in re.findall(r"<<'GRAPHIFY_PY'\n(.*?)\nGRAPHIFY_PY\n", text, re.S):
+            bodies.append(body)
+            assert not re.search(PLACEHOLDER, body), (path, body[:80])
+            assert "sys.stdin" not in body, path
+    assert bodies
+
+
+def test_graphify_skill_puts_no_value_in_double_quotes():
+    for path, text in skill_files():
+        for block in re.findall(r"```bash\n(.*?)```", text, re.S):
+            match = re.search(r'"[^"\n]*' + PLACEHOLDER + r'[^"\n]*"', block)
+            assert not match, (path, match and match.group(0))
+
+
+def test_graphify_installs_are_pinned():
+    for path, text in skill_files():
+        for token in re.findall(r"graphifyy\S*", text):
+            assert GRAPHIFY_PIN.split("==")[1] in token, (path, token)
+
+
+def test_graphify_llm_backend_is_off():
+    assert load_settings()["env"]["GRAPHIFY_BACKEND"] == "none"
