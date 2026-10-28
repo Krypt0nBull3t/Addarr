@@ -11,7 +11,9 @@ WORKDIR /app
 COPY . /app
 
 # Install and build Addarr Refresh requirements
-RUN	pip install --no-cache-dir -r requirements.txt --upgrade
+# pip first: the base image's pip has known advisories (fixed in 26.2)
+RUN	pip install --no-cache-dir --upgrade "pip>=26.2" \
+    && pip install --no-cache-dir -r requirements.txt --upgrade
 
 # Create non-root user, writable directories, and set ownership
 RUN addgroup -S addarr && adduser -S addarr -G addarr \
