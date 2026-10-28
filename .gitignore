@@ -22,3 +22,5 @@ htmlcov/
 user_preferences.json
 data/
 .aider*
+.opencode/
+graphify-out/
