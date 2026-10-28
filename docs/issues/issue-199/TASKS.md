@@ -80,7 +80,7 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - `.claude/settings.json` `env`: `GRAPHIFY_BACKEND=none`. 6 new tests.
     - **Notes:** The converter lives only in the session scratchpad. After a graphify upgrade, re-apply by hand; the tests show what to fix. `graphify update .` still prints a Gemini tip from the CLI itself; that is graphify output, not the skill.
 
-- [ ] **1.4** Verify
+- [x] **1.4** Verify
     - **Context:** See plan.md Task 4 and the issue's acceptance criteria.
     - **Watch out:** The PR body must carry the manual and out-of-scope notes from plan.md Task 4.
     - **Scope:** Full checks and acceptance greps.
@@ -89,3 +89,7 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - [GREEN] `pytest --tb=short -q`, `flake8 .`, `mypy src/`, `PYTHONIOENCODING=utf-8 python run.py --validate-i18n`
         - [GREEN] `git ls-files graphify-out` empty; no `graphify_python) -c` under `.claude/`
     - **Success:** all checks pass; acceptance criteria F271-F275 and the F270 feedback.md part met
+    - **Completed:** 2026-10-28
+    - **Learnings:** pytest 2137 passed; flake8 clean; mypy clean (72 files); i18n valid. `git check-ignore` matches all 4 graphify paths; `git ls-files graphify-out` is empty; no unquoted interpreter call under `.claude/`.
+    - **Key Changes:** none (verification only).
+    - **Notes:** F275 "hooks run without error in a cloud session" is checked locally only: `graphify hook-guard search` exits 0 in a directory with no graph. The first real cloud session confirms it.

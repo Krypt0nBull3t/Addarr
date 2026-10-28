@@ -55,6 +55,8 @@ PLACEHOLDERS = (
     "NODE2",
 )
 PLACEHOLDER = r"\b(?:" + "|".join(PLACEHOLDERS) + r")\b"
+# Shell examples also write values as <question>, <path>, ...
+SHELL_VALUE = r"(?:" + PLACEHOLDER + r"|<[a-z][^>\n]*>)"
 
 
 def read_text(rel_path):
@@ -143,7 +145,7 @@ def test_graphify_scripts_read_values_from_env():
 def test_graphify_skill_puts_no_value_in_double_quotes():
     for path, text in skill_files():
         for block in re.findall(r"```bash\n(.*?)```", text, re.S):
-            match = re.search(r'"[^"\n]*' + PLACEHOLDER + r'[^"\n]*"', block)
+            match = re.search(r'"[^"\n]*' + SHELL_VALUE + r'[^"\n]*"', block)
             assert not match, (path, match and match.group(0))
 
 
