@@ -348,20 +348,19 @@ class TestConfigureArrFeatures:
         assert result["seasonFolder"] is True
 
     @pytest.mark.asyncio
-    async def test_lidarr_has_album_folder_and_monitor(self):
-        """Lidarr features include albumFolder and monitorOption."""
+    async def test_lidarr_has_monitor_option_only(self):
+        """Lidarr features include monitorOption (albumFolder is not a Lidarr
+        field, so it is no longer prompted)."""
         with patch("src.setup.prompts.questionary") as mock_q:
-            # confirm: search=True, albumFolder=True
-            confirm_mock = MagicMock()
-            confirm_mock.ask_async = AsyncMock(side_effect=[True, True])
-            mock_q.confirm.return_value = confirm_mock
+            # confirm: search=True
+            mock_q.confirm.return_value = _mock_questionary_ask(True)
             # select: monitorOption
             mock_q.select.return_value = _mock_questionary_ask("all")
 
             result = await configure_arr_features("lidarr")
 
         assert result["search"] is True
-        assert result["albumFolder"] is True
+        assert "albumFolder" not in result
         assert result["monitorOption"] == "all"
 
 

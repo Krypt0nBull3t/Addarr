@@ -206,11 +206,18 @@ def parse_lidarr_event(payload: dict) -> WebhookEvent:
     title = _format_lidarr_title(artist_name, payload)
     message = payload.get("message", "")
 
-    # Extract quality
+    # Extract quality. Download/Upgrade payloads carry it on the imported
+    # track files as a plain string (WebhookTrackFile.Quality); older
+    # payloads use release.quality.
     quality = "Unknown"
     release = payload.get("release", {})
     if release.get("quality"):
         quality = release["quality"]
+    else:
+        track_files = payload.get("trackFiles", [])
+        if track_files and isinstance(track_files, list) \
+                and track_files[0].get("quality"):
+            quality = track_files[0]["quality"]
 
     details: Dict = {"quality": quality}
 
