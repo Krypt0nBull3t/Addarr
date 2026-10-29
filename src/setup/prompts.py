@@ -288,10 +288,6 @@ async def configure_arr_features(service: str) -> Dict[str, Any]:
             default=True,
         ).ask_async()
     elif service == "lidarr":
-        features["albumFolder"] = await questionary.confirm(
-            "Organize tracks in album folders?",
-            default=True,
-        ).ask_async()
         features["monitorOption"] = await questionary.select(
             "Select which releases to monitor:",
             choices=[

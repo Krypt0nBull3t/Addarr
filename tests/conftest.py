@@ -57,7 +57,7 @@ MOCK_CONFIG_DATA = {
         "enable": True,
         "server": {"addr": "localhost", "port": 8686, "path": "/", "ssl": False},
         "auth": {"apikey": "test-lidarr-key", "username": None, "password": None},
-        "features": {"search": True, "albumFolder": True, "monitorOption": "all"},
+        "features": {"search": True, "monitorOption": "all"},
         "paths": {"excludedRootFolders": [], "narrowRootFolderNames": True},
         "quality": {"excludedProfiles": []},
         "adminRestrictions": False,

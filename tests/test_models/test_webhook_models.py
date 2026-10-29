@@ -313,16 +313,58 @@ class TestParseLidarrEvent:
         assert event.event_type == WebhookEventType.DOWNLOAD
         assert event.is_upgrade is False
 
-    def test_upgrade_event(self):
+    def test_download_quality_from_track_files(self):
+        """Download/Upgrade payloads carry quality on trackFiles as a plain
+        string (WebhookTrackFile.Quality); when release.quality is absent,
+        the track file quality is used."""
         payload = {
             "eventType": "Download",
             "artist": {"name": "Pink Floyd"},
             "album": {"title": "The Dark Side of the Moon"},
+            "trackFiles": [
+                {
+                    "album": {"title": "The Dark Side of the Moon"},
+                    "quality": "FLAC",
+                }
+            ],
+            "isUpgrade": False,
+        }
+        event = parse_lidarr_event(payload)
+        assert event.event_type == WebhookEventType.DOWNLOAD
+        assert event.details["quality"] == "FLAC"
+
+    def test_upgrade_quality_from_track_files(self):
+        """Upgrades report quality from trackFiles[0].quality too."""
+        payload = {
+            "eventType": "Download",
+            "artist": {"name": "Pink Floyd"},
+            "album": {"title": "The Dark Side of the Moon"},
+            "trackFiles": [
+                {
+                    "album": {"title": "The Dark Side of the Moon"},
+                    "quality": "AAC",
+                }
+            ],
             "isUpgrade": True,
         }
         event = parse_lidarr_event(payload)
         assert event.event_type == WebhookEventType.UPGRADE
-        assert event.is_upgrade is True
+        assert event.details["quality"] == "AAC"
+
+    def test_release_quality_takes_precedence(self):
+        """When both are present, release.quality wins (older payloads)."""
+        payload = {
+            "eventType": "Download",
+            "artist": {"name": "Pink Floyd"},
+            "album": {"title": "The Dark Side of the Moon"},
+            "release": {"quality": "MP3"},
+            "trackFiles": [
+                {"album": {"title": "The Dark Side of the Moon"}, "quality": "FLAC"}
+            ],
+            "isUpgrade": False,
+        }
+        event = parse_lidarr_event(payload)
+        assert event.details["quality"] == "MP3"
 
     def test_download_failure_event(self):
         payload = {

@@ -61,7 +61,9 @@ class AlbumPickerMixin:
             # Fetch artist albums and show picker
             selected = context.user_data.get("selected_media")
             try:
-                albums = await self.media_service.get_artist_albums(selected["id"])
+                albums = await self.media_service.get_artist_albums(
+                    selected["id"], selected["title"]
+                )
                 context.user_data["artist_albums"] = albums
                 context.user_data["selected_albums"] = set()
                 context.user_data["future_albums"] = False

@@ -75,7 +75,6 @@ def get_default_service_config(service: str) -> Dict[str, Any]:
 
     if service == "lidarr":
         base_config["metadataProfileId"] = 1
-        base_config["features"]["albumFolder"] = True
         base_config["features"]["monitorOption"] = "all"
     elif service == "radarr":
         base_config["features"]["minimumAvailability"] = "announced"
