@@ -240,7 +240,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
     - **Key Changes:** `addarr-find-bugs/SKILL.md`: Addarr-specific description, caller's diff range or fetched `origin/development`, untrusted-diff rule, access gates, `@rate_limit`, webhook secret, SABnzbd `apikey` items, no "Bare `except:`". `task-writer/SKILL.md`: narrow description, compact mode and test-count table removed, Bazarr example framed as history, `<name>` placeholder paths, no line citations. `_PENDING` is empty.
     - **Notes:** Done by a subagent; reviewed both diffs.
 
-- [ ] **5.3** security-audit (K8, D10)
+- [x] **5.3** security-audit (K8, D10)
     - **Context:**
         - **Why:** Names a `chatMode` that does not exist; misses webhook, allowlist, SABnzbd key; false ruamel alarm; no secret-quoting rule.
         - **Architecture:** Markdown; plan.md Task 5.3.
@@ -251,6 +251,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] Search shows `chatMode.*public`
         - [GREEN] Apply plan.md Task 5.3
     - **Success:** no hit; architecture tests pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The two `is_admin` functions differ: `src/definitions.py` re-reads `config.yaml` and compares IDs as loaded (no string conversion; used by `webhooks.py` and `settings.py`), `src/utils/helpers.py` compares as strings (used by `@require_admin`). The skill now asks the audit to check they agree; fixing it is a separate issue.
+        - The webhook receiver answers 200 on malformed JSON, and the parsers read with `.get()` defaults and no schema.
+    - **Key Changes:** `security-audit/SKILL.md`: `chatMode` values `private_only`/`allow_all`, allowlist item, both `is_admin` named, SABnzbd `apikey` item, PyYAML/ruamel rule, callback size pointing to telegram-ux-review, Phase 5 webhook surface, never-quote/never-rotate output rule.
+    - **Notes:** Done by a subagent; reviewed the diff. The `is_admin` mismatch is a candidate for its own issue.
 
 - [x] **5.4** telegram-ux-review (K9, D11)
     - **Context:**
