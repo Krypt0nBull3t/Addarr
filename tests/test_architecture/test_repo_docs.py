@@ -49,8 +49,12 @@ def test_claude_md_paths_exist():
 def test_claude_md_names_every_ci_job():
     ci = section(read_text("CLAUDE.md"), "CI/CD")
     jobs = yaml.safe_load(read_text(".github/workflows/ci.yml"))["jobs"]
-    # Drop the matrix suffix: "Compatibility (${{ matrix.python-version }})".
-    names = [re.sub(r" \(.*\)$", "", job["name"]) for job in jobs.values()]
+    # A job without `name:` shows as its id on GitHub. Drop the matrix
+    # suffix: "Compatibility (${{ matrix.python-version }})".
+    names = [
+        re.sub(r" \(.*\)$", "", job.get("name", job_id))
+        for job_id, job in jobs.items()
+    ]
     assert [name for name in names if name not in ci] == []
 
 
