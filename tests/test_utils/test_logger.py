@@ -1,6 +1,7 @@
 """Tests for src/utils/logger.py"""
 
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from unittest.mock import patch, MagicMock
 
@@ -82,15 +83,23 @@ class TestColoredLogger:
 
 
 @pytest.fixture
-def fresh_loggers():
-    """Detach the shared handlers so setup runs again, then restore them."""
+def fresh_loggers(tmp_path):
+    """Detach the shared handlers so setup runs again, then restore them.
+
+    CONFIG_PATH points at a file inside tmp_path (absent at first), so a real
+    config.yaml cannot change the result. Yields ``write_config(text)``.
+    """
+    config_file = tmp_path / "config.yaml"
     saved = {}
     for name in ("addarr", "interactions"):
         lg = logging.getLogger(name)
         saved[name] = lg.handlers[:]
         lg.handlers.clear()
-    with patch("src.utils.logger._shared_handlers_ready", False):
-        yield
+    with (
+        patch("src.utils.logger._shared_handlers_ready", False),
+        patch("src.utils.logger.CONFIG_PATH", str(config_file)),
+    ):
+        yield lambda text: config_file.write_text(text, encoding="utf-8")
     for name, handlers in saved.items():
         lg = logging.getLogger(name)
         for h in lg.handlers:
@@ -169,6 +178,85 @@ class TestGetLoggerModule:
         assert len(handlers) == 1
         assert handlers[0].baseFilename == str(tmp_path / "interactions.log")
         assert handlers[0].maxBytes > 0
+
+
+class TestLoggingConfig:
+    """F026: logging.debug and logging.toConsole shape the shared handlers."""
+
+    @staticmethod
+    def _setup(tmp_path):
+        with (
+            patch("src.utils.logger.LOG_PATH", str(tmp_path / "addarr.log")),
+            patch("src.utils.logger.ERROR_LOG_PATH", str(tmp_path / "error.log")),
+        ):
+            get_logger("addarr.test_logging_config")
+        handlers = logging.getLogger("addarr").handlers
+        console = [h for h in handlers if type(h) is logging.StreamHandler]
+        files = {
+            os.path.basename(h.baseFilename): h
+            for h in handlers if isinstance(h, RotatingFileHandler)
+        }
+        return console, files
+
+    def test_debug_true_sets_debug_on_console_and_addarr_log(
+        self, tmp_path, fresh_loggers
+    ):
+        fresh_loggers("logging:\n  debug: true\n  toConsole: true\n")
+        console, files = self._setup(tmp_path)
+        assert console[0].level == logging.DEBUG
+        assert files["addarr.log"].level == logging.DEBUG
+        assert files["error.log"].level == logging.ERROR
+
+    def test_debug_false_keeps_info(self, tmp_path, fresh_loggers):
+        fresh_loggers("logging:\n  debug: false\n  toConsole: true\n")
+        console, files = self._setup(tmp_path)
+        assert console[0].level == logging.INFO
+        assert files["addarr.log"].level == logging.INFO
+
+    def test_to_console_false_has_no_console_handler(self, tmp_path, fresh_loggers):
+        fresh_loggers("logging:\n  toConsole: false\n")
+        console, files = self._setup(tmp_path)
+        assert console == []
+        assert "addarr.log" in files
+
+    def test_to_console_true_has_console_handler(self, tmp_path, fresh_loggers):
+        fresh_loggers("logging:\n  toConsole: true\n")
+        console, _ = self._setup(tmp_path)
+        assert len(console) == 1
+
+    def test_debug_with_console_off_still_logs_debug_to_file(
+        self, tmp_path, fresh_loggers
+    ):
+        fresh_loggers("logging:\n  debug: true\n  toConsole: false\n")
+        console, files = self._setup(tmp_path)
+        assert console == []
+        assert files["addarr.log"].level == logging.DEBUG
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            None,  # no config file
+            "key: [unclosed",  # invalid YAML
+            "- a\n- b\n",  # not a mapping
+            "logging: 5\n",  # section is not a mapping
+            "logging:\n  debug: 'true'\n  toConsole: 'false'\n",  # not bools
+            "",  # empty file
+        ],
+    )
+    def test_unreadable_or_invalid_config_uses_defaults(
+        self, tmp_path, fresh_loggers, text
+    ):
+        if text is not None:
+            fresh_loggers(text)
+        console, files = self._setup(tmp_path)
+        assert len(console) == 1
+        assert console[0].level == logging.INFO
+        assert files["addarr.log"].level == logging.INFO
+
+    def test_undecodable_config_uses_defaults(self, tmp_path, fresh_loggers):
+        (tmp_path / "config.yaml").write_bytes(b"\xff\xfe\x00bad")
+        console, _ = self._setup(tmp_path)
+        assert len(console) == 1
 
 
 class TestLogException:

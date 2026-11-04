@@ -10,11 +10,12 @@ a consistent logging interface across the application.
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
+import yaml
 from colorama import Fore, Style, init
 from logging.handlers import RotatingFileHandler
 
-from ..definitions import LOG_PATH, ERROR_LOG_PATH
+from ..definitions import CONFIG_PATH, LOG_PATH, ERROR_LOG_PATH
 
 # Initialize colorama
 init(autoreset=True)
@@ -76,6 +77,25 @@ def _rotating_file_handler(path: str, level: int, fmt: str = LOG_FORMAT) -> Rota
     return handler
 
 
+def _read_logging_settings() -> Tuple[bool, bool]:
+    """Read (debug, to_console) from the logging section of config.yaml.
+
+    A raw read, not Config: the setup wizard logs before a valid config
+    exists. A missing or unreadable file, or a value that is not a bool,
+    gives the defaults (debug off, console on).
+    """
+    data = None
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except (OSError, ValueError, yaml.YAMLError):
+        pass
+    section = data.get("logging") if isinstance(data, dict) else None
+    if not isinstance(section, dict):
+        section = {}
+    return section.get("debug") is True, section.get("toConsole") is not False
+
+
 def _setup_shared_handlers():
     """Attach the console and file handlers once, to the shared "addarr" logger.
 
@@ -93,11 +113,15 @@ def _setup_shared_handlers():
     # Don't propagate to root logger
     parent.propagate = False
 
+    debug, to_console = _read_logging_settings()
+    level = logging.DEBUG if debug else logging.INFO
+
     # Console handler with colors and a minimal format
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(ColoredFormatter('%(message)s'))
-    parent.addHandler(console_handler)
+    if to_console:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+        console_handler.setFormatter(ColoredFormatter('%(message)s'))
+        parent.addHandler(console_handler)
 
     # Separate logger so interactions do not repeat in addarr.log and the console
     interactions = logging.getLogger("interactions")
@@ -107,7 +131,7 @@ def _setup_shared_handlers():
     log_dir = os.path.dirname(LOG_PATH)
     try:
         Path(log_dir).mkdir(parents=True, exist_ok=True)
-        parent.addHandler(_rotating_file_handler(LOG_PATH, logging.INFO))
+        parent.addHandler(_rotating_file_handler(LOG_PATH, level))
         parent.addHandler(_rotating_file_handler(ERROR_LOG_PATH, logging.ERROR))
         interactions.addHandler(_rotating_file_handler(
             os.path.join(log_dir, "interactions.log"), logging.INFO, '%(message)s'

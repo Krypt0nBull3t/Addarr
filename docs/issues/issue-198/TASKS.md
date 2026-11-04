@@ -296,7 +296,7 @@ services, and the tests exercise the real module.
         - Tests: new `tests/test_utils/test_terminal.py`; non-interactive test and an `interactive` fixture in `test_error_handler.py`.
     - **Notes:** `main.py` needs no change: False leads to `raise`, so the container exits with a logged error and no EOFError.
 
-- [ ] **3.2** F026: logger reads debug and toConsole (plan task 11)
+- [x] **3.2** F026: logger reads debug and toConsole (plan task 11)
     - **Context:**
         - **Why:** `logging.debug` and `logging.toConsole` are never read, yet the splash shows "Debug
           Enabled".
@@ -316,6 +316,14 @@ services, and the tests exercise the real module.
           `logging: 5`)
         - [GREEN] Implement the helper and use it
     - **Success:** Logger tests pass; `scripts/test_runner.py utils --coverage` is 100% for `logger.py`.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `RotatingFileHandler` is a `StreamHandler`, so tests find the console handler with `type(h) is logging.StreamHandler`.
+        - `fresh_loggers` must point `CONFIG_PATH` at a tmp file, or a developer config.yaml changes the handlers under test.
+    - **Key Changes:**
+        - `src/utils/logger.py`: new `_read_logging_settings()`; `_setup_shared_handlers` skips the console handler when `toConsole` is false and sets DEBUG on the console and `addarr.log` handlers when `debug` is true.
+        - `tests/test_utils/test_logger.py`: `fresh_loggers` patches `CONFIG_PATH` and yields `write_config`; new class `TestLoggingConfig` (12 cases).
+    - **Notes:** With `toConsole: false` and an unwritable log folder, Python last-resort handler prints the warning to stderr. The splash reads the same `logging.debug` key, so it now agrees.
 
 ## Phase 4: Docs and gate (1 task)
 
