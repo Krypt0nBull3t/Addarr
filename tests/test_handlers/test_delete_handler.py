@@ -380,6 +380,25 @@ async def test_page_callback_refetches_list_for_its_own_type(
     assert keyboard[-2][0].callback_data == f"delete_page_{media_type}_1"
 
 
+@pytest.mark.asyncio
+async def test_repeated_page_tap_is_not_an_error(
+    delete_handler, make_update, make_context, unchanged_edit
+):
+    """A double tap on Next re-renders the same page: no MediaListError."""
+    items = [{"id": str(i), "title": f"Item {i}"} for i in range(25)]
+    delete_handler._mock_service.get_movies = AsyncMock(return_value=items)
+
+    update = make_update(callback_data="delete_page_movie_1")
+    calls = unchanged_edit(update.callback_query)
+
+    await delete_handler.handle_delete_selection(update, make_context())
+
+    assert calls == ["answer", "edit"]
+    assert "MediaListError" not in str(
+        delete_handler._mock_ts.get_text.call_args_list
+    )
+
+
 @pytest.mark.parametrize("callback_data", [
     "delete_page_movie_abc",
     "delete_page_movie",

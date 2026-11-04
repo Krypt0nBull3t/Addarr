@@ -15,6 +15,7 @@ from src.bot.handlers.auth import require_admin, require_auth
 from src.services.rate_limit import rate_limit
 from src.services.translation import TranslationService
 from src.bot.keyboards import get_delete_items_keyboard
+from src.utils.chat import edit_text_ignoring_unmodified
 
 logger = get_logger("addarr.delete")
 
@@ -153,7 +154,8 @@ class DeleteHandler:
                 )
                 return
 
-            await query.message.edit_text(
+            await edit_text_ignoring_unmodified(
+                query.message,
                 self.translation.get_text("Select"),
                 reply_markup=get_delete_items_keyboard(
                     items, media_type, page, self.translation
@@ -166,59 +168,14 @@ class DeleteHandler:
                 self.translation.get_text("MediaListError")
             )
 
-    async def _show_confirm(self, query, media_type: str, item_id: str):
-        """Ask the user to confirm deleting one item."""
+    async def _load_item(self, query, media_type: str, item_id: str):
+        """Fetch one item, or tell the user why not and return None."""
         methods = MEDIA_METHODS.get(media_type)
         if not methods:
             await query.message.edit_text(
                 self.translation.get_text("InvalidMediaType")
             )
-            return
-
-        try:
-            item = await getattr(self.media_service, methods[1])(item_id)
-
-            if not item:
-                await query.message.edit_text(
-                    self.translation.get_message("NoExist", subject=media_type)
-                )
-                return
-
-            keyboard = [
-                [
-                    InlineKeyboardButton(
-                        f"✅ {self.translation.get_text('Delete')}",
-                        callback_data=f"delete_confirm_{media_type}_{item_id}"
-                    ),
-                    InlineKeyboardButton(
-                        f"❌ {self.translation.get_text('StopDelete')}",
-                        callback_data="delete_cancel"
-                    )
-                ]
-            ]
-
-            await query.message.edit_text(
-                self.translation.get_message("ThisDelete",
-                                             subject=media_type,
-                                             title=item["title"]
-                                             ),
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-
-        except Exception as e:
-            logger.error(f"Error getting item details: {e}")
-            await query.message.edit_text(
-                self.translation.get_text("ItemDetailsError")
-            )
-
-    async def _delete(self, query, media_type: str, item_id: str):
-        """Delete one item. The item is fetched again for its title."""
-        methods = MEDIA_METHODS.get(media_type)
-        if not methods:
-            await query.message.edit_text(
-                self.translation.get_text("InvalidMediaType")
-            )
-            return
+            return None
 
         try:
             item = await getattr(self.media_service, methods[1])(item_id)
@@ -227,16 +184,51 @@ class DeleteHandler:
             await query.message.edit_text(
                 self.translation.get_text("ItemDetailsError")
             )
-            return
+            return None
 
         if not item:
             await query.message.edit_text(
                 self.translation.get_message("NoExist", subject=media_type)
             )
+        return item
+
+    async def _show_confirm(self, query, media_type: str, item_id: str):
+        """Ask the user to confirm deleting one item."""
+        item = await self._load_item(query, media_type, item_id)
+        if not item:
+            return
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    f"✅ {self.translation.get_text('Delete')}",
+                    callback_data=f"delete_confirm_{media_type}_{item_id}"
+                ),
+                InlineKeyboardButton(
+                    f"❌ {self.translation.get_text('StopDelete')}",
+                    callback_data="delete_cancel"
+                )
+            ]
+        ]
+
+        await query.message.edit_text(
+            self.translation.get_message("ThisDelete",
+                                         subject=media_type,
+                                         title=item["title"]
+                                         ),
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    async def _delete(self, query, media_type: str, item_id: str):
+        """Delete one item. The item is fetched again for its title."""
+        item = await self._load_item(query, media_type, item_id)
+        if not item:
             return
 
         try:
-            success = await getattr(self.media_service, methods[2])(item_id)
+            success = await getattr(
+                self.media_service, MEDIA_METHODS[media_type][2]
+            )(item_id)
         except Exception as e:
             logger.error(f"Error deleting item: {e}")
             success = False
