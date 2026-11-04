@@ -27,6 +27,7 @@ StandardError=append:%h/.addarr/logs/service.error.log
 NoNewPrivileges=true
 ProtectSystem=full
 ProtectHome=read-only
+ReadWritePaths=%h/.addarr
 PrivateTmp=true
 ProtectClock=true
 ProtectKernelTunables=true

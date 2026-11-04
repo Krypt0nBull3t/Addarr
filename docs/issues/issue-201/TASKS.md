@@ -13,7 +13,7 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
 - Why NOT the issue's `trap 'cleanup error' ERR` for F173: install.sh has no `set -e` and fails through `exit 1`, which never fires `ERR`.
 - README edits stay on the lines the issue lists plus `README.md:204` (issue #215 edits other README lines).
 
-- [ ] **1.1** F170: service can write to `~/.addarr`
+- [x] **1.1** F170: service can write to `~/.addarr`
     - **Context:**
         - **Why:** `ProtectHome=read-only` makes `~/.addarr` read-only, so /auth, settings, logs and preferences cannot be saved.
         - **Architecture:** Root-level test file in the style of `tests/test_dockerfile.py` (path constants from `os.path.dirname(os.path.dirname(__file__))`, a `read()` helper).
@@ -25,6 +25,13 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - [RED] Write `test_service_allows_writes_to_addarr_dir`: with `ProtectHome=read-only` the file also has `ReadWritePaths=%h/.addarr`
         - [GREEN] Add `ReadWritePaths=%h/.addarr` after `ProtectHome=read-only`
     - **Success:** The test fails before and passes after, flake8 clean
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The test passes by design when the unit has no `ProtectHome=read-only`, as the issue's criterion says ("when it has ... it also has"). It failed on the unfixed file, so it can catch the defect.
+    - **Key Changes:**
+        - Created `tests/test_install_scripts.py` with the path constants, `read()` and `TestServiceUnit`.
+        - Added `ReadWritePaths=%h/.addarr` to `scripts/addarr.service`.
+    - **Notes:** Later tasks add tests to this file. Keep `read()` and the path constants.
 
 - [ ] **1.2** F171: point URLs to `Krypt0nBull3t/Addarr`
     - **Context:**
