@@ -57,6 +57,8 @@ git add requirements-test.txt pytest.ini
 git commit -m "chore: add test dependencies and pytest config"
 ```
 
+**Completed:** 2026-02-15 (`4753d12`)
+
 ---
 
 ## Task 2: Root conftest.py — Mock Config & Telegram Factories
@@ -171,6 +173,8 @@ git add tests/__init__.py tests/conftest.py
 git commit -m "test: add root conftest with config mock and Telegram factories"
 ```
 
+**Completed:** 2026-02-15 (`41d8e0d`)
+
 ---
 
 ## Task 3: Test Fixtures — Sample Data & Config
@@ -223,6 +227,8 @@ git add tests/fixtures/
 git commit -m "test: add sample data and config fixture factories"
 ```
 
+**Completed:** 2026-02-15 (`e84c2e5`)
+
 ---
 
 ## Task 4: Smoke Test — Models
@@ -274,6 +280,8 @@ Expected: All tests pass. This validates the conftest.py config mock works.
 git add tests/test_models/
 git commit -m "test: add model tests (media, notification) — validates harness"
 ```
+
+**Completed:** 2026-02-15 (`605580d`)
 
 ---
 
@@ -332,6 +340,8 @@ Expected: All pass
 git add tests/test_bot/
 git commit -m "test: add bot structure tests (states, keyboards)"
 ```
+
+**Completed:** 2026-02-15 (`fa19957`)
 
 ---
 
@@ -445,6 +455,8 @@ git add tests/test_utils/
 git commit -m "test: add utility tests (chat, helpers, validation, error_handler, backup)"
 ```
 
+**Completed:** 2026-02-15 (`6afcb51`)
+
 ---
 
 ## Task 7: API Tests — conftest + Radarr
@@ -514,6 +526,8 @@ Expected: All pass
 git add tests/test_api/
 git commit -m "test: add API test infrastructure and Radarr client tests"
 ```
+
+**Completed:** 2026-02-15 (`7bb1b78`)
 
 ---
 
@@ -624,6 +638,8 @@ Expected: All pass
 git add tests/test_api/
 git commit -m "test: add API client tests (base, sonarr, lidarr, transmission, sabnzbd)"
 ```
+
+**Completed:** 2026-02-15 (`7bb1b78`)
 
 ---
 
@@ -758,6 +774,8 @@ git add tests/test_services/
 git commit -m "test: add service tests (media, health, translation, transmission, sabnzbd, notification, scheduler)"
 ```
 
+**Completed:** 2026-02-15 (`f925e8b`)
+
 ---
 
 ## Task 10: Handler Tests
@@ -887,6 +905,8 @@ git add tests/test_handlers/
 git commit -m "test: add handler tests (auth, media, start, help, delete, transmission, sabnzbd, status, system)"
 ```
 
+**Completed:** 2026-02-15 (`ae74f02`)
+
 ---
 
 ## Task 11: Config & Translation Validation Tests
@@ -941,6 +961,8 @@ Expected: All pass
 git add tests/test_config/ tests/test_utils/test_validate_translations.py
 git commit -m "test: add config and translation validation tests"
 ```
+
+**Completed:** 2026-02-15 (`0e3db27`, `6afcb51`)
 
 ---
 
@@ -1005,6 +1027,8 @@ git add .github/workflows/ci.yml CLAUDE.md
 git commit -m "ci: add pytest job to CI pipeline, update CLAUDE.md with test docs"
 ```
 
+**Completed:** 2026-02-15 (`5890147`)
+
 ---
 
 ## Task 13: Addarr Testing Skill
@@ -1060,6 +1084,8 @@ Hub document (~200 lines) with:
 git add .claude/skills/addarr-testing/
 git commit -m "feat: add addarr-testing skill with patterns, fixtures, anti-patterns docs"
 ```
+
+**Completed:** 2026-02-15 (`e8ded38`)
 
 ---
 
@@ -1121,6 +1147,8 @@ In section `## 1. Preflight`, add:
 git add .claude/skills/addarr-workflow/
 git commit -m "feat: integrate TDD into addarr-workflow skill"
 ```
+
+**Completed:** 2026-02-15 (`421e82b`)
 
 ---
 

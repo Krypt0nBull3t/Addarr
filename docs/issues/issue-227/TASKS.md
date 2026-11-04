@@ -54,7 +54,7 @@ All paths below are under `docs/issues/` unless they start with `src/` or `tests
         - Corrected `HANDLER_PATCHES` to `_make_handler_patches()` (`issue-80`) and `test_media.py` to `test_media_service.py` (`issue-105`), each with a "Corrected: was ..." note.
     - **Notes:** `e67a981` and `1498e48` both resolve with `git cat-file -t`.
 
-- [ ] **1.3** Resolve the unchecked boxes and add the missing `Completed` lines
+- [x] **1.3** Resolve the unchecked boxes and add the missing `Completed` lines
     - **Context:**
         - **Why:** `issue-123/TASKS.md:68-69` has unchecked `flake8` and `mypy` boxes. `feature/test-suite/tasks.md` has no `Completed` line on Tasks 1-14 (CLAUDE.md § Planning & Task Conventions requires one on done tasks).
         - **Architecture:** Tick a box only if its check passes. On `80943da` flake8 exits 0 and `mypy src/` reports no issues, so both boxes are ticked, with ` (re-checked 2026-11-04 on 80943da: passes)`. For test-suite, add `**Completed:** 2026-02-15 (<sha>)` at the end of each `## Task N` section, using the table in `plan.md` § Completed lines.
@@ -67,6 +67,13 @@ All paths below are under `docs/issues/` unless they start with `src/` or `tests
         - [GREEN] Tick the two boxes and add the note.
         - [GREEN] Add the 14 `Completed` lines.
     - **Success:** The first grep prints 0. The second prints 14. Each sha in the new lines resolves with `git cat-file -t`.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The test-suite sections end in a `---` line, so each `Completed` line sits just above that separator, below the task's existing content. Task 14's `## Development Approach` heading sits inside a code fence, so the script keys on the `---` line before the next `## Task` or `## Final Verification` heading.
+    - **Key Changes:**
+        - `issue-123/TASKS.md`: ticked the `flake8` and `mypy src/` boxes. Both commands pass on `80943da` under the suite lock.
+        - `feature/test-suite/tasks.md`: added 14 `**Completed:** 2026-02-15 (<sha>)` lines. All 13 distinct shas resolve with `git cat-file -t`.
+    - **Notes:** No Learnings, Key Changes or Notes were added to the test-suite tasks: git history does not prove them.
 
 - [ ] **1.4** Verify, and report the lines left alone
     - **Context:**
