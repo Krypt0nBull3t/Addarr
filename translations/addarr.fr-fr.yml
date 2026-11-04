@@ -271,8 +271,6 @@ fr-fr:
   CalendarDays7: "7 jours"
   CalendarDays14: "14 jours"
   CalendarDays30: "30 jours"
-  CalendarAddSuccess: "✅ Ajouté à la bibliothèque !"
-  CalendarAddFailed: "❌ Échec de l'ajout."
   CalendarAlreadyInLibrary: "Déjà dans votre bibliothèque."
 
   # Missing / Wanted media

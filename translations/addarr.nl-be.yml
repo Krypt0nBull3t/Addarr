@@ -271,8 +271,6 @@ nl-be:
   CalendarDays7: "7 dagen"
   CalendarDays14: "14 dagen"
   CalendarDays30: "30 dagen"
-  CalendarAddSuccess: "✅ Toegevoegd aan bibliotheek!"
-  CalendarAddFailed: "❌ Toevoegen mislukt."
   CalendarAlreadyInLibrary: "Staat al in je bibliotheek."
 
   # Missing / Wanted media

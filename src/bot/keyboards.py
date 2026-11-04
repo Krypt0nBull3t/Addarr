@@ -578,14 +578,6 @@ def get_calendar_items_keyboard(
                 f"{emoji} {title}", callback_data="cal_noop"
             )
         ])
-        # Add button for non-library items
-        if not item.get("in_library"):
-            keyboard.append([
-                InlineKeyboardButton(
-                    f"\u2795 {translation.get_text('Add')}",
-                    callback_data=f"cal_add_{item['type']}_{item['media_id']}"
-                )
-            ])
 
     # Pagination row
     if total_pages > 1:

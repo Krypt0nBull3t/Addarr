@@ -271,8 +271,6 @@ ru-ru:
   CalendarDays7: "7 дней"
   CalendarDays14: "14 дней"
   CalendarDays30: "30 дней"
-  CalendarAddSuccess: "✅ Добавлено в библиотеку!"
-  CalendarAddFailed: "❌ Не удалось добавить."
   CalendarAlreadyInLibrary: "Уже в вашей библиотеке."
 
   # Missing / Wanted media

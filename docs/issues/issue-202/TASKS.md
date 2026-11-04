@@ -76,7 +76,7 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
 
 **Goal:** No calendar add path exists that no button reaches, and the normal add flow uses `<service>.quality.defaultProfileId` and skips the picker.
 
-- [ ] **2.1** F073a: delete the calendar add path
+- [x] **2.1** F073a: delete the calendar add path
     - **Context:**
         - **Why:** The *arr calendars list only library items, so `in_library` is always true and no Add button shows. If reached, the path skips `adminRestrictions`.
         - **Architecture:** Delete the code, its translation keys and its tests. `/upcoming` stays read-only.
@@ -88,6 +88,16 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
         - [RED] `test_calendar_keyboard_has_no_add_button` and `test_cal_add_callback_is_ignored` (`cal_add_movie_1` reaches the `query.answer()` branch and adds nothing)
         - [GREEN] Delete the code and keys listed above; delete the `cal_add_*`, `_pick_profile_id` and Add-button tests; drop `in_library` from fixtures and asserts
     - **Success:** `pytest tests/test_handlers tests/test_bot tests/test_services tests/test_architecture` passes; `--validate-i18n` passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The Add-button test failed before the change only because the test items lost their `in_library` key: `not item.get("in_library")` was then true. The fix removes the whole branch, so the test holds for any item shape.
+        - `scripts/test_runner.py bot --coverage` reports `calendar.py` and part of `keyboards.py` as uncovered; those are covered by the handlers run, as the Execution Loop says.
+    - **Key Changes:**
+        - `calendar.py`: removed `_pick_profile_id`, `_handle_add`, the `cal_add_` branch and the `asyncio` and `config` imports. `cal_add_*` now reaches `query.answer()`.
+        - `keyboards.py`: removed the Add button from `get_calendar_items_keyboard`.
+        - `services/media.py`: removed `in_library` from both calendar normalizers.
+        - Removed `CalendarAddSuccess` and `CalendarAddFailed` from the template and 9 locales; updated `.claude/skills/addarr-handlers/references/callbacks.md`.
+    - **Notes:** `media_id` and `internal_id` stay in the calendar item schema (their tests stay); nothing reads `media_id` now. `UnknownMediaType` is untouched.
 
 - [ ] **2.2** F073b: default quality profile in the add flow
     - **Context:**
