@@ -116,7 +116,6 @@ LIDARR_SEARCH_RESULTS = [
         "genres": ["Rock", "Nu Metal"],
         "artistType": "Group",
         "status": "active",
-        "statistics": {"yearStart": 1996},
     },
     {
         "foreignArtistId": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
@@ -127,7 +126,6 @@ LIDARR_SEARCH_RESULTS = [
         "genres": ["Rock", "Alternative"],
         "artistType": "Group",
         "status": "active",
-        "statistics": {"yearStart": 1985},
     },
 ]
 

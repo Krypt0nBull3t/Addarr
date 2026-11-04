@@ -183,17 +183,10 @@ class MediaService:
                     "id": str(artist["foreignArtistId"]),
                     "title": artist["artistName"],
                     "overview": artist.get("overview", "No overview available"),
-                    "year": artist.get("statistics", {}).get("yearStart", "N/A"),
-                    "poster": (
-                        next((img["remoteUrl"] for img in artist.get("images", [])
-                             if img.get("coverType", "").lower() in ["poster", "cover"]), None)
-                        or (f"https://coverartarchive.org/release-group/{artist.get('foreignArtistId')}/front"
-                            if artist.get("foreignArtistId")
-                            else None)
-                        or (f"https://ws.audioscrobbler.com/2.0/?method=artist.getinfo"
-                            f"&artist={artist['artistName']}&format=json"
-                            if artist.get('artistName')
-                            else None)
+                    "poster": next(
+                        (img["remoteUrl"] for img in artist.get("images", [])
+                         if img.get("coverType", "").lower() in ["poster", "cover"]),
+                        None,
                     ),
                     "rating": artist.get("ratings", {}).get("value", "N/A"),
                     "genres": artist.get("genres", []),

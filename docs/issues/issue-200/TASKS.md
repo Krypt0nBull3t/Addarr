@@ -93,7 +93,7 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
     - **Key Changes:** Removed LidarrClient.get_album_tracks, the song loop in MediaService.search_music, LIDARR_ALBUM_WITH_TRACKS, SAMPLE_ALBUM_WITH_TRACKS, the get_album_tracks mock and 7 tests. test_result_ordering now asserts [artist, album].
     - **Notes:** Song branches in formatters.py and keyboards.py stay as dead code (decision A).
 
-- [ ] **1.5** F055: no fake year, no dead poster URLs
+- [x] **1.5** F055: no fake year, no dead poster URLs
     - **Context:**
         - **Why:** `statistics.yearStart` does not exist, so year is always N/A. The coverartarchive URL uses an artist MBID as a release-group id (404). The audioscrobbler branch is unreachable.
         - **Architecture:** Drop the `year` key from artist results; `formatters.py:120` prints a year only when the key exists. `poster` is the first poster or cover `remoteUrl`, else `None`.
@@ -107,6 +107,11 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
         - [RED] A formatter test: an artist result without `year` has no "Year" line
         - [GREEN] Edit the artist normalization in `search_music`
     - **Success:** `scripts/test_runner.py services handlers` pass with coverage
+
+    - **Completed:** 2026-11-04
+    - **Learnings:** The caption formatter already skips the year line when the key is missing, so the formatter test is a guard that passed before the change.
+    - **Key Changes:** search_music artist results lose the year key and the coverartarchive and audioscrobbler poster fallbacks; poster is the first poster or cover image URL or None. Removed yearStart from three fixtures.
+    - **Notes:** Artist cards show no year line.
 
 - [ ] **1.6** F056: webhook quality from `trackFiles`
     - **Context:**

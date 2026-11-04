@@ -64,7 +64,6 @@ SAMPLE_ARTIST = {
     "images": [],
     "ratings": {"value": 9.1},
     "genres": ["Alternative Rock"],
-    "statistics": {"yearStart": 1985},
     "artistType": "Group",
     "status": "active",
 }
@@ -1173,6 +1172,49 @@ class TestSearchMusicCombined:
         assert results[0]["id"] == "album:album-id-abc"
         assert results[0]["album_id"] == "album-id-abc"
         assert results[0]["artist_id"] == "some-mbid-123"
+
+    @pytest.mark.asyncio
+    async def test_artist_without_images_has_no_poster(self, mock_lidarr_client):
+        """No poster or cover image: poster is None, not a guessed URL."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+        mock_lidarr_client.search_albums.return_value = []
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["poster"] is None
+
+    @pytest.mark.asyncio
+    async def test_artist_uses_poster_image_url(self, mock_lidarr_client):
+        """A poster or cover image remoteUrl is used as the poster."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        artist = {
+            **SAMPLE_ARTIST,
+            "images": [
+                {"coverType": "fanart", "remoteUrl": "https://example.com/fan.jpg"},
+                {"coverType": "Poster", "remoteUrl": "https://example.com/p.jpg"},
+            ],
+        }
+        mock_lidarr_client.search.return_value = [artist]
+        mock_lidarr_client.search_albums.return_value = []
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["poster"] == "https://example.com/p.jpg"
+
+    @pytest.mark.asyncio
+    async def test_artist_result_has_no_year_key(self, mock_lidarr_client):
+        """Lidarr has no artist year field, so the result carries no year."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+        mock_lidarr_client.search_albums.return_value = []
+
+        results = await service.search_music("radiohead")
+
+        assert "year" not in results[0]
 
     @pytest.mark.asyncio
     async def test_albums_without_foreign_id_skipped(self, mock_lidarr_client):
