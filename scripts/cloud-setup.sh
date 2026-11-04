@@ -27,10 +27,15 @@ pip install -q -r requirements.txt
 echo "Installing test dependencies..."
 pip install -q -r requirements-test.txt
 
+# The graphify PreToolUse hooks in .claude/settings.json call this CLI.
+echo "Installing graphify..."
+pip install -q graphifyy==0.9.97
+
 echo "Verifying tools..."
 python -m flake8 --version
 python -m pytest --version
 python -m mypy --version
+graphify --version
 gh --version
 
 echo "Cloud environment ready."

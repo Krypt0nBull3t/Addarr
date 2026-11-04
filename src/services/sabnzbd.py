@@ -56,7 +56,7 @@ class SABnzbdService:
 
             cls._enabled = True
         except Exception as e:
-            logger.error(f"Failed to initialize SABnzbd: {e}")
+            logger.error(f"Failed to initialize SABnzbd: {type(e).__name__}")
             cls._enabled = False
 
     def is_enabled(self) -> bool:
@@ -88,7 +88,7 @@ class SABnzbdService:
                         return False
 
         except Exception as e:
-            logger.error(f"Error setting SABnzbd speed limit: {e}")
+            logger.error(f"Error setting SABnzbd speed limit: {type(e).__name__}")
             return False
 
     async def pause_queue(self) -> bool:
@@ -110,7 +110,7 @@ class SABnzbdService:
                         return False
 
         except Exception as e:
-            logger.error(f"Error pausing SABnzbd queue: {e}")
+            logger.error(f"Error pausing SABnzbd queue: {type(e).__name__}")
             return False
 
     async def resume_queue(self) -> bool:
@@ -132,7 +132,7 @@ class SABnzbdService:
                         return False
 
         except Exception as e:
-            logger.error(f"Error resuming SABnzbd queue: {e}")
+            logger.error(f"Error resuming SABnzbd queue: {type(e).__name__}")
             return False
 
     async def pause_item(self, nzo_id: str) -> bool:
@@ -156,7 +156,7 @@ class SABnzbdService:
                         return False
 
         except Exception as e:
-            logger.error(f"Error pausing SABnzbd item {nzo_id}: {e}")
+            logger.error(f"Error pausing SABnzbd item {nzo_id}: {type(e).__name__}")
             return False
 
     async def resume_item(self, nzo_id: str) -> bool:
@@ -180,7 +180,7 @@ class SABnzbdService:
                         return False
 
         except Exception as e:
-            logger.error(f"Error resuming SABnzbd item {nzo_id}: {e}")
+            logger.error(f"Error resuming SABnzbd item {nzo_id}: {type(e).__name__}")
             return False
 
     async def get_queue_details(self) -> Dict[str, Any]:
@@ -234,7 +234,7 @@ class SABnzbdService:
                         return empty
 
         except Exception as e:
-            logger.error(f"Error getting SABnzbd queue details: {e}")
+            logger.error(f"Error getting SABnzbd queue details: {type(e).__name__}")
             return empty
 
     async def get_history(self, limit: int = 10) -> Dict[str, Any]:
@@ -261,5 +261,5 @@ class SABnzbdService:
                         return {'total': 0, 'items': []}
 
         except Exception as e:
-            logger.error(f"Error getting SABnzbd history: {e}")
+            logger.error(f"Error getting SABnzbd history: {type(e).__name__}")
             return {'total': 0, 'items': []}
