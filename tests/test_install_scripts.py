@@ -149,18 +149,70 @@ class TestSudoHandling:
         assert "sudo $0" not in body
         assert "-ne 0" not in body
 
-    def test_check_sudo_sets_prefix_for_current_user(self):
-        """SUDO is empty for root and `sudo` for another user."""
+    def test_every_package_install_uses_sudo_prefix(self):
+        """No executed line calls sudo directly or runs a package manager without $SUDO."""
+        offenders = []
+        for number, line in enumerate(read(INSTALL_SH).splitlines(), start=1):
+            code = line.strip()
+            if code.startswith(("echo", "#")):
+                continue  # hints for the user, not commands
+            for match in re.finditer(r"(\$SUDO\s+|sudo\s+)?\b(apt-get|dnf|yum|pacman)\s+(update|install|-S)", code):
+                if match.group(1) != "$SUDO ":
+                    offenders.append(f"install.sh:{number}")
+        assert offenders == []
+
+    @pytest.mark.parametrize(
+        "uid, has_sudo, call_check, returncode, prefix",
+        [
+            (0, False, True, 0, "[]"),
+            (0, True, True, 0, "[]"),
+            (1000, True, True, 0, "[sudo]"),
+            (1000, False, False, 0, "[sudo]"),
+            (1000, False, True, 1, None),
+        ],
+        ids=[
+            "root-without-sudo",
+            "root-with-sudo",
+            "user-with-sudo",
+            "user-without-sudo-nothing-to-install",
+            "user-without-sudo-must-install",
+        ],
+    )
+    def test_sudo_prefix_by_user(self, uid, has_sudo, call_check, returncode, prefix):
+        """Root needs no prefix. A user needs sudo, and its absence fails only when a package must be installed."""
+        script_text = read(INSTALL_SH)
         script = (
             'RED=""; YELLOW=""; NC=""\n'
-            f'{function_text(read(INSTALL_SH), "check_sudo")}\n'
-            'check_sudo; echo "[$SUDO]"\n'
+            f"id() {{ echo {uid}; }}\n"
+            + ("sudo() { :; }\n" if has_sudo else "")
+            + f'{function_text(script_text, "set_sudo")}\n{function_text(script_text, "check_sudo")}\n'
+            + "set_sudo\n"
+            + ("check_sudo\n" if call_check else "")
+            + 'echo "[$SUDO]"\n'
         )
-        if os.geteuid() != 0 and shutil.which("sudo") is None:
-            pytest.skip("check_sudo exits here by design: nothing to prefix with")
-        result = subprocess.run(["bash", "-c", script], check=True, capture_output=True, text=True)
-        expected = "[]" if os.geteuid() == 0 else "[sudo]"
-        assert result.stdout.strip() == expected
+        # An empty PATH hides a real sudo, so only the stub above can satisfy `command -v sudo`.
+        result = subprocess.run(
+            [shutil.which("bash"), "-c", script], env={"PATH": ""}, capture_output=True, text=True
+        )
+        assert result.returncode == returncode
+        if prefix is not None:
+            assert result.stdout.strip() == prefix
+
+    @pytest.mark.parametrize(
+        "anchor",
+        ["Installing pip...", "check_git() {", "install_python() {"],
+    )
+    def test_check_sudo_runs_before_each_install_path(self, anchor):
+        """A path that installs a package calls check_sudo before its first $SUDO call."""
+        script = read(INSTALL_SH)
+        start = script.index(anchor)
+        first_install = script.index("$SUDO ", start)
+        assert "check_sudo" in script[start:first_install]
+
+    def test_venv_install_checks_sudo_in_each_installing_arm(self):
+        """The arch arm installs nothing, so only the three installing arms call check_sudo."""
+        body = function_text(read(INSTALL_SH), "install_python_venv")
+        assert body.count("check_sudo") == 3
 
 
 class TestReadmeInstallCommand:

@@ -142,3 +142,29 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - `README.md:75,259,264`: `| sudo bash` became `| bash`.
         - Added `TestReadmeInstallCommand.test_readme_has_no_sudo_pipe`.
     - **Notes:** `install.sh` now calls `sudo` itself for system packages (task 1.5), which is why the README no longer needs it. `scripts/install.sh` was never run in full (it installs software). Its trap, cleanup and clone logic was checked with a scratch-dir simulation (task 1.4).
+
+### Phase 2: Review feedback round 1 (1 task)
+
+- [x] **2.1** [must-fix] Use `$SUDO` for every package install in `install.sh` (from Krypt0nBull3t, two threads on `scripts/install.sh:104`)
+    - **Context:**
+        - **Why:** `$SUDO` is set only when `check_sudo` runs (`install_system_packages` path). 18 other package-manager calls (pip at `install.sh:274-279`, git at `:376-385`, Python at `:497-507`, venv at `:547-563`) still call `sudo` directly. Root without `sudo` fails there with `sudo: command not found`, for example on a missing `python3-venv`.
+        - **Architecture:** `set_sudo` sets `SUDO` once at the top (empty for root, `sudo` for others), with no exit. `check_sudo` keeps the missing-sudo error and runs only on the paths that install a package, so a non-root user without `sudo` fails only when a package must be installed. `$(id -u)` replaces `$EUID` so a test can stub root. Git clone, venv creation and `pip install -r requirements.txt` stay as the current user.
+        - **Key refs:** `scripts/install.sh:68-80` (`check_sudo`), `:167` (existing call), `tests/test_install_scripts.py` (`TestSudoHandling`)
+        - **Watch out:** Echo hint lines (`sudo apt install ...`) stay as they are. The arch venv arm installs nothing, so it must not call `check_sudo`. The other thread has the same text, so reply on both threads.
+    - **Scope:** Prefix 18 calls, split `set_sudo` from `check_sudo`, call `check_sudo` before each install path, tests
+    - **Touches:** `scripts/install.sh`, `tests/test_install_scripts.py`
+    - **Action items:**
+        - [RED] Write `test_every_package_install_uses_sudo_prefix`: every `apt-get`, `dnf`, `yum` or `pacman` install call in an executed line of install.sh carries `$SUDO `
+        - [RED] Write `test_sudo_prefix_by_user` (parametrized with a stubbed `id` and `PATH` empty): root without sudo gives `[]` and exit 0, root with sudo gives `[]`, user with sudo gives `[sudo]`, user without sudo and nothing to install gives `[sudo]` and exit 0 (`set_sudo` only), user without sudo at `check_sudo` exits 1
+        - [RED] Write `test_check_sudo_runs_before_each_install_path`: `check_sudo` comes before the first `$SUDO` after each install anchor, and three times in `install_python_venv`
+        - [GREEN] Implement `set_sudo`, rewrite `check_sudo`, prefix the calls, add the `check_sudo` calls
+    - **Success:** The tests fail before and pass after, `bash -n scripts/install.sh` passes, the preflight passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Before the fix, 10 of the new test cases failed (19 install lines without the prefix, no `set_sudo`, no `check_sudo` before the install paths). All 22 tests in the file pass now.
+        - Stubbing `id` as a bash function and running with an empty `PATH` fakes root and hides a real `sudo` without touching the host. `EUID` cannot be faked, so the script now reads `$(id -u)`.
+        - `SUDO` was set only inside `check_sudo`, so any path that skipped `check_sudo` used an empty prefix or a bare `sudo`. A value that several paths read belongs where the script loads.
+    - **Key Changes:**
+        - `scripts/install.sh`: `set_sudo` runs at load. `check_sudo` exits only for a non-root user without `sudo`. 18 package-manager calls in the pip, git, Python and venv paths use `$SUDO`. `check_sudo` runs before each path that installs a package (the arch venv arm installs nothing and has no call).
+        - `tests/test_install_scripts.py`: replaced `test_check_sudo_sets_prefix_for_current_user` with `test_every_package_install_uses_sudo_prefix`, `test_sudo_prefix_by_user` (5 cases), `test_check_sudo_runs_before_each_install_path` (3 cases) and `test_venv_install_checks_sudo_in_each_installing_arm`.
+    - **Notes:** Git clone, venv creation and `pip install -r requirements.txt` still run as the current user, without `sudo`. The echo hint lines keep their plain `sudo`.

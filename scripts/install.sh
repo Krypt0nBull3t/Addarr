@@ -65,14 +65,22 @@ MIN_PYTHON_VERSION="3.10"
 # Minimum required pip version
 MIN_PIP_VERSION="20.0" # Example minimum version
 
-# Set SUDO for package installs: empty for root, "sudo" for any other user.
-# The installer runs as the current user, so the install lands in that user's $HOME.
-check_sudo() {
-    if [ "$EUID" -eq 0 ]; then
+# SUDO is "" for root and "sudo" for any other user. It is set here, once, so every
+# package install below uses it. The installer runs as the current user, so the
+# install lands in that user's $HOME.
+set_sudo() {
+    if [ "$(id -u)" -eq 0 ]; then
         SUDO=""
-    elif command -v sudo >/dev/null 2>&1; then
-        SUDO="sudo"
     else
+        SUDO="sudo"
+    fi
+}
+set_sudo
+
+# Call this before a package install. A non-root user without sudo fails here,
+# so a host that already has every package never needs sudo.
+check_sudo() {
+    if [ -n "$SUDO" ] && ! command -v sudo >/dev/null 2>&1; then
         echo -e "${RED}System packages are missing and sudo is not installed.${NC}"
         echo -e "${YELLOW}Install the packages as root, or install sudo, then run this script again.${NC}"
         exit 1
@@ -270,13 +278,14 @@ if ! command -v pip >/dev/null 2>&1 && ! command -v pip3 >/dev/null 2>&1; then
     echo -e "${YELLOW}Installing pip...${NC}"
     case "$(uname -s)" in
     Linux*)
+        check_sudo
         if command -v apt-get >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y python3-pip
+            $SUDO apt-get update
+            $SUDO apt-get install -y python3-pip
         elif command -v dnf >/dev/null 2>&1; then
-            sudo dnf install -y python3-pip
+            $SUDO dnf install -y python3-pip
         elif command -v pacman >/dev/null 2>&1; then
-            sudo pacman -S python-pip
+            $SUDO pacman -S python-pip
         else
             echo -e "${RED}Unable to install pip. Please install pip manually.${NC}"
             exit 1
@@ -371,18 +380,19 @@ get_system_info() {
 check_git() {
     if ! command -v git >/dev/null 2>&1; then
         echo -e "${YELLOW}Git is not installed. Installing git...${NC}"
+        check_sudo
         case "$(get_system_info)" in
             "ubuntu"|"debian")
-                sudo apt-get update && sudo apt-get install -y git
+                $SUDO apt-get update && $SUDO apt-get install -y git
                 ;;
             "fedora")
-                sudo dnf install -y git
+                $SUDO dnf install -y git
                 ;;
             "rhel"|"centos")
-                sudo yum install -y git
+                $SUDO yum install -y git
                 ;;
             "arch")
-                sudo pacman -S --noconfirm git
+                $SUDO pacman -S --noconfirm git
                 ;;
             "macos")
                 if command -v brew >/dev/null 2>&1; then
@@ -491,20 +501,21 @@ get_pip_cmd() {
 # Install Python if needed
 install_python() {
     local system=$(get_system_info)
+    check_sudo
 
     case "$system" in
     "ubuntu" | "debian")
-        sudo apt-get update
-        sudo apt-get install -y python3 python3-pip
+        $SUDO apt-get update
+        $SUDO apt-get install -y python3 python3-pip
         ;;
     "fedora")
-        sudo dnf install -y python3 python3-pip
+        $SUDO dnf install -y python3 python3-pip
         ;;
     "rhel" | "centos")
-        sudo yum install -y python3 python3-pip
+        $SUDO yum install -y python3 python3-pip
         ;;
     "arch")
-        sudo pacman -S --noconfirm python python-pip
+        $SUDO pacman -S --noconfirm python python-pip
         ;;
     "macos")
         if ! command -v brew >/dev/null 2>&1; then
@@ -539,28 +550,31 @@ install_python_venv() {
     echo -e "${YELLOW}Installing python3-venv...${NC}"
     case "$(get_system_info)" in
         "ubuntu"|"debian")
+            check_sudo
             # Get Python version
             PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
             echo -e "${BLUE}Detected Python version: $PYTHON_VERSION${NC}"
             
             # Try version-specific package first
-            if ! sudo apt-get update && sudo apt-get install -y "python${PYTHON_VERSION}-venv"; then
+            if ! $SUDO apt-get update && $SUDO apt-get install -y "python${PYTHON_VERSION}-venv"; then
                 echo -e "${YELLOW}Failed to install python${PYTHON_VERSION}-venv, trying generic package...${NC}"
                 # Fallback to generic package
-                if ! sudo apt-get install -y python3-venv; then
+                if ! $SUDO apt-get install -y python3-venv; then
                     echo -e "${RED}Failed to install python3-venv${NC}"
                     return 1
                 fi
             fi
             ;;
         "fedora")
-            if ! sudo dnf install -y python3-venv; then
+            check_sudo
+            if ! $SUDO dnf install -y python3-venv; then
                 echo -e "${RED}Failed to install python3-venv${NC}"
                 return 1
             fi
             ;;
         "rhel"|"centos")
-            if ! sudo yum install -y python3-venv; then
+            check_sudo
+            if ! $SUDO yum install -y python3-venv; then
                 echo -e "${RED}Failed to install python3-venv${NC}"
                 return 1
             fi
