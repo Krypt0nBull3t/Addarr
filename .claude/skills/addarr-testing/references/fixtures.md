@@ -6,6 +6,7 @@
 - [API Fixtures](#api-fixtures)
 - [Service Fixtures](#service-fixtures)
 - [Handler Fixtures](#handler-fixtures)
+- [Integration Fixtures](#integration-fixtures)
 - [Sample Data](#sample-data)
 - [Config Fixtures](#config-fixtures)
 
@@ -18,10 +19,14 @@ Defined in `tests/conftest.py`. Available to all tests.
 ### reset_singletons (autouse)
 
 Resets all singleton `_instance` attributes after each test:
+- `TransmissionService._instance`, `SABnzbdService._instance`, `HealthService._instance` = None
+- `BazarrService._instance`, `._client` = None, `._config` = {}
 - `MediaService._instance`, `._radarr`, `._sonarr`, `._lidarr` = None
-- `HealthService._instance` = None
 - `TranslationService._instance` = None, `._translations` = {}
 - `NotificationService._instance` = None, `._bot` = None
+- `PreferencesService._instance` = None, `._preferences` = {}
+- `RateLimitService._instance` = None, `._records` = {}
+- `WebhookService._instance`, `._runner` = None, `._enabled`, `._running` = False
 - `AuthHandler._authenticated_users` = set()
 
 > **When adding new singletons:** Reset ALL relevant class vars, not just `_instance`. Singletons often store state beyond the instance reference (e.g., `_preferences = {}`, `_enabled = False`, `_client = None`). If you only reset `_instance = None`, the new instance may inherit stale class-level state from the previous test. Three separate issues (#67, #78, #81) independently discovered this — always audit what class vars your singleton sets during `__new__`/`_initialize` and reset them all.
@@ -111,6 +116,10 @@ Returns `MagicMock` with `.user_data` dict and `.bot` (`AsyncMock` with `.send_m
 
 Defined in `tests/test_api/conftest.py`. Available to `tests/test_api/` tests.
 
+### cleanup_sessions (autouse)
+
+After each test, closes the session of every `radarr_client`, `sonarr_client`, `lidarr_client` and `bazarr_client` the test used. `TransmissionClient` opens a new `aiohttp.ClientSession` per request, so it needs no cleanup.
+
 ### aio_mock
 
 Yields an `aioresponses()` context manager. Register expected URLs:
@@ -122,18 +131,23 @@ async def test_example(aio_mock, radarr_url):
 
 ### URL Fixtures
 
-- `radarr_url` — `"http://localhost:7878"`
-- `sonarr_url` — `"http://localhost:8989"`
-- `lidarr_url` — `"http://localhost:8686"`
-- `sabnzbd_url` — `"http://localhost:8090"`
+- `radarr_url`: `"http://localhost:7878"`
+- `sonarr_url`: `"http://localhost:8989"`
+- `lidarr_url`: `"http://localhost:8686"`
+- `bazarr_url`: `"http://localhost:6767"`
+- `transmission_url`: `"http://localhost:9091"`
 
 ### Client Fixtures
 
 Real client instances, safe because the config mock is active:
 
-- `radarr_client` — `RadarrClient()`
-- `sonarr_client` — `SonarrClient()`
-- `lidarr_client` — `LidarrClient()`
+- `radarr_client`: `RadarrClient()`
+- `sonarr_client`: `SonarrClient()`
+- `lidarr_client`: `LidarrClient()`
+- `bazarr_client`: `BazarrClient()`
+- `transmission_client`: `TransmissionClient()` (RPC URL `http://localhost:9091/transmission/rpc`)
+
+SABnzbd has no API client: `SABnzbdService` (`src/services/sabnzbd.py`) makes its own `aiohttp` calls, so there is no SABnzbd URL or client fixture.
 
 ---
 
@@ -149,6 +163,8 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `add_movie()` -> `(True, "Success")`
 - `get_root_folders()` -> `["/movies"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "HD-1080p"}]`
+- `get_calendar()`, `get_movies()`, `get_missing()`, `get_cutoff_unmet()`, `get_queue()`, `get_history()` -> `[]`
+- `get_movie_by_id()` -> `None`; `delete_movie()`, `search_command()` -> `True`
 
 ### mock_sonarr_client
 
@@ -159,6 +175,8 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `get_root_folders()` -> `["/tv"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "HD-1080p"}]`
 - `get_seasons()` -> `[]`
+- `get_calendar()`, `get_all_series()`, `get_missing()`, `get_cutoff_unmet()`, `get_queue()`, `get_history()` -> `[]`
+- `get_series_by_id()` -> `None`; `delete_series()`, `search_command()` -> `True`
 
 ### mock_lidarr_client
 
@@ -169,6 +187,8 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `get_root_folders()` -> `["/music"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "Lossless"}]`
 - `get_metadata_profiles()` -> `[{"id": 1, "name": "Standard"}]`
+- `search_albums()`, `get_album_tracks()`, `get_artists()`, `get_queue()` -> `[]`
+- `get_artist_by_id()` -> `None`; `delete_artist()` -> `True`
 
 ---
 
@@ -182,11 +202,40 @@ Defined in `tests/test_handlers/conftest.py`. Available to `tests/test_handlers/
 
 ### mock_translation_service
 
-`MagicMock` where `get_text` returns the key (identity function). `current_language = "en-us"`.
+`MagicMock` where `get_text` and `get_message` return the key (identity function). `current_language = "en-us"`.
 
 ### mock_notification_service
 
 `MagicMock` with `AsyncMock` methods: `notify_admin`.
+
+### admin_mode
+
+Sets `security.enableAdmin` on and `admins` to `[1]` on `mock_config`, and patches `src.utils.helpers.config` with it. The default test user 12345 is then no admin. Yields the config.
+
+### Handler factory fixtures
+
+Each one patches the handler's services where the handler module imports them, sets `AuthHandler._authenticated_users = {12345}`, and yields the handler. The mocks are on `_mock_*` attributes (for example `handler._mock_service`, `handler._mock_ts`).
+
+`media_handler`, `delete_handler`, `start_handler`, `transmission_handler`, `sabnzbd_handler`, `help_handler`, `library_handler`, `system_handler`, `settings_handler`, `calendar_handler`, `missing_handler`, `queue_handler`, `history_handler`, `preferences_handler`
+
+`auth_handler` is the exception: it starts with no authenticated users.
+
+### unchanged_edit
+
+Returns a function that wires a callback query so `query.message.edit_text` raises `BadRequest("Message is not modified: ...")`, as Telegram does for identical text. The function returns a list that records the order of `answer()` and `edit_text()` calls.
+
+---
+
+## Integration Fixtures
+
+Defined in `tests/integration/conftest.py`. Available to `tests/integration/` tests.
+
+- `harness`: a `BotHarness` around a fully wired `Application`; user 12345 is authenticated
+- `downloads_harness`: like `harness`, with `TransmissionService.is_enabled` and `SABnzbdService.is_enabled` patched to `True`
+- `bazarr_harness`: a harness with `BazarrService.is_enabled` patched to `True` and `bazarr.enable` set in config
+- `aio_mock`: `aioresponses()` context manager
+
+`tests/integration/api_mocks.py` has `RadarrMockHelper`, `SonarrMockHelper` and `LidarrMockHelper` for registering *arr responses.
 
 ---
 
@@ -204,13 +253,32 @@ from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
 | `RADARR_MOVIE_DETAIL` | dict | Single movie with full fields |
 | `RADARR_ROOT_FOLDERS` | list[dict] | Root folder paths with free space |
 | `RADARR_QUALITY_PROFILES` | list[dict] | Quality profiles with id and name |
-| `RADARR_SYSTEM_STATUS` | dict | Version and app name |
+| `RADARR_DISK_SPACE` | list[dict] | Disk space entries with path, label, free and total space |
 | `SONARR_SEARCH_RESULTS` | list[dict] | 2 series results |
 | `SONARR_SERIES_DETAIL` | dict | Single series with seasons |
+| `SONARR_SEASONS` | list[dict] | 3 seasons with seasonNumber and monitored |
 | `LIDARR_SEARCH_RESULTS` | list[dict] | 2 artist results |
+| `LIDARR_ALBUM_SEARCH_RESULTS` | list[dict] | 2 album results |
+| `LIDARR_ALBUM_WITH_TRACKS` | dict | Single album with media (tracks) |
 | `LIDARR_METADATA_PROFILES` | list[dict] | Metadata profiles |
+| `RADARR_LIBRARY_MOVIES` / `SONARR_LIBRARY_SERIES` / `LIDARR_LIBRARY_ARTISTS` | list[dict] | 2 library items each |
+| `RADARR_LIBRARY_MOVIE_DETAIL` / `SONARR_LIBRARY_SERIES_DETAIL` / `LIDARR_LIBRARY_ARTIST_DETAIL` | dict | Single library item with overview and path |
+| `RADARR_WANTED_MISSING` / `RADARR_WANTED_CUTOFF` / `SONARR_WANTED_MISSING` / `SONARR_WANTED_CUTOFF` | dict | Paged wanted response (page, pageSize, totalRecords, records) |
+| `RADARR_QUEUE` / `SONARR_QUEUE` / `LIDARR_QUEUE` | dict | Paged queue response |
+| `RADARR_HISTORY` / `SONARR_HISTORY` | dict | Paged history response |
 | `TRANSMISSION_SESSION` | dict | Session response with alt-speed-enabled |
 | `SABNZBD_QUEUE` | dict | Queue response with slots and speed |
+| `SABNZBD_VERSION` | dict | Version response |
+| `SABNZBD_HISTORY` | dict | History response |
+
+Bazarr responses are in `tests/fixtures/bazarr_data.py` (`from tests.fixtures.bazarr_data import BAZARR_MOVIES`):
+
+| Constant | Type | Description |
+|----------|------|-------------|
+| `BAZARR_SYSTEM_STATUS` | dict | `data` with Bazarr, Sonarr and Radarr versions |
+| `BAZARR_MOVIES` | dict | `data` list of movies with subtitles, and `total` |
+| `BAZARR_MOVIES_WANTED` | dict | `data` list of movies missing subtitles, and `total` |
+| `BAZARR_EPISODES_WANTED` | dict | `data` list of episodes missing subtitles, and `total` |
 
 ---
 

@@ -136,7 +136,7 @@ and `src/main.py`, with Python and pytest examples only.
     - **Key Changes:** Deleted the `superpowers:test-driven-development` rows that replaced `python-testing-pro` in `addarr-workflow/SKILL.md` (Execution Loop and Skill Reference tables), the duplicate entry in `commands/addarr-setup.md`, the wrongly described entry in `commands/next.md`, and the doubled mention in `addarr-testing/SKILL.md:8`.
     - **Notes:** The remaining `superpowers:test-driven-development` references all existed before #221.
 
-- [ ] **2.2** [must-fix] F290: Document the fixtures and constants that exist in `tests/`
+- [x] **2.2** [must-fix] F290: Document the fixtures and constants that exist in `tests/`
     - **Context:**
         - **Why:** F290 grep still matches `sabnzbd_url` and `RADARR_SYSTEM_STATUS`; Transmission and Bazarr fixtures are missing
         - **Architecture:** Fixture tables mirror `tests/conftest.py`, `tests/test_api/conftest.py`, `tests/test_services/conftest.py`, `tests/test_handlers/conftest.py`, `tests/integration/conftest.py` and `tests/fixtures/`
@@ -148,6 +148,15 @@ and `src/main.py`, with Python and pytest examples only.
         - [RED] Run the F290 grep; it matches fixtures.md:128 and :207
         - [GREEN] Remove the two names; add the real fixtures and constants
     - **Success:** F290 grep returns nothing; every name in the tables exists in `tests/`
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - SABnzbd has no API client in `src/api/`; `SABnzbdService` calls `aiohttp` itself, so there is no SABnzbd URL or client fixture.
+        - `cleanup_sessions` closes only the BaseApiClient-based clients; `TransmissionClient` opens a session per request.
+        - The fixture tables had drifted well beyond the two names the audit flagged: `reset_singletons` and the mock client lists were incomplete.
+    - **Key Changes:**
+        - `fixtures.md`: removed `sabnzbd_url` and `RADARR_SYSTEM_STATUS`; added `cleanup_sessions`, `bazarr_url`/`bazarr_client`, `transmission_url`/`transmission_client`, `admin_mode`, the handler factory fixtures, `unchanged_edit`, an Integration Fixtures section, every `sample_data.py` constant and the `bazarr_data.py` constants; completed the `reset_singletons` and mock client method lists.
+        - `SKILL.md`: API, handler, integration and sample data cheat-sheet tables match the conftest files.
+    - **Notes:** Checked with a script that every backticked name in the addarr-testing docs occurs in `tests/` or `src/`.
 
 - [ ] **2.3** [must-fix] F293: Rebuild the callback prefix registry from the `pattern=` arguments
     - **Context:**
