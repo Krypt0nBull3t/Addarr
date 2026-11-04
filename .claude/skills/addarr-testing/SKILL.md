@@ -5,7 +5,7 @@ description: Use when writing tests for Addarr, setting up test fixtures, or deb
 
 # Addarr Testing
 
-Addarr-specific test patterns. For generic pytest knowledge (TDD cycle, fixtures, parametrization, mocking, async), see @superpowers:test-driven-development.
+Addarr-specific test patterns.
 
 ## Quick Start
 
@@ -89,15 +89,14 @@ Use `make_update()` factories, patch service constructors before handler init. S
 End-to-end flow tests using `BotHarness` with real PTB handler chains. See [references/patterns.md#integration-tests](references/patterns.md#integration-tests).
 
 ### Config
-Override values via `MockConfig._set()`. See [references/patterns.md#config](references/patterns.md#config).
+Override values with `mock_config._set()`, then patch `config` where the module under test imports it: `patch("src.<module>.config", mock_config)`. See [references/patterns.md#config](references/patterns.md#config).
 
 ## Common Mistakes
 
-1. Importing `src.*` at module level in test files — triggers real `Config()`. See [references/anti-patterns.md#module-level-imports](references/anti-patterns.md#module-level-imports).
-2. Forgetting singleton reset — tests randomly fail based on execution order. See [references/anti-patterns.md#singleton-leakage](references/anti-patterns.md#singleton-leakage).
-3. Testing translated text literally — mock returns keys, not translated strings. See [references/anti-patterns.md#translation-testing](references/anti-patterns.md#translation-testing).
-4. Creating real `aiohttp.ClientSession` in tests — use `aioresponses` instead. See [references/anti-patterns.md#real-sessions](references/anti-patterns.md#real-sessions).
-5. Patching services at source module instead of import site — patch where the handler imports it. See [references/anti-patterns.md#patching-at-wrong-import-path](references/anti-patterns.md#patching-at-wrong-import-path).
-6. Not cleaning up reusable sessions between tests — mock state leaks. See [references/anti-patterns.md#not-cleaning-up-sessions-between-tests](references/anti-patterns.md#not-cleaning-up-sessions-between-tests).
-7. Registering too few mocks for retry scenarios — need N+1 mocks for N retries. See [references/anti-patterns.md#insufficient-retry-mocks](references/anti-patterns.md#insufficient-retry-mocks).
-8. Mocking `sys.exit` without stopping execution — use `pytest.raises(SystemExit)`. See [references/anti-patterns.md#mocking-sysexit-without-stopping-execution](references/anti-patterns.md#mocking-sysexit-without-stopping-execution).
+1. Forgetting singleton reset — tests randomly fail based on execution order. See [references/anti-patterns.md#singleton-leakage](references/anti-patterns.md#singleton-leakage).
+2. Testing translated text literally — mock returns keys, not translated strings. See [references/anti-patterns.md#translation-testing](references/anti-patterns.md#translation-testing).
+3. Creating real `aiohttp.ClientSession` in tests — use `aioresponses` instead. See [references/anti-patterns.md#real-sessions](references/anti-patterns.md#real-sessions).
+4. Patching services at source module instead of import site — patch where the handler imports it. See [references/anti-patterns.md#patching-at-wrong-import-path](references/anti-patterns.md#patching-at-wrong-import-path).
+5. Leaving an ad-hoc client's session open — the autouse `cleanup_sessions` fixture closes only the client fixtures; close a client you create yourself in `finally`. See [references/anti-patterns.md#not-cleaning-up-sessions-between-tests](references/anti-patterns.md#not-cleaning-up-sessions-between-tests).
+6. Registering too few mocks for retry scenarios — need N+1 mocks for N retries. See [references/anti-patterns.md#insufficient-retry-mocks](references/anti-patterns.md#insufficient-retry-mocks).
+7. Mocking `sys.exit` without stopping execution — use `pytest.raises(SystemExit)`. See [references/anti-patterns.md#mocking-sysexit-without-stopping-execution](references/anti-patterns.md#mocking-sysexit-without-stopping-execution).

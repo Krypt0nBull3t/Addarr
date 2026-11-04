@@ -33,7 +33,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
 
 **Goal:** K1-K3: every example and claim in the three pattern skills matches the code.
 
-- [ ] **2.1** addarr-testing (K1)
+- [x] **2.1** addarr-testing (K1)
     - **Context:**
         - **Why:** Wrong patch targets, retry claims, nonexistent methods and a false "module-level imports race" rule.
         - **Architecture:** Markdown only; items listed in plan.md Task 2.1.
@@ -45,6 +45,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] `test_skill_names_exist[addarr-testing]` without xfail fails
         - [GREEN] Fix every plan.md Task 2.1 item; remove `addarr-testing` from `_PENDING`
     - **Success:** test passes; architecture tests green
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Every rewritten code block was run once as a scratch test against the real conftests (15 pass), which found more wrong examples than the audit: the add_movie lookup mock returned a dict (the code needs a list), the handler example never authenticated user 12345, and a missing aioresponses mock is returned as `"Connection error: ..."`, not raised.
+        - The unclosed-session symptom is aiohttp's `Unclosed client session` warning, not leaked mock state (each test gets a fresh client).
+    - **Key Changes:** addarr-testing `SKILL.md` (mistake 1 removed, list renumbered, config override with `patch`), `references/patterns.md` (patch targets `src.bot.handlers.media.handler.*`, timeout not retried, `_make_request("system/status")`, `check_service_health(url, api_key, service_type)`, add_movie mock URL, "API Client vs Service Layer" section deleted, disabled-service example), `references/anti-patterns.md` (module-level import section deleted, config via `_set` + `patch` like `admin_mode`, `cleanup_sessions`).
+    - **Notes:** Done by a subagent from the plan's item list; reviewed SKILL.md diff. `sabnzbd_handler` mentions left for task 3.1.
 
 - [x] **2.2** addarr-services (K2)
     - **Context:**
