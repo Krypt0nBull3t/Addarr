@@ -306,7 +306,7 @@ class HealthService:
                         return False, f"Error: HTTP {response.status}"
 
         except Exception as e:
-            return False, f"Error: {str(e)}"
+            return False, f"Error: {type(e).__name__}"
 
     async def check_bazarr_health(self, url: str, api_key: str) -> Tuple[bool, str]:
         """Check Bazarr connection via system status endpoint."""
