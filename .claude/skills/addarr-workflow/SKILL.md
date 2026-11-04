@@ -36,10 +36,14 @@ Self-driving development workflow for Addarr. Entry point: `/addarr [argument]`
 
 ## Auto-Detection (no argument)
 
+Every flow reads the issue number `<N>` from the branch name `<prefix>/<N>-<slug>`;
+"TASKS.md" means `docs/issues/issue-<N>/TASKS.md`. On a feature branch without `<N>`, `ASK` for it.
+
 Check the current state and recommend a flow:
 
-1. Check if an open PR exists for current branch with unresolved review comments -> recommend **feedback**
-2. Check `TASKS.md` exists with pending tasks -> recommend **continue**
+1. Check if an open PR exists for current branch with unresolved review threads
+   (GraphQL query in references/feedback.md step 2) -> recommend **feedback**
+2. Check `docs/issues/issue-<N>/TASKS.md` exists with pending tasks -> recommend **continue**
 3. Check if branch has committed work not yet in a PR -> recommend **pr**
 4. Otherwise -> recommend **new**
 
@@ -70,7 +74,7 @@ Step 6  RUN     Flow: create-pr (automatic transition)
 ## Flow: continue
 
 ```
-Step 1  RUN     Read TASKS.md, find next pending task
+Step 1  RUN     Read docs/issues/issue-<N>/TASKS.md, find next pending task
 Step 2  RUN     Execute tasks (see "Execution Loop" below)
 Step 3  RUN     Flow: create-pr (when all tasks complete)
 ```

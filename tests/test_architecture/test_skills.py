@@ -333,7 +333,7 @@ def test_checker_accepts_real_names_and_placeholders():
 
 # Skills that issue #237 has not corrected yet. Strict xfail: a fixed skill
 # that is still listed fails the run, so the fix must remove it here.
-_PENDING = {"addarr-handlers", "addarr-services", "addarr-testing", "addarr-workflow", "task-writer"}
+_PENDING = {"addarr-handlers", "addarr-services", "addarr-testing", "task-writer"}
 
 
 @pytest.mark.parametrize("skill", [

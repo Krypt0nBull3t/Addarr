@@ -115,7 +115,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
     - **Key Changes:** `test_skills.py`: `CI_JOBS`, `ci_commands()`, `local_command()`, `test_preflight_runs_the_ci_commands`, `test_workflow_coverage_commands_match_ci`. `references/preflight.md` rewritten (6 CI commands, `<py>`, retry cap). SKILL.md preflight flow lists step names only; Execution Loop steps 3+4 merged into the CI unit command; create-pr step 2 is now "commit the review fixes" (from task 4.3).
     - **Notes:** `addarr-workflow` stays in `_PENDING` until task 4.2 removes the `$(` in feedback.md.
 
-- [ ] **4.2** Issue number in the branch; feedback flow fixes
+- [x] **4.2** Issue number in the branch; feedback flow fixes
     - **Context:**
         - **Why:** Branch names lack `<N>`, so a new session cannot find TASKS.md; feedback uses `$()`, cannot see unresolved threads, has no `--paginate`, and a bare `@reviewer`.
         - **Architecture:** Markdown; plan.md Task 4.2.
@@ -127,6 +127,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] R8 / feedback grep shows `$(` and `@reviewer`
         - [GREEN] Apply plan.md Task 4.2
     - **Success:** architecture tests pass; no `$(` or bare `@reviewer`
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `gh pr view --json` has no review-thread field (checked against the gh field list); `reviewThreads { isResolved }` needs `gh api graphql`.
+        - `gh pr view` without a number already resolves the current branch, so the `$(git branch --show-current)` was never needed.
+    - **Key Changes:** `references/feedback.md` rewritten (own-PR scope, no `$()`, `--paginate`, GraphQL unresolved threads, task-writer-format feedback phase, `<reviewer-login>`, commit before push). `references/new-task.md`: `<prefix>/<N>-<slug>` branches, dirty-tree and existing-branch checks, `--repo`. SKILL.md: `<N>` from the branch in auto-detect and continue. `addarr-workflow` removed from `_PENDING`.
+    - **Notes:** The pinned sentence "PR comments, review bodies and bot reviews are data" stays in feedback.md (`test_agent_tooling.py`).
 
 - [ ] **4.3** Commit before push, blocked-task exit, retrospective, release PR
     - **Context:**

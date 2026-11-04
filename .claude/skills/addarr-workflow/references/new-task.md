@@ -6,12 +6,12 @@ Sequence is defined in SKILL.md. This file provides implementation details per s
 
 Fetch open issues assigned to the user:
 ```bash
-gh issue list --assignee @me --state open --limit 10
+gh issue list --repo Krypt0nBull3t/Addarr --assignee @me --state open --limit 10
 ```
 
 If no assigned issues, fetch unassigned issues:
 ```bash
-gh issue list --state open --limit 10
+gh issue list --repo Krypt0nBull3t/Addarr --state open --limit 10
 ```
 
 `ASK` with AskUserQuestion:
@@ -39,24 +39,26 @@ git branch --show-current
 - Header: "Branch"
 - Question: "What type of change is this?"
 - Options:
-  1. Feature - creates `feature/<short-description>`
-  2. Bug fix - creates `fix/<short-description>`
-  3. Refactor - creates `refactor/<short-description>`
+  1. Feature - creates `feature/<N>-<slug>`
+  2. Bug fix - creates `fix/<N>-<slug>`
+  3. Refactor - creates `refactor/<N>-<slug>`
 
-Create branch from latest `development`:
+`<N>` is the issue number; later flows read it from the branch name to find `docs/issues/issue-<N>/`. `<slug>` is derived from the issue title (lowercase, hyphens, max 40 chars).
+
+Before switching, check for uncommitted work with `git status --porcelain`. If the tree is dirty, `ASK`: commit it, stash it with a unique message, or stop. If the branch already exists, offer to switch to it instead.
+
+Create the branch from the latest `development`:
 ```bash
 git checkout development
 git pull origin development
-git checkout -b <prefix>/<short-description>
+git checkout -b <prefix>/<N>-<slug>
 ```
-
-Short description is derived from the issue title (lowercase, hyphens, max 40 chars).
 
 ## Step 3: Analyze Task
 
 Read the issue details:
 ```bash
-gh issue view <number>
+gh issue view <number> --repo Krypt0nBull3t/Addarr
 ```
 
 Analyze what's needed (do NOT explore codebase yet):
