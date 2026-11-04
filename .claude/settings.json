@@ -1,11 +1,29 @@
 {
   "env": {
-    "PYTHONIOENCODING": "utf-8"
+    "PYTHONIOENCODING": "utf-8",
+    "GRAPHIFY_BACKEND": "none"
   },
   "permissions": {
     "allow": [
       "mcp__qmd__query",
       "mcp__qmd__get"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git *push* --force*)",
+      "Bash(git *push* -f*)",
+      "Bash(git *push* +*)",
+      "Bash(gh auth token:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -Rf:*)",
+      "Bash(rm -fR:*)",
+      "Bash(rm -r -f:*)",
+      "Bash(rm -f -r:*)",
+      "Bash(rm -R -f:*)",
+      "Bash(rm -f -R:*)"
     ]
   },
   "hooks": {
@@ -29,6 +47,28 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-check.sh\"",
             "timeout": 30,
             "statusMessage": "Checking edited file..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v graphify >/dev/null 2>&1 || exit 0; graphify hook-guard search",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v graphify >/dev/null 2>&1 || exit 0; graphify hook-guard read",
+            "timeout": 10
           }
         ]
       }
