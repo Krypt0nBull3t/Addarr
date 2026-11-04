@@ -248,7 +248,7 @@ from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
 ```
 
 | Constant | Type | Description |
-|----------|------|-------------|
+|-|-|-|
 | `RADARR_SEARCH_RESULTS` | list[dict] | 2 movie results with tmdbId, title, year, etc. |
 | `RADARR_MOVIE_DETAIL` | dict | Single movie with full fields |
 | `RADARR_ROOT_FOLDERS` | list[dict] | Root folder paths with free space |
@@ -274,7 +274,7 @@ from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
 Bazarr responses are in `tests/fixtures/bazarr_data.py` (`from tests.fixtures.bazarr_data import BAZARR_MOVIES`):
 
 | Constant | Type | Description |
-|----------|------|-------------|
+|-|-|-|
 | `BAZARR_SYSTEM_STATUS` | dict | `data` with Bazarr, Sonarr and Radarr versions |
 | `BAZARR_MOVIES` | dict | `data` list of movies with subtitles, and `total` |
 | `BAZARR_MOVIES_WANTED` | dict | `data` list of movies missing subtitles, and `total` |

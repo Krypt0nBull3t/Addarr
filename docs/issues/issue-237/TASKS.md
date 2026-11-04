@@ -199,7 +199,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
     - **Key Changes:** SKILL.md new-task steps 2b, 3b (ASK/INVOKE, `design.md`), 4 (plan content only, no handoff). `references/new-task.md`: "Other" requires an issue, untrusted issue-text line, writing-plans and brainstorming overrides. addarr-testing `references/patterns.md`: stronger State Transitions example.
     - **Notes:** none
 
-- [ ] **4.5** Merge addarr-code-simplifier into create-pr (K6); agents; SKILL.md hygiene
+- [x] **4.5** Merge addarr-code-simplifier into create-pr (K6); agents; SKILL.md hygiene
     - **Context:**
         - **Why:** The skill names nonexistent `superpowers:simplify`; agents are not wired in; description too narrow; duplicated tables.
         - **Architecture:** Markdown; delete one skill; plan.md Task 4.5.
@@ -211,6 +211,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] Search shows `superpowers:simplify` and `addarr-code-simplifier` references
         - [GREEN] Apply plan.md Task 4.5
     - **Success:** no references left; architecture tests pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The only Addarr-specific part of addarr-code-simplifier was its targets table and "What NOT to simplify" list; the rest restated the built-in `/simplify`.
+        - Padded table separators were left in three addarr-testing files after the subagent pass; fixed here with the other `|-|-|` cleanups.
+    - **Key Changes:** `.claude/skills/addarr-code-simplifier/` deleted. `references/create-pr.md` step 1: find-bugs, built-in `/simplify` with the merged Addarr rules (no `is_enabled()` row; `send_response` named), `arr-api-contract-checker` when `src/api/` or `tests/test_api/` changes. SKILL.md: wider description, fork-PR line (`/review-external-pr`), one skill table (with the agent and release-readiness), completion-metadata pointer to CLAUDE.md, superpowers stop-and-report rule, `|-|-|`. addarr-testing tables use `|-|-|`.
+    - **Notes:** `/review-external-pr` arrives with #236 (PR #239).
 
 ### Phase 5: Other skills (4 tasks)
 

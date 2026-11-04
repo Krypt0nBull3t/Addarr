@@ -23,7 +23,7 @@ pytest -x                                   # Stop on first failure
 ### Root Fixtures (`tests/conftest.py`)
 
 | Fixture | Scope | Description |
-|---------|-------|-------------|
+|-|-|-|
 | `reset_singletons` | function, autouse | Resets all singleton `_instance` attrs after each test |
 | `mock_config` | function | Fresh `MockConfig()` for tests needing config overrides |
 | `mock_translation` | function, autouse | Patches `TranslationService._load_translations` |
@@ -36,7 +36,7 @@ pytest -x                                   # Stop on first failure
 ### API Fixtures (`tests/test_api/conftest.py`)
 
 | Fixture | Description |
-|---------|-------------|
+|-|-|
 | `cleanup_sessions` | autouse: closes the radarr/sonarr/lidarr/bazarr client sessions after each test |
 | `aio_mock` | `aioresponses()` context manager for mocking async HTTP |
 | `radarr_url` / `sonarr_url` / `lidarr_url` / `bazarr_url` / `transmission_url` | Base URL strings |
@@ -45,7 +45,7 @@ pytest -x                                   # Stop on first failure
 ### Service Fixtures (`tests/test_services/conftest.py`)
 
 | Fixture | Description |
-|---------|-------------|
+|-|-|
 | `mock_radarr_client` | `AsyncMock` with all RadarrClient methods pre-configured |
 | `mock_sonarr_client` | `AsyncMock` with all SonarrClient methods |
 | `mock_lidarr_client` | `AsyncMock` with all LidarrClient methods |
@@ -53,7 +53,7 @@ pytest -x                                   # Stop on first failure
 ### Handler Fixtures (`tests/test_handlers/conftest.py`)
 
 | Fixture | Description |
-|---------|-------------|
+|-|-|
 | `mock_media_service` | `MagicMock` with async methods for all media operations |
 | `mock_translation_service` | `MagicMock` where `get_text` and `get_message` return the key |
 | `mock_notification_service` | `MagicMock` with async `notify_admin` |
@@ -64,7 +64,7 @@ pytest -x                                   # Stop on first failure
 ### Integration Fixtures (`tests/integration/conftest.py`)
 
 | Fixture | Description |
-|---------|-------------|
+|-|-|
 | `harness` | `BotHarness` with the full handler chain |
 | `downloads_harness` | `harness` with Transmission and SABnzbd enabled |
 | `bazarr_harness` | `harness` with Bazarr enabled |

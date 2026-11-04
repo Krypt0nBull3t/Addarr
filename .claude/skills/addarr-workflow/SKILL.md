@@ -1,6 +1,6 @@
 ---
 name: addarr-workflow
-description: "Development workflow for Addarr. Invoke via /addarr command. Triggers: /addarr, /addarr new, /addarr continue, /addarr feedback, /addarr pr, /addarr check, /addarr release. Handles: issue selection, branch management, planning, PR creation, preflight validation, PR feedback, release readiness."
+description: "Development workflow for Addarr. Invoke via /addarr command. Triggers: /addarr, /addarr new, /addarr continue, /addarr feedback, /addarr pr, /addarr check, /addarr release, and requests such as pick up an Addarr issue, continue the tasks for this branch, open a PR for this branch, address review comments on my Addarr PR, run the CI checks locally. Handles: issue selection, branch management, planning, PR creation, preflight validation, PR feedback, release readiness."
 ---
 
 # Addarr Workflow
@@ -25,14 +25,16 @@ Self-driving development workflow for Addarr. Entry point: `/addarr [argument]`
 ## Entry Points
 
 | Command | Flow | Description |
-|---------|------|-------------|
+|-|-|-|
 | `/addarr` | auto-detect | Detect state and select flow |
 | `/addarr new` | new-task | Issue -> branch -> analyze -> plan -> execute |
 | `/addarr continue` | continue | Resume from TASKS.md |
-| `/addarr feedback` | feedback | Process PR review comments |
+| `/addarr feedback` | feedback | Process review comments on your own PR |
 | `/addarr pr` | create-pr | Review -> preflight -> push -> create PR |
-| `/addarr check` | preflight | Run CI checks locally |
+| `/addarr check` | preflight | Run the core CI checks locally |
 | `/addarr release` | release | Full readiness check for development -> main merge |
+
+A PR from a fork or an outside contributor is not this workflow: use `/review-external-pr` (agent `untrusted-pr-reviewer`). Never check out its code.
 
 ## Auto-Detection (no argument)
 
@@ -104,11 +106,10 @@ Step 7  RUN     Commit any fixes (only your files), push, report what was addres
 See [references/create-pr.md](references/create-pr.md) for detailed instructions.
 
 ```
-Step 1  RUN     Pre-PR review — three complementary passes over the branch diff.
-                INVOKE @addarr-find-bugs          (security, bugs, async errors, Telegram misuse)
-                INVOKE @simplify           (code reuse, quality patterns, efficiency)
-                INVOKE @addarr-code-simplifier    (structural clarity, nesting, readability)
-                See create-pr.md for execution details.
+Step 1  RUN     Pre-PR review of the branch diff (details in create-pr.md):
+                INVOKE @addarr-find-bugs   (security, bugs, async errors, Telegram misuse)
+                INVOKE built-in /simplify  (reuse, quality, efficiency; Addarr rules in create-pr.md)
+                Agent arr-api-contract-checker, only when src/api/ or tests/test_api/ changed
                 Fix any actionable findings. Skip pre-existing patterns.
 Step 2  RUN     Commit the review fixes (see create-pr.md)
 Step 3  RUN     Flow: preflight (all checks must pass; it runs the CI coverage gate)
@@ -164,21 +165,8 @@ Step 5  RUN     If confirmed: write the body (merged PRs since main, the
 
 This is the core implementation cycle used by new-task, continue, and feedback flows.
 
-**Skill loading — on-demand, not per-loop:**
-
-All skills below are mandatory (must be available) but should only be invoked
-when the specific trigger condition is met — never routinely per task or per behavior.
-
-| Skill | Trigger (invoke ONLY when this happens) |
-|-------|----------------------------------------|
-| `@addarr-handlers` | First task in a session that touches `src/bot/handlers/` |
-| `@addarr-services` | First task in a session that touches `src/services/` or `src/api/` |
-| `@addarr-testing` | First task in a session that touches `tests/` |
-| `@superpowers:test-driven-development` | First task in a session (load once to set TDD discipline) |
-| `@superpowers:verification-before-completion` | After all tasks complete, before create-pr flow |
-| `@addarr-code-simplifier` | Refactor step produces overly complex code; also invoked in create-pr step 1 |
-| `@superpowers:systematic-debugging` | Unexpected test failure (not a simple typo/import fix) |
-
+**Skill loading: on demand, not per loop.** Invoke a skill only when its trigger in the
+Skill Reference table below applies, never routinely per task or per behavior.
 "First task in a session" means: invoke once when the trigger first applies, then
 the skill stays in context for the rest of the session. Do not re-invoke.
 
@@ -212,11 +200,8 @@ the skill stays in context for the rest of the session. Do not re-invoke.
            d  Run: <py> -m pytest tests/integration --tb=short -v (all pass).
            Skip this step for non-handler changes (API clients, services,
            config, utils, translations, CI, docs).
-5  RUN     Mark task complete in TASKS.md and add completion metadata:
-           - **Completed:** <date>
-           - **Learnings:** Key insights, gotchas, or discoveries from this task
-           - **Key Changes:** Summary of what was modified (files, functions, patterns)
-           - **Notes:** Any important context for future work
+5  RUN     Mark task complete in TASKS.md and add the completion metadata
+           that CLAUDE.md § Planning & Task Conventions requires (example below)
 6  RUN     Commit changes for this task: a restore point in case later tasks
            break something. Stage only the task's files and TASKS.md (never
            `git add .`), check `git diff --cached`, and reference the task
@@ -244,20 +229,22 @@ the skill stays in context for the rest of the session. Do not re-invoke.
 
 ## Skill Reference
 
-All skills are mandatory but invoke only when the trigger applies — see the
-on-demand table in the Execution Loop section for per-task triggers.
+All skills below must be available; invoke each only when its trigger applies.
+The `superpowers:*` skills come from the superpowers plugin. If one is not
+available, stop and report it instead of continuing without it.
 
-| Skill | Role | Invoked when |
-|-------|------|-------------|
+| Skill or agent | Role | Invoked when |
+|-|-|-|
 | `@superpowers:brainstorming` | Explore design space | new-task step 3b (only if complex/ambiguous) |
-| `@superpowers:writing-plans` | Guide plan creation | new-task step 4 |
+| `@superpowers:writing-plans` | Plan content | new-task step 4 |
 | `@task-writer` | Convert plan into sized TASKS.md | new-task step 4c |
-| `@superpowers:test-driven-development` | Enforce TDD discipline | First task in session (once) |
+| `@superpowers:test-driven-development` | Enforce TDD discipline | First task in a session (once) |
+| `@superpowers:systematic-debugging` | Investigate unexpected failures | Unexpected test failure (not a simple typo/import fix) |
 | `@superpowers:verification-before-completion` | Final verification gate | After all tasks, before create-pr |
-| `@superpowers:systematic-debugging` | Investigate unexpected failures | On unexpected test failure |
-| `@addarr-handlers` | Handler class patterns | First handler task in session |
-| `@addarr-services` | Service/API client patterns | First service/API task in session |
-| `@addarr-testing` | Project-specific test patterns | First test-writing task in session |
-| `@addarr-code-simplifier` | Structural clarity & readability | create-pr step 1; also during execution when refactor produces complex code |
+| `@addarr-handlers` | Handler class patterns | First task in a session that touches `src/bot/handlers/` |
+| `@addarr-services` | Service/API client patterns | First task in a session that touches `src/services/` or `src/api/` |
+| `@addarr-testing` | Project-specific test patterns | First task in a session that touches `tests/` |
 | `@addarr-find-bugs` | Security, bugs, async/Telegram errors | create-pr step 1 |
-| `@simplify` | Code reuse, quality patterns, efficiency | create-pr step 1 |
+| built-in `/simplify` | Reuse, quality, efficiency | create-pr step 1 |
+| agent `arr-api-contract-checker` | *arr requests against the Servarr OpenAPI specs | create-pr step 1, when `src/api/` or `tests/test_api/` changed |
+| `@release-readiness` | Release gate | release step 2 |

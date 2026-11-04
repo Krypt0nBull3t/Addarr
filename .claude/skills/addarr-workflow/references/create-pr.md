@@ -1,57 +1,41 @@
-# Create PR Flow — Step Details
+# Create PR Flow: Step Details
 
 Sequence is defined in SKILL.md. This file provides implementation details per step.
 
-## Step 1: Pre-PR Review (Three Complementary Passes)
+## Step 1: Pre-PR Review
 
-Invoke three skills in sequence. Each covers a distinct concern with no overlap.
-Fix actionable findings after each pass. Skip pre-existing codebase patterns.
+Review the branch diff (`git diff origin/development...HEAD` after `git fetch origin development`). Fix actionable findings. Skip pre-existing codebase patterns.
 
 ### Pass 1: INVOKE @addarr-find-bugs
 
-**Scope:** Security, correctness, and runtime errors.
+Security, correctness and runtime errors: auth gates, async bugs, Telegram API misuse, config access, secrets in logs. Read-only; it reports and you fix.
 
-Covers (and ONLY covers):
-- Injection (command, template, URL parameter)
-- Authentication/authorization bypass (missing `@require_auth`, IDOR)
-- Async bugs (missing `await`, unclosed sessions, fire-and-forget coroutines)
-- Telegram API misuse (missing `query.answer()`, `reply_text` on callbacks)
-- Config safety (direct `config["key"]` indexing without `.get()`)
-- Information disclosure (API keys in logs, error messages leaking internals)
-- Race conditions, resource exhaustion, business logic errors
+### Pass 2: INVOKE the built-in `/simplify` on the branch diff
 
-Does NOT cover: code style, reuse opportunities, readability, efficiency.
+It reviews and applies cleanups itself. Hold its changes to these Addarr rules:
 
-### Pass 2: INVOKE @simplify
+| Pattern in the diff | Simplification |
+|-|-|
+| Repeated `if photo: edit_caption else: edit_text` | Use `send_response(message, text, reply_markup)` from `src/bot/handlers/media/formatters.py` |
+| A reusable keyboard built inline | Move it to a `get_<feature>_keyboard()` function in `src/bot/keyboards.py` |
+| Duplicate error handling in handlers | Extract the common error reply |
+| Verbose config access chains | Read the config section once at the top |
+| Several near-identical `CallbackQueryHandler` registrations | Consolidate the patterns |
 
-**Scope:** Code reuse, quality patterns, and efficiency. Launches 3 parallel agents.
+Do not simplify away:
+- The singleton `__new__` + `_initialize` pattern (intentional, not redundant)
+- `is_enabled()` guard checks (safety-critical, must stay explicit)
+- `await query.answer()` calls (Telegram requirement)
+- `context.user_data.clear()` in cancel handlers (prevents state leaks)
+- State return values from handler methods (ConversationHandler requires them)
 
-Covers (and ONLY covers):
-- **Reuse:** New code duplicating existing utilities, inline logic that could use helpers
-- **Quality:** Copy-paste blocks (3+ near-identical), parameter sprawl, leaky abstractions,
-  redundant state, stringly-typed code where constants/enums exist
-- **Efficiency:** Redundant API calls, N+1 patterns, missed concurrency,
-  unbounded data structures, hot-path bloat
+### Pass 3 (only when the diff touches `src/api/` or `tests/test_api/`): the `arr-api-contract-checker` agent
 
-Does NOT cover: security bugs, structural readability, Python-specific simplifications.
+Delegate to the `arr-api-contract-checker` agent. It checks each changed Radarr, Sonarr or Lidarr request against the Servarr OpenAPI spec (paths, methods, query parameters, response fields), which the aioresponses mocks cannot catch.
 
-### Pass 3: INVOKE @addarr-code-simplifier
+### After the passes
 
-**Scope:** Structural clarity and readability of changed files.
-
-Covers (and ONLY covers):
-- Unnecessary nesting (opportunities for early returns, guard clauses)
-- Redundant abstractions used only once
-- Variable/function naming clarity
-- Python-specific simplifications (comprehensions, inline conditionals, unpacking)
-- Verbose patterns that can be expressed more clearly
-- Comments that describe obvious code
-
-Does NOT cover: security, reuse opportunities, efficiency, architecture.
-
-### After all three passes
-
-Run `pytest --tb=short -q` if any fixes were made. Then proceed to Step 2.
+If any pass changed code, run the unit-test command from [preflight.md](preflight.md) step 4, then go to Step 2.
 
 ## Step 2: Commit the Review Fixes
 

@@ -19,7 +19,7 @@ All HTTP clients use `aiohttp`, Transmission included. Test with `aioresponses`.
 ### URL Patterns
 
 | Client | API Version | Base URL |
-|--------|------------|----------|
+|-|-|-|
 | Radarr | `/api/v3/` | `http://localhost:7878` |
 | Sonarr | `/api/v3/` | `http://localhost:8989` |
 | Lidarr | `/api/v1/` | `http://localhost:8686` |
@@ -265,7 +265,7 @@ Integration tests live in `tests/integration/` and exercise full conversation fl
 ### Infrastructure
 
 | File | Purpose |
-|------|---------|
+|-|-|
 | `conftest.py` | `BotHarness` class, update factories, `harness`, `downloads_harness` and `bazarr_harness` fixtures |
 | `fixtures.py` | Shared test data (search results, quality profiles, queue data) |
 | `api_mocks.py` | Mock API helper for consistent service responses |
