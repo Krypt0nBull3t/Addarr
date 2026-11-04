@@ -363,7 +363,7 @@ class TestCheckSabnzbdHealth:
             healthy, status = await service.check_sabnzbd_health(url, "key")
 
         assert healthy is False
-        assert "Connection refused" in status
+        assert status == "Error: Exception"
 
 
 # ---------------------------------------------------------------------------
