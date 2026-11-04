@@ -315,7 +315,14 @@ def test_requirements_are_pinned(path):
     reqs = [line for line in lines if line and not line.startswith("#")]
     assert reqs
     for req in reqs:
-        assert re.fullmatch(r"[A-Za-z0-9._-]+==[A-Za-z0-9.]+", req), req
+        assert re.fullmatch(r"[A-Za-z0-9._-]+(\[[A-Za-z0-9,_-]+\])?==[A-Za-z0-9.]+", req), req
+
+
+def test_requirements_ask_for_job_queue_extra():
+    # ConversationHandler(conversation_timeout=...) needs PTB's job queue (APScheduler).
+    assert re.search(
+        r"^python-telegram-bot\[job-queue\]==", read_text("requirements.txt"), re.M
+    )
 
 
 @pytest.mark.parametrize("name, versions", [("pytestarch", ">=5"), ("flake8", ">=7.5")])

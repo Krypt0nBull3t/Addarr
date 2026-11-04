@@ -68,7 +68,6 @@ lidarr:
     password:  # Optional: Basic auth password
   features:
     search: true  # Enable automatic searching when adding media
-    albumFolder: true  # Organize tracks in album folders
     monitorOption: all  # Options: all, future, missing, none
   paths:
     excludedRootFolders: []

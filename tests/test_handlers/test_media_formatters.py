@@ -47,6 +47,20 @@ def test_build_result_caption_movie():
     assert "Thriller" in caption
 
 
+def test_build_result_caption_artist_without_year_has_no_year_line():
+    """Artist results carry no year key, so the card shows no year at all."""
+    result = {
+        "music_type": "artist",
+        "title": "Radiohead",
+        "overview": "English rock band",
+    }
+
+    caption = build_result_caption(result)
+
+    assert "Year" not in caption
+    assert "N/A" not in caption
+
+
 def test_build_result_caption_series():
     """Series result with network and seasons."""
     result = {

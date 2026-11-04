@@ -58,7 +58,7 @@ if (Test-Path $INSTALL_DIR) {
 # Clone repository
 Write-Host "`nCloning repository..." -ForegroundColor $colors.Blue
 try {
-    git clone https://github.com/cyneric/addarr.git $INSTALL_DIR
+    git clone https://github.com/Krypt0nBull3t/Addarr.git $INSTALL_DIR
 } catch {
     Write-Host "Failed to clone repository" -ForegroundColor $colors.Red
     exit 1
@@ -165,7 +165,7 @@ if ($installService -ne 'y' -and $installService -ne 'Y') {
     Write-Host " addarr" -ForegroundColor $colors.Blue
 }
 Write-Host "`nFor more information, visit: " -NoNewline
-Write-Host "https://github.com/cyneric/addarr/wiki" -ForegroundColor $colors.Blue
+Write-Host "https://github.com/Krypt0nBull3t/Addarr/wiki" -ForegroundColor $colors.Blue
 
 # Refresh environment variables in current session
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")

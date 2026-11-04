@@ -72,14 +72,14 @@ Whether you're managing movies, TV shows, or music, Addarr Refresh makes it simp
 Open a terminal and run:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.sh | sudo bash
+wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 #### Windows
 Open PowerShell as Administrator and run:
 
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.ps1'))
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.ps1'))
 ```
 
 For more options, see [🛠️ Installation](#️-installation)
@@ -201,7 +201,7 @@ For more options, see [🛠️ Installation](#️-installation)
 - **macOS** (10.15 Catalina or newer)
 
 ### Prerequisites
-- Python 3.9 or higher
+- Python 3.10 or higher
 - pip (Python package installer)
 - At least one of: Radarr, Sonarr, or Lidarr instance(s)
 - Telegram Bot Token (from @BotFather)
@@ -256,12 +256,12 @@ Install Addarr with a single command
 
 Using curl:
 ```bash
-curl -sSL https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 or Using wget:
 ```bash
-wget -qO- https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.sh | sudo bash
+wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 The linux/macOS installer will:
@@ -279,7 +279,7 @@ After installation:
 
 Using PowerShell:
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.ps1'))
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.ps1'))
 ```
 
 The windows installer will:
@@ -301,7 +301,7 @@ After installation:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Cyneric/Addarr.git
+   git clone https://github.com/Krypt0nBull3t/Addarr.git
    ```
 
 2. **Change into the Addarr directory**
@@ -328,7 +328,7 @@ After installation:
   *Requires python to be installed and available in the command line.*
 
 1. **Download the zip file**
-   Download the zip file from [here](https://github.com/Cyneric/Addarr/archive/refs/heads/main.zip)
+   Download the zip file from [here](https://github.com/Krypt0nBull3t/Addarr/archive/refs/heads/main.zip)
 
 2. **Extract the zip file**
    Extract the zip file and change into the Addarr directory
@@ -643,7 +643,7 @@ Addarr Refresh can be deployed using Docker or Kubernetes:
 ### Docker Deployment
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Cyneric/Addarr.git
+   git clone https://github.com/Krypt0nBull3t/Addarr.git
    cd addarr
    ```
 

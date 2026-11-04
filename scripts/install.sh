@@ -43,17 +43,46 @@ progress() {
     fi
 }
 
+# Restore the old install when the script exits with an error.
+# The script has no "set -e" and fails through "exit 1", so the trap is on EXIT
+# and reads the exit status. It is set before the backup is made.
+BACKUP_DIR=""
+cleanup() {
+    local status="${1:-0}"
+    if [ "$status" -ne 0 ] && [ -n "$BACKUP_DIR" ] && [ -n "$INSTALL_DIR" ] && [ -d "$BACKUP_DIR" ]; then
+        echo -e "${YELLOW}Installation failed. Restoring backup...${NC}"
+        rm -rf "$INSTALL_DIR"
+        mv "$BACKUP_DIR" "$INSTALL_DIR"
+    fi
+}
+trap 'cleanup $?' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 # Minimum required Python version
-MIN_PYTHON_VERSION="3.8"
+MIN_PYTHON_VERSION="3.10"
 
 # Minimum required pip version
 MIN_PIP_VERSION="20.0" # Example minimum version
 
-# Check for sudo privileges
+# SUDO is "" for root and "sudo" for any other user. It is set here, once, so every
+# package install below uses it. The installer runs as the current user, so the
+# install lands in that user's $HOME.
+set_sudo() {
+    if [ "$(id -u)" -eq 0 ]; then
+        SUDO=""
+    else
+        SUDO="sudo"
+    fi
+}
+set_sudo
+
+# Call this before a package install. A non-root user without sudo fails here,
+# so a host that already has every package never needs sudo.
 check_sudo() {
-    if [ "$EUID" -ne 0 ]; then
-        echo -e "${YELLOW}This script requires sudo privileges to install system packages.${NC}"
-        echo -e "${YELLOW}Please run with: sudo $0${NC}"
+    if [ -n "$SUDO" ] && ! command -v sudo >/dev/null 2>&1; then
+        echo -e "${RED}System packages are missing and sudo is not installed.${NC}"
+        echo -e "${YELLOW}Install the packages as root, or install sudo, then run this script again.${NC}"
         exit 1
     fi
 }
@@ -80,17 +109,17 @@ install_system_packages() {
     
     case "$system" in
         "ubuntu"|"debian")
-            apt-get update -qq
-            apt-get install -y "${packages[@]}"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y "${packages[@]}"
             ;;
         "fedora")
-            dnf install -y "${packages[@]}"
+            $SUDO dnf install -y "${packages[@]}"
             ;;
         "rhel"|"centos")
-            yum install -y "${packages[@]}"
+            $SUDO yum install -y "${packages[@]}"
             ;;
         "arch")
-            pacman -Sy --noconfirm "${packages[@]}"
+            $SUDO pacman -Sy --noconfirm "${packages[@]}"
             ;;
         "macos")
             if ! command -v brew >/dev/null 2>&1; then
@@ -249,13 +278,14 @@ if ! command -v pip >/dev/null 2>&1 && ! command -v pip3 >/dev/null 2>&1; then
     echo -e "${YELLOW}Installing pip...${NC}"
     case "$(uname -s)" in
     Linux*)
+        check_sudo
         if command -v apt-get >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y python3-pip
+            $SUDO apt-get update
+            $SUDO apt-get install -y python3-pip
         elif command -v dnf >/dev/null 2>&1; then
-            sudo dnf install -y python3-pip
+            $SUDO dnf install -y python3-pip
         elif command -v pacman >/dev/null 2>&1; then
-            sudo pacman -S python-pip
+            $SUDO pacman -S python-pip
         else
             echo -e "${RED}Unable to install pip. Please install pip manually.${NC}"
             exit 1
@@ -350,18 +380,19 @@ get_system_info() {
 check_git() {
     if ! command -v git >/dev/null 2>&1; then
         echo -e "${YELLOW}Git is not installed. Installing git...${NC}"
+        check_sudo
         case "$(get_system_info)" in
             "ubuntu"|"debian")
-                sudo apt-get update && sudo apt-get install -y git
+                $SUDO apt-get update && $SUDO apt-get install -y git
                 ;;
             "fedora")
-                sudo dnf install -y git
+                $SUDO dnf install -y git
                 ;;
             "rhel"|"centos")
-                sudo yum install -y git
+                $SUDO yum install -y git
                 ;;
             "arch")
-                sudo pacman -S --noconfirm git
+                $SUDO pacman -S --noconfirm git
                 ;;
             "macos")
                 if command -v brew >/dev/null 2>&1; then
@@ -403,9 +434,11 @@ fi
 
 # Clone repository with progress
 echo -e "\n${BLUE}Cloning Addarr repository...${NC}"
-if ! git clone --progress https://github.com/Cyneric/Addarr.git "$INSTALL_DIR" 2>&1 | while read -r line; do
+git clone --progress https://github.com/Krypt0nBull3t/Addarr.git "$INSTALL_DIR" 2>&1 | while read -r line; do
     echo -ne "\r\033[K${BLUE}Progress: ${NC}$line"
-done; then
+done
+# The pipeline status is the while loop's, so read git's own status.
+if [ "${PIPESTATUS[0]}" -ne 0 ]; then
     echo -e "\n${RED}Failed to clone repository${NC}"
     exit 1
 fi
@@ -468,20 +501,21 @@ get_pip_cmd() {
 # Install Python if needed
 install_python() {
     local system=$(get_system_info)
+    check_sudo
 
     case "$system" in
     "ubuntu" | "debian")
-        sudo apt-get update
-        sudo apt-get install -y python3 python3-pip
+        $SUDO apt-get update
+        $SUDO apt-get install -y python3 python3-pip
         ;;
     "fedora")
-        sudo dnf install -y python3 python3-pip
+        $SUDO dnf install -y python3 python3-pip
         ;;
     "rhel" | "centos")
-        sudo yum install -y python3 python3-pip
+        $SUDO yum install -y python3 python3-pip
         ;;
     "arch")
-        sudo pacman -S --noconfirm python python-pip
+        $SUDO pacman -S --noconfirm python python-pip
         ;;
     "macos")
         if ! command -v brew >/dev/null 2>&1; then
@@ -493,7 +527,7 @@ install_python() {
         ;;
     *)
         echo -e "${RED}Unsupported system: $system${NC}"
-        echo -e "Please install Python 3.8+ manually and try again."
+        echo -e "Please install Python 3.10+ manually and try again."
         exit 1
         ;;
     esac
@@ -506,7 +540,7 @@ if [ -z "$PYTHON_CMD" ]; then
     install_python
     PYTHON_CMD=$(get_python_cmd)
     if [ -z "$PYTHON_CMD" ]; then
-        echo -e "${RED}Failed to install Python. Please install Python 3.8+ manually and try again.${NC}"
+        echo -e "${RED}Failed to install Python. Please install Python 3.10+ manually and try again.${NC}"
         exit 1
     fi
 fi
@@ -516,28 +550,35 @@ install_python_venv() {
     echo -e "${YELLOW}Installing python3-venv...${NC}"
     case "$(get_system_info)" in
         "ubuntu"|"debian")
+            check_sudo
             # Get Python version
             PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
             echo -e "${BLUE}Detected Python version: $PYTHON_VERSION${NC}"
             
+            # A failed update is not fatal: the install can work with the old package lists
+            if ! $SUDO apt-get update; then
+                echo -e "${YELLOW}apt-get update failed, trying the install anyway...${NC}"
+            fi
             # Try version-specific package first
-            if ! sudo apt-get update && sudo apt-get install -y "python${PYTHON_VERSION}-venv"; then
+            if ! $SUDO apt-get install -y "python${PYTHON_VERSION}-venv"; then
                 echo -e "${YELLOW}Failed to install python${PYTHON_VERSION}-venv, trying generic package...${NC}"
                 # Fallback to generic package
-                if ! sudo apt-get install -y python3-venv; then
+                if ! $SUDO apt-get install -y python3-venv; then
                     echo -e "${RED}Failed to install python3-venv${NC}"
                     return 1
                 fi
             fi
             ;;
         "fedora")
-            if ! sudo dnf install -y python3-venv; then
+            check_sudo
+            if ! $SUDO dnf install -y python3-venv; then
                 echo -e "${RED}Failed to install python3-venv${NC}"
                 return 1
             fi
             ;;
         "rhel"|"centos")
-            if ! sudo yum install -y python3-venv; then
+            check_sudo
+            if ! $SUDO yum install -y python3-venv; then
                 echo -e "${RED}Failed to install python3-venv${NC}"
                 return 1
             fi
@@ -609,8 +650,8 @@ echo -e "   1. Start Addarr: ${YELLOW}addarr${NC} (on first run, setup wizard wi
 echo -e "   2. Stop Addarr: ${YELLOW}Ctrl+C${NC}"
 
 echo -e "\n${BLUE}📚 Documentation:${NC}"
-echo -e "   • GitHub Wiki: ${YELLOW}https://github.com/cyneric/addarr/wiki${NC}"
-echo -e "   • Report Issues: ${YELLOW}https://github.com/cyneric/addarr/issues${NC}"
+echo -e "   • GitHub Wiki: ${YELLOW}https://github.com/Krypt0nBull3t/Addarr/wiki${NC}"
+echo -e "   • Report Issues: ${YELLOW}https://github.com/Krypt0nBull3t/Addarr/issues${NC}"
 
 echo -e "\n${BLUE}💡 Quick Tips:${NC}"
 echo -e "   • Run setup wizard again: ${YELLOW}addarr --setup${NC}"
@@ -624,16 +665,3 @@ if [[ ":$PATH:" != *":$SHORTCUT_DIR:"* ]]; then
     echo -e "${YELLOW}source ~/.bashrc${NC}"
     echo -e "${YELLOW}to use the 'addarr' command.${NC}\n"
 fi
-
-cleanup() {
-    # If installation failed, restore backup if it exists
-    if [ "$1" = "error" ] && [ -d "$BACKUP_DIR" ]; then
-        echo -e "${YELLOW}Restoring backup...${NC}"
-        rm -rf "$INSTALL_DIR"
-        mv "$BACKUP_DIR" "$INSTALL_DIR"
-    fi
-}
-
-# Add trap
-trap 'cleanup error' ERR
-trap cleanup EXIT

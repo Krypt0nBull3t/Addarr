@@ -853,3 +853,13 @@ class TestRegisterCommands:
 
         # All 3 calls were attempted (1 default + 2 per-user)
         assert call_count == 3
+
+
+def test_application_has_job_queue():
+    """F061: the media conversation timeout needs a job queue (PTB job-queue extra).
+
+    Without APScheduler PTB only warns and ignores conversation_timeout.
+    """
+    from telegram.ext import Application
+
+    assert Application.builder().token("0:TEST").build().job_queue is not None

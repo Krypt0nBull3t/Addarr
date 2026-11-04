@@ -6,7 +6,7 @@ handle_calendar_action are decorated with @require_auth.
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +54,28 @@ async def test_show_upcoming_with_results(
         calendar_handler._mock_items_kbd.return_value
     assert context.user_data["cal_items"] == items
     assert context.user_data["cal_days"] == 7
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_show_upcoming_refuses_once_modify_limit_is_used_up(
+    mock_rl_ts_class, calendar_handler, make_update, make_context
+):
+    """F063: /upcoming is rate-limited as "modify"."""
+    mock_rl_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    context = make_context()
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"modify": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        await calendar_handler.show_upcoming(make_update(text="/upcoming"), context)
+        refused = make_update(text="/upcoming")
+        await calendar_handler.show_upcoming(refused, context)
+
+    calendar_handler._mock_service.get_upcoming.assert_awaited_once_with(7)
+    refused.message.reply_text.assert_called_once_with("RateLimitExceeded")
 
 
 @pytest.mark.asyncio
