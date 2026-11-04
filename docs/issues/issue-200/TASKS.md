@@ -113,7 +113,7 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
     - **Key Changes:** search_music artist results lose the year key and the coverartarchive and audioscrobbler poster fallbacks; poster is the first poster or cover image URL or None. Removed yearStart from three fixtures.
     - **Notes:** Artist cards show no year line.
 
-- [ ] **1.6** F056: webhook quality from `trackFiles`
+- [x] **1.6** F056: webhook quality from `trackFiles`
     - **Context:**
         - **Why:** Lidarr Download and Upgrade payloads have no `release.quality`; the quality is in `trackFiles[].quality`. The notification shows "Unknown".
         - **Architecture:** In `parse_lidarr_event`, keep `release.quality` first, then fall back to `trackFiles[0].quality`, else "Unknown".
@@ -127,3 +127,7 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
         - [RED] `test_download_event_without_quality_is_unknown` (empty `trackFiles`)
         - [GREEN] Implement the fallback
     - **Success:** `scripts/test_runner.py models --coverage` passes
+    - **Completed:** 2026-11-04
+    - **Learnings:** trackFiles can be missing, null or a list with an empty dict; 'or [{}]' covers the first two and .get covers the third. Grab keeps release.quality.
+    - **Key Changes:** parse_lidarr_event falls back to trackFiles[0].quality when release.quality is absent. 5 new test cases.
+    - **Notes:** The trackFiles shape comes from the Lidarr source, not the OpenAPI spec.

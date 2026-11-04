@@ -207,10 +207,14 @@ def parse_lidarr_event(payload: dict) -> WebhookEvent:
     message = payload.get("message", "")
 
     # Extract quality
+    # Grab carries release.quality; Download and Upgrade carry trackFiles[].quality
     quality = "Unknown"
     release = payload.get("release", {})
+    track_files = payload.get("trackFiles") or [{}]
     if release.get("quality"):
         quality = release["quality"]
+    elif track_files[0].get("quality"):
+        quality = track_files[0]["quality"]
 
     details: Dict = {"quality": quality}
 
