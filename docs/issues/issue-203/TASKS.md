@@ -86,7 +86,7 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - `tests/test_handlers/test_media_handler.py`: `test_media_conversation_has_timeout`. `tests/test_main.py`: `test_application_has_job_queue`. `tests/test_utils/test_prerun.py`: `test_strips_extras`. `tests/integration/conftest.py`: harness starts and stops the job queue.
     - **Notes:** The 3.10 dry-run install of both requirement files exits 0. Install the extra into a worktree `.venv` with `pip install 'python-telegram-bot[job-queue]==22.8'`. #214 changes the pin on this same requirements line.
 
-- [ ] **1.4** F063a: search and /upcoming are rate-limited; shared helper
+- [x] **1.4** F063a: search and /upcoming are rate-limited; shared helper
     - **Context:**
         - **Why:** `handle_search` has no `@rate_limit`, so the menu path is unlimited. `show_upcoming` has none. The add check (task 1.5) needs the limit check as a plain call, not a decorator.
         - **Architecture:** New `async def enforce_rate_limit(update, category) -> bool` in `src/services/rate_limit.py`. It holds the body of today's `rate_limit` decorator, and `rate_limit()` calls it, so decorator behaviour stays the same.
@@ -100,6 +100,17 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - [GREEN] Implement `enforce_rate_limit`; make `rate_limit()` call it
         - [GREEN] Add `@rate_limit("search")` to `handle_search` and `@rate_limit("modify")` to `show_upcoming`
     - **Success:** new tests fail before and pass after; all existing decorator tests pass unchanged; `scripts/test_runner.py services` and `handlers` pass with the coverage lines covered
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The decorator tests live in `tests/test_handlers/`, so `scripts/test_runner.py services --coverage` alone shows `rate_limit.py` at 81%. The `handlers` run (and the full gate) covers it at 100%.
+        - A `# pragma: no cover` on an `if x is not None:` line would hide the whole reply block. Keep it on the `if msg is None: return False` guard, as the decorator had it.
+        - For a command update, `update.message` and `update.effective_message` are the same mock in `make_update`, so assert the reply once on either.
+    - **Key Changes:**
+        - `src/services/rate_limit.py`: new `enforce_rate_limit(update, category) -> bool`; `rate_limit()` now calls it.
+        - `src/bot/handlers/media/handler.py`: `@rate_limit("search")` on `handle_search`.
+        - `src/bot/handlers/calendar.py`: `@rate_limit("modify")` on `show_upcoming`, below `@require_auth`.
+        - Tests: three `enforce_rate_limit` tests, `test_handle_search_refuses_once_search_limit_is_used_up`, `test_show_upcoming_refuses_once_modify_limit_is_used_up`.
+    - **Notes:** `enforce_rate_limit` is the call task 1.5 puts before each add request.
 
 - [ ] **1.5** F063b: modify limit checked before every add request
     - **Context:**

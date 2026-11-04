@@ -110,6 +110,42 @@ class RateLimitService:
         cls._records = {}
 
 
+async def enforce_rate_limit(update: Update, category) -> bool:
+    """Count one call in the category; reply and return False when over the limit.
+
+    Args:
+        update: The update that triggered the call.
+        category: Rate limit category (search, modify, auth).
+    """
+    service = RateLimitService()
+
+    # Auth attempts are always limited: they guard the bot password
+    if not service.is_enabled and category != "auth":
+        return True
+
+    if not update.effective_user:
+        return False
+
+    allowed, retry_after = service.check(update.effective_user.id, category)
+    if allowed:
+        return True
+
+    msg = update.effective_message
+    if msg is None:  # pragma: no cover
+        return False
+    await msg.reply_text(
+        TranslationService().get_text(
+            "RateLimitExceeded",
+            default=(
+                f"Slow down! Please wait {retry_after} "
+                "seconds before trying again."
+            ),
+            seconds=retry_after,
+        )
+    )
+    return False
+
+
 def rate_limit(category):
     """Decorator to enforce rate limiting on handler methods.
 
@@ -123,35 +159,8 @@ def rate_limit(category):
             context: ContextTypes.DEFAULT_TYPE,
             *args, **kwargs
         ):
-            service = RateLimitService()
-
-            # Auth attempts are always limited: they guard the bot password
-            if not service.is_enabled and category != "auth":
-                return await func(self, update, context, *args, **kwargs)
-
-            if not update.effective_user:
+            if not await enforce_rate_limit(update, category):
                 return
-
-            user_id = update.effective_user.id
-            allowed, retry_after = service.check(user_id, category)
-
-            if not allowed:
-                translation = TranslationService()
-                msg = update.effective_message
-                if msg is None:  # pragma: no cover
-                    return
-                await msg.reply_text(
-                    translation.get_text(
-                        "RateLimitExceeded",
-                        default=(
-                            f"Slow down! Please wait {retry_after} "
-                            "seconds before trying again."
-                        ),
-                        seconds=retry_after,
-                    )
-                )
-                return
-
             return await func(self, update, context, *args, **kwargs)
         return wrapped
     return decorator

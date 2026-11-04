@@ -235,6 +235,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         """Start music search conversation"""
         return await self._start_search(update, context, "music")
 
+    @rate_limit("search")
     async def handle_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle search query"""
         if not update.effective_message:

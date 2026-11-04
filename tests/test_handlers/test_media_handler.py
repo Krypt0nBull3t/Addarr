@@ -118,6 +118,30 @@ async def test_handle_search_admin_restriction_allows_admin(
 
 
 @pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_handle_search_refuses_once_search_limit_is_used_up(
+    mock_rl_ts_class, media_handler, make_update, make_context
+):
+    """F063: every path to a search, the menu buttons included, is limited."""
+    mock_rl_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    media_handler._mock_service.search_movies = AsyncMock(return_value=[])
+    context = make_context(user_data={"search_type": "movie"})
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"search": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        await media_handler.handle_search(make_update(text="matrix"), context)
+        refused = make_update(text="matrix")
+        result = await media_handler.handle_search(refused, context)
+
+    media_handler._mock_service.search_movies.assert_awaited_once_with("matrix")
+    assert result is None
+    refused.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_search_no_results(media_handler, make_update, make_context):
     """Empty search results replies with translated no-results message and returns END."""
     media_handler._mock_service.search_movies = AsyncMock(return_value=[])
