@@ -201,7 +201,7 @@ For more options, see [🛠️ Installation](#️-installation)
 - **macOS** (10.15 Catalina or newer)
 
 ### Prerequisites
-- Python 3.9 or higher
+- Python 3.10 or higher
 - pip (Python package installer)
 - At least one of: Radarr, Sonarr, or Lidarr instance(s)
 - Telegram Bot Token (from @BotFather)

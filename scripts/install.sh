@@ -44,7 +44,7 @@ progress() {
 }
 
 # Minimum required Python version
-MIN_PYTHON_VERSION="3.8"
+MIN_PYTHON_VERSION="3.10"
 
 # Minimum required pip version
 MIN_PIP_VERSION="20.0" # Example minimum version
@@ -493,7 +493,7 @@ install_python() {
         ;;
     *)
         echo -e "${RED}Unsupported system: $system${NC}"
-        echo -e "Please install Python 3.8+ manually and try again."
+        echo -e "Please install Python 3.10+ manually and try again."
         exit 1
         ;;
     esac
@@ -506,7 +506,7 @@ if [ -z "$PYTHON_CMD" ]; then
     install_python
     PYTHON_CMD=$(get_python_cmd)
     if [ -z "$PYTHON_CMD" ]; then
-        echo -e "${RED}Failed to install Python. Please install Python 3.8+ manually and try again.${NC}"
+        echo -e "${RED}Failed to install Python. Please install Python 3.10+ manually and try again.${NC}"
         exit 1
     fi
 fi

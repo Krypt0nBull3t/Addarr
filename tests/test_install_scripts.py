@@ -39,3 +39,16 @@ class TestRepoUrls:
                 if "cyneric/addarr" in line.lower():
                     offenders.append(f"{os.path.basename(path)}:{number}")
         assert offenders == []
+
+
+class TestPythonVersion:
+    """Verify the installer and README agree on Python 3.10 as the minimum."""
+
+    def test_install_requires_python_310(self):
+        """install.sh and the README name 3.10, not 3.8 or 3.9."""
+        script = read(INSTALL_SH)
+        readme = read(README)
+        assert 'MIN_PYTHON_VERSION="3.10"' in script
+        assert "3.8+" not in script
+        assert "Python 3.10 or higher" in readme
+        assert "Python 3.9 or higher" not in readme

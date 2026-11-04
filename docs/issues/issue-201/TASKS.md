@@ -54,7 +54,7 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - Added `TestRepoUrls.test_no_upstream_repo_urls`.
     - **Notes:** The README `| sudo bash` text on lines 75, 259 and 264 is still there. Task 1.6 removes it.
 
-- [ ] **1.3** F172: Python 3.10 minimum
+- [x] **1.3** F172: Python 3.10 minimum
     - **Context:**
         - **Why:** install.sh accepts Python 3.8, but the bot needs 3.10 (`tuple[bool, str]`, deps).
         - **Architecture:** Change the constant. The dot-stripping compare (3.10 becomes 310) already works for 3.10 and up.
@@ -66,6 +66,14 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - [RED] Write `test_install_requires_python_310`: install.sh has `MIN_PYTHON_VERSION="3.10"` and no `3.8+`; README has `Python 3.10 or higher` and no `Python 3.9 or higher`
         - [GREEN] Make the three edits
     - **Success:** The test fails before and passes after
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The dot-stripping compare still works with the new minimum: 3.10 becomes 310 (accepted), 3.9 becomes 39 (rejected). It would reject a future 4.0 (40), which is not a target today.
+    - **Key Changes:**
+        - `scripts/install.sh`: `MIN_PYTHON_VERSION="3.10"` and both "Python 3.10+ manually" messages.
+        - `README.md:204`: `Python 3.10 or higher`.
+        - Added `TestPythonVersion.test_install_requires_python_310`.
+    - **Notes:** `bash -n scripts/install.sh` passes.
 
 - [ ] **1.4** F173: failed reinstall restores the backup
     - **Context:**
