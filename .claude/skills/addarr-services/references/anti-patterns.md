@@ -33,11 +33,13 @@ def _initialize(cls):
             return
         cls._enabled = True
     except Exception as e:
-        logger.error(f"Failed to initialize: {e}")
+        logger.error(f"Failed to initialize: {type(e).__name__}")
         cls._enabled = False
 ```
 
 **Why**: Handlers instantiate services in `__init__`. If `_initialize` raises, the handler can't be created and the bot fails to start. Setting `_enabled = False` lets the bot run with degraded functionality — handlers check `is_enabled()` before calling service methods. Issue #78 established this as the standard pattern.
+
+Log `type(e).__name__`, as `SABnzbdService` does since #197: aiohttp errors carry the request URL, and SABnzbd's URL holds the `apikey` query parameter. A service that sends credentials in query parameters never logs or returns `str(e)`.
 
 ---
 
@@ -72,7 +74,7 @@ async def handle_action(self, update, context):
 
 ```python
 # BAD - runs every time Service() is called, not just the first time
-class MyService:
+class <Name>Service:
     _instance = None
 
     def __new__(cls):
@@ -81,7 +83,7 @@ class MyService:
         return cls._instance
 
     def __init__(self):
-        self._client = SomeClient()  # Creates new client EVERY instantiation!
+        self._client = <Name>Client()  # Creates new client EVERY instantiation!
         self._enabled = True
 ```
 
@@ -89,7 +91,7 @@ class MyService:
 
 ```python
 # GOOD - only runs once
-class MyService:
+class <Name>Service:
     _instance = None
 
     def __new__(cls):
@@ -100,11 +102,11 @@ class MyService:
 
     @classmethod
     def _initialize(cls):
-        cls._client = SomeClient()
+        cls._client = <Name>Client()
         cls._enabled = True
 ```
 
-**Why**: Python calls `__init__` every time the class is called, even for singletons. `MyService()` in three handlers means `__init__` runs three times. Initializing clients or state in `__init__` creates duplicates and wastes resources. `_initialize()` in `__new__` runs exactly once.
+**Why**: Python calls `__init__` every time the class is called, even for singletons. `<Name>Service()` in three handlers means `__init__` runs three times. Initializing clients or state in `__init__` creates duplicates and wastes resources. `_initialize()` in `__new__` runs exactly once.
 
 ---
 
@@ -138,25 +140,25 @@ async with session.get(url, headers=self._get_headers()) as response:
     return response.status == 200
 ```
 
-**Why**: `BaseApiClient._get_session()` manages a reusable `aiohttp.ClientSession` with proper timeout configuration. Creating sessions per request bypasses connection pooling, leaks connections, and ignores configured timeouts. Note: Standalone clients (SABnzbd, Transmission) that don't inherit from BaseApiClient do create sessions per request — that's acceptable for those.
+**Why**: `BaseApiClient._get_session()` manages a reusable `aiohttp.ClientSession` with proper timeout configuration. Creating sessions per request bypasses connection pooling, leaks connections, and ignores configured timeouts. Note: `TransmissionClient` does not inherit from BaseApiClient and opens a session per request. SABnzbd has no API client: `SABnzbdService` opens a session per call. Both are acceptable.
 
 ---
 
-## Direct Config Indexing Without Enable Check
+## Config Bracket Access
 
-**Don't** access config with direct indexing before checking if the service is enabled:
+**Don't** index `config` with brackets:
 
 ```python
-# BAD - KeyError if "myservice" doesn't exist in config
-server = config["myservice"]["server"]
-api_key = config["myservice"]["auth"]["apikey"]
+# BAD - banned by test_no_config_bracket_access_in_business_logic; KeyError if missing
+server = config["<service_key>"]["server"]
+api_key = config["<service_key>"]["auth"]["apikey"]
 ```
 
 **Instead**, use safe access with defaults:
 
 ```python
 # GOOD
-service_config = config.get("myservice", {})
+service_config = config.get("<service_key>", {})
 if not service_config.get("enable", False):
     return  # Service not enabled
 
@@ -164,7 +166,7 @@ server = service_config.get("server", {})
 addr = server.get("addr")
 ```
 
-**Why**: `config["key"]` raises `KeyError` if the key doesn't exist. Services that aren't configured won't have entries in `config.yaml`. Always use `.get(key, {})` for nested access until you've confirmed the service is enabled. `BaseApiClient.__init__` uses `config[service_name]` directly, but it's only called after the service is confirmed enabled.
+**Why**: `test_no_config_bracket_access_in_business_logic` bans `config[...]` everywhere in `src/` except `src/setup/`, `src/api/base.py` and `src/config/settings.py`. `config["key"]` raises `KeyError` if the key doesn't exist, and services that aren't configured won't have entries in `config.yaml`. The only example of allowed bracket access is `BaseApiClient.__init__` in `src/api/base.py`: it uses `config[service_name]` directly because it's only called after the service is confirmed enabled.
 
 ---
 
@@ -196,7 +198,7 @@ base_url = f"{protocol}://{addr}:{port}{path}"
 
 ```python
 # BAD - only resets instance, not class-level state
-MyService._instance = None
+<Name>Service._instance = None
 # Next test gets _instance = None but _enabled still True from previous test!
 ```
 
@@ -204,9 +206,9 @@ MyService._instance = None
 
 ```python
 # GOOD - in reset_singletons fixture
-MyService._instance = None
-MyService._enabled = False
-MyService._client = None
+<Name>Service._instance = None
+<Name>Service._enabled = False
+<Name>Service._client = None
 ```
 
 **Why**: Singleton class variables persist across tests. Resetting only `_instance` means the next test creates a new singleton but `_initialize()` runs again — however, conditional logic like `if cls._client is None` may skip re-initialization because the old value is still set. Three separate issues (#67, #78, #81) independently discovered this. See @addarr-testing fixtures.md for the full reset list.

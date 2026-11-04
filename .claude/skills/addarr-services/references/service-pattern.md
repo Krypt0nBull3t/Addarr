@@ -3,7 +3,6 @@
 ## Template
 
 ```python
-import aiohttp
 from typing import Optional
 
 from src.config.settings import config
@@ -41,7 +40,7 @@ class <Name>Service:
             cls._enabled = True
             logger.info("✅ <Name>Service initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize <Name>Service: {e}")
+            logger.error(f"Failed to initialize <Name>Service: {type(e).__name__}")
             cls._enabled = False
 
     def is_enabled(self) -> bool:
@@ -60,6 +59,7 @@ class <Name>Service:
 - **Never raise** from `_initialize` — set `_enabled = False` and log instead
 - This allows handlers to check `is_enabled()` rather than catching init exceptions
 - Pattern from issue #78: `try/except Exception` → `_enabled = False`
+- Log `type(e).__name__`, as `SABnzbdService` does since #197: aiohttp errors carry the request URL, query parameters included. A service that sends credentials in query parameters never logs or returns `str(e)`.
 
 ### Class vs Instance Variables
 - All state in `_initialize` uses **class variables** (`cls._enabled`, `cls._client`)
@@ -84,13 +84,14 @@ async def get_status(self) -> Dict[str, Any]:
         result = await self._client.get_status()
         return result
     except Exception as e:
-        logger.error(f"Error getting status: {e}")
-        return {"error": str(e)}
+        logger.error(f"Error getting status: {type(e).__name__}")
+        return {"error": type(e).__name__}
 ```
 
 **Rules:**
 - Always check `is_enabled()` first
 - Wrap in try/except, return sensible defaults on error
+- Log and return `type(e).__name__`: a service that sends credentials in query parameters never logs or returns `str(e)`
 - Delegate I/O to API client, don't make HTTP calls directly
 
 ## Service with API Client Aggregation
@@ -117,7 +118,7 @@ class MediaService:
                 if config.get("radarr", {}).get("enable"):
                     cls._radarr = RadarrClient()
             except Exception as e:
-                logger.error(f"Failed to initialize Radarr: {e}")
+                logger.error(f"Failed to initialize Radarr: {type(e).__name__}")
                 cls._radarr = None
         # Repeat for sonarr, lidarr...
 
@@ -126,16 +127,32 @@ class MediaService:
         return self._radarr
 
     async def search_movies(self, query: str) -> List[Dict]:
-        if not self._radarr:
-            return []
-        return await self._radarr.search(query)
+        if not self.radarr:
+            raise ValueError("Radarr is not enabled or configured")
+
+        try:
+            results = await self.radarr.search(query)
+            return [
+                {
+                    "id": str(movie["tmdbId"]),
+                    "title": f"{movie['title']} ({movie.get('year', 'N/A')})",
+                    # ... more display fields
+                    "data": movie
+                }
+                for movie in results
+                if movie.get("tmdbId")
+            ]
+        except Exception as e:
+            logger.error(f"Error searching movies: {type(e).__name__}")
+            raise
 ```
 
 **Key Points:**
 - Each client is independently initialized (one failing doesn't block others)
 - Properties expose read-only access
-- Search methods delegate directly to client
-- Returns empty list if client unavailable
+- Search methods raise `ValueError` when the client is not configured
+- They map client results to display dicts, skipping results without an ID
+- They log and re-raise errors, so an `APIError` from the client reaches the caller
 
 ## Pre-Instantiated Singletons
 
@@ -149,4 +166,4 @@ Some services export a module-level instance (used in `__init__.py`):
 from .<name> import <name>_service, <Name>Service
 ```
 
-Used for services that need shared state (HealthService, TransmissionService). Most services just export the class.
+Used for services that need shared state: `health_service`, `transmission_service` and `webhook_service` (in `src/services/webhook.py`; not exported from `src/services/__init__.py`). Most services just export the class.

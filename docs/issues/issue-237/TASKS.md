@@ -46,7 +46,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [GREEN] Fix every plan.md Task 2.1 item; remove `addarr-testing` from `_PENDING`
     - **Success:** test passes; architecture tests green
 
-- [ ] **2.2** addarr-services (K2)
+- [x] **2.2** addarr-services (K2)
     - **Context:**
         - **Why:** The "GOOD" example logs `{e}` (the #197 key leak); templates show unencoded query strings and `[]` on errors.
         - **Architecture:** Markdown only; items in plan.md Task 2.2.
@@ -58,6 +58,13 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] `test_skill_names_exist[addarr-services]` without xfail fails
         - [GREEN] Fix every plan.md Task 2.2 item; remove from `_PENDING`
     - **Success:** test passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `max_retries=0` is the rule for add and delete only: `RadarrClient.search_command` POSTs with the default retries.
+        - `MediaService` still logs `{e}`; that is safe because the *arr clients send the key in a header. The skill teaches `type(e).__name__` for every service.
+        - A lookup by integer TMDB ID may stay in the endpoint string; only user input must go through `params=`.
+    - **Key Changes:** addarr-services `SKILL.md` (checklist with `SINGLETON_CLASSES` and `reset_singletons`, bracket ban, mistakes 8-9), `api-client-pattern.md` (search raises `APIError`, `params`, add/delete via `_make_request(..., max_retries=0)`, Bazarr row, contract-checker line), `service-pattern.md` (`type(e).__name__`, `search_movies` contract, `webhook_service`), `anti-patterns.md`, `config-patterns.md` (pointer to `config_example.yaml`). Placeholders use `<Name>`.
+    - **Notes:** Done by a subagent from the plan's item list; reviewed diff, reworded the retry rule to add/delete.
 
 - [ ] **2.3** addarr-handlers (K3)
     - **Context:**
