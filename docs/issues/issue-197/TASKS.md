@@ -57,7 +57,7 @@
     - **Key Changes:** `tests/test_services/test_health_service.py`: `test_check_sabnzbd_health_exception` replaced by `test_check_sabnzbd_health_error_hides_api_key`; new imports `CIMultiDict`, `CIMultiDictProxy` (multidict) and `URL` (yarl).
     - **Notes:** The other health checks still return `str(e)`. That is out of scope for #197.
 
-- [ ] **2.2** [must-fix] F010: no SABnzbd log line holds the API key (from audit)
+- [x] **2.2** [must-fix] F010: no SABnzbd log line holds the API key (from audit)
     - **Context:** All 7 request methods log in their `except` block. A 200 response with `text/html` makes `response.json()` raise `ContentTypeError`, and its text holds the request URL with `apikey=`.
     - **Watch out:** Assert that an error record exists, so the test cannot pass when nothing is logged.
     - **Scope:** One test, parametrized over every request method.
@@ -67,6 +67,11 @@
         - [RED] Run it against the pre-fix `sabnzbd.py`; confirm all 7 cases fail
         - [GREEN] Restore the fix from task 1.1; confirm all 7 cases pass
     - **Success:** 7 cases fail on the pre-fix code and pass on the fix
+    - **Completed:** 2026-11-04
+    - **Red run:** Pre-fix `sabnzbd.py`: 7 failed, each on `assert not any(sabnzbd_service.api_key in r.getMessage() ...)`. Example record: `ERROR addarr.services.sabnzbd:sabnzbd.py:264 Error getting SABnzbd history: 200, message='Attempt to decode JSON with unexpected mimetype: text/html', url='http://localhost:8090//api?apikey=test-sabnzbd-key&limit=10&mode=history&output=json'`. With the fix restored: 42 passed in `test_sabnzbd_service.py`.
+    - **Learnings:** aioresponses puts the merged query string, `apikey` included, in the response's `request_info`, so a `text/html` body reproduces the real leak. `caplog` sees the `addarr.*` records here, although the `addarr` logger sets `propagate = False`; the ERROR-record assertion makes the test fail, not pass, if that capture ever stops.
+    - **Key Changes:** `tests/test_services/test_sabnzbd_service.py`: new `TestNoApiKeyInLogs::test_error_log_hides_api_key`; the 7 method calls moved to a shared `EVERY_REQUEST` list with readable ids, which `TestRequestTimeout` now uses too.
+    - **Notes:** `_initialize`'s `except` is not covered by this test: it fails on config shape, before any request, so its error text holds no URL.
 
 - [ ] **2.3** [should-fix] Correct the issue-197 task docs (from audit)
     - **Context:** The notes on 1.1 and 1.2 point to "hidden grader tests" that do not exist. Their action items list [GREEN] before [RED]. Task 1.3 has no completion metadata. `plan.md` and `TASKS.md` lack a trailing newline.
