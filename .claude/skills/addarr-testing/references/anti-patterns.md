@@ -53,22 +53,6 @@ def test_one():
 
 ---
 
-## Transmission Mocking
-
-Transmission uses `aiohttp` like other clients — mock with `aioresponses`:
-
-```python
-# GOOD
-async def test_transmission(aio_mock):
-    aio_mock.post("http://localhost:9091/transmission/rpc", payload={"result": "success"})
-    result = await api._make_request("session-get", {})
-    assert result["result"] == "success"
-```
-
-**Why**: `src/api/transmission.py` uses `aiohttp.ClientSession`, same as other API clients. `aioresponses` intercepts it.
-
----
-
 ## Translation Testing
 
 **Don't** assert on translated text strings:

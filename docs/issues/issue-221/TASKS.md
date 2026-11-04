@@ -11,7 +11,7 @@ the current text. [GREEN] means: fix the text and see the check pass.
 **Goal:** Every project skill and command matches the current code, `config_example.yaml`
 and `src/main.py`, with Python and pytest examples only.
 
-- [ ] **1.1** F290: Make `addarr-testing` match the Transmission client and the real fixtures
+- [x] **1.1** F290: Make `addarr-testing` match the Transmission client and the real fixtures
     - **Context:** See plan.md task 1. Key refs: `src/api/transmission.py:16` (`TransmissionClient`, aiohttp), `tests/test_api/conftest.py`, `tests/fixtures/sample_data.py`
     - **Watch out:** CLAUDE.md says Transmission is mocked with `aioresponses`. The fixture tables named `sabnzbd_url`, `sabnzbd_client` and `RADARR_SYSTEM_STATUS`, which do not exist.
     - **Scope:** Transmission sections and fixture tables in the addarr-testing skill
@@ -21,7 +21,10 @@ and `src/main.py`, with Python and pytest examples only.
         - [GREEN] Rewrite the Transmission sections for `aioresponses` and `TransmissionClient`
         - [GREEN] Remove the fixtures and constants that do not exist from every table
     - **Success:** F290 grep returns nothing; every fixture and constant the skill names exists in `tests/`
-    - **Reopened (2026-11-04):** The Transmission sections were rewritten, but `references/fixtures.md:128` (`sabnzbd_url`) and `:207` (`RADARR_SYSTEM_STATUS`) were left, so the F290 grep still matched. Finished by 2.2 and 2.5.
+    - **Completed:** 2026-11-04 (finished by 2.2 and 2.5)
+    - **Learnings:** The first pass fixed the Transmission sections only; the fixture tables and leftovers needed 2.2 and 2.5.
+    - **Key Changes:** `addarr-testing` SKILL.md, `references/patterns.md`, `references/anti-patterns.md`, `references/fixtures.md` (see 2.2 and 2.5).
+    - **Notes:** none
 
 - [ ] **1.2** F294: Rename the shadowed skills and delete the duplicates
     - **Context:** See plan.md task 2. Key refs: `.claude/skills/addarr-workflow/SKILL.md` (create-pr step 1, skill tables), `.claude/commands/addarr-setup.md`
@@ -203,7 +206,7 @@ and `src/main.py`, with Python and pytest examples only.
     - **Key Changes:** `task-writer/SKILL.md`: restored Core Philosophy, layer split, What Goes IN a Single Task, Approval Gates, Test Count Estimation, Self-Verification (plus a check that named files exist) and the "Only modify TASKS.md" Output rule, all for handlers/services/api and pytest; TDD section now says one commit per task, matching the addarr-workflow Execution Loop; added a small (PreferencesHandler) and a medium (Bazarr) example.
     - **Notes:** F291 grep returns nothing. Tables use the minimal `|-|` separator.
 
-- [ ] **2.5** [consider] F290: Remove the leftovers in the addarr-testing references
+- [x] **2.5** [consider] F290: Remove the leftovers in the addarr-testing references
     - **Context:**
         - **Why:** `patterns.md` has an unused import and an undefined `api` in the Transmission examples, and says Transmission does not use aiohttp; `anti-patterns.md` keeps a Transmission section that is no longer an anti-pattern; SKILL.md keeps a "(removed)" item
         - **Architecture:** Examples use the `transmission_client` and `aio_mock` fixtures, as `tests/test_api/test_transmission_api.py` does
@@ -215,6 +218,15 @@ and `src/main.py`, with Python and pytest examples only.
         - [RED] Find the unused import, the undefined `api`, the stale section and the "(removed)" item
         - [GREEN] Rewrite the examples with the fixtures; delete the leftovers
     - **Success:** Every name in the Transmission examples is defined; no "(removed)" item; no Transmission anti-pattern section
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The Transmission examples are best copied from `tests/test_api/test_transmission_api.py`: the `transmission_client` fixture avoids both the module-level `src` import (an anti-pattern in the same skill) and the undefined `api`.
+        - `patterns.md` still said "All API clients use aiohttp (except Transmission)", which contradicted the rewritten section.
+    - **Key Changes:**
+        - `patterns.md`: intro line fixed; Bazarr and Transmission rows added to the URL table; both Transmission examples use `aio_mock` + `transmission_client` with a shared `RPC_URL`; note on the second-409 error.
+        - `anti-patterns.md`: Transmission Mocking section deleted (no longer an anti-pattern).
+        - `SKILL.md`: "(removed)" Common Mistakes item deleted, list renumbered 1-8.
+    - **Notes:** Ran both `patterns.md` Transmission examples as a temporary test file under `tests/test_api/` (2 passed), then deleted it.
 
 - [ ] **2.6** [consider] F294: Make the credit lines pass the F294 check and keep the attribution
     - **Context:**

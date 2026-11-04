@@ -14,7 +14,7 @@
 
 ## API Clients
 
-All API clients use `aiohttp` (except Transmission). Test with `aioresponses`.
+All HTTP clients use `aiohttp`, Transmission included. Test with `aioresponses`.
 
 ### URL Patterns
 
@@ -23,7 +23,9 @@ All API clients use `aiohttp` (except Transmission). Test with `aioresponses`.
 | Radarr | `/api/v3/` | `http://localhost:7878` |
 | Sonarr | `/api/v3/` | `http://localhost:8989` |
 | Lidarr | `/api/v1/` | `http://localhost:8686` |
+| Bazarr | `/api/` (no version) | `http://localhost:6767` |
 | SABnzbd | (query params) | `http://localhost:8090` |
+| Transmission | `/transmission/rpc` | `http://localhost:9091` |
 
 ### aioresponses Pattern
 
@@ -73,30 +75,34 @@ async def test_add_movie_success(radarr_client, aio_mock, radarr_url):
 
 ### Transmission (async, aiohttp)
 
-Transmission uses `aiohttp` like other clients. Mock with `aioresponses`:
+`TransmissionClient` does not inherit `BaseApiClient`; it opens an `aiohttp.ClientSession` per request, which `aioresponses` intercepts. Use the `transmission_client` fixture (`tests/test_api/conftest.py`):
 
 ```python
-from aioresponses import aioresponses
-from src.api.transmission import TransmissionClient
+RPC_URL = "http://localhost:9091/transmission/rpc"
 
-async def test_make_request_success(aio_mock):
-    api = TransmissionClient()
-    aio_mock.post("http://localhost:9091/transmission/rpc", payload={"result": "success", "arguments": {}})
-    result = await api._make_request("session-get", {})
-    assert result["result"] == "success"
+async def test_make_request_success(aio_mock, transmission_client):
+    expected = {"result": "success", "arguments": {"version": "4.0.0"}}
+    aio_mock.post(RPC_URL, payload=expected, status=200)
+
+    result = await transmission_client._make_request("session-get")
+    assert result == expected
 ```
 
 ### Session ID Negotiation (Transmission)
 
-Transmission returns 409 with `X-Transmission-Session-Id` header on first request; the client retries with that session id:
+Transmission returns 409 with an `X-Transmission-Session-Id` header; the client stores the id and retries once:
 
 ```python
-async def test_session_id_negotiation(aio_mock):
-    aio_mock.post("http://localhost:9091/transmission/rpc", status=409, headers={"X-Transmission-Session-Id": "abc123"})
-    aio_mock.post("http://localhost:9091/transmission/rpc", payload={"result": "success"})
-    result = await api._make_request("session-get", {})
-    assert result["result"] == "success"
+async def test_session_id_negotiation(aio_mock, transmission_client):
+    aio_mock.post(RPC_URL, status=409, headers={"X-Transmission-Session-Id": "abc123"})
+    aio_mock.post(RPC_URL, payload={"result": "success"}, status=200)
+
+    result = await transmission_client._make_request("session-get")
+    assert result == {"result": "success"}
+    assert transmission_client._session_id == "abc123"
 ```
+
+A second 409 raises `aiohttp.ClientError("Session ID negotiation failed after retry")`.
 
 ---
 
