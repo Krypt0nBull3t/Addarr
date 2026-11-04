@@ -94,7 +94,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
 
 **Goal:** K4, K6 and the workflow K9 items. Keep the feedback.md sentence pinned by `test_agent_tooling.py`.
 
-- [ ] **4.1** Preflight and coverage commands mirror ci.yml
+- [x] **4.1** Preflight and coverage commands mirror ci.yml
     - **Context:**
         - **Why:** Preflight runs bare tools, no coverage gate; coverage commands differ from `ci.yml`.
         - **Architecture:** `ci_commands()` in `test_skills.py` reads `ci.yml` with ruamel; two tests pin preflight.md and every `--cov` line.
@@ -106,6 +106,14 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] `test_preflight_runs_the_ci_commands`, `test_workflow_coverage_commands_match_ci`
         - [GREEN] Rewrite preflight and coverage steps; fix the `tests/path/test_file.py` placeholder; remove `addarr-workflow` from `_PENDING`
     - **Success:** both tests and `test_skill_names_exist[addarr-workflow]` pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - With a `<py>` interpreter placeholder, a plain substring check of the CI command fails (`python run.py` vs `<py> run.py`); `local_command()` maps each CI command to its `<py>` form, which keeps the check strict.
+        - Match coverage invocations on `--cov=`, not `--cov`: prose that names `--cov-report=html:...` is not a command.
+        - PyYAML is already a test dependency (`test_agent_tooling.py` uses it), so `ci_commands()` uses `yaml.safe_load`, not ruamel.
+        - The CI unit command runs in about 8 s locally, so running it once per task is cheap.
+    - **Key Changes:** `test_skills.py`: `CI_JOBS`, `ci_commands()`, `local_command()`, `test_preflight_runs_the_ci_commands`, `test_workflow_coverage_commands_match_ci`. `references/preflight.md` rewritten (6 CI commands, `<py>`, retry cap). SKILL.md preflight flow lists step names only; Execution Loop steps 3+4 merged into the CI unit command; create-pr step 2 is now "commit the review fixes" (from task 4.3).
+    - **Notes:** `addarr-workflow` stays in `_PENDING` until task 4.2 removes the `$(` in feedback.md.
 
 - [ ] **4.2** Issue number in the branch; feedback flow fixes
     - **Context:**

@@ -53,18 +53,13 @@ Does NOT cover: security, reuse opportunities, efficiency, architecture.
 
 Run `pytest --tb=short -q` if any fixes were made. Then proceed to Step 2.
 
-## Step 2: Coverage Check
+## Step 2: Commit the Review Fixes
 
-```bash
-pytest <test_files> --cov=<changed_modules> --cov-report=term-missing -q
-```
-
-Use dotted module paths for `--cov` (e.g., `--cov=src.bot.handlers.sabnzbd`).
-Target 100% on all new/modified code. Add tests for uncovered lines.
+If step 1 changed files, commit them before preflight. Stage only the files you changed (never `git add .`), check `git diff --cached`, then commit with `fix: address pre-PR review`.
 
 ## Step 3: Preflight
 
-Run the full preflight flow (see [preflight.md](preflight.md)). All checks must pass.
+Run the full preflight flow (see [preflight.md](preflight.md)). All checks must pass; step 4 is the CI coverage gate (100%). Commit any preflight fixes the same way as step 2.
 
 ## Step 4: Verify Readiness
 

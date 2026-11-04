@@ -17,6 +17,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
+import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SKILLS_DIR = PROJECT_ROOT / ".claude" / "skills"
@@ -342,3 +343,39 @@ _PENDING = {"addarr-handlers", "addarr-services", "addarr-testing", "addarr-work
 ])
 def test_skill_names_exist(skill):
     assert skill_problems(load_skill(skill)) == []
+
+
+CI_JOBS = ("lint", "type-check", "validate-translations", "unit-test", "integration-test", "architecture-test")
+
+
+def ci_commands():
+    """The check commands of the CI jobs that preflight mirrors (the HTML report is an upload artifact)."""
+    jobs = yaml.safe_load(read(".github/workflows/ci.yml"))["jobs"]
+    return [
+        re.sub(r" --cov-report=html:\S+", "", step["run"])
+        for job in CI_JOBS
+        for step in jobs[job]["steps"]
+        if step.get("run", "").startswith(("pytest", "flake8", "mypy", "python run.py"))
+    ]
+
+
+def local_command(ci_command):
+    """The CI command run with the project interpreter `<py>`, as preflight.md writes it."""
+    if ci_command.startswith("python "):
+        return "<py> " + ci_command[len("python "):]
+    return "<py> -m " + ci_command
+
+
+def test_preflight_runs_the_ci_commands():
+    preflight = read(".claude/skills/addarr-workflow/references/preflight.md")
+    assert len(ci_commands()) == 6
+    for command in ci_commands():
+        assert local_command(command) in preflight, local_command(command)
+
+
+def test_workflow_coverage_commands_match_ci():
+    unit = local_command(next(c for c in ci_commands() if "--cov-fail-under" in c))
+    for name, text in load_skill("addarr-workflow").items():
+        for line in text.splitlines():
+            if "--cov=" in line:
+                assert unit in line, f"{name}: {line}"

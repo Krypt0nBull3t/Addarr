@@ -102,10 +102,8 @@ Step 1  RUN     Pre-PR review — three complementary passes over the branch dif
                 INVOKE @addarr-code-simplifier    (structural clarity, nesting, readability)
                 See create-pr.md for execution details.
                 Fix any actionable findings. Skip pre-existing patterns.
-Step 2  RUN     Coverage check: run pytest with --cov on all changed source modules
-                and --cov-report=term-missing. Target 100% on all new/modified code.
-                Fix any gaps by adding tests for uncovered lines.
-Step 3  RUN     Flow: preflight (all checks must pass)
+Step 2  RUN     Commit the review fixes (see create-pr.md)
+Step 3  RUN     Flow: preflight (all checks must pass; it runs the CI coverage gate)
 Step 4  RUN     Verify readiness (not on main/development, all committed, push if needed)
 Step 5  RUN     Generate PR title + body from commits and issue context
 Step 6  RUN     gh pr create --base development
@@ -120,19 +118,22 @@ Step 8  RUN     Retrospective: extract learnings from TASKS.md completion
 
 See [references/preflight.md](references/preflight.md) for detailed instructions.
 
-Run sequentially, stop on first failure. Fix issues automatically where possible.
+The same commands as the CI jobs in `.github/workflows/ci.yml` (a test pins them).
+Commands are in preflight.md only. Run sequentially, stop on the first failure.
 
 ```
-Step 1  RUN     pytest --tb=short -q
-                On failure: INVOKE @superpowers:systematic-debugging, fix, re-run
-Step 2  RUN     flake8 .
-                On failure: auto-fix formatting, report logic issues
-Step 3  RUN     mypy src/
-                On failure: fix type errors, re-run
-Step 4  RUN     PYTHONIOENCODING=utf-8 python run.py --validate-i18n
-                On failure: report missing/malformed keys
-Step 5  RUN     Report results summary (1-2 lines)
+Step 1  RUN     Lint (flake8)
+Step 2  RUN     Type check (mypy)
+Step 3  RUN     Translation validation
+Step 4  RUN     Unit tests with the 100% coverage gate
+                On failure: INVOKE @superpowers:systematic-debugging, fix
+Step 5  RUN     Integration tests
+Step 6  RUN     Architecture tests
+Step 7  RUN     Report results summary (1-2 lines)
 ```
+
+After any code fix, re-run from step 1. At most 3 fix rounds; then report the
+failing output and `ASK`.
 
 ## Flow: release
 
@@ -181,25 +182,24 @@ the skill stays in context for the rest of the session. Do not re-invoke.
 
 2  RUN     TDD cycle — for each behavior in the task:
    a  RED     Write failing test
-   b  RUN     pytest tests/path/test_file.py::test_name -v — confirm fails correctly
+   b  RUN     <py> -m pytest tests/<path>/test_<name>.py::test_<case> -v (confirm it fails correctly)
    c  GREEN   Write minimal implementation
-   d  RUN     pytest tests/path/test_file.py -v — confirm relevant tests pass
+   d  RUN     <py> -m pytest tests/<path>/test_<name>.py -v (confirm the relevant tests pass)
 
    On unexpected test failure:
    -> INVOKE @superpowers:systematic-debugging — find root cause before fixing
 
-3  RUN     Full suite check: pytest --tb=short -q (once per task, not per behavior)
-4  RUN     Coverage check: run pytest with --cov on changed source modules
-           and --cov-report=term-missing. Target 100% on all new/modified code.
-           Fix any gaps by adding tests for uncovered lines.
-4b RUN     Integration test check — if the task adds or modifies a user-facing
+3  RUN     Full suite with the CI coverage gate, once per task (not per behavior):
+           the unit-test command from references/preflight.md step 4.
+           Fix coverage gaps by adding tests for uncovered lines.
+4  RUN     Integration test check: if the task adds or modifies a user-facing
            flow (handler, command, conversation state, callback routing):
            a  Check tests/integration/ for an existing test covering this flow
            b  If none exists: write a new integration test using the BotHarness
               (see tests/integration/conftest.py for harness, fixtures, and
               update factories). Test the happy path end-to-end.
            c  If one exists but doesn't cover the new behavior: extend it.
-           d  Run: pytest tests/integration/ --tb=short -v — confirm all pass.
+           d  Run: <py> -m pytest tests/integration --tb=short -v (all pass).
            Skip this step for non-handler changes (API clients, services,
            config, utils, translations, CI, docs).
 5  RUN     Mark task complete in TASKS.md and add completion metadata:
