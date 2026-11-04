@@ -136,13 +136,25 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - Test file: `is_denied()` matcher, `test_deny_rules_block_force_push_and_recursive_force_rm` (19 commands), `test_deny_rules_allow_ordinary_push_and_rm` (6 commands).
     - **Notes:** Known limits (docs: a deny rule "isn't a security boundary"): `rm` with an option before the flags (`rm -v -rf`), long options (`--recursive --force`), `/bin/rm`, `bash -c '...'`, `env git push --force`, and wrapper scripts such as `with-suite-lock.sh ... -- git push --force` are not matched. The rules can also deny a harmless command that contains `push` and ` -f`, such as a `git commit -m` message; write such messages with `-F <file>`.
 
-- [ ] **2.3** [should-fix] Make the heredoc and quoting tests strict (audit 3)
+- [x] **2.3** [should-fix] Make the heredoc and quoting tests strict (audit 3)
     - **Context:** Three planted violations passed: an unquoted `<<GRAPHIFY_PY` heredoc with `QUESTION`, a `<<'EOF'` script with `QUESTION`, and unquoted `graphify query <question>` / `SKILL_ARG_QUESTION=QUESTION`.
     - **Scope:** Every heredoc delimiter is single-quoted; every heredoc body (any delimiter) holds no placeholder; outside heredoc bodies, every placeholder in a bash block sits inside single quotes. Convert the `GRAPHIFY_ROOT_EOF` data heredoc in `SKILL.md` Step 1 to `SKILL_ARG_INPUT_PATH`.
     - **Touches:** test file, `.claude/skills/graphify/` files the new tests flag
     - **Action items:**
         - [RED] Plant each of the 3 violations; confirm a test fails on each; remove the plants
         - [GREEN] Fix what the strict tests flag in the skill
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - On the real skill the strict tests failed twice: the `GRAPHIFY_ROOT_EOF` heredoc body was the `INPUT_PATH` value itself, and `github-and-merge.md` had unquoted `<owner1>/<repo1>` paths and a `--backend <name>` comment.
+        - Planted in a temporary `references/zz-plant.md` (removed after): `<<GRAPHIFY_PY` with `QUESTION` failed the delimiter test and the body test; `<<'EOF'` with `QUESTION` failed the body test; `graphify query <question>` and `SKILL_ARG_QUESTION=QUESTION` each failed the single-quote test.
+        - Removing single-quoted strings and backslash escapes, but keeping double-quoted ones, matches how bash quotes: what is left is text the shell can still expand.
+        - The body test also checks that every `<<` has a matching terminator, so a heredoc the regex cannot parse fails instead of being skipped.
+        - Smoke: the new scan-root block with the path `it's $(touch MARK) \`touch MARK2\` dir` wrote that path verbatim to `.graphify_root` and created no marker file.
+    - **Key Changes:**
+        - Test file: `HEREDOC`, `SHELL_QUOTING`, `bash_blocks()`; `test_graphify_heredocs_quote_their_delimiter`, `test_graphify_heredoc_bodies_hold_no_value` (any delimiter) and `test_graphify_bash_values_sit_in_single_quotes` replace the `GRAPHIFY_PY`-only body test and the double-quote test.
+        - `SKILL.md` Step 1: the scan root is set through `SKILL_ARG_INPUT_PATH` and a `<<'GRAPHIFY_PY'` script instead of a data heredoc read from stdin.
+        - `github-and-merge.md`: merge paths are the single-quoted paths `graphify clone` printed; `--backend '<name>'`.
+    - **Notes:** Shell comments in bash blocks are scanned too, on purpose: agents copy commented commands. A `'` in a comment would start a fake quote and could hide a value; none of the current blocks has one.
 
 - [ ] **2.4** [should-fix] Pass save-result values through a file (audit 4)
     - **Context:** `query.md` puts the answer text and node labels in single-quoted shell arguments. One `'` in that prose reopens injection. `--nodes` also lets a label that starts with `--` act as an option.

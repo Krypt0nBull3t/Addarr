@@ -61,6 +61,12 @@ PLACEHOLDER = r"\b(?:" + "|".join(PLACEHOLDERS) + r")\b"
 # Shell examples also write values as <question>, <path>, ...
 SHELL_VALUE = r"(?:" + PLACEHOLDER + r"|<[a-z][^>\n]*>)"
 
+# Groups: 1 the start line up to its newline, 3 the delimiter, 4 the body.
+HEREDOC = re.compile(r"(<<-?\s*(['\"]?)(\w+)\2[^\n]*\n)(.*?)^\t*\3\n", re.S | re.M)
+# Single-quoted strings and backslash escapes; group 1 is a double-quoted
+# string, which the shell still expands, so callers keep it.
+SHELL_QUOTING = re.compile(r"\\.|'[^']*'|(\"(?:\\.|[^\"\\])*\")")
+
 
 def read_text(rel_path):
     with open(os.path.join(PROJECT_ROOT, rel_path), encoding="utf-8") as f:
@@ -79,6 +85,12 @@ def skill_files():
 
 def skill_hits(pattern, flags=0):
     return [(p, m) for p, t in skill_files() for m in re.findall(pattern, t, flags)]
+
+
+def bash_blocks():
+    blocks = skill_hits(r"```bash\n(.*?)```", re.S)
+    assert blocks
+    return blocks
 
 
 def is_denied(command):
@@ -206,17 +218,32 @@ def test_graphify_skill_has_no_inline_c_scripts():
     assert not skill_hits(r'\.graphify_python\)"? -c')
 
 
-def test_graphify_scripts_read_values_from_env():
-    bodies = skill_hits(r"<<'GRAPHIFY_PY'\n(.*?)\nGRAPHIFY_PY\n", re.S)
+def test_graphify_heredocs_quote_their_delimiter():
+    # An unquoted delimiter (<<EOF, <<"EOF") lets the shell expand $(...)
+    # and backticks in the body.
+    starts = [(p, s) for p, b in bash_blocks() for s in re.findall(r"<<-?\s*\S+", b)]
+    assert starts
+    for path, start in starts:
+        assert re.fullmatch(r"<<-?\s*'\w+'", start), (path, start)
+
+
+def test_graphify_heredoc_bodies_hold_no_value():
+    bodies = []
+    for path, block in bash_blocks():
+        found = [m.group(4) for m in HEREDOC.finditer(block)]
+        assert len(found) == block.count("<<"), (path, "heredoc without terminator")
+        bodies += [(path, body) for body in found]
     assert bodies
     for path, body in bodies:
         assert not re.search(PLACEHOLDER, body), (path, body[:80])
         assert "sys.stdin" not in body, path
 
 
-def test_graphify_skill_puts_no_value_in_double_quotes():
-    for path, block in skill_hits(r"```bash\n(.*?)```", re.S):
-        match = re.search(r'"[^"\n]*' + SHELL_VALUE + r'[^"\n]*"', block)
+def test_graphify_bash_values_sit_in_single_quotes():
+    for path, block in bash_blocks():
+        shell = HEREDOC.sub(r"\1", block)
+        unquoted = SHELL_QUOTING.sub(lambda m: m.group(1) or "", shell)
+        match = re.search(SHELL_VALUE, unquoted)
         assert not match, (path, match.group(0))
 
 

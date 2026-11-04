@@ -13,13 +13,13 @@ LOCAL_PATH=$(graphify clone '<github-url>' [--branch '<branch>'])
 **Multiple repos (cross-repo graph):**
 ```bash
 # Clone each repo, run the full pipeline on each, then merge
-graphify clone '<url1>'   # → ~/.graphify/repos/<owner1>/<repo1>
-graphify clone '<url2>'   # → ~/.graphify/repos/<owner2>/<repo2>
+graphify clone '<url1>'   # prints the local path under ~/.graphify/repos/
+graphify clone '<url2>'
 # Run /graphify on each local path to produce their graph.json files
-# Then merge:
+# Then merge, with the absolute paths graphify clone printed, in single quotes:
 graphify merge-graphs \
-  ~/.graphify/repos/<owner1>/<repo1>/graphify-out/graph.json \
-  ~/.graphify/repos/<owner2>/<repo2>/graphify-out/graph.json \
+  '<path1>/graphify-out/graph.json' \
+  '<path2>/graphify-out/graph.json' \
   --out graphify-out/cross-repo-graph.json
 ```
 
@@ -33,7 +33,7 @@ The skill pipeline writes all intermediate and final outputs to `graphify-out/` 
 graphify extract ./core/     # → ./core/graphify-out/graph.json
 graphify extract ./service/  # → ./service/graphify-out/graph.json
 graphify extract ./platform/ # → ./platform/graphify-out/graph.json
-# Add --backend <name> only when the user asks for an LLM backend in this session
+# Add --backend '<name>' only when the user asks for an LLM backend in this session
 
 # Then merge at the project root:
 graphify merge-graphs \
