@@ -1,12 +1,10 @@
 # Context Check
 
-Run this before the first source read of new-task step 3, and once per fresh session in continue step 1. It tells you where to look, so you do not re-derive what the graph or the wiki already knows. Each part has a fallback: a cloud session or another contributor has no graph, no wiki and no `qmd`, and the flow goes on without them.
+It tells you where to look, so you do not re-derive what the graph or the wiki already knows. Each part has a fallback: a cloud session or another contributor has no graph, no wiki and no `qmd`, and the flow goes on without them.
 
 ## 1. graphify
 
-When `graphify-out/graph.json` exists, run `graphify query '<question>'` before the first Grep, search or source read (CLAUDE.md § graphify). Use `graphify path '<A>' '<B>'` for relations and `graphify explain '<concept>'` for one concept. Read raw files only for lines the graph already located.
-
-No graph: use Glob and Grep. Never build the graph unless the user asks.
+When `graphify-out/graph.json` exists, follow CLAUDE.md § graphify. No graph: use Glob and Grep. Never build the graph unless the user asks.
 
 ## 2. The Addarr wiki
 

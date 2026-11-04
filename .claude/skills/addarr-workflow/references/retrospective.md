@@ -1,6 +1,6 @@
 # PR Retrospective
 
-Create-pr step 3, before the merge, the preflight and the one push. Extracts learnings from TASKS.md completion metadata and suggests durable skill/convention updates. Approved edits are committed on the branch, so the preflight tests them and they go out in the same push, reviewed with the PR.
+Create-pr step 3 (why there: [create-pr.md](create-pr.md) step 3). Extracts learnings from TASKS.md completion metadata and suggests durable skill/convention updates. Approved edits are committed on the branch and reviewed with the PR.
 
 **Key constraint:** Human-reviewed, never automatic. Present suggestions; user approves before any edits.
 

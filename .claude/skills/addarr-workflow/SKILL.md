@@ -55,9 +55,10 @@ Some machines run one test suite at a time through a lock script. Every test, ga
 | `/addarr end [<N>]` | end | Pause: note in TASKS.md, WIP commit, push |
 
 **Arguments after the flow name pass through.** `/addarr new <N>` works on issue #N and skips
-the issue chooser: running the chooser again could pick a different issue. `/addarr continue <N>`
-and `/addarr end <N>` use #N instead of reading it from the branch name; when the current branch is not
-`<prefix>/<N>-<slug>`, `ASK` before switching. `/addarr feedback <PR>` works on that PR.
+the issue chooser. For the other flows the argument decides the issue and its branch:
+`/addarr continue <N>` and `/addarr end <N>` use `<prefix>/<N>-<slug>`, and `/addarr feedback <PR>`
+uses the PR's head branch (`gh pr view <PR> --repo Krypt0nBull3t/Addarr --json headRefName`).
+When that branch is not the current one, `ASK` before switching.
 
 A PR from a fork or an outside contributor is not this workflow: use `/review-external-pr` (agent `untrusted-pr-reviewer`). Never check out its code.
 
@@ -119,8 +120,9 @@ Step 6  RUN     Flow: create-pr (automatic transition)
 Step 1  RUN     Read docs/issues/issue-<N>/TASKS.md (<N> from the argument or
                 the branch name), find next pending task. Read the latest
                 **Session paused:** note, if any, and start from its next step.
-                In a fresh session,
-                run the context check (references/context-check.md) first
+                In a fresh session, run the graphify part of
+                references/context-check.md; query the wiki only for a
+                question plan.md and TASKS.md do not answer
 Step 2  RUN     Execute tasks (see "Execution Loop" below)
 Step 3  RUN     Flow: create-pr (when all tasks complete)
 ```
@@ -161,9 +163,8 @@ Step 2  RUN     Commit the review fixes (see create-pr.md)
 Step 3  ASK     Retrospective: extract learnings from TASKS.md completion
                 metadata and suggest durable skill/convention updates.
                 See [references/retrospective.md](references/retrospective.md).
-                Human-reviewed; approved edits are committed on this branch.
-                It runs before the preflight and the push, so its edits are
-                tested and go out in the same push
+                Human-reviewed; approved edits are committed on this branch,
+                not pushed (why here: create-pr.md step 3)
 Step 4  RUN     Merge origin/development into the branch (conflict: ASK)
 Step 5  RUN     Flow: preflight (all checks must pass; it runs the CI coverage gate)
 Step 6  RUN     Verify readiness, then push once: <lock> git push -u origin <branch>
@@ -214,8 +215,7 @@ Full readiness check before merging `development` -> `main`. Invokes the `@relea
 
 ```
 Step 1  RUN     Checkout development branch, ensure up-to-date with origin
-Step 2  INVOKE  @release-readiness (runs all 4 phases; run its test and gate
-                commands under <lock>, label <agent>/development)
+Step 2  INVOKE  @release-readiness (runs all 4 phases)
 Step 3  RUN     Report final verdict: READY or NOT READY
 Step 4  ASK     If READY, confirm user wants to create the merge PR to main
 Step 5  RUN     If confirmed: write the body (merged PRs since main, the
@@ -269,8 +269,10 @@ the skill stays in context for the rest of the session. Do not re-invoke.
              translations/       PYTHONIOENCODING=utf-8 <lock> <py> run.py --validate-i18n
              skills, CLAUDE.md, docs/, .github/ or tests/test_architecture/:
                                  <lock> <py> -m pytest tests/test_architecture --tb=short -v
-           Add tests for the uncovered lines the scoped run lists. The full
-           suite with the 100% coverage gate runs once, in the preflight.
+           Add tests only for uncovered lines this task changed (the bot run
+           also lists src/bot/handlers/, which tests/test_bot/ does not
+           cover: ignore those). The full suite with the 100% coverage gate
+           runs once, in the preflight.
 4  RUN     Integration test check: if the task adds or modifies a user-facing
            flow (handler, command, conversation state, callback routing):
            a  Check tests/integration/ for an existing test covering this flow

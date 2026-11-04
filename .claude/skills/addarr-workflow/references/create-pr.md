@@ -70,7 +70,7 @@ Then push, once:
 <lock> git push -u origin <branch-name>
 ```
 
-If a hook or guard refuses the push, stop and report it (SKILL.md "The Suite Lock").
+A refused push: see SKILL.md "The Suite Lock".
 
 ## Step 7: PR Title and Body
 
@@ -79,7 +79,7 @@ If a hook or guard refuses the push, stop and report it (SKILL.md "The Suite Loc
   - **Summary:** the plan's Goal in 1-3 sentences (`docs/issues/issue-<N>/plan.md`), then `Fixes #<N>`. Without a plan, use the issue and the commits.
   - **Changes:** one bullet per task or logical change, from the plan and the commits.
   - **Checks:** tick each box the preflight proved. Write `n/a` beside a box that does not apply (no translation change, no user-facing flow).
-  - **Notes:** the CI lanes the local preflight does not run: the Compatibility matrix (the whole suite on Python 3.10, 3.12, 3.13 and 3.14), the Docker Build and the non-blocking Dependency Audit. Say when the change could affect one of them (new syntax, a dependency pin, the Dockerfile). Add any design call a reviewer should check.
+  - **Notes:** the CI lanes the local preflight does not run (see the intro of [preflight.md](preflight.md)): the Compatibility matrix (the whole suite on the other Python versions in `ci.yml`), the Docker Build and the non-blocking Dependency Audit. Say when the change could affect one of them (new syntax, a dependency pin, the Dockerfile). Add any design call a reviewer should check.
 
 Write the body to the session scratchpad as `pr-<N>-body.md` (a fixed `/tmp` name collides between parallel sessions).
 

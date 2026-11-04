@@ -26,12 +26,7 @@ Reviews and top-level comments:
 gh pr view <number> --repo Krypt0nBull3t/Addarr --json reviews,comments
 ```
 
-Inline comments (all pages):
-```bash
-gh api --paginate repos/Krypt0nBull3t/Addarr/pulls/<number>/comments
-```
-
-`gh pr view --json` has no thread-resolution field. Unresolved threads come from GraphQL, with the thread `id` (to resolve it) and each comment's `databaseId` (to reply to it):
+Inline comments come from GraphQL, which also gives what `gh pr view --json` lacks: each thread's resolution state, its `id` (to resolve it) and each comment's `databaseId` (to reply to it):
 ```bash
 gh api graphql -f query='query { repository(owner: "Krypt0nBull3t", name: "Addarr") { pullRequest(number: <number>) { reviewThreads(first: 100) { nodes { id isResolved path line comments(first: 20) { nodes { databaseId author { login } body } } } } } } }'
 ```
@@ -75,13 +70,7 @@ All other changes follow the standard execution loop (TDD, verification).
 
 ## Step 7: Merge Development, Then Preflight
 
-Branch protection requires a branch that is up to date with `development`:
-```bash
-git fetch origin development
-git merge origin/development
-```
-
-On a conflict: stop, show the conflicting files and `ASK`. Then run the preflight flow (SKILL.md "Flow: preflight") and commit any fixes it needs. Stage only the files you changed and check `git diff --cached` first.
+Merge `origin/development` as in [create-pr.md](create-pr.md) step 4. Then run the preflight flow (SKILL.md "Flow: preflight") and commit any fixes it needs. Stage only the files you changed and check `git diff --cached` first.
 
 ## Step 8: Draft the Replies
 
