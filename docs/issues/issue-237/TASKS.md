@@ -72,7 +72,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
     - **Key Changes:** addarr-services `SKILL.md` (checklist with `SINGLETON_CLASSES` and `reset_singletons`, bracket ban, mistakes 8-9), `api-client-pattern.md` (search raises `APIError`, `params`, add/delete via `_make_request(..., max_retries=0)`, Bazarr row, contract-checker line), `service-pattern.md` (`type(e).__name__`, `search_movies` contract, `webhook_service`), `anti-patterns.md`, `config-patterns.md` (pointer to `config_example.yaml`). Placeholders use `<Name>`.
     - **Notes:** Done by a subagent from the plan's item list; reviewed diff, reworded the retry rule to add/delete.
 
-- [ ] **2.3** addarr-handlers (K3)
+- [x] **2.3** addarr-handlers (K3)
     - **Context:**
         - **Why:** False `@require_auth` note, dead export step, missing states and callbacks, nonexistent keyboard functions.
         - **Architecture:** Markdown only; items in plan.md Task 2.3.
@@ -84,6 +84,14 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] `test_skill_names_exist[addarr-handlers]` without xfail fails
         - [GREEN] Fix every plan.md Task 2.3 item; remove from `_PENDING`
     - **Success:** test passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `AuthHandler` sets `per_message=False` and omits only `persistent`; only `BazarrHandler` omits both.
+        - `select_cancel` is routed inside the media conversation; standalone flows such as Bazarr use their own `<prefix>_cancel`.
+        - `rate_limit("auth")` applies even when `rateLimit.enable` is off; the other categories only when it is on.
+        - `SearchNoResults` still uses the older `%(name)s` placeholders; `get_text` fills both forms.
+    - **Key Changes:** addarr-handlers `SKILL.md` (checklist without the export step, `@i18n-key`, trimmed template imports, softened `persistent`/`per_message` rule, auth on all entry points), `references/anti-patterns.md` (false `@require_auth` note removed), `references/methods.md` (auth on callback template, Decorator Stack section, `send_response`, `query.edit_message_text`, real translation keys), `references/wiring.md` (states 1-5 and `PASSWORD = 0`, export step removed, YAML via `@i18n-key`), `references/callbacks.md` (4 missing values, string `select_` id), `references/keyboards.md` (where keyboards live, real `get_quality_profile_keyboard`, navigation pointers, cancel rule, `get_yes_no_keyboard`).
+    - **Notes:** Done by a subagent from the plan's item list; reviewed SKILL.md, methods.md and keyboards.md diffs and checked the `rate_limit` claim in `src/services/rate_limit.py`.
 
 ### Phase 3: Leftovers and retired commands (1 task)
 
