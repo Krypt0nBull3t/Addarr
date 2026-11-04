@@ -180,7 +180,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
     - **Key Changes:** SKILL.md: PR-target line, feedback step 7 commits before push, create-pr step 8 commits on the branch, release step 5 with `--title`/`--body-file`, Execution Loop blocked-task exit, staging rule, verification-before-completion in the transition, post-merge retrospective section removed. `references/create-pr.md`: dirty-tree handling, scratchpad body file with `Closes #<N>`, `--repo`. `references/retrospective.md`: runs at PR time, commits on the PR branch, `|-|-|`.
     - **Notes:** none
 
-- [ ] **4.4** Planning handoff and new-task input
+- [x] **4.4** Planning handoff and new-task input
     - **Context:**
         - **Why:** writing-plans' own handoff skips task-writer; brainstorming writes to `docs/superpowers/specs/`; issue text has no data rule; "Other" has no `<N>`.
         - **Architecture:** Markdown; plan.md Task 4.4; D14.
@@ -192,6 +192,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] Read-through: handoff and data rule missing
         - [GREEN] Apply plan.md Task 4.4
     - **Success:** architecture tests pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - superpowers 7.0.0 `writing-plans` saves to `docs/superpowers/plans/`, adds a REQUIRED SUB-SKILL header and ends with its own Execution Handoff; `brainstorming` saves to `docs/superpowers/specs/`. Both need explicit overrides from the workflow.
+        - Review note (coordinator): the `handle_search` example in addarr-testing `patterns.md` now also asserts `show_result` was awaited and `current_index`; it ran green as a scratch test against the real fixtures.
+    - **Key Changes:** SKILL.md new-task steps 2b, 3b (ASK/INVOKE, `design.md`), 4 (plan content only, no handoff). `references/new-task.md`: "Other" requires an issue, untrusted issue-text line, writing-plans and brainstorming overrides. addarr-testing `references/patterns.md`: stronger State Transitions example.
+    - **Notes:** none
 
 - [ ] **4.5** Merge addarr-code-simplifier into create-pr (K6); agents; SKILL.md hygiene
     - **Context:**

@@ -219,9 +219,11 @@ async def test_search_returns_selecting(media_handler, make_update, make_context
     media_handler._mock_service.search_movies.return_value = [{"title": "Movie"}]
     update = make_update(text="Movie")
     context = make_context(user_data={"search_type": "movie"})
-    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock) as mock_show:
         result = await media_handler.handle_search(update, context)
     assert result == States.SELECTING
+    mock_show.assert_awaited_once()
+    assert context.user_data["current_index"] == 0
 ```
 
 ### Testing @require_auth

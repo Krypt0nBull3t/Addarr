@@ -58,12 +58,16 @@ See [references/new-task.md](references/new-task.md) for detailed instructions p
 ```
 Step 1  ASK     Issue selection (AskUserQuestion with open issues)
 Step 2  ASK     Branch type selection (feature/fix/refactor)
-Step 2b RUN     Create branch from latest development
+Step 2b RUN     Create branch <prefix>/<N>-<slug> from latest development
 Step 3  RUN     Analyze task (read issue, identify layers/config/i18n)
-Step 3b INVOKE  @superpowers:brainstorming (if task is complex/ambiguous/multi-approach)
+Step 3b ASK/INVOKE  @superpowers:brainstorming (if task is complex/ambiguous/multi-approach;
+                it asks the user questions). Write the design to
+                docs/issues/issue-<N>/design.md, not docs/superpowers/specs/
 Step 3c ASK     Confirm analysis summary before planning
-Step 4  INVOKE  @superpowers:writing-plans -> explore codebase -> write plan to
-                docs/issues/issue-<N>/plan.md
+Step 4  INVOKE  @superpowers:writing-plans for plan content only -> explore codebase ->
+                write plan to docs/issues/issue-<N>/plan.md
+                Leave out its REQUIRED SUB-SKILL header and skip its Execution
+                Handoff: steps 4c and 5 execute the plan
                 Use @addarr-handlers, @addarr-services, @addarr-testing for patterns
 Step 4b ASK     User reviews plan.md and approves before continuing
 Step 4c INVOKE  @task-writer -> convert plan.md into docs/issues/issue-<N>/TASKS.md
