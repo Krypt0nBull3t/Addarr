@@ -42,7 +42,7 @@ Built from the `CallbackQueryHandler(..., pattern=...)` calls in `src/bot/handle
 | `delete_` | DeleteHandler | `delete_type_movie`, `delete_page_<type>_<n>`, `delete_item_<type>_<id>`, `delete_confirm_<type>_<id>`, `delete_cancel` | Delete media; the type and id travel in the callback, never in `user_data` |
 | `library_` | LibraryHandler | `library_movie`, `library_series`, `library_music` | Library type selection |
 | `lib_` | LibraryHandler | `lib_m_2` (`m`/`s`/`a` = movie/series/music) | Library pagination |
-| `cal_` | CalendarHandler | `cal_period_7`, `cal_page_2`, `cal_add_movie_<id>`, `cal_refresh`, `cal_back`, `cal_noop` | Calendar browsing and adding |
+| `cal_` | CalendarHandler | `cal_period_7`, `cal_page_2`, `cal_refresh`, `cal_back`, `cal_noop` | Calendar browsing |
 | `missing_` | MissingHandler | `missing_filter_movie`, `missing_page_2`, `missing_search_<service>_<id>`, `missing_refresh`, `missing_back`, `missing_noop` | Missing/wanted media |
 | `queue_` | QueueHandler | `queue_filter_movie`, `queue_page_2`, `queue_refresh`, `queue_back`, `queue_noop` | Queue browsing |
 | `hist_` | HistoryHandler | `hist_filter_all`, `hist_page_2`, `hist_refresh`, `hist_back`, `hist_noop` | History browsing |

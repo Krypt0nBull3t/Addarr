@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, patch
 SAMPLE_MOVIE = {
     "type": "movie", "title": "Test Movie", "series_title": None,
     "date": "2026-03-10", "date_label": "Cinema", "year": 2026,
-    "season": None, "episode": None, "in_library": False,
+    "season": None, "episode": None,
     "media_id": "12345", "internal_id": None,
 }
 
@@ -24,7 +24,7 @@ SAMPLE_EPISODE = {
     "type": "episode", "title": "Test Episode",
     "series_title": "Test Series", "date": "2026-03-12",
     "date_label": "Airing", "year": None, "season": 1,
-    "episode": 5, "in_library": True, "media_id": "67890",
+    "episode": 5, "media_id": "67890",
     "internal_id": 42,
 }
 
@@ -221,120 +221,26 @@ async def test_back(
 
 
 # ---------------------------------------------------------------------------
-# handle_calendar_action — add movie
+# handle_calendar_action — no add path
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_add_movie_success(
-    calendar_handler, make_update, make_context
-):
-    """cal_add_movie_12345 calls add_movie_with_profile and shows success toast."""
-    update = make_update(callback_data="cal_add_movie_12345")
-    context = make_context(user_data={"cal_days": 7, "cal_items": []})
-
-    await calendar_handler.handle_calendar_action(update, context)
-
-    calendar_handler._mock_service.radarr.get_root_folders.assert_awaited_once()
-    calendar_handler._mock_service.radarr.get_quality_profiles.assert_awaited_once()
-    calendar_handler._mock_service.add_movie_with_profile.assert_awaited_once_with(
-        "12345", 1, "/movies"
-    )
-    update.callback_query.answer.assert_called_once()
-    assert "CalendarAddSuccess" in str(update.callback_query.answer.call_args)
-
-
-@pytest.mark.asyncio
-async def test_add_movie_failure(
-    calendar_handler, make_update, make_context
-):
-    """cal_add_movie shows error toast when add fails."""
-    calendar_handler._mock_service.add_movie_with_profile = AsyncMock(
-        return_value=(False, "Already exists")
-    )
-    update = make_update(callback_data="cal_add_movie_12345")
-    context = make_context(user_data={"cal_days": 7, "cal_items": []})
-
-    await calendar_handler.handle_calendar_action(update, context)
-
-    update.callback_query.answer.assert_called_once()
-    assert "CalendarAddFailed" in str(update.callback_query.answer.call_args)
-
-
-# ---------------------------------------------------------------------------
-# handle_calendar_action — add episode (adds series by tvdbId)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_add_episode_success(
-    calendar_handler, make_update, make_context
-):
-    """cal_add_episode_67890 calls add_series_with_profile, shows success toast."""
-    update = make_update(callback_data="cal_add_episode_67890")
-    context = make_context(user_data={"cal_days": 7, "cal_items": []})
-
-    await calendar_handler.handle_calendar_action(update, context)
-
-    calendar_handler._mock_service.sonarr.get_root_folders.assert_awaited_once()
-    calendar_handler._mock_service.sonarr.get_quality_profiles.assert_awaited_once()
-    calendar_handler._mock_service.add_series_with_profile.assert_awaited_once_with(
-        "67890", 1, "/tv"
-    )
-    update.callback_query.answer.assert_called_once()
-    assert "CalendarAddSuccess" in str(update.callback_query.answer.call_args)
-
-
-@pytest.mark.parametrize("service,data,add_method", [
-    ("radarr", "cal_add_movie_12345", "add_movie_with_profile"),
-    ("sonarr", "cal_add_episode_67890", "add_series_with_profile"),
-])
-@pytest.mark.parametrize("saved_default,expected_profile", [
-    (2, 2),   # saved default from /settings is used
-    (99, 1),  # default no longer exists in the service: first profile
+@pytest.mark.parametrize("data", [
+    "cal_add_movie_12345", "cal_add_episode_67890", "cal_add_unknown_123",
 ])
 @pytest.mark.asyncio
-async def test_add_uses_saved_default_profile(
-    calendar_handler, make_update, make_context,
-    service, data, add_method, saved_default, expected_profile,
+async def test_cal_add_callback_is_ignored(
+    calendar_handler, make_update, make_context, data
 ):
-    """Quick-add uses the defaultProfileId saved in settings when it exists."""
-    from src.config.settings import config
-
-    client = getattr(calendar_handler._mock_service, service)
-    client.get_quality_profiles = AsyncMock(
-        return_value=[{"id": 1, "name": "HD"}, {"id": 2, "name": "4K"}]
-    )
+    """The calendar has no add path: cal_add_* only answers the query."""
     update = make_update(callback_data=data)
     context = make_context(user_data={"cal_days": 7, "cal_items": []})
 
-    with patch.dict(config.get(service)["quality"], {"defaultProfileId": saved_default}):
-        await calendar_handler.handle_calendar_action(update, context)
-
-    add = getattr(calendar_handler._mock_service, add_method)
-    assert add.call_args[0][1] == expected_profile
-
-
-# ---------------------------------------------------------------------------
-# handle_calendar_action — add exception
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_add_movie_exception(
-    calendar_handler, make_update, make_context
-):
-    """cal_add_movie shows error toast when add raises exception."""
-    calendar_handler._mock_service.add_movie_with_profile = AsyncMock(
-        side_effect=Exception("Connection failed")
-    )
-    update = make_update(callback_data="cal_add_movie_12345")
-    context = make_context(user_data={"cal_days": 7, "cal_items": []})
-
     await calendar_handler.handle_calendar_action(update, context)
 
-    update.callback_query.answer.assert_called_once()
-    assert "CalendarAddFailed" in str(update.callback_query.answer.call_args)
+    update.callback_query.answer.assert_called_once_with()
+    calendar_handler._mock_service.add_movie_with_profile.assert_not_awaited()
+    calendar_handler._mock_service.add_series_with_profile.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -397,20 +303,6 @@ async def test_handle_unknown_cal_action(
     await calendar_handler.handle_calendar_action(update, context)
 
     update.callback_query.answer.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_add_unknown_media_type(
-    calendar_handler, make_update, make_context
-):
-    """cal_add with unknown type answers with error."""
-    update = make_update(callback_data="cal_add_unknown_123")
-    context = make_context(user_data={"cal_days": 7, "cal_items": []})
-
-    await calendar_handler.handle_calendar_action(update, context)
-
-    update.callback_query.answer.assert_called_once()
-    calendar_handler._mock_ts.get_text.assert_any_call("UnknownMediaType")
 
 
 # ---------------------------------------------------------------------------

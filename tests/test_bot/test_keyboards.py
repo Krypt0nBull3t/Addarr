@@ -483,7 +483,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=False, allowlist_enabled=False,
-            admin_count=0, auth_count=1
+            admin_count=0, allow_count=1
         )
         callback_data = [
             btn.callback_data
@@ -499,7 +499,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=False, allowlist_enabled=False,
-            admin_count=0, auth_count=1
+            admin_count=0, allow_count=1
         )
         callback_data = [
             btn.callback_data
@@ -515,7 +515,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=True, allowlist_enabled=True,
-            admin_count=2, auth_count=5
+            admin_count=2, allow_count=5
         )
         callback_data = [
             btn.callback_data
@@ -1092,11 +1092,11 @@ class TestCalendarItemsKeyboard:
     """Tests for get_calendar_items_keyboard"""
 
     SAMPLE_ITEMS = [
-        {"type": "movie", "title": "Movie A", "in_library": True,
+        {"type": "movie", "title": "Movie A",
          "media_id": "100", "date": "2026-03-10", "date_label": "Cinema"},
-        {"type": "movie", "title": "Movie B", "in_library": False,
+        {"type": "movie", "title": "Movie B",
          "media_id": "200", "date": "2026-03-12", "date_label": "Digital"},
-        {"type": "episode", "title": "Pilot", "in_library": False,
+        {"type": "episode", "title": "Pilot",
          "media_id": "9000", "series_title": "New Show",
          "date": "2026-03-15", "date_label": "Airing"},
     ]
@@ -1124,22 +1124,17 @@ class TestCalendarItemsKeyboard:
         assert "Movie B" in text_joined
 
     @patch("src.bot.keyboards.TranslationService")
-    def test_add_buttons_only_for_non_library(self, mock_ts):
-        """Non-library items get cal_add_* callback, library items don't."""
+    def test_no_add_buttons(self, mock_ts):
+        """The calendar has no add path: no item gets an Add button."""
         _mock_translation(mock_ts)
         from src.bot.keyboards import get_calendar_items_keyboard
 
         result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
-        callbacks = [
-            btn.callback_data
-            for row in result.inline_keyboard for btn in row
+        buttons = [btn for row in result.inline_keyboard for btn in row]
+        assert not [
+            b for b in buttons if (b.callback_data or "").startswith("cal_add_")
         ]
-        # Movie B (not in library, movie) should have add button
-        assert "cal_add_movie_200" in callbacks
-        # Pilot (not in library, episode) should have add button
-        assert "cal_add_episode_9000" in callbacks
-        # Movie A (in library) should NOT have add button
-        assert "cal_add_movie_100" not in callbacks
+        assert not [b for b in buttons if "Add" in b.text]
 
     @patch("src.bot.keyboards.TranslationService")
     def test_pagination_when_items_exceed_page_size(self, mock_ts):
@@ -1148,7 +1143,7 @@ class TestCalendarItemsKeyboard:
         from src.bot.keyboards import get_calendar_items_keyboard
 
         items = [
-            {"type": "movie", "title": f"M{i}", "in_library": True,
+            {"type": "movie", "title": f"M{i}",
              "media_id": str(i), "date": "2026-03-10", "date_label": "Cinema"}
             for i in range(8)
         ]
@@ -1166,7 +1161,7 @@ class TestCalendarItemsKeyboard:
         from src.bot.keyboards import get_calendar_items_keyboard
 
         items = [
-            {"type": "movie", "title": f"M{i}", "in_library": True,
+            {"type": "movie", "title": f"M{i}",
              "media_id": str(i), "date": "2026-03-10", "date_label": "Cinema"}
             for i in range(8)
         ]

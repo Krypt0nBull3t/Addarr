@@ -13,6 +13,7 @@ pl-pl:
     Services: "Usługi"
     ServiceEnabled: "%{service} włączony"
     ServiceDisabled: "%{service} wyłączony"
+    ServiceRestartNotice: "Uruchom bota ponownie, aby zmiana zaczęła obowiązywać."
     QualityProfile: "Domyślny profil jakości"
     QualityProfileSet: "Domyślny profil jakości ustawiony na %{profile} dla %{service}"
     AdminOnly: "Ustawienia są dostępne tylko dla administratorów."
@@ -270,8 +271,6 @@ pl-pl:
   CalendarDays7: "7 dni"
   CalendarDays14: "14 dni"
   CalendarDays30: "30 dni"
-  CalendarAddSuccess: "✅ Dodano do biblioteki!"
-  CalendarAddFailed: "❌ Dodawanie nie powiodło się."
   CalendarAlreadyInLibrary: "Już w Twojej bibliotece."
 
   # Missing / Wanted media

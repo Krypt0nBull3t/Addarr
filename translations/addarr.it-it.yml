@@ -13,6 +13,7 @@ it-it:
     Services: "Servizi"
     ServiceEnabled: "%{service} attivato"
     ServiceDisabled: "%{service} disattivato"
+    ServiceRestartNotice: "Riavvia il bot affinché la modifica abbia effetto."
     QualityProfile: "Profilo qualità predefinito"
     QualityProfileSet: "Profilo qualità predefinito impostato su %{profile} per %{service}"
     AdminOnly: "Le impostazioni sono disponibili solo per gli amministratori."
@@ -270,8 +271,6 @@ it-it:
   CalendarDays7: "7 giorni"
   CalendarDays14: "14 giorni"
   CalendarDays30: "30 giorni"
-  CalendarAddSuccess: "✅ Aggiunto alla libreria!"
-  CalendarAddFailed: "❌ Aggiunta fallita."
   CalendarAlreadyInLibrary: "Già nella tua libreria."
 
   # Missing / Wanted media

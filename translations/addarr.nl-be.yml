@@ -13,6 +13,7 @@ nl-be:
     Services: "Services"
     ServiceEnabled: "%{service} ingeschakeld"
     ServiceDisabled: "%{service} uitgeschakeld"
+    ServiceRestartNotice: "Herstart de bot om de wijziging door te voeren."
     QualityProfile: "Standaard kwaliteitsprofiel"
     QualityProfileSet: "Standaard kwaliteitsprofiel ingesteld op %{profile} voor %{service}"
     AdminOnly: "Instellingen zijn alleen beschikbaar voor beheerders."
@@ -270,8 +271,6 @@ nl-be:
   CalendarDays7: "7 dagen"
   CalendarDays14: "14 dagen"
   CalendarDays30: "30 dagen"
-  CalendarAddSuccess: "✅ Toegevoegd aan bibliotheek!"
-  CalendarAddFailed: "❌ Toevoegen mislukt."
   CalendarAlreadyInLibrary: "Staat al in je bibliotheek."
 
   # Missing / Wanted media

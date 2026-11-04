@@ -290,3 +290,25 @@ assert "%{title}" in locale_data["messages"]["ThisDelete"]
 ```
 
 **Why**: In issue #196 the handler passed `title=` for a long time, but `ThisDelete` had no `%{title}`, so no prompt named the item. The mock hid it. Also assert that the file list is not empty (see Vacuous Loop Assertions).
+
+## Patching the Helper Under Test
+
+**Don't** rely on a handler fixture that patches a helper to prove the helper's behavior:
+
+```python
+# BAD - the settings_handler fixture patches src.bot.handlers.settings.is_admin,
+# so this passes whichever is_admin the module imports
+settings_handler._mock_is_admin.return_value = True
+```
+
+**Instead**, build the handler without the helper patch and patch only `config` at the import site of the real helper:
+
+```python
+# GOOD - the real is_admin runs against the patched config
+with patch("src.bot.handlers.settings.config", mock_config), \
+     patch("src.utils.helpers.config", mock_config):
+    mock_config._set("admins", ["12345"])
+    ...
+```
+
+**Why**: In issue #202, `/settings` and `/webhooks` imported a second `is_admin` from `src.definitions`. It compared ints, read `./config.yaml` and raised `TypeError` on an empty `admins:`. Every handler test passed, because the fixture replaced the helper. Watch the new test fail on the wrong import before you trust it.
