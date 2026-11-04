@@ -30,6 +30,12 @@ class ConfigurationError(Exception):
     pass
 
 
+_BACKUP_HINT = (
+    "Restore a copy from the backup/ folder next to config.yaml, "
+    "or run python run.py --setup."
+)
+
+
 def validate_port(port, service_name):
     """Validate that a port number is in the valid range 1-65535."""
     if not isinstance(port, int) or port < 1 or port > 65535:
@@ -92,7 +98,13 @@ class Config:
             raise ConfigurationError(f"Configuration file not found: {CONFIG_PATH}")
 
         with open(CONFIG_PATH, 'r') as f:
-            return yaml.safe_load(f)
+            loaded = yaml.safe_load(f)
+        if not isinstance(loaded, dict):
+            raise ConfigurationError(
+                f"Configuration file is empty or not a mapping: {CONFIG_PATH}. "
+                f"{_BACKUP_HINT}"
+            )
+        return loaded
 
     def _validate_config(self):
         """Validate configuration against example config"""
@@ -215,6 +227,11 @@ class Config:
             if key not in config:
                 missing.append(full_key)
             elif isinstance(value, dict):
+                if not isinstance(config[key], dict):
+                    raise ConfigurationError(
+                        f"Section '{full_key}' is empty or not a mapping. "
+                        f"{_BACKUP_HINT}"
+                    )
                 missing.extend(
                     self._get_missing_keys(value, config[key], full_key)
                 )

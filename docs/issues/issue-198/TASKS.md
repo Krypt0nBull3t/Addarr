@@ -49,7 +49,7 @@ services, and the tests exercise the real module.
         - Added class `TestRealSettingsLoader` to `tests/test_config/test_settings.py`.
     - **Notes:** `select_answer` and `confirm` args steer the questionary mocks. `result.q` holds the mocks.
 
-- [ ] **1.2** F024: empty file or section gives a clear error (plan task 2)
+- [x] **1.2** F024: empty file or section gives a clear error (plan task 2)
     - **Context:**
         - **Why:** An empty `config.yaml`, or a section such as `health_alerts:` with nothing under it, raises
           `TypeError: argument of type 'NoneType' is not iterable` at import.
@@ -68,6 +68,14 @@ services, and the tests exercise the real module.
         - [GREEN] Raise in `_load_config` for a non-dict result and in `_get_missing_keys` for a non-dict
           section
     - **Success:** Tests pass; messages name `backup/` (and the section name for sections).
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The empty-section check must run before recursion, or the recursive call raises TypeError on None.
+        - A None leaf stays valid: only a non-dict where the example has a dict is an error.
+    - **Key Changes:**
+        - `src/config/settings.py`: added `_BACKUP_HINT`; `_load_config` and `_get_missing_keys` raise `ConfigurationError`.
+        - Added class `TestRealSettingsEmptyConfig` (4 tests).
+    - **Notes:** Messages name backup/ and python run.py --setup. No auto-heal, per the plan review.
 
 - [ ] **1.3** F020: missing sections are copied from the example (plan task 3)
     - **Context:**

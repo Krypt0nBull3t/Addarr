@@ -497,3 +497,44 @@ class TestRealSettingsLoader:
         import sys
         result = load_settings(valid_config_text)
         assert result.module is not sys.modules["src.config.settings"]
+
+
+def _mutate(text, change):
+    """Parse the YAML text, let ``change`` edit the dict, dump it again."""
+    import yaml
+    data = yaml.safe_load(text)
+    change(data)
+    return yaml.safe_dump(data)
+
+
+class TestRealSettingsEmptyConfig:
+    """F024: empty file or empty section gives a clear error (#198)."""
+
+    def _assert_backup_error(self, result):
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "backup/" in str(result.error)
+
+    def test_empty_file_raises_configuration_error(self, load_settings):
+        self._assert_backup_error(load_settings(""))
+
+    def test_empty_section_raises_configuration_error(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d.update(health_alerts=None))
+        result = load_settings(text)
+        self._assert_backup_error(result)
+        assert "health_alerts" in str(result.error)
+
+    def test_empty_security_section_raises_configuration_error(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d.update(security=None))
+        result = load_settings(text)
+        self._assert_backup_error(result)
+        assert "security" in str(result.error)
+
+    def test_none_leaf_is_still_valid(self, load_settings, valid_config_text):
+        # radarr.auth.apikey is None in the example and radarr is disabled
+        result = load_settings(valid_config_text)
+        assert result.error is None
+        assert result.config["radarr"]["auth"]["apikey"] is None
