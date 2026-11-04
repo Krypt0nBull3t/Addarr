@@ -1,6 +1,6 @@
 ---
 name: addarr-workflow
-description: "Development workflow for Addarr. Invoke via /addarr command. Triggers: /addarr, /addarr new, /addarr continue, /addarr feedback, /addarr pr, /addarr check, /addarr release, and requests such as pick up an Addarr issue, continue the tasks for this branch, open a PR for this branch, address review comments on my Addarr PR, run the CI checks locally. Handles: issue selection, branch management, planning, PR creation, preflight validation, PR feedback, release readiness."
+description: "Development workflow for Addarr. Invoke via /addarr command. Triggers: /addarr, /addarr new, /addarr continue, /addarr feedback, /addarr pr, /addarr check, /addarr release, /addarr end, and requests such as pick up an Addarr issue, continue the tasks for this branch, open a PR for this branch, address review comments on my Addarr PR, run the CI checks locally, pause this Addarr session. Handles: issue selection, branch management, planning, PR creation, preflight validation, PR feedback, release readiness, pausing an issue."
 ---
 
 # Addarr Workflow
@@ -52,10 +52,11 @@ Some machines run one test suite at a time through a lock script. Every test, ga
 | `/addarr pr` | create-pr | Review -> preflight -> push -> create PR |
 | `/addarr check` | preflight | Run the core CI checks locally |
 | `/addarr release` | release | Full readiness check for development -> main merge |
+| `/addarr end [<N>]` | end | Pause: note in TASKS.md, WIP commit, push |
 
 **Arguments after the flow name pass through.** `/addarr new <N>` works on issue #N and skips
 the issue chooser: running the chooser again could pick a different issue. `/addarr continue <N>`
-uses #N instead of reading it from the branch name; when the current branch is not
+and `/addarr end <N>` use #N instead of reading it from the branch name; when the current branch is not
 `<prefix>/<N>-<slug>`, `ASK` before switching. `/addarr feedback <PR>` works on that PR.
 
 A PR from a fork or an outside contributor is not this workflow: use `/review-external-pr` (agent `untrusted-pr-reviewer`). Never check out its code.
@@ -73,6 +74,9 @@ Check the current state and recommend a flow:
 2. Check `docs/issues/issue-<N>/TASKS.md` exists with pending tasks -> recommend **continue**
 3. Check if branch has committed work not yet in a PR -> recommend **pr**
 4. Otherwise -> recommend **new**
+
+On a feature branch with pending tasks or uncommitted changes, also offer **end**
+(after the recommended option).
 
 `ASK` with AskUserQuestion (header: "Session", options ordered by recommendation). Then execute the selected flow.
 
@@ -113,7 +117,9 @@ Step 6  RUN     Flow: create-pr (automatic transition)
 
 ```
 Step 1  RUN     Read docs/issues/issue-<N>/TASKS.md (<N> from the argument or
-                the branch name), find next pending task. In a fresh session,
+                the branch name), find next pending task. Read the latest
+                **Session paused:** note, if any, and start from its next step.
+                In a fresh session,
                 run the context check (references/context-check.md) first
 Step 2  RUN     Execute tasks (see "Execution Loop" below)
 Step 3  RUN     Flow: create-pr (when all tasks complete)
@@ -166,6 +172,19 @@ Step 8  RUN     gh pr create --base development (body file, see create-pr.md)
 Step 9  RUN     Report PR URL; suggest a wiki re-ingest when it applies
 Step 10 INVOKE  /pshepard <PR number> when that skill is available (PR driver)
 Step 11 RUN     Suggest /clear before the next issue (not while pshepard watches)
+```
+
+## Flow: end
+
+See [references/end.md](references/end.md) for detailed instructions. Save mode only.
+
+```
+Step 1  RUN     Detect <N> (argument or branch name)
+Step 2  RUN     Write a pause note under the task in progress in TASKS.md
+                (or on top of plan.md before TASKS.md exists)
+Step 3  RUN     WIP commit: only your files and the note file
+Step 4  RUN     Push: <lock> git push -u origin <branch> (open PR: ASK first)
+Step 5  RUN     Report the branch, the last task and how to resume
 ```
 
 ## Flow: preflight

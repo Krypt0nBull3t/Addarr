@@ -174,7 +174,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - `SKILL.md`: feedback sequence, auto-detection item 1 (step 3, last-comment rule), Skill Reference row for `@superpowers:receiving-code-review`.
     - **Notes:** Step 2 stops when `pshepard` watches the PR, so two drivers never answer one thread.
 
-- [ ] **2.7** `/addarr end` save mode (change 12)
+- [x] **2.7** `/addarr end` save mode (change 12)
     - **Context:**
         - **Why:** No way to pause an issue on one machine and resume on another.
         - **Architecture:** New `references/end.md`; `SKILL.md` frontmatter, Entry Points, auto-detection, `## Flow: end`, continue step 1.
@@ -186,6 +186,13 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [RED] Search the skill for "addarr end": no hit.
         - [GREEN] Write `end.md`; add `end` to the triggers, the Entry Points table, auto-detection and a flow block; continue step 1 reads the latest `**Session paused:**` note.
     - **Success:** `tests/test_architecture` passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - A pause during planning has no `TASKS.md`; the note then goes on top of `plan.md`, or `design.md` when only the design exists.
+    - **Key Changes:**
+        - `references/end.md` (new): detect `<N>`, pause note, WIP commit of your files only, `ASK` before pushing when a PR is open, `<lock> git push`, report.
+        - `SKILL.md`: frontmatter triggers, Entry Points row, arguments paragraph, auto-detection offers **end**, `## Flow: end`, continue step 1 reads the pause note.
+    - **Notes:** Save mode only; `/addarr pr` already completes an issue.
 
 ### Phase 3: Acceptance (1 task)
 
