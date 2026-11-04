@@ -101,8 +101,7 @@ class PreRunChecker:
                     # Skip empty lines and comments
                     if not line or line.startswith('#'):
                         continue
-                    # Remove version specifiers and comments
-                    package = line.split('>=')[0].split('<=')[0].split('==')[0].split('#')[0].strip()
+                    package = line.split('>=')[0].split('<=')[0].split('==')[0].split('#')[0].split('[')[0].strip()
                     if package:
                         requirements.append(package.lower())  # Convert to lowercase
         except FileNotFoundError:

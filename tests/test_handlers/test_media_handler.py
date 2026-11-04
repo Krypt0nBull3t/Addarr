@@ -118,6 +118,30 @@ async def test_handle_search_admin_restriction_allows_admin(
 
 
 @pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_handle_search_refuses_once_search_limit_is_used_up(
+    mock_rl_ts_class, media_handler, make_update, make_context
+):
+    """F063: every path to a search, the menu buttons included, is limited."""
+    mock_rl_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    media_handler._mock_service.search_movies = AsyncMock(return_value=[])
+    context = make_context(user_data={"search_type": "movie"})
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"search": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        await media_handler.handle_search(make_update(text="matrix"), context)
+        refused = make_update(text="matrix")
+        result = await media_handler.handle_search(refused, context)
+
+    media_handler._mock_service.search_movies.assert_awaited_once_with("matrix")
+    assert result is None
+    refused.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_search_no_results(media_handler, make_update, make_context):
     """Empty search results replies with translated no-results message and returns END."""
     media_handler._mock_service.search_movies = AsyncMock(return_value=[])
@@ -282,6 +306,62 @@ async def test_handle_selection_quality_selection(
 
 
 @pytest.mark.asyncio
+async def test_handle_selection_stores_quality_message_id(
+    media_handler, make_update, make_context
+):
+    """F062: the quality keyboard's message id is stored for later checks."""
+    media_handler._mock_service.add_movie = AsyncMock(return_value={
+        "type": "quality_selection",
+        "profiles": [{"id": 1, "name": "HD-1080p"}],
+        "root_folder": "/movies",
+    })
+
+    update = make_update(callback_data="select_123")
+    update.callback_query.message.photo = None
+    update.callback_query.message.message_id = 7
+    context = make_context(user_data={
+        "search_type": "movie",
+        "search_results": [{"id": "123", "title": "Test Movie"}],
+    })
+
+    await media_handler.handle_selection(update, context)
+
+    assert context.user_data["quality_message_id"] == 7
+
+
+@pytest.mark.parametrize("callback_data", ["quality_1", "quality_cancel"])
+@pytest.mark.asyncio
+async def test_stale_quality_callback_is_ignored(
+    media_handler, make_update, make_context, callback_data
+):
+    """F062: a quality callback from an older keyboard changes and adds nothing."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    media_handler._mock_service.add_movie_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+    update = make_update(callback_data=callback_data)
+    update.callback_query.message.photo = None
+    update.callback_query.message.message_id = 99
+    context = make_context(user_data={
+        "search_type": "series",
+        "selected_media": {"id": "123", "title": "Test Series"},
+        "quality_message_id": 7,
+        "quality_data": {
+            "profiles": [{"id": 5, "name": "Sonarr HD"}],
+            "root_folder": "/tv",
+        },
+    })
+
+    result = await media_handler.handle_quality_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    assert "selected_profile_id" not in context.user_data
+    media_handler._mock_service.add_movie_with_profile.assert_not_awaited()
+    update.callback_query.message.reply_text.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_handle_selection_quality_selection_with_photo(
     media_handler, make_update, make_context
 ):
@@ -359,6 +439,33 @@ async def test_handle_selection_default_profile_skips_picker(
     sent = update.callback_query.message.edit_text.call_args.kwargs
     assert sent["reply_markup"] is None
     assert "select a quality profile" not in sent["text"]
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_handle_selection_default_profile_add_is_rate_limited(
+    mock_rl_ts_class, media_handler, make_update, make_context
+):
+    """F063: the default-profile path adds without a picker tap, so it is limited too."""
+    mock_rl_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    update, context = _selection(
+        media_handler, make_update, make_context, "movie", MOVIE_PROFILES
+    )
+
+    with (
+        patch("src.bot.handlers.media.handler.config", _config_with_defaults(radarr=2)),
+        patch("src.services.rate_limit.config") as limit_cfg,
+    ):
+        limit_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"modify": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        await media_handler.handle_selection(update, context)
+        result = await media_handler.handle_selection(update, context)
+
+    media_handler._mock_service.add_movie_with_profile.assert_awaited_once()
+    assert result is None
+    update.callback_query.message.reply_text.assert_any_call("RateLimitExceeded")
 
 
 @pytest.mark.parametrize("config_obj", [
@@ -668,6 +775,7 @@ async def test_handle_quality_cancel(media_handler, make_update, make_context):
     update.callback_query.message.photo = None
     context = make_context()
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -693,6 +801,7 @@ async def test_handle_quality_selection_movie(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -720,6 +829,7 @@ async def test_handle_quality_selection_series_with_seasons(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == SEASON_SELECT
@@ -734,6 +844,7 @@ async def test_handle_quality_selection_no_data(
     update.callback_query.message.photo = None
     context = make_context(user_data={"search_type": "movie"})
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -760,6 +871,7 @@ async def test_handle_quality_selection_exception(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -1002,6 +1114,38 @@ async def test_handle_season_selection_individual_toggle(
 
     assert result == SEASON_SELECT
     assert 1 in context.user_data["selected_seasons"]
+
+
+@pytest.mark.asyncio
+async def test_season_untick_after_all_seasons_monitors_only_remaining(
+    media_handler, make_update, make_context
+):
+    """F060: unticking a season after "All Seasons" leaves it unmonitored."""
+    media_handler._mock_service.add_series_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "123", "title": "Test"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/tv",
+        "selected_seasons": set(),
+        "future_mode": None,
+        "monitor_all": False,
+        "quality_data": {"seasons": [{"seasonNumber": 1}, {"seasonNumber": 2}]},
+    })
+
+    for data in ("season_all", "season_1", "season_confirm"):
+        update = make_update(callback_data=data)
+        update.callback_query.message.photo = None
+        update.callback_query.message.reply_markup = MagicMock()
+        update.callback_query.message.reply_markup.to_dict.return_value = {}
+        await media_handler.handle_season_selection(update, context)
+
+    seasons_data = media_handler._mock_service.add_series_with_profile.call_args.args[3]
+    assert seasons_data == [
+        {"seasonNumber": 1, "monitored": False},
+        {"seasonNumber": 2, "monitored": True},
+    ]
 
 
 @pytest.mark.asyncio
@@ -1865,6 +2009,13 @@ def test_get_handler_returns_list(media_handler):
     assert len(handlers) > 0
 
 
+def test_media_conversation_has_timeout(media_handler):
+    """F061: an abandoned search ends after 600 s and stops taking other flows' text."""
+    conversation = media_handler.get_handler()[0]
+
+    assert conversation.conversation_timeout == 600
+
+
 # ---------------------------------------------------------------------------
 # _build_result_caption
 # ---------------------------------------------------------------------------
@@ -2706,6 +2857,7 @@ async def test_handle_quality_selection_music_artist_shows_album_monitor(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ALBUM_SELECT
@@ -2734,6 +2886,7 @@ async def test_handle_quality_selection_music_album_adds_directly(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -2766,6 +2919,7 @@ async def test_handle_quality_selection_music_song_adds_with_album(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END

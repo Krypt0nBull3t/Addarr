@@ -16,6 +16,7 @@ from src.bot.keyboards import (
     get_main_menu_keyboard,
 )
 from src.services.media import MediaService
+from src.services.rate_limit import rate_limit
 from src.services.translation import TranslationService
 from src.utils.chat import edit_text_ignoring_unmodified
 
@@ -39,6 +40,7 @@ class CalendarHandler:
         ]
 
     @require_auth
+    @rate_limit("modify")
     async def show_upcoming(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):

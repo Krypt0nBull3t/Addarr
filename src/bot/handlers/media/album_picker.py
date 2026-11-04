@@ -11,6 +11,7 @@ handle_album_confirm methods that MediaHandler inherits via mixin.
 from telegram import Update
 from telegram.ext import ConversationHandler, ContextTypes
 
+from src.services.rate_limit import enforce_rate_limit
 from src.utils.logger import get_logger
 from src.bot.keyboards import get_album_selection_keyboard
 from .dispatch import ALBUM_SELECT
@@ -41,6 +42,8 @@ class AlbumPickerMixin:
             profile_id = context.user_data.get("selected_profile_id")
             root_folder = context.user_data.get("selected_root_folder")
 
+            if not await enforce_rate_limit(update, "modify"):
+                return None
             try:
                 success, message = await self.media_service.add_music_with_profile(
                     selected["id"], profile_id, root_folder
@@ -113,6 +116,8 @@ class AlbumPickerMixin:
             profile_id = context.user_data.get("selected_profile_id")
             root_folder = context.user_data.get("selected_root_folder")
 
+            if not await enforce_rate_limit(update, "modify"):
+                return None
             try:
                 success, message = await self.media_service.add_music_with_profile(
                     selected["id"], profile_id, root_folder
@@ -167,6 +172,9 @@ class AlbumPickerMixin:
             return ConversationHandler.END
 
         query = update.callback_query
+
+        if not await enforce_rate_limit(update, "modify"):
+            return None
 
         try:
             selected = context.user_data.get("selected_media")

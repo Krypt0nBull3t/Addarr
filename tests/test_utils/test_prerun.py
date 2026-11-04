@@ -127,6 +127,15 @@ class TestParseRequirements:
         assert not any("<=" in p for p in result)
         assert not any("==" in p for p in result)
 
+    def test_strips_extras(self, tmp_path):
+        """An [extra] is no part of the package name pip list reports."""
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("python-telegram-bot[job-queue]==22.8\n")
+        checker = PreRunChecker()
+        result = checker.parse_requirements(str(req_file))
+        assert "python-telegram-bot" in result
+        assert not any("[" in p for p in result)
+
     def test_strips_inline_comments(self, tmp_path):
         """Strips inline # comments from lines."""
         req_file = tmp_path / "requirements.txt"
