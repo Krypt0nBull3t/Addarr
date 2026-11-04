@@ -331,16 +331,7 @@ def test_checker_accepts_real_names_and_placeholders():
     assert skill_problems({"SKILL.md": text}) == []
 
 
-# Skills that issue #237 has not corrected yet. Strict xfail: a fixed skill
-# that is still listed fails the run, so the fix must remove it here.
-_PENDING = set()
-
-
-@pytest.mark.parametrize("skill", [
-    pytest.param(s, marks=pytest.mark.xfail(strict=True, reason="corrected later in #237"))
-    if s in _PENDING else s
-    for s in CHECKED_SKILLS
-])
+@pytest.mark.parametrize("skill", CHECKED_SKILLS)
 def test_skill_names_exist(skill):
     assert skill_problems(load_skill(skill)) == []
 

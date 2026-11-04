@@ -296,7 +296,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
 
 ### Phase 6: Verification (1 task)
 
-- [ ] **6.1** Acceptance gate
+- [x] **6.1** Acceptance gate
     - **Context:**
         - **Why:** Issue acceptance criteria.
         - **Architecture:** Delete `_PENDING`; acceptance search; full preflight.
@@ -307,3 +307,9 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] n/a (gate)
         - [GREEN] Remove `_PENDING`; run the search and the preflight
     - **Success:** all preflight steps pass; no search hits
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The acceptance search finds nothing for `superpowers:simplify`, `SABnzbdHandler`, `prerun_checker\.py` and `chatMode.*public` in `.claude` and `tests`. A bare `prerun_checker` still hits 7 lines in `tests/test_run.py` and `tests/test_utils/test_prerun.py`: the real instance name (D15).
+        - flake8 is not in the requirements files; the worktree venv needed `pip install flake8`, as CI does.
+    - **Key Changes:** `test_skills.py`: `_PENDING` and the strict-xfail wrapper removed; `test_skill_names_exist` checks all 11 checked skills.
+    - **Notes:** Preflight (flake8, mypy, i18n, unit 2019 passed with 100% coverage, integration 95 passed, architecture 73 passed) ran under the suite lock with the worktree's `.venv`.
