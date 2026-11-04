@@ -65,7 +65,7 @@ Run the full preflight flow (see [preflight.md](preflight.md)). All checks must 
 
 Check:
 - Branch is not `development` or `main`
-- All changes committed (`git status`)
+- All changes committed (`git status`). Uncommitted changes of yours: commit them as in step 2. Files that are not yours: leave them out and report them.
 - Branch is pushed to remote
 
 If not pushed:
@@ -75,13 +75,13 @@ git push -u origin <branch-name>
 
 ## Step 5: Generate PR Info
 
-- **Title**: From issue title if linked, otherwise from branch name. Keep under 70 chars.
-- **Body**: Generate from commits and issue context. Write to temp file, use `--body-file`.
+- **Title**: From the issue title, otherwise from the branch name. Keep under 70 chars.
+- **Body**: Generate from commits and issue context. End the summary with `Closes #<N>`. Write it to the session scratchpad as `pr-<N>-body.md` (a fixed `/tmp` name collides between parallel sessions).
 
 ## Step 6: Create PR
 
 ```bash
-gh pr create --base development --title "<title>" --body-file /tmp/pr_body.md
+gh pr create --repo Krypt0nBull3t/Addarr --base development --title "<title>" --body-file <scratchpad>/pr-<N>-body.md
 ```
 
 ## Step 7: Report Result

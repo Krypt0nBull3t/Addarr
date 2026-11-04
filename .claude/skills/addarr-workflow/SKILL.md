@@ -7,7 +7,7 @@ description: "Development workflow for Addarr. Invoke via /addarr command. Trigg
 
 Self-driving development workflow for Addarr. Entry point: `/addarr [argument]`
 
-**IMPORTANT:** All PRs target `development` as base branch, never `main`.
+**IMPORTANT:** Feature and fix PRs target `development`. Only the release flow targets `main`.
 
 **Execution model:** Each flow is an ordered sequence. Execute every step automatically. Only pause for user input at steps marked `ASK`. All other steps execute without waiting.
 
@@ -92,7 +92,7 @@ Step 4  RUN     Create tasks in TASKS.md for selected items
 Step 5  RUN     Execute tasks (see "Execution Loop" below)
                 INVOKE @superpowers:systematic-debugging for bug-fix feedback items
 Step 6  RUN     Flow: preflight
-Step 7  RUN     Push changes, report what was addressed
+Step 7  RUN     Commit any fixes (only your files), push, report what was addressed
 ```
 
 ## Flow: create-pr
@@ -108,14 +108,14 @@ Step 1  RUN     Pre-PR review — three complementary passes over the branch dif
                 Fix any actionable findings. Skip pre-existing patterns.
 Step 2  RUN     Commit the review fixes (see create-pr.md)
 Step 3  RUN     Flow: preflight (all checks must pass; it runs the CI coverage gate)
-Step 4  RUN     Verify readiness (not on main/development, all committed, push if needed)
+Step 4  RUN     Verify readiness (not on main/development, all committed, push)
 Step 5  RUN     Generate PR title + body from commits and issue context
-Step 6  RUN     gh pr create --base development
+Step 6  RUN     gh pr create --base development (body file, see create-pr.md)
 Step 7  RUN     Report PR URL
 Step 8  RUN     Retrospective: extract learnings from TASKS.md completion
                 metadata and suggest durable skill/convention updates.
                 See [references/retrospective.md](references/retrospective.md).
-                Human-reviewed — never auto-updates skills.
+                Human-reviewed; approved edits are committed on this branch and pushed.
 ```
 
 ## Flow: preflight
@@ -148,12 +148,11 @@ Step 1  RUN     Checkout development branch, ensure up-to-date with origin
 Step 2  INVOKE  @release-readiness (runs all 4 phases)
 Step 3  RUN     Report final verdict: READY or NOT READY
 Step 4  ASK     If READY, confirm user wants to create the merge PR to main
-Step 5  RUN     If confirmed: gh pr create --base main --head development
+Step 5  RUN     If confirmed: write the body (merged PRs since main, the
+                release-readiness verdict) to <scratchpad>/release-body.md, then
+                gh pr create --repo Krypt0nBull3t/Addarr --base main --head development
+                  --title "Release: development to main" --body-file <scratchpad>/release-body.md
 ```
-
-## Optional: Post-Merge Retrospective
-
-After a PR is merged, optionally run the retrospective process to extract durable learnings from TASKS.md completion metadata. See [references/retrospective.md](references/retrospective.md) for the categorization process. Human-reviewed — never auto-updates skills.
 
 ---
 
@@ -182,9 +181,9 @@ the skill stays in context for the rest of the session. Do not re-invoke.
 **For each task in TASKS.md:**
 
 ```
-1  RUN     Mark task in-progress
+1  RUN     Read the task's Context, Touches and Action items
 
-2  RUN     TDD cycle — for each behavior in the task:
+2  RUN     TDD cycle, for each behavior in the task:
    a  RED     Write failing test
    b  RUN     <py> -m pytest tests/<path>/test_<name>.py::test_<case> -v (confirm it fails correctly)
    c  GREEN   Write minimal implementation
@@ -192,6 +191,9 @@ the skill stays in context for the rest of the session. Do not re-invoke.
 
    On unexpected test failure:
    -> INVOKE @superpowers:systematic-debugging — find root cause before fixing
+
+   Blocked: after 2 rounds of systematic-debugging without a fix, or on a
+   design question the plan does not answer, stop and ASK with the evidence.
 
 3  RUN     Full suite with the CI coverage gate, once per task (not per behavior):
            the unit-test command from references/preflight.md step 4.
@@ -211,9 +213,10 @@ the skill stays in context for the rest of the session. Do not re-invoke.
            - **Learnings:** Key insights, gotchas, or discoveries from this task
            - **Key Changes:** Summary of what was modified (files, functions, patterns)
            - **Notes:** Any important context for future work
-6  RUN     Commit changes for this task — creates a restore point in case
-           later tasks break something. Use a descriptive message referencing
-           the task number (e.g., "feat: add command builder module (task 1.1)")
+6  RUN     Commit changes for this task: a restore point in case later tasks
+           break something. Stage only the task's files and TASKS.md (never
+           `git add .`), check `git diff --cached`, and reference the task
+           number (e.g., "feat: add command builder module (task 1.1)")
 7  RUN     Next task (loop back to 1)
 ```
 
@@ -231,7 +234,7 @@ the skill stays in context for the rest of the session. Do not re-invoke.
     - **Notes:** Monitor logs for "Could not set commands" warnings on startup
 ```
 
-**When all tasks complete:** Transition to the next flow step (create-pr or preflight depending on parent flow).
+**When all tasks complete:** INVOKE @superpowers:verification-before-completion, then transition to the next flow step (create-pr or preflight depending on parent flow).
 
 ---
 

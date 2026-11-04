@@ -1,6 +1,6 @@
-# Post-PR Retrospective
+# PR Retrospective
 
-Optional step after a PR is merged. Extracts learnings from TASKS.md completion metadata and suggests durable skill/convention updates.
+Create-pr step 8, right after the PR is opened and before it is merged. Extracts learnings from TASKS.md completion metadata and suggests durable skill/convention updates. Approved edits go on the PR's own branch, so they are reviewed with the PR.
 
 **Key constraint:** Human-reviewed, never automatic. Present suggestions; user approves before any edits.
 
@@ -8,7 +8,7 @@ Optional step after a PR is merged. Extracts learnings from TASKS.md completion 
 
 ### Step 1: Extract Learnings
 
-Read all TASKS.md completion metadata for the merged PR's issue:
+Read all TASKS.md completion metadata for the PR's issue:
 ```
 docs/issues/issue-<N>/TASKS.md
 ```
@@ -20,7 +20,7 @@ Collect all `**Learnings:**` and `**Notes:**` entries.
 For each learning, determine if it fits a category:
 
 | Category | Target | Example |
-|----------|--------|---------|
+|-|-|-|
 | New anti-pattern | `addarr-testing/references/anti-patterns.md` | "Patching at source module instead of import site silently passes" |
 | New convention | `CLAUDE.md` or `test_conventions.py` | "All handler entry points must have @require_auth" |
 | Recurring bug pattern | `addarr-find-bugs` checklist | "Missing query.answer() in callback handlers" |
@@ -38,7 +38,7 @@ For each categorized learning, present:
 
 Only after user explicitly approves each suggestion:
 - Make the specific edit to the target file
-- Commit with message: `docs: retrospective update from issue-<N>`
+- Commit on the PR's branch with message `docs: retrospective update from issue-<N>` (stage only the edited files), then `git push`
 
 ## Example
 

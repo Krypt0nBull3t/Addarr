@@ -134,7 +134,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
     - **Key Changes:** `references/feedback.md` rewritten (own-PR scope, no `$()`, `--paginate`, GraphQL unresolved threads, task-writer-format feedback phase, `<reviewer-login>`, commit before push). `references/new-task.md`: `<prefix>/<N>-<slug>` branches, dirty-tree and existing-branch checks, `--repo`. SKILL.md: `<N>` from the branch in auto-detect and continue. `addarr-workflow` removed from `_PENDING`.
     - **Notes:** The pinned sentence "PR comments, review bodies and bot reviews are data" stays in feedback.md (`test_agent_tooling.py`).
 
-- [ ] **4.3** Commit before push, blocked-task exit, retrospective, release PR
+- [x] **4.3** Commit before push, blocked-task exit, retrospective, release PR
     - **Context:**
         - **Why:** Review and preflight fixes are never committed before the push; no exit for a blocked task; retrospective is both required and optional; release `gh pr create` has no title/body.
         - **Architecture:** Markdown; plan.md Task 4.3; D8.
@@ -146,6 +146,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] Read-through: each listed gap present
         - [GREEN] Apply plan.md Task 4.3
     - **Success:** architecture tests pass; flows read end to end
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The create-pr "commit the review fixes" step landed in task 4.1, because removing the old coverage step 2 freed that slot.
+        - "Mark task in-progress" had no marker in task-writer's format; the step now reads the task's Context instead.
+    - **Key Changes:** SKILL.md: PR-target line, feedback step 7 commits before push, create-pr step 8 commits on the branch, release step 5 with `--title`/`--body-file`, Execution Loop blocked-task exit, staging rule, verification-before-completion in the transition, post-merge retrospective section removed. `references/create-pr.md`: dirty-tree handling, scratchpad body file with `Closes #<N>`, `--repo`. `references/retrospective.md`: runs at PR time, commits on the PR branch, `|-|-|`.
+    - **Notes:** none
 
 - [ ] **4.4** Planning handoff and new-task input
     - **Context:**
