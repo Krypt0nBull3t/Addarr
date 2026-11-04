@@ -219,16 +219,38 @@ def test_requirements_are_pinned(path):
         assert re.fullmatch(r"[A-Za-z0-9._-]+==[A-Za-z0-9.]+", req), req
 
 
-def test_dependabot_skips_pytestarch_5():
-    # pytestarch 5 needs Python 3.11; the CI compatibility matrix runs 3.10.
+@pytest.mark.parametrize("name, versions", [("pytestarch", ">=5"), ("flake8", ">=7.5")])
+def test_dependabot_skips_versions_without_python_3_10(name, versions):
+    # These releases need Python 3.11; the CI compatibility matrix runs 3.10.
     updates = yaml.safe_load(read_text(".github/dependabot.yml"))["updates"]
     pip = next(u for u in updates if u["package-ecosystem"] == "pip")
-    rule = {"dependency-name": "pytestarch", "versions": [">=5"]}
+    rule = {"dependency-name": name, "versions": [versions]}
     assert rule in pip.get("ignore", [])
+
+
+def test_runtime_secret_files_are_git_ignored():
+    ignored = [".env", ".env.local", "chatid.txt", "admin.txt", "allowlist.txt"]
+    result = subprocess.run(
+        ["git", "check-ignore", *ignored, ".env.example"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.splitlines() == ignored, result.stderr
+
+
+def test_flake8_is_pinned_for_tests():
+    # cloud-setup.sh and the post-edit hook run flake8 from the test deps.
+    assert re.search(r"^flake8==", read_text("requirements-test.txt"), re.M)
 
 
 def test_cloud_setup_installs_pinned_graphify():
     assert f"pip install -q {GRAPHIFY_PIN}" in read_text("scripts/cloud-setup.sh")
+
+
+def test_cloud_setup_leaves_auth_to_gh_token():
+    # gh reads GH_TOKEN itself; `gh auth login` exits 1 while it is set.
+    assert "gh auth login" not in read_text("scripts/cloud-setup.sh")
 
 
 def test_graphify_skill_quotes_interpreter():
