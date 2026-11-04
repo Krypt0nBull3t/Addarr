@@ -140,4 +140,4 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
     - **Learnings:**
         - The retrospective added one entry, "Patching the Helper Under Test", to `addarr-testing/references/anti-patterns.md`.
     - **Key Changes:** None (verification only).
-    - **Notes:** flake8, mypy and `--validate-i18n` clean; unit tests 2032 passed at 100% coverage; integration 95 passed; architecture 154 passed.
+    - **Notes:** flake8, mypy and `--validate-i18n` clean; unit tests 2032 passed at 100% coverage; architecture 154 passed. Integration tests added after the first preflight (`test_movie_default_profile_skips_quality_picker`, `test_settings_service_toggle_says_restart_needed`): 97 passed.

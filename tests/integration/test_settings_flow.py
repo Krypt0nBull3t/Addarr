@@ -85,3 +85,26 @@ async def test_settings_command_reenters_open_conversation(harness):
 
     assert resp is not None
     assert resp.text == "⚙️ Settings"
+
+
+@pytest.mark.asyncio
+async def test_settings_service_toggle_says_restart_needed(harness):
+    """settings -> radarr -> toggle -> reply tells the user to restart the bot."""
+    with (
+        patch("src.bot.handlers.settings.is_admin", return_value=True),
+        patch("src.bot.handlers.settings.config") as mock_cfg,
+    ):
+        mock_cfg.get = MagicMock(return_value={"enable": True})
+        mock_cfg.update_nested = MagicMock()
+        mock_cfg.save = MagicMock()
+
+        await harness.send_command("/settings")
+        await harness.tap_button("settings_radarr")
+        await harness.tap_button("svc_toggle_radarr")
+
+        resp = find_response(harness, "editMessageText")
+        assert resp is not None
+        assert resp.text == (
+            "✅ disabled radarr\nRestart the bot for this to take effect."
+        )
+        mock_cfg.update_nested.assert_called_with("radarr.enable", False)

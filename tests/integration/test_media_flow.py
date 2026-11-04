@@ -55,6 +55,29 @@ async def test_movie_happy_path(harness):
 
 
 @pytest.mark.asyncio
+async def test_movie_default_profile_skips_quality_picker(harness):
+    """/movie -> search -> select -> added with the saved default profile."""
+    radarr_default = {"radarr": {"quality": {"defaultProfileId": 2}}}
+    with (
+        patch.object(MediaService, "search_movies", new_callable=AsyncMock, return_value=MOVIE_SEARCH_RESULTS),
+        patch.object(MediaService, "add_movie", new_callable=AsyncMock, return_value=MOVIE_QUALITY_RESULT),
+        patch.object(MediaService, "add_movie_with_profile", new_callable=AsyncMock, return_value=(True, "Fight Club added successfully")) as add_with_profile,
+        patch("src.bot.handlers.media.handler.config") as mock_cfg,
+    ):
+        mock_cfg.get.side_effect = lambda key, default=None: radarr_default.get(key, default)
+
+        await harness.send_command("/movie")
+        await harness.send_text("fight club")
+
+        # Select the result: no quality picker, the movie is added at once
+        resp = await harness.tap_button("select_550")
+
+        assert resp is not None
+        assert "added" in resp.text.lower()
+        add_with_profile.assert_awaited_once_with("550", 2, "/movies")
+
+
+@pytest.mark.asyncio
 async def test_movie_no_results(harness):
     """/movie -> search with no results -> conversation ends."""
     with patch.object(MediaService, "search_movies", new_callable=AsyncMock, return_value=[]):
