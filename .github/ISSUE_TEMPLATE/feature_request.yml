@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest a new feature or a change to an existing one.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can you not do today, or what is hard to do? Describe the need, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Fix
+      description: Optional. The change you propose.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Optional. How to check that the feature works.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional. Related issues, services involved, alternatives you considered.
