@@ -24,3 +24,11 @@ data/
 .aider*
 .opencode/
 graphify-out/
+
+# Secrets and runtime state (the bot writes the .txt files next to run.py)
+.env
+.env.*
+!.env.example
+/chatid.txt
+/admin.txt
+/allowlist.txt

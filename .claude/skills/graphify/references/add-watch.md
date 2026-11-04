@@ -2,6 +2,8 @@
 
 Load this when the user ran `/graphify add <url>` or passed `--watch`. Neither is part of the default build.
 
+Run the interpreter guard (`SKILL.md` § Interpreter guard for subcommands) once, before the first block here that uses `.graphify_python`.
+
 ## For /graphify add
 
 Fetch a URL and add it to the corpus, then update the graph.

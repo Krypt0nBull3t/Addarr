@@ -2,6 +2,8 @@
 
 Load this only when the user passed `--update` or `--cluster-only`. A first-time full build never reads this file.
 
+Run the interpreter guard (`SKILL.md` § Interpreter guard for subcommands) once, before the first block here that uses `.graphify_python`.
+
 ## For --update (incremental re-extraction)
 
 Use when you've added or modified files since the last run. Only re-extracts changed files - saves tokens and time.
