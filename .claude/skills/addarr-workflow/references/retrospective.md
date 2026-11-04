@@ -1,6 +1,6 @@
 # PR Retrospective
 
-Create-pr step 8, right after the PR is opened and before it is merged. Extracts learnings from TASKS.md completion metadata and suggests durable skill/convention updates. Approved edits go on the PR's own branch, so they are reviewed with the PR.
+Create-pr step 3 (why there: [create-pr.md](create-pr.md) step 3). Extracts learnings from TASKS.md completion metadata and suggests durable skill/convention updates. Approved edits are committed on the branch and reviewed with the PR.
 
 **Key constraint:** Human-reviewed, never automatic. Present suggestions; user approves before any edits.
 
@@ -38,7 +38,7 @@ For each categorized learning, present:
 
 Only after user explicitly approves each suggestion:
 - Make the specific edit to the target file
-- Commit on the PR's branch with message `docs: retrospective update from issue-<N>` (stage only the edited files), then `git push`
+- Commit on the branch with message `docs: retrospective update from issue-<N>` (stage only the edited files). Do not push: create-pr step 6 pushes once
 
 ## Example
 

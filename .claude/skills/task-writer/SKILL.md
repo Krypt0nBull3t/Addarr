@@ -118,7 +118,8 @@ Task: Add the Bazarr wanted-subtitles list
   Per behavior: pytest tests/<path>/test_<name>.py::test_<behavior> -v (fails), implement,
   pytest tests/<path>/test_<name>.py -v (passes)
   ↓
-  Full suite with the CI coverage gate (addarr-workflow preflight step 4)
+  Scoped checks for the changed layers (addarr-workflow Execution Loop step 3);
+  the full suite with the 100% coverage gate runs once, in the preflight
   ↓
   Mark complete with metadata, one commit for the task
 ```
@@ -127,7 +128,7 @@ Task: Add the Bazarr wanted-subtitles list
 
 1. Action items MUST list [RED] steps before [GREEN] steps
 2. Test patterns: use the `addarr-testing` skill (fixtures, aioresponses, handler factories)
-3. One commit per task, after the full suite passes
+3. One commit per task, after its scoped checks pass
 
 ## Task Conventions
 
