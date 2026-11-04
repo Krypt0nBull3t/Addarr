@@ -26,7 +26,7 @@ from src.bot.keyboards import (
 )
 from src.bot.states import States
 from src.config.settings import config
-from src.definitions import is_admin
+from src.utils.helpers import is_admin
 from src.services.translation import TranslationService
 from src.utils.logger import get_logger, log_user_interaction
 

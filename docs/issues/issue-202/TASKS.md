@@ -6,7 +6,7 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
 
 **Goal:** `/settings` and `/webhooks` use the shared admin check, the Allowlist button counts `allow_list`, and a service toggle says a restart is needed.
 
-- [ ] **1.1** F070: one admin check (and `admins: None` in the Users menu)
+- [x] **1.1** F070: one admin check (and `admins: None` in the Users menu)
     - **Context:**
         - **Why:** `settings.py` and `webhooks.py` import `is_admin` from `src.definitions`. That copy compares ints, reads `./config.yaml` from the working directory and raises `TypeError` on an empty `admins:`.
         - **Architecture:** Import `is_admin` from `src.utils.helpers` (`str()` compare, `or []`), as `auth.py`, `downloads.py` and `media/handler.py` do. Delete the copy in `src/definitions.py`; keep `get_admins` and the rest (issue #226 removes them).
@@ -20,6 +20,15 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
         - [RED] `TestWebhookAdminCheck` in `test_webhooks_handler.py`, patching `src.utils.helpers.config` only: `admins: None` returns `ConversationHandler.END`; `admins: ["12345"]` returns the menu state
         - [GREEN] Change both imports, delete `is_admin` from `definitions.py`, guard `settings.py:658,698` with `or []`
     - **Success:** The new tests fail before the change and pass after; `pytest tests/test_handlers tests/test_definitions.py` passes; flake8 and mypy clean
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The `settings_handler` fixture patches `src.bot.handlers.settings.is_admin`, so it cannot prove the real check. A separate fixture (`real_admin_settings_handler`) patches `config` and leaves `is_admin` real.
+        - Before the change the new tests failed on `FileNotFoundError: config.yaml not found` (the old check reads `./config.yaml`) and on `TypeError` at `settings.py:698`.
+    - **Key Changes:**
+        - `settings.py` and `webhooks.py` import `is_admin` from `src.utils.helpers`; `definitions.is_admin` is deleted.
+        - `settings.py` counts admins with `len(config.get("admins") or [])` in `handle_users_menu` and `handle_users_toggle`.
+        - Tests: `TestAdminCheck` (settings), `TestWebhookAdminCheck` (webhooks), `test_is_admin_not_defined_in_definitions`.
+    - **Notes:** `get_admins` and the rest of `src/definitions.py` stay for issue #226.
 
 - [ ] **1.2** F072: Allowlist button counts `allow_list`
     - **Context:**

@@ -34,7 +34,7 @@ from src.services.media import MediaService
 from src.services.transmission import TransmissionService
 from src.services.sabnzbd import SABnzbdService
 from src.services.translation import TranslationService
-from src.definitions import is_admin
+from src.utils.helpers import is_admin
 
 logger = get_logger("addarr.settings")
 
@@ -655,7 +655,7 @@ class SettingsHandler:
         security = config.get("security", {})
         admin_enabled = security.get("enableAdmin", False)
         allowlist_enabled = security.get("enableAllowlist", False)
-        admin_count = len(config.get("admins", []))
+        admin_count = len(config.get("admins") or [])
         auth_count = len(config.get("authenticated_users", []))
 
         keyboard = get_users_keyboard(
@@ -695,7 +695,7 @@ class SettingsHandler:
             reply_markup=get_users_keyboard(
                 config.get("security", {}).get("enableAdmin", False),
                 config.get("security", {}).get("enableAllowlist", False),
-                len(config.get("admins", [])),
+                len(config.get("admins") or []),
                 len(config.get("authenticated_users", [])),
             ),
         )

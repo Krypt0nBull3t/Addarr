@@ -1,7 +1,7 @@
 """Tests for src/bot/handlers/settings.py"""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 
@@ -893,3 +893,89 @@ class TestMisc:
 
         assert result == ConversationHandler.END
         update.message.reply_text.assert_called_once()
+
+
+@pytest.fixture
+def real_admin_settings_handler(
+    mock_media_service, mock_translation_service, mock_config
+):
+    """SettingsHandler with the real is_admin and a patched config (no is_admin mock)."""
+    from src.bot.handlers.auth import AuthHandler
+
+    with (
+        patch("src.bot.handlers.settings.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.settings.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.settings.TransmissionService"),
+        patch("src.bot.handlers.settings.SABnzbdService"),
+        patch("src.bot.handlers.settings.config", mock_config),
+        patch("src.utils.helpers.config", mock_config),
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        AuthHandler._authenticated_users = {12345}
+
+        from src.bot.handlers.settings import SettingsHandler
+
+        handler = SettingsHandler()
+        handler._config = mock_config
+        yield handler
+
+
+class TestAdminCheck:
+    """/settings uses the shared admin check (src.utils.helpers.is_admin)"""
+
+    @pytest.mark.asyncio
+    async def test_settings_admins_none_does_not_raise(
+        self, real_admin_settings_handler, make_update, make_context
+    ):
+        """`admins:` with no value is no admin and raises no TypeError"""
+        real_admin_settings_handler._config._set("admins", None)
+        update = make_update(text="/settings")
+
+        result = await real_admin_settings_handler.handle_settings(
+            update, make_context()
+        )
+
+        assert result == ConversationHandler.END
+
+    @pytest.mark.asyncio
+    async def test_settings_quoted_admin_id_is_admin(
+        self, real_admin_settings_handler, make_update, make_context
+    ):
+        """An admin id written as a quoted string still counts"""
+        real_admin_settings_handler._config._set("admins", ["12345"])
+        update = make_update(text="/settings")
+
+        result = await real_admin_settings_handler.handle_settings(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_MENU
+
+    @pytest.mark.asyncio
+    async def test_users_menu_admins_none_does_not_raise(
+        self, real_admin_settings_handler, make_update, make_context
+    ):
+        """The Users menu counts admins from an empty `admins:` as 0"""
+        real_admin_settings_handler._config._set("admins", None)
+        update = make_update(callback_data="settings_users")
+
+        result = await real_admin_settings_handler.handle_users_menu(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_USERS
+
+    @pytest.mark.asyncio
+    async def test_users_toggle_admins_none_does_not_raise(
+        self, real_admin_settings_handler, make_update, make_context
+    ):
+        """Toggling a flag with an empty `admins:` raises no TypeError"""
+        real_admin_settings_handler._config._set("admins", None)
+        update = make_update(callback_data="usr_toggle_admin")
+
+        result = await real_admin_settings_handler.handle_users_toggle(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_USERS
