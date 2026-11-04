@@ -305,5 +305,52 @@ def test_graphify_installs_are_pinned():
         assert f"=={GRAPHIFY_VERSION}" in token, (path, token)
 
 
+def interpreter_guard():
+    text = read_text(".claude/skills/graphify/SKILL.md")
+    return re.search(r"## Interpreter guard.*?```bash\n(.*?)```", text, re.S).group(1)
+
+
+@pytest.mark.skipif(
+    not (shutil.which("sh") and shutil.which("git")), reason="needs sh and git"
+)
+@pytest.mark.parametrize("repo", ["none", "untracked", "tracked"])
+def test_graphify_guard_rejects_a_planted_interpreter(tmp_path, repo):
+    # A force-committed graphify-out/.graphify_python would name any binary.
+    planted = tmp_path / "graphify-out" / ".graphify_python"
+    planted.parent.mkdir()
+    planted.write_text("graphify-out/evil", encoding="utf-8")
+    if repo != "none":
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    if repo == "tracked":
+        subprocess.run(["git", "add", "-f", "graphify-out"], cwd=tmp_path, check=True)
+    result = subprocess.run(
+        [shutil.which("sh"), "-c", interpreter_guard()],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    if repo == "tracked":
+        assert result.returncode != 0
+    else:
+        assert result.returncode == 0, result.stderr
+        assert os.path.isabs(planted.read_text(encoding="utf-8"))
+
+
+def test_graphify_triggers_only_on_command_or_existing_graph():
+    front = read_text(".claude/skills/graphify/SKILL.md").split("---")[1]
+    description = yaml.safe_load(front)["description"]
+    assert "any question" not in description
+    assert "/graphify" in description and "graphify-out/" in description
+
+
+def test_graphify_never_breaks_system_packages():
+    assert not skill_hits(r"--break-system-packages")
+
+
+def test_graphify_warns_against_claude_install():
+    text = read_text(".claude/skills/graphify/references/hooks.md")
+    assert "Never run `graphify claude install`" in text
+
+
 def test_graphify_llm_backend_is_off():
     assert load_settings()["env"]["GRAPHIFY_BACKEND"] == "none"

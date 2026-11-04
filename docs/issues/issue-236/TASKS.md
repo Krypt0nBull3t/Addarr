@@ -26,7 +26,7 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
     - **Key Changes:** `.gitignore` (block for `.env`, `.env.*`, `!.env.example`, root-anchored `chatid.txt`/`admin.txt`/`allowlist.txt`); `requirements-test.txt` (`flake8==7.4.1`); `scripts/cloud-setup.sh` (dropped the `gh auth login` block); `.github/dependabot.yml` (flake8 `>=7.5` ignore). Tests: `test_runtime_secret_files_are_git_ignored`, `test_flake8_is_pinned_for_tests`, `test_cloud_setup_leaves_auth_to_gh_token`. The Dependabot test is now parametrized as `test_dependabot_skips_versions_without_python_3_10`.
     - **Notes:** The CI lint job still runs `pip install flake8` unpinned (`ci.yml`, not owned here).
 
-- [ ] **1.2** graphify skill: validated interpreter, narrow trigger, no system-package install
+- [x] **1.2** graphify skill: validated interpreter, narrow trigger, no system-package install
     - **Context:** See plan.md Task 2. Key refs: `.claude/skills/graphify/SKILL.md:3,92-93,112,748-765`, `references/hooks.md:20-36`
     - **Watch out:** The existing graphify tests scan every bash block, so new text must not contain the placeholder words (`URL`, `MODE`, …) or `<x>` outside single quotes. The guard test runs the block with `sh` in `tmp_path`, which needs `git` and `python3`.
     - **Scope:** S3
@@ -36,6 +36,10 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
         - [RED] `test_graphify_triggers_only_on_command_or_existing_graph`, `test_graphify_never_breaks_system_packages`, `test_graphify_warns_against_claude_install`
         - [GREEN] Make the guard always run, change the description, change the install fallback, add the hooks.md warning
     - **Success:** all graphify tests pass, old and new.
+    - **Completed:** 2026-11-04
+    - **Learnings:** The guard test runs the real SKILL.md block with `sh` in a throwaway folder, so it proves the behavior rather than the wording. Before the fix the planted relative path survived (`'graphify-out/evil'`). `git ls-files` outside a repo prints nothing, so `/graphify <non-repo path>` still works.
+    - **Key Changes:** `SKILL.md`: new description (only `/graphify` or an existing `graphify-out/`, never an unasked install); the pip fallback exits with a `uv tool install` hint instead of `--break-system-packages`; the interpreter guard always runs, refuses a tracked `graphify-out/`, and re-resolves a relative or non-executable path; the Step 1 note points to the guard. `references/hooks.md`: the `graphify claude install` section is now a warning. Tests: `test_graphify_guard_rejects_a_planted_interpreter` (none, untracked, tracked), `..._triggers_only_on_command_or_existing_graph`, `..._never_breaks_system_packages`, `..._warns_against_claude_install`.
+    - **Notes:** After a graphify upgrade, re-apply these changes along with the ones `CLAUDE.md:227` lists. The new tests flag any that are lost.
 
 - [ ] **1.3** Agents: untrusted PR reviewer committed and fixed, contract checker hardened
     - **Context:** See plan.md Task 3. Key refs: the main checkout's untracked `.claude/agents/untrusted-pr-reviewer.md`, `.claude/agents/arr-api-contract-checker.md:4,19`
