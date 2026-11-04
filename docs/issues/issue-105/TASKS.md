@@ -56,10 +56,10 @@
     - **Context:**
         - **Why:** The handler needs a single call to get all missing media across services, normalized into a unified schema. It also needs a way to trigger a search for a specific item without knowing which service it came from.
         - **Architecture:** Follow the `get_upcoming()` pattern in `MediaService` (lines 515-554): build task list from enabled services, `asyncio.gather` with `return_exceptions=True`, normalize per-service results, sort, return. Add static `_normalize_radarr_missing()` and `_normalize_sonarr_missing()` methods following the existing `_normalize_radarr_calendar()` pattern.
-        - **Key refs:** `src/services/media.py:515-608` (`get_upcoming` + normalizers as template), `tests/test_services/conftest.py` (mock client fixtures), `tests/test_services/test_media.py` (existing service tests)
+        - **Key refs:** `src/services/media.py:515-608` (`get_upcoming` + normalizers as template), `tests/test_services/conftest.py` (mock client fixtures), `tests/test_services/test_media_service.py` (existing service tests) (Corrected: was `tests/test_services/test_media.py`.)
         - **Watch out:** Sonarr returns episodes, not series — the `internal_id` is the episode ID (for search dispatch), but the display title comes from the nested `series` object. Must tag each item with `"service": "radarr"|"sonarr"` so the handler can route search commands correctly. Update `mock_radarr_client` and `mock_sonarr_client` fixtures with `get_missing`, `get_cutoff_unmet`, `search_command` methods.
     - **Scope:** Three service methods (`get_missing_media`, `get_cutoff_unmet_media`, `trigger_missing_search`) + two static normalizers + fixture updates + tests
-    - **Touches:** `src/services/media.py`, `tests/test_services/test_media.py`, `tests/test_services/conftest.py`
+    - **Touches:** `src/services/media.py`, `tests/test_services/test_media_service.py`, `tests/test_services/conftest.py` (Corrected: was `tests/test_services/test_media.py`.)
     - **Action items:**
         - [RED] Update `mock_radarr_client` and `mock_sonarr_client` in `tests/test_services/conftest.py` with `get_missing`, `get_cutoff_unmet`, `search_command` async mocks
         - [RED] Write tests for `get_missing_media()`: both services return data (merged + sorted), radarr-only, sonarr-only, no services enabled, one service errors
@@ -71,7 +71,7 @@
         - [GREEN] Implement `get_missing_media()`
         - [GREEN] Implement `get_cutoff_unmet_media()`
         - [GREEN] Implement `trigger_missing_search()`
-    - **Success:** `python -m pytest tests/test_services/test_media.py -v` all pass, `python -m flake8 src/services/media.py` clean
+    - **Success:** `python -m pytest tests/test_services/test_media_service.py -v` all pass, `python -m flake8 src/services/media.py` clean (Corrected: was `tests/test_services/test_media.py`.)
     - **Completed:** 2026-03-03
     - **Learnings:**
         - Extracted `_fetch_wanted_media(method, label)` to DRY `get_missing_media` and `get_cutoff_unmet_media` — they differ only in which client method to call

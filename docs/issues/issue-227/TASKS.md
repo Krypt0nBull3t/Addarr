@@ -33,7 +33,7 @@ All paths below are under `docs/issues/` unless they start with `src/` or `tests
         - Appended a "Superseded by 0846b97" note to 16 listed lines in `issue-12`, `issue-20`, `issue-101`, `issue-78`, `issue-118` and `issue-116` `TASKS.md`.
     - **Notes:** Unlisted lines that name the same symbols were left as they are (see 1.4).
 
-- [ ] **1.2** Correct the names that moved or were wrong
+- [x] **1.2** Correct the names that moved or were wrong
     - **Context:**
         - **Why:** `_format_speed`/`_format_size` were replaced by `format_bytes` in `e67a981`. `_format_bytes` in `system.py` became `src.utils.helpers.format_bytes` in `1498e48`. `HANDLER_PATCHES` never existed (the helper is `_make_handler_patches()` in `tests/test_main.py`). `tests/test_services/test_media.py` never existed (the file is `test_media_service.py`).
         - **Architecture:** Moved or replaced: append ` (Replaced in <sha>: now <new name>.)`. Wrong from the start: change the name in place and append ` (Corrected: was <old>.)`. Never cite `0846b97` for these.
@@ -46,6 +46,13 @@ All paths below are under `docs/issues/` unless they start with `src/` or `tests
         - [GREEN] Apply the note or the in-place correction on each listed line.
         - [GREEN] Re-run the checker: no miss left.
     - **Success:** The checker reports no miss for the four files. Every new note cites a real commit (`git cat-file -t <sha>` prints `commit`).
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `git log -S` finds `HANDLER_PATCHES` in no commit of `src/` or `tests/`; `tests/test_services/test_media.py` was never a file (`test_media_service.py` came with `f925e8b`). Both notes were wrong when written.
+    - **Key Changes:**
+        - Appended "Replaced in e67a981" (`issue-102`) and "Replaced in 1498e48" (`issue-108`) notes to the listed lines.
+        - Corrected `HANDLER_PATCHES` to `_make_handler_patches()` (`issue-80`) and `test_media.py` to `test_media_service.py` (`issue-105`), each with a "Corrected: was ..." note.
+    - **Notes:** `e67a981` and `1498e48` both resolve with `git cat-file -t`.
 
 - [ ] **1.3** Resolve the unchecked boxes and add the missing `Completed` lines
     - **Context:**
