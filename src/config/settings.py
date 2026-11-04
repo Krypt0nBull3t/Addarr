@@ -10,24 +10,25 @@ all required settings are present and valid.
 """
 
 import os
-import sys
 import yaml
 import questionary
 from typing import Dict, Any, List
 from colorama import Fore
 
-from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH
+from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH, CHAT_MODES
 from ..utils.backup import create_backup
-
-
-def _is_interactive():
-    """Check if we're running in an interactive terminal."""
-    return sys.stdin.isatty() and sys.stdout.isatty()
+from ..utils.terminal import is_interactive
 
 
 class ConfigurationError(Exception):
     """Base class for configuration errors"""
     pass
+
+
+_BACKUP_HINT = (
+    "Restore a copy from the backup/ folder next to config.yaml, "
+    "or run python run.py --setup."
+)
 
 
 def validate_port(port, service_name):
@@ -92,7 +93,13 @@ class Config:
             raise ConfigurationError(f"Configuration file not found: {CONFIG_PATH}")
 
         with open(CONFIG_PATH, 'r') as f:
-            return yaml.safe_load(f)
+            loaded = yaml.safe_load(f)
+        if not isinstance(loaded, dict):
+            raise ConfigurationError(
+                f"Configuration file is empty or not a mapping: {CONFIG_PATH}. "
+                f"{_BACKUP_HINT}"
+            )
+        return loaded
 
     def _validate_config(self):
         """Validate configuration against example config"""
@@ -103,13 +110,16 @@ class Config:
         if missing_keys:
             print(f"\n{Fore.YELLOW}Missing configuration keys detected: {', '.join(missing_keys)}")
 
-            if _is_interactive():
+            if is_interactive():
                 if questionary.confirm(
                     "Would you like to configure these settings now?"
                 ).ask():
                     create_backup()
                     for key in missing_keys:
-                        self._configure_missing_key(key)
+                        if isinstance(self._example_value(example_config, key), dict):
+                            self._apply_default_key(key, example_config)
+                        else:
+                            self._configure_missing_key(key)
                     with open(CONFIG_PATH, 'w') as f:
                         yaml.dump(self._config, f, default_flow_style=False)
                     print(f"{Fore.GREEN}✅ Configuration updated successfully!")
@@ -133,18 +143,20 @@ class Config:
 
         self._validate_values()
 
+    @staticmethod
+    def _example_value(example_config: Dict, key: str) -> Any:
+        """Return the example value for a dotted key, or None if absent."""
+        value: Any = example_config
+        for part in key.split('.'):
+            if not isinstance(value, dict):
+                return None
+            value = value.get(part)
+        return value
+
     def _apply_default_key(self, key: str, example_config: Dict):
         """Apply a default value from example config for a missing key."""
         parts = key.split('.')
-
-        # Get default value from example config
-        default: Any = example_config
-        for part in parts:
-            if isinstance(default, dict):
-                default = default.get(part)
-            else:
-                default = None
-                break
+        default = self._example_value(example_config, key)
 
         # Set value in config
         current = self._config
@@ -179,6 +191,12 @@ class Config:
             value = questionary.password(
                 f"Enter {parts[0].title()} token:"
             ).ask()
+        elif key == 'security.chatMode':
+            value = questionary.select(
+                "Which chats may use the bot?",
+                choices=list(CHAT_MODES),
+                default=CHAT_MODES[0],
+            ).ask()
         else:
             # Default to text input
             value = questionary.text(
@@ -200,12 +218,23 @@ class Config:
                 f"Invalid language. Must be one of: {', '.join(valid_languages)}"
             )
 
-        # Validate server addresses for enabled services
-        for service_name in ("radarr", "sonarr", "lidarr", "sabnzbd"):
-            service = self._config.get(service_name, {})
+        chat_mode = (self._config.get("security") or {}).get("chatMode")
+        if chat_mode not in CHAT_MODES:
+            raise ConfigurationError(
+                f"Invalid security.chatMode: {chat_mode!r}. "
+                f"Must be one of: {', '.join(CHAT_MODES)}"
+            )
+
+        validate_telegram_token(self._config.get("telegram") or {})
+
+        # Validate enabled services: address, API key and port
+        for service_name in ("radarr", "sonarr", "lidarr", "sabnzbd", "bazarr"):
+            service = self._config.get(service_name) or {}
             if service.get("enable"):
-                addr = service.get("server", {}).get("addr")
-                validate_server_addr(addr, service_name)
+                server = service.get("server") or {}
+                validate_server_addr(server.get("addr"), service_name)
+                validate_service_apikey(service, service_name)
+                validate_port(server.get("port"), service_name)
 
     def _get_missing_keys(self, example: Dict, config: Dict, prefix="") -> List[str]:
         """Recursively find missing configuration keys"""
@@ -215,6 +244,11 @@ class Config:
             if key not in config:
                 missing.append(full_key)
             elif isinstance(value, dict):
+                if not isinstance(config[key], dict):
+                    raise ConfigurationError(
+                        f"Section '{full_key}' is empty or not a mapping. "
+                        f"{_BACKUP_HINT}"
+                    )
                 missing.extend(
                     self._get_missing_keys(value, config[key], full_key)
                 )

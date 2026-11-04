@@ -380,6 +380,18 @@ def test_radarr_disabled(mock_config):
         assert MediaService().radarr is None
 ```
 
+### Testing the Real Settings Module
+
+`tests/conftest.py` replaces `src.config.settings` with a mock, so a plain import never reaches the real `Config`. A test that copies the code under test cannot fail. Use the `load_settings` fixture (`tests/test_config/conftest.py`): it runs the real `src/config/settings.py` with the file reads patched. It returns a `LoadedSettings` with `config`, `error`, `module`, `written` (text written per path) and `q` (the questionary mocks).
+
+```python
+def test_empty_file(load_settings):
+    result = load_settings("")  # config.yaml exists but is empty
+    assert isinstance(result.error, result.module.ConfigurationError)
+```
+
+`valid_config_text` is the example config with a token filled in. `config_text=None` means no config.yaml. `interactive=True` makes questionary prompts run.
+
 ---
 
 ## Keyboards

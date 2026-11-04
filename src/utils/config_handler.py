@@ -17,6 +17,7 @@ from ruamel.yaml import YAML
 from typing import Any, Dict, List
 
 from src.utils.backup import create_backup
+from src.utils.prerun import ColorHandler
 
 # Initialize YAML handler
 yaml = YAML()
@@ -57,7 +58,8 @@ class ConfigHandler:
         """Load config while preserving comments and structure"""
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
-                return yaml.load(f)
+                # An empty file loads as None; {} lets --setup repair it
+                return yaml.load(f) or {}
         except Exception as e:
             print(f"{self.colors.Fore.RED}Error loading config: {e}")
             return {}
@@ -98,5 +100,6 @@ class ConfigHandler:
         current[path[-1]] = value
 
 
-# Create global instance (without colors - will be set by PreRunChecker)
-config_handler = ConfigHandler(None)
+# Create global instance. Its own ColorHandler keeps `--setup` working, because
+# run.py skips the pre-run checks (which set colors) for it.
+config_handler = ConfigHandler(ColorHandler())

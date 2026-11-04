@@ -39,7 +39,8 @@ PASSWORD = 0
 async def _enforce_private_chat(update: Update) -> bool:
     """Return True if the update should be blocked due to chat mode policy."""
     chat_mode = config.get("security", {}).get("chatMode", "private_only")
-    if chat_mode != "private_only" or not update.effective_chat:
+    # Fail closed: only the exact value allow_all lets group chats in
+    if chat_mode == "allow_all" or not update.effective_chat:
         return False
     if update.effective_chat.type == "private":
         return False

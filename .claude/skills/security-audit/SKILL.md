@@ -48,7 +48,7 @@ Audit Telegram-specific security concerns.
 * [ ] **User ID integrity**: Authentication uses `update.effective_user.id` (Telegram-guaranteed, not spoofable). Verify no handler accepts user-supplied IDs for auth decisions.
 * [ ] **Callback data validation**: `callback_query.data` validated before use in all `CallbackQueryHandler` methods. Crafted callback_data could inject unexpected values. Check pattern matching vs raw string parsing.
 * [ ] **Callback data size**: see telegram-ux-review (it owns the 64-byte callback_data check)
-* [ ] **Group chat behavior**: When `chatMode` is not `private_only`, verify bot behavior in group chats: no sensitive data exposed, commands work correctly, no state leakage between users.
+* [ ] **Group chat behavior**: When `chatMode` is `allow_all`, verify bot behavior in group chats: no sensitive data exposed, commands work correctly, no state leakage between users.
 
 ## Phase 5: Webhook Surface
 

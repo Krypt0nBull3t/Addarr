@@ -2,6 +2,8 @@
 
 from unittest.mock import patch, mock_open
 
+import pytest
+
 from src.utils.error_handler import (
     handle_token_error,
     handle_missing_token_error,
@@ -13,6 +15,31 @@ from src.utils.error_handler import (
 # ---- handle_token_error ----
 
 
+@pytest.fixture
+def interactive():
+    """Pretend a terminal is attached, as in the prompt tests below."""
+    with patch("src.utils.error_handler.is_interactive", return_value=True):
+        yield
+
+
+class TestHandleTokenErrorNonInteractive:
+    """F027: no prompt when there is no terminal (Docker)."""
+
+    def test_returns_false_without_prompt(self, capsys):
+        """Returns False, never calls input() and prints the fix steps."""
+        with (
+            patch("src.utils.error_handler.is_interactive", return_value=False),
+            patch("builtins.input", side_effect=EOFError) as mock_input,
+        ):
+            result = handle_token_error()
+        assert result is False
+        mock_input.assert_not_called()
+        out = capsys.readouterr().out
+        assert "Invalid Telegram Bot Token" in out
+        assert "@BotFather" in out
+
+
+@pytest.mark.usefixtures("interactive")
 class TestHandleTokenError:
     """Tests for handle_token_error."""
 

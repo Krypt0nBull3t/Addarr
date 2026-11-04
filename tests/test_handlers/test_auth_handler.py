@@ -170,6 +170,29 @@ async def test_require_auth_rejects_non_private_chat(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["private", "", None, "Allow_All"])
+async def test_require_auth_rejects_group_when_chat_mode_invalid(
+    mode, make_update, make_context, mock_config
+):
+    """Any chatMode other than allow_all keeps groups out (fails closed)."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+    mock_config._set("security", {
+        "enableAdmin": False, "enableAllowlist": False, "chatMode": mode
+    })
+
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type="group")
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result is None
+    update.message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_require_auth_allows_private_chat(
     make_update, make_context, mock_config
 ):

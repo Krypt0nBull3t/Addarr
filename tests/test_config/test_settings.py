@@ -474,3 +474,245 @@ class TestNonInteractiveValidation:
         # Should not raise
         self._simulate_non_interactive_validate(config, example, missing)
         assert config["language"] == "en-us"
+
+
+# ---------------------------------------------------------------------------
+# Real-module tests (issue #198). load_settings runs the real settings.py.
+# ---------------------------------------------------------------------------
+
+
+class TestRealSettingsLoader:
+    """The loader runs the real src/config/settings.py, not a copy."""
+
+    def test_loads_valid_config(self, load_settings, valid_config_text):
+        result = load_settings(valid_config_text)
+        assert result.error is None
+        assert result.config is not None
+
+    def test_missing_file_gives_error(self, load_settings):
+        result = load_settings(None)
+        assert isinstance(result.error, result.module.ConfigurationError)
+
+    def test_module_is_not_the_mock(self, load_settings, valid_config_text):
+        import sys
+        result = load_settings(valid_config_text)
+        assert result.module is not sys.modules["src.config.settings"]
+
+
+def _mutate(text, change):
+    """Parse the YAML text, let ``change`` edit the dict, dump it again."""
+    import yaml
+    data = yaml.safe_load(text)
+    change(data)
+    return yaml.safe_dump(data)
+
+
+class TestRealSettingsEmptyConfig:
+    """F024: empty file or empty section gives a clear error (#198)."""
+
+    def _assert_backup_error(self, result):
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "backup/" in str(result.error)
+
+    def test_empty_file_raises_configuration_error(self, load_settings):
+        self._assert_backup_error(load_settings(""))
+
+    def test_empty_section_raises_configuration_error(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d.update(health_alerts=None))
+        result = load_settings(text)
+        self._assert_backup_error(result)
+        assert "health_alerts" in str(result.error)
+
+    def test_empty_security_section_raises_configuration_error(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d.update(security=None))
+        result = load_settings(text)
+        self._assert_backup_error(result)
+        assert "security" in str(result.error)
+
+    def test_none_leaf_is_still_valid(self, load_settings, valid_config_text):
+        # radarr.auth.apikey is None in the example and radarr is disabled
+        result = load_settings(valid_config_text)
+        assert result.error is None
+        assert result.config["radarr"]["auth"]["apikey"] is None
+
+
+class TestRealSettingsMissingSection:
+    """F020: a missing section is copied from the example, not prompted (#198)."""
+
+    @staticmethod
+    def _example():
+        import yaml
+        from src.definitions import CONFIG_EXAMPLE_PATH
+        with open(CONFIG_EXAMPLE_PATH, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+
+    def _without_bazarr(self, text):
+        return _mutate(text, lambda d: d.pop("bazarr"))
+
+    def test_missing_section_is_copied_not_prompted(
+        self, load_settings, valid_config_text
+    ):
+        result = load_settings(
+            self._without_bazarr(valid_config_text), interactive=True
+        )
+        assert result.error is None
+        assert result.config["bazarr"] == self._example()["bazarr"]
+        result.q["text"].assert_not_called()
+
+    def test_missing_leaf_is_still_prompted(self, load_settings, valid_config_text):
+        text = _mutate(valid_config_text, lambda d: d["webhooks"].pop("port"))
+        result = load_settings(text, interactive=True)
+        assert result.error is None
+        message = result.q["text"].call_args.args[0]
+        assert "webhooks.port" in message
+        assert result.config["webhooks"]["port"] == "typed"
+
+    def test_saved_file_has_section(self, load_settings, valid_config_text):
+        import yaml
+        from src.definitions import CONFIG_PATH
+        result = load_settings(
+            self._without_bazarr(valid_config_text), interactive=True
+        )
+        saved = yaml.safe_load(result.written[CONFIG_PATH])
+        assert saved["bazarr"] == self._example()["bazarr"]
+
+
+_VALIDATED_SERVICES = ("radarr", "sonarr", "lidarr", "sabnzbd", "bazarr")
+
+
+def _enable(data, service, *, apikey="key", port=1234, addr="localhost"):
+    """Enable a service with explicit server and auth values."""
+    data[service]["enable"] = True
+    data[service]["server"]["addr"] = addr
+    data[service]["server"]["port"] = port
+    data[service]["auth"]["apikey"] = apikey
+
+
+class TestRealSettingsStartupValidation:
+    """F025: startup runs the token, API key, port and address checks (#198)."""
+
+    @staticmethod
+    def _load(load_settings, valid_config_text, change):
+        return load_settings(_mutate(valid_config_text, change))
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    @pytest.mark.parametrize("apikey", ["", None, "   "])
+    def test_enabled_service_without_apikey_raises(
+        self, load_settings, valid_config_text, service, apikey
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, service, apikey=apikey),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert service in str(result.error)
+        assert "API key" in str(result.error)
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    @pytest.mark.parametrize("port", [0, 65536, None])
+    def test_enabled_service_with_bad_port_raises(
+        self, load_settings, valid_config_text, service, port
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, service, port=port),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert f"Invalid port for {service}" in str(result.error)
+
+    def test_string_port_is_rejected(self, load_settings, valid_config_text):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, "radarr", port="7878"),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+
+    @pytest.mark.parametrize("token", ["", None])
+    def test_empty_token_raises(self, load_settings, valid_config_text, token):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: d["telegram"].update(token=token),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "token" in str(result.error)
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    def test_disabled_service_is_not_checked(
+        self, load_settings, valid_config_text, service
+    ):
+        def change(d):
+            _enable(d, service, apikey="", port=0)
+            d[service]["enable"] = False
+
+        result = self._load(load_settings, valid_config_text, change)
+        assert result.error is None
+
+    def test_transmission_needs_no_apikey(self, load_settings, valid_config_text):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: d["transmission"].update(enable=True),
+        )
+        assert result.error is None
+
+    def test_enabled_bazarr_with_empty_addr_raises(
+        self, load_settings, valid_config_text
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, "bazarr", addr=""),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "bazarr" in str(result.error)
+
+    def test_valid_enabled_services_load(self, load_settings, valid_config_text):
+        def change(d):
+            for service in _VALIDATED_SERVICES:
+                _enable(d, service)
+
+        assert self._load(load_settings, valid_config_text, change).error is None
+
+
+class TestRealSettingsChatMode:
+    """F023: chatMode is validated and prompted with a select (#198)."""
+
+    @pytest.mark.parametrize("mode", ["private", "", "Private_Only", None])
+    def test_invalid_chat_mode_raises(self, load_settings, valid_config_text, mode):
+        text = _mutate(
+            valid_config_text, lambda d: d["security"].update(chatMode=mode)
+        )
+        result = load_settings(text)
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "chatMode" in str(result.error)
+        assert "private_only" in str(result.error)
+
+    @pytest.mark.parametrize("mode", ["private_only", "allow_all"])
+    def test_valid_chat_modes_load(self, load_settings, valid_config_text, mode):
+        text = _mutate(
+            valid_config_text, lambda d: d["security"].update(chatMode=mode)
+        )
+        result = load_settings(text)
+        assert result.error is None
+        assert result.config["security"]["chatMode"] == mode
+
+    def test_missing_chat_mode_uses_select(self, load_settings, valid_config_text):
+        from src.definitions import CHAT_MODES
+        text = _mutate(valid_config_text, lambda d: d["security"].pop("chatMode"))
+        result = load_settings(text, interactive=True, select_answer="allow_all")
+        assert result.error is None
+        select = result.q["select"]
+        select.assert_called_once()
+        assert select.call_args.kwargs["choices"] == list(CHAT_MODES)
+        result.q["text"].assert_not_called()
+        assert result.config["security"]["chatMode"] == "allow_all"
+
+    def test_missing_chat_mode_non_interactive_gets_default(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d["security"].pop("chatMode"))
+        result = load_settings(text, interactive=False)
+        assert result.error is None
+        assert result.config["security"]["chatMode"] == "private_only"

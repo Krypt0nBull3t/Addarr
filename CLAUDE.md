@@ -92,6 +92,7 @@ Tests live in `tests/` mirroring `src/` structure. Key patterns:
 - **API mocking**: `aioresponses` for all async HTTP clients (Radarr, Sonarr, Lidarr, Bazarr, SABnzbd, Transmission). Transmission also uses `aiohttp`, so mock it with `aioresponses` too.
 - **Translation mock**: `autouse=True` fixture patches `TranslationService._load_translations` so tests don't need YAML files.
 - **Config patching gotcha**: Module-level `from src.config.settings import config` binds at import time. To override in tests, patch at the import site: `patch("src.the_module.config", mock_config)` — replacing `sys.modules` won't affect modules that already imported `config`.
+- **Real settings module**: Tests of `src/config/settings.py` use the `load_settings` fixture in `tests/test_config/conftest.py`, which runs the real module with the file reads patched. A test of a copy of the code cannot fail.
 
 ### Architecture Tests
 
@@ -150,6 +151,7 @@ The codebase follows a three-layer architecture with strict separation:
 - **Conversation state machine**: Media flow progresses through `SEARCHING → SELECTING → QUALITY_SELECT`, then `SEASON_SELECT` (TV) or `ALBUM_SELECT` (music artist), then `END` (states in `src/bot/states.py`, mirrored in `src/bot/handlers/media/dispatch.py`).
 - **Keyboards**: Shared inline keyboard builders live in `src/bot/keyboards.py`; use one when it fits. Flow-specific keyboards are built in the handler, e.g. `src/bot/handlers/media/formatters.py` (result navigation), `src/bot/handlers/media/season_picker.py` (seasons) and `src/bot/handlers/delete.py`.
 - **Global config singleton**: `src/config/settings.py` exports a module-level `config` instance loaded from `config.yaml` and validated against `config_example.yaml`.
+- **No settings import before a valid config**: Importing `src.config.settings` loads and validates `config.yaml`. `src/setup/` and the utils that run before a valid config exists (`config_handler`, `error_handler`, `logger`, `prerun`, `backup`, `terminal`) never import it at module level. A function-level import is allowed (`src/utils/splash.py`). Share constants through `src/definitions.py` (`CHAT_MODES`) and helpers through small modules (`src/utils/terminal.py`). See `docs/adr/0005-no-settings-import-before-config.md`.
 
 ### Configuration
 
