@@ -49,7 +49,7 @@ and `src/main.py`, with Python and pytest examples only.
     - **Key Changes:** `config-patterns.md` transmission and sabnzbd blocks replaced with the `config_example.yaml` keys (inline comments left out).
     - **Notes:** The setup wizard still writes the old nested Transmission shape; slice 12 (#207) fixes that.
 
-- [ ] **1.4** F293: Regenerate the wiring order and the callback prefix registry
+- [x] **1.4** F293: Regenerate the wiring order and the callback prefix registry
     - **Context:** See plan.md task 4. Key refs: `src/main.py:118-207` (`_add_handlers()`), `pattern=` arguments in `src/bot/handlers/`
     - **Watch out:** 7 handlers were missing (WebhooksHandler, CalendarHandler, MissingHandler, QueueHandler, HistoryHandler, BazarrHandler, DownloadsHandler)
     - **Scope:** Wiring list and prefix registry in the addarr-handlers references
@@ -59,7 +59,10 @@ and `src/main.py`, with Python and pytest examples only.
         - [GREEN] Rewrite the wiring list in `_add_handlers()` order
         - [GREEN] Rebuild the registry with a row for every registered prefix
     - **Success:** Wiring list names all 18 handlers in order; registry has a row for every callback prefix
-    - **Reopened (2026-11-04):** The wiring list was rewritten (18 handlers, verified against `src/main.py`). The registry only got 7 appended rows and still misses prefixes and has a wrong `pref_` example. Finished by 2.3.
+    - **Completed:** 2026-11-04 (registry finished by 2.3)
+    - **Learnings:** The wiring list was right after the first pass; the registry was not regenerated until 2.3.
+    - **Key Changes:** `wiring.md` registration order (18 handlers, matches `src/main.py:118-207`); `callbacks.md` registry (see 2.3).
+    - **Notes:** none
 
 - [x] **1.5** F295: Add the `get_message()` note and fix the validator exit-code claim
     - **Context:** See plan.md task 5. Key refs: `src/services/translation.py` (`get_message()`), `run.py --validate-i18n`
@@ -158,7 +161,7 @@ and `src/main.py`, with Python and pytest examples only.
         - `SKILL.md`: API, handler, integration and sample data cheat-sheet tables match the conftest files.
     - **Notes:** Checked with a script that every backticked name in the addarr-testing docs occurs in `tests/` or `src/`.
 
-- [ ] **2.3** [must-fix] F293: Rebuild the callback prefix registry from the `pattern=` arguments
+- [x] **2.3** [must-fix] F293: Rebuild the callback prefix registry from the `pattern=` arguments
     - **Context:**
         - **Why:** The registry misses prefixes (`library_`, `system_`, `transmission_`, `sabnzbd_speed_`, `usr_`, `svc_quality_`, `albumsel_`, `album_monitor_mode_`, `listback`, the `dl_` settings and download actions, Help `menu_back`, Start `menu_*`) and has wrong examples (`pref_view_list`)
         - **Architecture:** One row per registered pattern, grouped by handler in `_add_handlers()` order; examples taken from the `callback_data=` values in `src/bot/`
@@ -170,6 +173,13 @@ and `src/main.py`, with Python and pytest examples only.
         - [RED] Diff the registry against the extracted `pattern=` list; prefixes are missing
         - [GREEN] Rewrite the registry
     - **Success:** Every `pattern=` in `src/bot/handlers/` has a row; every example exists in `src/bot/`
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Extracting `pattern=` keywords with `ast` gives the full list (75 registrations) in one pass; the old registry was written from memory and had wrong examples (`pref_view_list`, `delete_movie_123`, `lib_movies`, `dl_tab_movies`).
+        - `menu_cancel` is registered three times (MediaHandler, SettingsHandler, StartHandler); registration order decides who takes it.
+        - `bazarr_menu` is registered but no keyboard emits it; only the tests send it.
+    - **Key Changes:** `addarr-handlers/references/callbacks.md` registry rebuilt: one row per registered prefix or exact data, grouped by handler in `_add_handlers()` order, examples taken from the `callback_data=` values in `src/bot/`.
+    - **Notes:** Verified with a script that every `pattern=` in `src/bot/handlers/` matches a registry entry and every literal example matches a pattern.
 
 - [ ] **2.4** [should-fix] F291: Restore the dropped task-writer sections, in Python form
     - **Context:**
