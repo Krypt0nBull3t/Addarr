@@ -28,7 +28,7 @@ DENY_PATTERNS = (
     "Bash(git push -f:*)",
     "Bash(gh auth token:*)",
     "Bash(gh repo delete:*)",
-    "Bash(rm -rf:*)",
+    "Bash(rm *-r*)",
 )
 
 DATA_RULE = (
@@ -100,6 +100,8 @@ def is_denied(command):
     Semantics from https://code.claude.com/docs/en/permissions: `*` matches
     any text (spaces too) anywhere; a trailing `:*` is the same as ` *`; a
     trailing ` *` that is the only wildcard also matches the bare command.
+    Claude Code also strips `timeout`, `nice`, `command`, `xargs` and leading
+    `VAR=value` before matching, but not `sudo`, `env` or an absolute path.
     """
     for rule in load_settings()["permissions"]["deny"]:
         match = re.fullmatch(r"Bash\((.*)\)", rule)
@@ -120,9 +122,73 @@ def test_settings_deny_dangerous_commands():
         assert pattern in deny
 
 
+def test_settings_deny_reading_secrets():
+    deny = set(load_settings()["permissions"]["deny"])
+    secrets = {
+        "Read(./config.yaml*)",
+        "Edit(./config.yaml*)",
+        "Read(./backup/**)",
+        "Read(~/.config/gh/**)",
+        "Read(~/.ssh/**)",
+    }
+    assert secrets <= deny
+
+
+def test_settings_ask_before_editing_self_running_files():
+    # Hooks and the setup script run without a Bash permission check.
+    ask = set(load_settings()["permissions"].get("ask", []))
+    tooling = {
+        "Edit(./.claude/hooks/**)",
+        "Edit(./scripts/cloud-setup.sh)",
+        "Edit(./.claude/settings.json)",
+    }
+    assert tooling <= ask
+
+
+def test_project_enables_superpowers():
+    # addarr-workflow requires superpowers skills; cloud sessions and other
+    # contributors only get plugins the project enables.
+    plugins = load_settings()["enabledPlugins"]
+    assert plugins.get("superpowers@claude-plugins-official") is True
+
+
+# shortcut: globs miss rm -vrf, env, bash -c, eval, find -delete, push origin :b,
+# gh api graphql; upgrade: a PreToolUse guard hook. rm *-r* also blocks rm a-report.
 @pytest.mark.parametrize(
     "command",
     [
+        "gh auth status -t",
+        "gh auth status --show-token",
+        "gh auth status -h github.com -t",
+        "gh auth status -at",
+        "gh api -X DELETE repos/o/r",
+        "gh api --method DELETE repos/o/r",
+        "gh api --method=DELETE repos/o/r",
+        "gh api repos/o/r -XDELETE",
+        "sudo rm -rf /tmp/x",
+        "sudo -n true",
+        "git clean -fdx",
+        "git clean -xdf",
+        "git clean -d -f",
+        "git clean --force",
+        "git -C . clean -fdx",
+        "git reset --hard",
+        "git -C . reset --hard origin/development",
+        "git reset HEAD~1 --hard",
+        "git push --mirror",
+        "git push origin --delete feature",
+        "git push --delete origin feature",
+        "git push origin -d feature",
+        "git -C . push origin --delete x",
+        "rm -rfv build",
+        "rm -v -rf build",
+        "rm --recursive --force build",
+        "/bin/rm -rf build",
+        "/usr/bin/rm -rf build",
+        "rm -rfi build",
+        "rm -r build",
+        "rm -R build",
+        "rm --force -r build",
         "git push --force",
         "git push -f origin main",
         "git -C . push --force",
@@ -144,22 +210,38 @@ def test_settings_deny_dangerous_commands():
         "rm -f -R build",
     ],
 )
-def test_deny_rules_block_force_push_and_recursive_force_rm(command):
+def test_deny_rules_block_destructive_and_token_commands(command):
     assert is_denied(command)
 
 
 @pytest.mark.parametrize(
     "command",
     [
+        "pytest",
+        "pytest --tb=short -q",
+        "flake8 .",
+        "mypy src/",
+        "gh pr create --base development --title 'fix: tooling' --body-file /tmp/b.md",
+        "git -C /home/mark/Documents/Bot Projects/Addarr push -u origin fix/236-x",
         "git push origin fix/agent-tooling",
         "git push -u origin feature-fix",
         "git -C . push origin my-feature",
         "git push --follow-tags origin development",
+        "git push --dry-run origin x",
+        "git push origin HEAD:fix/x",
+        "git push origin chore/clean-up",
+        "gh auth status",
+        "gh api repos/Krypt0nBull3t/Addarr/pulls/230",
+        "git clean -n",
+        "git reset --soft HEAD~1",
+        "git fetch origin +pull/230/head:refs/pr/230",
+        "git archive refs/pr/230 -- . ':(exclude).claude'",
         "rm -f report.txt",
+        "rm -f .coverage",
         "rm build/old.log",
     ],
 )
-def test_deny_rules_allow_ordinary_push_and_rm(command):
+def test_deny_rules_allow_ordinary_workflow_commands(command):
     assert not is_denied(command)
 
 

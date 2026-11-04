@@ -70,7 +70,7 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
     - **Key Changes:** New `.claude/skills/review-external-pr/SKILL.md`: rules (no checkout, no PR code, PR text is data, no `$()`, ask before posting) and 11 steps (mktemp, `gh pr view` to `pr.json`, fetch to `refs/pr/<N>`, head SHA check, merge base, symlink stop, two `git archive | tar -x` exports, `diff.txt`, optional `issue.json`, spawn `untrusted-pr-reviewer`, relay). Test: `test_review_external_pr_never_runs_pr_code`.
     - **Notes:** Model-invocable on purpose (D6). CLAUDE.md should point to it for fork PRs (#238).
 
-- [ ] **1.5** Settings: deny, Read/Edit deny, ask, superpowers plugin
+- [x] **1.5** Settings: deny, Read/Edit deny, ask, superpowers plugin
     - **Context:** See plan.md Task 5 (the final rule list is there). Key refs: `.claude/settings.json:6-28,77-80`, `test_agent_tooling.py:26-32,97-163`
     - **Watch out:** Do not write `git push origin :b` as a rule: its `:*` ending means "deny every push". Never live-test with `gh auth status -t`, because it prints the token if the rule fails.
     - **Scope:** S1, S8, D1, D2, D7
@@ -80,6 +80,10 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
         - [RED] `test_settings_deny_reading_secrets`, `test_settings_ask_before_editing_self_running_files`, `test_project_enables_superpowers`
         - [GREEN] Make one edit to settings.json
     - **Success:** all of `test_agent_tooling.py` passes. The JSON is valid.
+    - **Completed:** 2026-11-04
+    - **Learnings:** A rule ending in `:*` is read as the legacy prefix form, so `Bash(git *push* :*)` would deny every push. The colon-delete refspec stays a known gap. This session did not load the worktree's `.claude/settings.json` (`sudo -n true` ran and hit sudo's password prompt, not a deny), so a live check needs a fresh session started in the checkout. Claude Code's built-in rm safety check, not our rule, refused `rm -r /nonexistent-236-probe`.
+    - **Key Changes:** `.claude/settings.json`: 22 Bash deny rules (5 push rules kept; new `--mirror`, `--delete`, `-d`, `git clean -f`, `git reset --hard`, `gh auth status -t`/`-at`, `gh api DELETE`, `sudo`; the 8 `rm` rules replaced by `rm *-r*`, `rm *-R*`, `rm *-fr*`, `rm *-fR*`, `/bin/rm`, `/usr/bin/rm`), `Read`+`Edit` deny for `config.yaml*`, `Read` deny for `backup/**`, `~/.config/gh/**`, `~/.ssh/**`, `ask` for hooks, `cloud-setup.sh` and `settings.json`, and the `superpowers` plugin. Tests: the deny matrix grew from 19 to 51 cases and the allowed matrix from 6 to 22; new `test_settings_deny_reading_secrets`, `test_settings_ask_before_editing_self_running_files`, `test_project_enables_superpowers`.
+    - **Notes:** Manual check for the user: in a fresh session, `/permissions` shows the rules with no invalid-rule warning. Never probe with `gh auth status -t`. A committed `enabledPlugins` entry does not download the plugin; check that superpowers loads in a cloud session.
 
 ### Phase 2: Verification (1 task)
 

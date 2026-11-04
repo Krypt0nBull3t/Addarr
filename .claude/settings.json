@@ -8,22 +8,39 @@
       "mcp__qmd__query",
       "mcp__qmd__get"
     ],
+    "ask": [
+      "Edit(./.claude/hooks/**)",
+      "Edit(./scripts/cloud-setup.sh)",
+      "Edit(./.claude/settings.json)"
+    ],
     "deny": [
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git *push* --force*)",
       "Bash(git *push* -f*)",
       "Bash(git *push* +*)",
+      "Bash(git *push* --mirror*)",
+      "Bash(git *push* --delete*)",
+      "Bash(git *push* -d *)",
+      "Bash(git *clean *-*f*)",
+      "Bash(git *reset *--hard*)",
       "Bash(gh auth token:*)",
+      "Bash(gh auth status *-t*)",
+      "Bash(gh auth status *-at*)",
       "Bash(gh repo delete:*)",
-      "Bash(rm -rf:*)",
-      "Bash(rm -fr:*)",
-      "Bash(rm -Rf:*)",
-      "Bash(rm -fR:*)",
-      "Bash(rm -r -f:*)",
-      "Bash(rm -f -r:*)",
-      "Bash(rm -R -f:*)",
-      "Bash(rm -f -R:*)"
+      "Bash(gh api *DELETE*)",
+      "Bash(sudo *)",
+      "Bash(rm *-r*)",
+      "Bash(rm *-R*)",
+      "Bash(rm *-fr*)",
+      "Bash(rm *-fR*)",
+      "Bash(/bin/rm *)",
+      "Bash(/usr/bin/rm *)",
+      "Read(./config.yaml*)",
+      "Edit(./config.yaml*)",
+      "Read(./backup/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.ssh/**)"
     ]
   },
   "hooks": {
@@ -76,6 +93,7 @@
   },
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
-    "pyright-lsp@claude-plugins-official": true
+    "pyright-lsp@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
   }
 }
