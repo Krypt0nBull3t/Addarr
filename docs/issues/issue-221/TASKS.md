@@ -92,7 +92,7 @@ and `src/main.py`, with Python and pytest examples only.
     - **Key Changes:** `.claude/commands/next.md` step 6 and the example.
     - **Notes:** The wrong skill entry on line 7 came from task 1.2, not this task; fixed in 2.1.
 
-- [ ] **1.7** F291: Rewrite task-writer for the handlers/services/api layers and pytest
+- [x] **1.7** F291: Rewrite task-writer for the handlers/services/api layers and pytest
     - **Context:** See plan.md task 7. Key refs: `git show origin/development:.claude/skills/task-writer/SKILL.md` (Emmie version)
     - **Watch out:** CLAUDE.md requires task-writer for every TASKS.md. Keep the sections #221 did not ask to remove.
     - **Scope:** task-writer skill
@@ -101,7 +101,10 @@ and `src/main.py`, with Python and pytest examples only.
         - [RED] Run the F291 grep; it matches Pest, Vitest, `.vue` and `.php`
         - [GREEN] Rewrite the sizing, bundling, TDD and example sections for Python
     - **Success:** F291 grep returns nothing; the examples use `src/bot/handlers`, `src/services`, `src/api` and pytest
-    - **Reopened (2026-11-04):** The grep passes, but the rewrite has no examples, dropped Self-Verification and the "only modify TASKS.md" rule, and says commit per behavior (the workflow commits per task). Finished by 2.4.
+    - **Completed:** 2026-11-04 (finished by 2.4)
+    - **Learnings:** Removing Emmie references is not enough for F291; the examples and the generic sections had to come back in Python form.
+    - **Key Changes:** `task-writer/SKILL.md` (see 2.4).
+    - **Notes:** none
 
 - [ ] **1.8** Verify: acceptance greps from #221 and preflight
     - **Context:** Acceptance criteria in #221
@@ -181,7 +184,7 @@ and `src/main.py`, with Python and pytest examples only.
     - **Key Changes:** `addarr-handlers/references/callbacks.md` registry rebuilt: one row per registered prefix or exact data, grouped by handler in `_add_handlers()` order, examples taken from the `callback_data=` values in `src/bot/`.
     - **Notes:** Verified with a script that every `pattern=` in `src/bot/handlers/` matches a registry entry and every literal example matches a pattern.
 
-- [ ] **2.4** [should-fix] F291: Restore the dropped task-writer sections, in Python form
+- [x] **2.4** [should-fix] F291: Restore the dropped task-writer sections, in Python form
     - **Context:**
         - **Why:** The rewrite has no worked example (F291 asks for examples with `src/bot/handlers` paths), dropped Self-Verification and the "only modify TASKS.md" rule, and says commit per behavior while the workflow commits per task
         - **Architecture:** Keep the structure of `origin/development:.claude/skills/task-writer/SKILL.md`; replace the Emmie layers with handlers/services/api and pytest
@@ -193,6 +196,12 @@ and `src/main.py`, with Python and pytest examples only.
         - [RED] Check the skill for examples, Self-Verification and the Output rule; all are missing
         - [GREEN] Restore the sections, adapted; fix the commit rule; add Python examples
     - **Success:** F291 grep returns nothing; examples use `src/bot/handlers`, `src/services`, `src/api` and pytest; every path named exists
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The Emmie version's structure (sizing, bundling, approval gates, TDD, test-count estimation, self-verification, output rule, examples) is project-neutral; only the layers and test tools needed replacing.
+        - The Bazarr feature is a clean real example of the API client → service → handler split, so the medium example names files that exist.
+    - **Key Changes:** `task-writer/SKILL.md`: restored Core Philosophy, layer split, What Goes IN a Single Task, Approval Gates, Test Count Estimation, Self-Verification (plus a check that named files exist) and the "Only modify TASKS.md" Output rule, all for handlers/services/api and pytest; TDD section now says one commit per task, matching the addarr-workflow Execution Loop; added a small (PreferencesHandler) and a medium (Bazarr) example.
+    - **Notes:** F291 grep returns nothing. Tables use the minimal `|-|` separator.
 
 - [ ] **2.5** [consider] F290: Remove the leftovers in the addarr-testing references
     - **Context:**
