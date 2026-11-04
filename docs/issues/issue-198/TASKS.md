@@ -17,7 +17,7 @@ services, and the tests exercise the real module.
 - Why NOT edit the sys.modules mock: the mock hides the real `Config`. The loader imports a second copy under
   `src.config._real_settings` and never registers it.
 
-- [ ] **1.1** Real-module settings loader (plan task 1)
+- [x] **1.1** Real-module settings loader (plan task 1)
     - **Context:**
         - **Why:** `tests/test_config/test_settings.py` tests copies of the code and cannot fail. Every later
           task in this phase needs the real module.
@@ -38,6 +38,16 @@ services, and the tests exercise the real module.
           `test_module_is_not_the_mock` in class `TestRealSettingsLoader`
         - [GREEN] Implement the fixture
     - **Success:** The three tests pass, flake8 and mypy clean, the existing settings tests still pass.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The module object survives a failed `exec_module`, so `result.module.ConfigurationError` is the real
+          class even when `Config()` raised at import.
+        - The loader must patch `os.path.exists` and `builtins.open` only for the two config paths and delegate
+          the rest, or other imports break.
+    - **Key Changes:**
+        - Created `tests/test_config/conftest.py` with `load_settings`, `valid_config_text` and `LoadedSettings`.
+        - Added class `TestRealSettingsLoader` to `tests/test_config/test_settings.py`.
+    - **Notes:** `select_answer` and `confirm` args steer the questionary mocks. `result.q` holds the mocks.
 
 - [ ] **1.2** F024: empty file or section gives a clear error (plan task 2)
     - **Context:**

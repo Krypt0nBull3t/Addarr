@@ -474,3 +474,26 @@ class TestNonInteractiveValidation:
         # Should not raise
         self._simulate_non_interactive_validate(config, example, missing)
         assert config["language"] == "en-us"
+
+
+# ---------------------------------------------------------------------------
+# Real-module tests (issue #198). load_settings runs the real settings.py.
+# ---------------------------------------------------------------------------
+
+
+class TestRealSettingsLoader:
+    """The loader runs the real src/config/settings.py, not a copy."""
+
+    def test_loads_valid_config(self, load_settings, valid_config_text):
+        result = load_settings(valid_config_text)
+        assert result.error is None
+        assert result.config is not None
+
+    def test_missing_file_gives_error(self, load_settings):
+        result = load_settings(None)
+        assert isinstance(result.error, result.module.ConfigurationError)
+
+    def test_module_is_not_the_mock(self, load_settings, valid_config_text):
+        import sys
+        result = load_settings(valid_config_text)
+        assert result.module is not sys.modules["src.config.settings"]
