@@ -57,10 +57,6 @@ def _parse(path):
     return ast.parse(path.read_text(encoding="utf-8"))
 
 
-def _repo_files(*tops):
-    return [p for top in tops for p in sorted((PROJECT_ROOT / top).rglob("*.py"))]
-
-
 def _is_fixture(node):
     return any("fixture" in ast.unparse(d) for d in node.decorator_list)
 
@@ -69,24 +65,28 @@ def _is_fixture(node):
 def _repo_index():
     """Names used or defined in src/tests/scripts, fixtures, and real non-local names."""
     used, fixtures, nonlocal_names = set(dir(builtins)), set(), set()
-    for path in _repo_files("src", "tests", "scripts"):
-        for node in ast.walk(_parse(path)):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                used.add(node.name)
-                if not isinstance(node, ast.ClassDef) and _is_fixture(node):
-                    fixtures.add(node.name)
-            elif isinstance(node, ast.Attribute):
-                used.add(node.attr)
-                if isinstance(node.ctx, ast.Store) and "src" in path.parts:
-                    nonlocal_names.add(node.attr)
-            elif isinstance(node, ast.Name):
-                used.add(node.id)
-            elif isinstance(node, (ast.arg, ast.keyword)) and node.arg:
-                used.add(node.arg)
-            elif isinstance(node, ast.alias):
-                used.add((node.asname or node.name).split(".")[0])
-    for path in _repo_files("src"):
-        nonlocal_names |= set(_top_level(_parse(path)))
+    for top in ("src", "tests", "scripts"):
+        in_src = top == "src"
+        for path in sorted((PROJECT_ROOT / top).rglob("*.py")):
+            # Only src/ trees are read again (_resolve); don't keep tests/ in the cache.
+            tree = _parse(path) if in_src else ast.parse(path.read_text(encoding="utf-8"))
+            if in_src:
+                nonlocal_names |= set(_top_level(tree))
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    used.add(node.name)
+                    if not isinstance(node, ast.ClassDef) and _is_fixture(node):
+                        fixtures.add(node.name)
+                elif isinstance(node, ast.Attribute):
+                    used.add(node.attr)
+                    if in_src and isinstance(node.ctx, ast.Store):
+                        nonlocal_names.add(node.attr)
+                elif isinstance(node, ast.Name):
+                    used.add(node.id)
+                elif isinstance(node, (ast.arg, ast.keyword)) and node.arg:
+                    used.add(node.arg)
+                elif isinstance(node, ast.alias):
+                    used.add((node.asname or node.name).split(".")[0])
     return frozenset(used), frozenset(fixtures), frozenset(nonlocal_names)
 
 
@@ -121,9 +121,7 @@ def _module_file(parts):
 
 def _class_members(module, cls):
     """Members of `cls` and its src base classes; None when a base is outside src."""
-    members = {
-        n.name for n in cls.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-    } | set(_top_level(ast.Module(body=cls.body, type_ignores=[])))
+    members = set(_top_level(cls))
     for base in cls.bases:
         if not isinstance(base, ast.Name):
             return None
@@ -178,6 +176,11 @@ def _python_blocks(texts):
                 yield name, line, err
 
 
+def _known(name, pool):
+    """True for a name in `pool` or a `<name>` placeholder (parsed as PH_name)."""
+    return name in pool or "PH_" in name
+
+
 def _local_names(trees):
     names, fixtures = set(), set()
     for tree in trees:
@@ -223,29 +226,28 @@ def _code_problems(texts, used, fixtures):
             at = f"{name}:{line + getattr(node, 'lineno', 0)}"
             if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("src"):
                 for alias in node.names:
-                    if "PH_" in f"{node.module}.{alias.name}":
-                        continue
-                    why = _resolve(f"{node.module}.{alias.name}")
+                    dotted = f"{node.module}.{alias.name}"
+                    why = None if _known(dotted, ()) else _resolve(dotted)
                     if why:
-                        yield f"{at}: R2 {node.module}.{alias.name}: {why}"
+                        yield f"{at}: R2 {dotted}: {why}"
             elif isinstance(node, ast.Call):
                 func = node.func
                 called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
-                if called and called not in known_calls and "PH_" not in called:
+                if called and not _known(called, known_calls):
                     yield f"{at}: R4 call to unknown {called}"
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
                 node.name.startswith("test_") or _is_fixture(node)
             ):
                 params, injected = _injected_params(node)
                 for param in params:
-                    if param not in injected and param not in known_fixtures:
+                    if param not in injected and not _known(param, known_fixtures):
                         yield f"{at}: R5 unknown fixture {param} in {node.name}"
     for name, text in texts.items():
         prose = FENCE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
         for number, row in enumerate(prose.splitlines(), 1):
             for span in INLINE.findall(row):
                 for called in INLINE_CALL.findall(PLACEHOLDER.sub(r"PH_\1", span)):
-                    if called not in known_calls and "PH_" not in called:
+                    if not _known(called, known_calls):
                         yield f"{name}:{number}: R4 call to unknown {called}"
 
 
@@ -262,9 +264,11 @@ def skill_problems(texts):
         for number, row in enumerate(text.splitlines(), 1):
             at = f"{name}:{number}"
             for token in PATH.findall(row):
-                if any(c in token for c in "<*{"):
-                    continue
-                path = re.split(r"[:#]", token)[0].rstrip(".,")
+                pattern = re.search(r"[<*{]", token)
+                if pattern:  # a pattern: its fixed directory part must exist
+                    path = token[:pattern.start()].rsplit("/", 1)[0]
+                else:
+                    path = re.split(r"[:#]", token)[0].rstrip(".,")
                 if not (PROJECT_ROOT / path).exists():
                     problems.append(f"{at}: R1 missing path {path}")
             for dotted in DOTTED.findall(row):
@@ -282,7 +286,7 @@ def skill_problems(texts):
 
 
 PLANTED = '''
-See `src/nope.py` and `tests/nope/`.
+See `src/nope.py`, `tests/nope/` and `src/handlers/<name>.py`.
 ```python
 from src.bot.handlers.media import MediaService
 patch("src.bot.handlers.media.MediaService")
@@ -304,6 +308,7 @@ def test_checker_flags_planted_wrong_names():
     for name in (
         "src/nope.py",
         "tests/nope/",
+        "missing path src/handlers",
         "src.bot.handlers.media.MediaService",
         "check_status",
         "no_such_fixture",
@@ -318,13 +323,13 @@ def test_checker_flags_planted_wrong_names():
 
 def test_checker_accepts_real_names_and_placeholders():
     text = (
-        "See `src/api/base.py` and `translations/addarr.<locale>.yml`.\n"
+        "See `src/api/base.py`, `src/bot/handlers/<name>.py` and `translations/addarr.<locale>.yml`.\n"
         "```python\n"
         'patch("src.bot.handlers.media.handler.MediaService")\n'
         "class <Name>Client(BaseApiClient):\n"
         "    async def search(self, term):\n"
         '        return await self._make_request("<endpoint>/lookup", params={"term": term})\n'
-        "async def test_y(media_handler, make_update, monkeypatch):\n"
+        "async def test_y(media_handler, make_update, monkeypatch, <name>_handler):\n"
         "    await <name>_helper()\n"
         "```\n"
     )
@@ -342,11 +347,10 @@ CI_JOBS = ("lint", "type-check", "validate-translations", "unit-test", "integrat
 def ci_commands():
     """The check commands of the CI jobs that preflight mirrors (the HTML report is an upload artifact)."""
     jobs = yaml.safe_load(read(".github/workflows/ci.yml"))["jobs"]
+    # Each job's last `run` step is its check; the earlier ones install dependencies.
     return [
-        re.sub(r" --cov-report=html:\S+", "", step["run"])
+        re.sub(r" --cov-report=html:\S+", "", [s["run"] for s in jobs[job]["steps"] if "run" in s][-1])
         for job in CI_JOBS
-        for step in jobs[job]["steps"]
-        if step.get("run", "").startswith(("pytest", "flake8", "mypy", "python run.py"))
     ]
 
 
@@ -359,9 +363,8 @@ def local_command(ci_command):
 
 def test_preflight_runs_the_ci_commands():
     preflight = read(".claude/skills/addarr-workflow/references/preflight.md")
-    assert len(ci_commands()) == 6
-    for command in ci_commands():
-        assert local_command(command) in preflight, local_command(command)
+    for command in map(local_command, ci_commands()):
+        assert command in preflight, command
 
 
 def test_workflow_coverage_commands_match_ci():
