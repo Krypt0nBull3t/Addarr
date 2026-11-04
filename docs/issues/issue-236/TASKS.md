@@ -96,4 +96,11 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
     - **Completed:** 2026-11-04
     - **Learnings:** `.flake8` already excludes `.venv`, so a worktree venv does not slow lint or break it.
     - **Key Changes:** none (verification only). pytest: 2238 passed. `flake8 .`, `mypy src/` (72 files) and `--validate-i18n` are clean. `git check-ignore` lists all 5 secret files and not `.env.example` (exit 1). The pip dry-run on 3.10 resolves.
-    - **Notes:** `src/` is unchanged, so the coverage bar on `src` is unaffected.
+    - **Notes:** `src/` is unchanged; unit coverage on `src` is 100%. The pre-PR review (find-bugs, 4 simplify agents) led to commit `ab89455`:
+        - guard pointers in the query fast path and the 5 reference files, plus a test
+        - Read denies for `.env*` and the 3 runtime .txt files
+        - the ask rule now covers `settings*.json`
+        - `diff.txt` is written before the symlink check
+        - shared test helpers
+
+      Skipped: dropping the pre-existing `git push --force:*`/`-f:*` rules (they predate this branch), and moving `.graphify_python` out of the work tree (a larger rewrite of the vendored skill).
