@@ -7,6 +7,8 @@ Description: Media handler module.
 This module handles media-related commands (movies, TV shows, music).
 """
 
+from typing import Optional, Union
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     CommandHandler,
@@ -457,6 +459,15 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 if isinstance(result, dict) and result.get("type") == "quality_selection":
                     context.user_data["quality_data"] = result
 
+                    # A saved /settings default profile skips the picker
+                    default_id = self._default_profile_id(
+                        search_type, result["profiles"]
+                    )
+                    if default_id is not None:
+                        return await self._continue_with_profile(
+                            query, context, default_id
+                        )
+
                     # Create keyboard with quality profile buttons
                     keyboard = []
                     for profile in result["profiles"]:
@@ -519,6 +530,22 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             )
             return ConversationHandler.END
 
+        return await self._continue_with_profile(
+            query, context, query.data.replace("quality_", "")
+        )
+
+    def _default_profile_id(self, search_type: str, profiles: list) -> Optional[int]:
+        """Saved /settings default profile id for this media type, if still offered"""
+        service_config = config.get(MEDIA_CONFIG[search_type]["config_key"]) or {}
+        default_id = (service_config.get("quality") or {}).get("defaultProfileId")
+        if any(profile["id"] == default_id for profile in profiles):
+            return default_id
+        return None
+
+    async def _continue_with_profile(
+        self, query, context: ContextTypes.DEFAULT_TYPE, profile_id: Union[int, str]
+    ):
+        """Continue the add flow once a quality profile is chosen (picker or default)"""
         try:
             # Get quality selection data
             quality_data = context.user_data.get("quality_data")
@@ -533,7 +560,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 return ConversationHandler.END
 
             # Get selected profile ID
-            profile_id = int(query.data.replace("quality_", ""))
+            profile_id = int(profile_id)
             context.user_data["selected_profile_id"] = profile_id
             context.user_data["selected_root_folder"] = quality_data["root_folder"]
 

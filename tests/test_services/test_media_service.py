@@ -1623,29 +1623,24 @@ class TestGetUpcoming:
         assert results[0]["date_label"] == "Digital"
 
     @pytest.mark.asyncio
-    async def test_in_library_flag(
+    async def test_items_have_no_in_library_flag(
         self, mock_radarr_client, mock_sonarr_client
     ):
-        """Items with 'id' field have in_library=True, without have False."""
+        """Calendar items carry no in_library flag (the calendar has no add path)."""
         service = MediaService()
         MediaService._radarr = mock_radarr_client
         MediaService._sonarr = mock_sonarr_client
         mock_radarr_client.get_calendar.return_value = [
-            RADARR_CALENDAR_MOVIE_CINEMA,   # has id=1
-            RADARR_CALENDAR_MOVIE_NO_ID,    # no id
+            RADARR_CALENDAR_MOVIE_CINEMA, RADARR_CALENDAR_MOVIE_NO_ID,
         ]
         mock_sonarr_client.get_calendar.return_value = [
-            SONARR_CALENDAR_EPISODE,        # has id=501
-            SONARR_CALENDAR_EPISODE_NO_ID,  # no id
+            SONARR_CALENDAR_EPISODE, SONARR_CALENDAR_EPISODE_NO_ID,
         ]
 
         results = await service.get_upcoming(days=30)
 
-        by_title = {r["title"]: r for r in results}
-        assert by_title["Movie A"]["in_library"] is True
-        assert by_title["Movie C"]["in_library"] is False
-        assert by_title["Pilot"]["in_library"] is True
-        assert by_title["Unmonitored Ep"]["in_library"] is False
+        assert len(results) == 4
+        assert all("in_library" not in r for r in results)
 
     @pytest.mark.asyncio
     async def test_api_error_one_service_still_returns_other(
@@ -1701,7 +1696,6 @@ class TestGetUpcoming:
         assert item["year"] == 2026
         assert item["season"] is None
         assert item["episode"] is None
-        assert item["in_library"] is True
         assert item["media_id"] == "100"
         assert item["internal_id"] == 1
 
@@ -1726,7 +1720,6 @@ class TestGetUpcoming:
         assert item["year"] is None
         assert item["season"] == 1
         assert item["episode"] == 1
-        assert item["in_library"] is True
         assert item["media_id"] == "9000"
         assert item["internal_id"] == 10
 
