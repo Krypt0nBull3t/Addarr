@@ -86,10 +86,10 @@ async def test_delete_confirm_returns_false_shows_failure(harness):
     ):
         await harness.send_command("/delete")
         await harness.tap_button("delete_type_movie")
-        await harness.tap_button("delete_item_550")
+        await harness.tap_button("delete_item_movie_550")
 
         # Confirm deletion — returns False
-        await harness.tap_button("delete_confirm")
+        await harness.tap_button("delete_confirm_movie_550")
         edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
         assert "DeleteFailed" in edit_resp.text

@@ -39,7 +39,7 @@ Built from the `CallbackQueryHandler(..., pattern=...)` calls in `src/bot/handle
 | `usr_` | SettingsHandler | `usr_toggle_admin`, `usr_toggle_allowlist`, `usr_back` | User access settings |
 | `menu_cancel` | SettingsHandler | `menu_cancel` | Cancel settings (fallback) |
 | `wh_` | WebhooksHandler | `wh_setup_radarr`, `wh_regen_radarr`, `wh_events`, `wh_toggle_<event>`, `wh_port`, `wh_back`, `wh_close` | Webhook management |
-| `delete_` | DeleteHandler | `delete_type_movie`, `delete_item_<id>`, `delete_confirm`, `delete_cancel` | Delete media |
+| `delete_` | DeleteHandler | `delete_type_movie`, `delete_page_<type>_<n>`, `delete_item_<type>_<id>`, `delete_confirm_<type>_<id>`, `delete_cancel` | Delete media; the type and id travel in the callback, never in `user_data` |
 | `library_` | LibraryHandler | `library_movie`, `library_series`, `library_music` | Library type selection |
 | `lib_` | LibraryHandler | `lib_m_2` (`m`/`s`/`a` = movie/series/music) | Library pagination |
 | `cal_` | CalendarHandler | `cal_period_7`, `cal_page_2`, `cal_add_movie_<id>`, `cal_refresh`, `cal_back`, `cal_noop` | Calendar browsing and adding |

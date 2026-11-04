@@ -83,7 +83,7 @@ Branch: `fix/196-delete-wrong-media`. PR targets `development`.
         - `tests/test_handlers/test_delete_handler.py`: item, paging and confirm sections rewritten, access tests moved to the new callback shapes
     - **Notes:** `delete.py` is at 100% in the handlers run. The confirm step makes one extra GET (refetch for the title) and never deletes when the item is gone.
 
-- [ ] **1.4** Integration flow and callback registry
+- [x] **1.4** Integration flow and callback registry
     - **Context:**
         - **Why:** The bug is a cross-message flow (two /delete lists), so only an end-to-end test shows it. The callback registry must list the new shapes.
         - **Architecture:** `BotHarness` in `tests/integration/conftest.py` drives updates through the real handlers.
@@ -96,3 +96,12 @@ Branch: `fix/196-delete-wrong-media`. PR targets `development`.
         - [RED] Write the stale-list test: open Movies, then Series, tap a movie button, expect `get_movie` and not `get_series`
         - [GREEN] Update the `delete_` registry line to the new callback shapes
     - **Success:** `pytest tests/integration` and `pytest tests/test_architecture` pass.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `tests/integration/test_delete_flow.py` already had a happy-path test. It moved to the new callback shapes, and a stale-list test was added.
+        - Proof the stale-list test can fail: with `src/bot/handlers/delete.py` at the base commit it fails, because the old handler called `get_series` for a movie button. With the fix it passes.
+        - `tests/integration/test_error_paths.py::test_delete_confirm_returns_false_shows_failure` used the old shapes too. The search for `delete_confirm` and `delete_item_<digits>` found it.
+    - **Key Changes:**
+        - `tests/integration/test_delete_flow.py`, `tests/integration/test_error_paths.py`
+        - `.claude/skills/addarr-handlers/references/callbacks.md`: `delete_` registry line
+    - **Notes:** `tests/test_handlers/test_auth_handler.py` uses `delete_confirm` only as sample callback data for the auth decorator. It stays.
