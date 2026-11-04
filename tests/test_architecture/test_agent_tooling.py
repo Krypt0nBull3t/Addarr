@@ -352,5 +352,23 @@ def test_graphify_warns_against_claude_install():
     assert "Never run `graphify claude install`" in text
 
 
+@pytest.mark.parametrize(
+    "name, tools",
+    [
+        ("untrusted-pr-reviewer", "Read, Grep, Glob"),
+        ("arr-api-contract-checker", "Read, Grep, Glob, Bash"),
+    ],
+)
+def test_agents_have_only_the_tools_they_need(name, tools):
+    front = read_text(f".claude/agents/{name}.md").split("---")[1]
+    assert yaml.safe_load(front)["tools"] == tools
+
+
+def test_contract_checker_fails_on_http_errors():
+    # Without -f, curl saves a 404 page as the spec and jq fails unclearly.
+    text = read_text(".claude/agents/arr-api-contract-checker.md")
+    assert "curl -sfL" in text and not re.search(r"curl -s(?!f)", text)
+
+
 def test_graphify_llm_backend_is_off():
     assert load_settings()["env"]["GRAPHIFY_BACKEND"] == "none"

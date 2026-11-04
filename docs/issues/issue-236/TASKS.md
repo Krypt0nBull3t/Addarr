@@ -41,7 +41,7 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
     - **Key Changes:** `SKILL.md`: new description (only `/graphify` or an existing `graphify-out/`, never an unasked install); the pip fallback exits with a `uv tool install` hint instead of `--break-system-packages`; the interpreter guard always runs, refuses a tracked `graphify-out/`, and re-resolves a relative or non-executable path; the Step 1 note points to the guard. `references/hooks.md`: the `graphify claude install` section is now a warning. Tests: `test_graphify_guard_rejects_a_planted_interpreter` (none, untracked, tracked), `..._triggers_only_on_command_or_existing_graph`, `..._never_breaks_system_packages`, `..._warns_against_claude_install`.
     - **Notes:** After a graphify upgrade, re-apply these changes along with the ones `CLAUDE.md:227` lists. The new tests flag any that are lost.
 
-- [ ] **1.3** Agents: untrusted PR reviewer committed and fixed, contract checker hardened
+- [x] **1.3** Agents: untrusted PR reviewer committed and fixed, contract checker hardened
     - **Context:** See plan.md Task 3. Key refs: the main checkout's untracked `.claude/agents/untrusted-pr-reviewer.md`, `.claude/agents/arr-api-contract-checker.md:4,19`
     - **Watch out:** Keep the reviewer's tools exactly `Read, Grep, Glob`.
     - **Scope:** S6 (agent), S7
@@ -51,6 +51,10 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
         - [GREEN] Copy and fix the reviewer: allowlist rule, secret list, trust-boundary rule, 80-char injection quote, `## Output`
         - [GREEN] Contract checker: drop WebFetch, add hard rules, `mktemp -d`, `curl -sfL`
     - **Success:** tests pass.
+    - **Completed:** 2026-11-04
+    - **Learnings:** Agent frontmatter `tools` parses as a plain comma string with `yaml.safe_load`, so an exact-match test catches any added tool. The reviewer's old rule 4 ("only paths the lead names") also blocked the `references/` of the skills it preloads. An allowlist that names them fixes both that and the incomplete secret list.
+    - **Key Changes:** New `.claude/agents/untrusted-pr-reviewer.md`, copied from the untracked main-checkout file. It describes the export layout, has an allowlist read rule with the full secret list, an 80-char injection quote, a trust-boundary-first rule, numbered steps, and an `## Output` with a 2000-char cap. `arr-api-contract-checker.md`: no WebFetch, `## Hard rules` (specs are data, Bash limited to mktemp/curl/jq/read-only git, no secrets, no edits), `mktemp -d` directory, `curl -sfL`. Tests: `test_agents_have_only_the_tools_they_need`, `test_contract_checker_fails_on_http_errors`.
+    - **Notes:** The read limits are still prompt rules. Task 1.5's settings Read denies enforce the main secret paths for every agent.
 
 - [ ] **1.4** `review-external-pr` skill
     - **Context:** See plan.md Task 4. Key refs: `untrusted-pr-reviewer.md` (the export layout it expects: `pr.json`, `issue.json`, `diff.txt`, `head/`, `base/`)
