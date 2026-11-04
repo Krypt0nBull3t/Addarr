@@ -170,6 +170,7 @@ en-us:
     Services: "Services"
     ServiceEnabled: "enabled %{service}"
     ServiceDisabled: "disabled %{service}"
+    ServiceRestartNotice: "Restart the bot for this to take effect."
     QualityProfile: "Default Quality Profile"
     QualityProfileSet: "Default quality profile set to %{profile} for %{service}"
     AdminOnly: "Settings are only available to admins."
@@ -273,8 +274,6 @@ en-us:
   CalendarDays7: "7 days"
   CalendarDays14: "14 days"
   CalendarDays30: "30 days"
-  CalendarAddSuccess: "✅ Added to library!"
-  CalendarAddFailed: "❌ Failed to add."
   CalendarAlreadyInLibrary: "Already in your library."
 
   # Missing / Wanted media
