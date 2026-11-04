@@ -9,7 +9,7 @@ handler holds a reference obtained at construction time.
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from src.bot.handlers.media.dispatch import QUALITY_SELECT
+from src.bot.handlers.media.dispatch import QUALITY_SELECT, SEARCHING
 from src.services.media import MediaService
 
 from tests.integration.fixtures import (
@@ -76,6 +76,25 @@ async def test_stale_quality_button_is_ignored(harness):
 
     add.assert_awaited_once()
     assert "Fight Club added" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_refused_search_keeps_the_conversation_open(harness):
+    """F063: a rate-limited search replies and waits; the user can retry."""
+    with (
+        patch("src.services.rate_limit.config") as cfg,
+        patch.object(MediaService, "search_movies", new_callable=AsyncMock, return_value=MOVIE_SEARCH_RESULTS) as search,
+    ):
+        # /movie uses the one allowed search call, so the typed query is refused
+        cfg.get.return_value = {
+            "enable": True,
+            "limits": {"search": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        await harness.send_command("/movie")
+        await harness.send_text("fight club")
+
+    search.assert_not_awaited()
+    assert harness.get_conversation_state(MEDIA_CONVERSATION) == SEARCHING
 
 
 @pytest.mark.asyncio

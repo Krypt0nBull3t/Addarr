@@ -110,7 +110,7 @@ class RateLimitService:
         cls._records = {}
 
 
-async def enforce_rate_limit(update: Update, category) -> bool:
+async def enforce_rate_limit(update: Update, category: str) -> bool:
     """Count one call in the category; reply and return False when over the limit.
 
     Args:
