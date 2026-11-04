@@ -13,6 +13,7 @@ ru-ru:
     Services: "Сервисы"
     ServiceEnabled: "%{service} включён"
     ServiceDisabled: "%{service} отключён"
+    ServiceRestartNotice: "Перезапустите бота, чтобы изменение вступило в силу."
     QualityProfile: "Профиль качества по умолчанию"
     QualityProfileSet: "Профиль качества по умолчанию установлен на %{profile} для %{service}"
     AdminOnly: "Настройки доступны только администраторам."
@@ -270,8 +271,6 @@ ru-ru:
   CalendarDays7: "7 дней"
   CalendarDays14: "14 дней"
   CalendarDays30: "30 дней"
-  CalendarAddSuccess: "✅ Добавлено в библиотеку!"
-  CalendarAddFailed: "❌ Не удалось добавить."
   CalendarAlreadyInLibrary: "Уже в вашей библиотеке."
 
   # Missing / Wanted media

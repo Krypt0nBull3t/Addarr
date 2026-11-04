@@ -81,25 +81,11 @@ class TestGetAllowedChats:
 
 
 class TestIsAdmin:
-    def test_is_admin_true(self, tmp_path, monkeypatch):
-        config_data = {"admins": [111, 222]}
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text(yaml.dump(config_data))
-        monkeypatch.chdir(tmp_path)
+    def test_is_admin_not_defined_in_definitions(self):
+        """The shared check is src.utils.helpers.is_admin; no second copy."""
+        from src import definitions
 
-        from src.definitions import is_admin
-
-        assert is_admin(111) is True
-
-    def test_is_admin_false(self, tmp_path, monkeypatch):
-        config_data = {"admins": [111]}
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text(yaml.dump(config_data))
-        monkeypatch.chdir(tmp_path)
-
-        from src.definitions import is_admin
-
-        assert is_admin(999) is False
+        assert not hasattr(definitions, "is_admin")
 
 
 class TestIsAllowedChat:

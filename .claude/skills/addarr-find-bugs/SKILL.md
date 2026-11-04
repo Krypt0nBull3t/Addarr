@@ -23,7 +23,7 @@ For each changed file, check:
 * [ ] **Authentication bypass**: Missing `@require_auth` on entry points, user ID spoofing
 * [ ] **Authorization/IDOR**: Access control on per-user operations (e.g., user_data isolation)
 * [ ] **Access gates**: New entry points keep the allowlist and private-chat gates (`_enforce_allowlist`, `_enforce_private_chat` in `src/bot/handlers/auth.py`, applied by `@require_auth`)
-* [ ] **Rate limiting**: New user-facing entry points carry `@rate_limit` (`src/services/rate_limit.py`)
+* [ ] **Rate limiting**: New user-facing entry points carry `@rate_limit`; an add inside a conversation calls `enforce_rate_limit(update, "modify")` just before the request (`src/services/rate_limit.py`)
 * [ ] **Webhook secret**: `src/services/webhook.py` answers 401 unless the service's configured secret is set and matches `X-Api-Secret` (`hmac.compare_digest`)
 * [ ] **SABnzbd API key**: `src/services/sabnzbd.py` sends `apikey` as a URL query parameter, so exception text can hold it. Log `type(e).__name__` only, never `str(e)`
 * [ ] **Information disclosure**: API keys in logs, error messages leaking internal state

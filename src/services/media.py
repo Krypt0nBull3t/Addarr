@@ -545,7 +545,6 @@ class MediaService:
             "year": movie.get("year"),
             "season": None,
             "episode": None,
-            "in_library": "id" in movie,
             "media_id": str(movie.get("tmdbId", "")),
             "internal_id": movie.get("id"),
         }
@@ -565,7 +564,6 @@ class MediaService:
             "year": None,
             "season": ep.get("seasonNumber"),
             "episode": ep.get("episodeNumber"),
-            "in_library": "id" in ep,
             "media_id": str(series.get("tvdbId", "")),
             "internal_id": series.get("id"),
         }

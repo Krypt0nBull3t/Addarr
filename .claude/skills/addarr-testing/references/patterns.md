@@ -9,6 +9,7 @@
 - [Config](#config)
 - [Keyboards](#keyboards)
 - [Translations](#translations)
+- [Shell Scripts](#shell-scripts)
 
 ---
 
@@ -339,6 +340,8 @@ async def test_movie_happy_path(harness):
 - **Check `harness.responses`** (plural) when a step produces multiple bot messages (e.g., photo + text).
 - **Verify conversation state** with `harness.get_conversation_state("media_conversation", 12345, 12345)` to confirm state transitions or conversation end (`None`).
 - **Test data** goes in `tests/integration/fixtures.py` — reuse existing constants where possible.
+- **A `conversation_timeout` needs a running job queue.** The harness setup in `tests/integration/conftest.py` awaits `app.job_queue.start()` (a coroutine in PTB 22.8) and `stop(wait=False)`, because the harness never calls `Application.start()`. Without it PTB only warns, and the suite turns the warning into an error.
+- **Tap from another message** with `harness.tap_button("quality_1", message_id=999)` to test a stale keyboard. The default is message 100. In a unit test, reuse one update across calls when the handler compares `query.message.message_id`: a new update has a new message id.
 
 ### When to Write Integration Tests
 
@@ -536,3 +539,15 @@ async def test_custom_client():
 ### Why This Matters
 
 `_get_session()` keeps the session open until `close()`. An unclosed session outlives its test, and aiohttp reports `Unclosed client session` when it is garbage-collected.
+
+---
+
+## Shell Scripts
+
+`tests/test_install_scripts.py` tests `scripts/install.sh`, the PowerShell installer, the systemd unit and the README install text. Root-level test file, same style as `tests/test_dockerfile.py`.
+
+- **Never run a whole install script.** It installs software. Read the file text and assert on it, or run one function.
+- **Run one function:** extract its text with a regex (`function_text(script, name)`), then run it under `bash -c` in `tmp_path` with `subprocess.run(..., check=True, capture_output=True)` (`run_cleanup()` shows the pattern). Set the variables the function reads (`INSTALL_DIR`, `BACKUP_DIR`) in the script text.
+- **Check order with line indexes:** to prove a trap is set before a `mv`, compare the line index of each.
+- **`EUID` is read-only in bash:** a test cannot fake root. Have the script read `$(id -u)`, define `id() { echo 0; }` in the test script, and run bash with `env={"PATH": ""}` (through the absolute `shutil.which("bash")`) so a real `sudo` is hidden. `test_sudo_prefix_by_user` shows it.
+- **Cover every caller of a shared value:** a value such as `SUDO` that many paths read is set where the script loads, not inside one function. `test_every_package_install_uses_sudo_prefix` scans every executed line, so a path added later cannot skip it.
