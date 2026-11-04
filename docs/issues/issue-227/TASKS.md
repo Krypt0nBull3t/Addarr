@@ -75,7 +75,7 @@ All paths below are under `docs/issues/` unless they start with `src/` or `tests
         - `feature/test-suite/tasks.md`: added 14 `**Completed:** 2026-02-15 (<sha>)` lines. All 13 distinct shas resolve with `git cat-file -t`.
     - **Notes:** No Learnings, Key Changes or Notes were added to the test-suite tasks: git history does not prove them.
 
-- [ ] **1.4** Verify, and report the lines left alone
+- [x] **1.4** Verify, and report the lines left alone
     - **Context:**
         - **Why:** The acceptance criteria say no source change and that `pytest`, `flake8` and `mypy src/` pass.
         - **Architecture:** Gates run through the suite lock. The architecture tests hold the docs-drift checks. The full preflight (100% coverage gate) runs at the create-pr step.
@@ -89,3 +89,8 @@ All paths below are under `docs/issues/` unless they start with `src/` or `tests
         - [GREEN] `<lock> .venv/bin/python -m flake8 .`, `<lock> .venv/bin/python -m mypy src/` and `<lock> .venv/bin/python -m pytest tests/test_architecture --tb=short -v` pass.
         - [GREEN] Write the list of unlisted hits into the scratchpad for the PR body.
     - **Success:** All commands pass. The diff has no file outside `docs/issues/`.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Unlisted lines still name the symbols without a note: `issue-101/TASKS.md:15,16,19`, `issue-78/TASKS.md:5,12,14,15,17,18,21-24,26,35,39,123,130`, `issue-20/TASKS.md:27,32,33,60,67,96,102,112`, `issue-12/TASKS.md:10,20,25`, `issue-108/TASKS.md:46,51,57`. Left alone on purpose (scope).
+    - **Key Changes:** None beyond tasks 1.1-1.3. `git diff --name-only origin/development` lists only files under `docs/issues/`.
+    - **Notes:** Checker: no miss. `tests/test_architecture`: 154 passed. flake8 and `mypy src/` pass (no `src/` change since the run for task 1.3). The full preflight with the coverage gate runs at the create-pr step.
