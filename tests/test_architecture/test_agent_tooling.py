@@ -15,6 +15,7 @@ import shutil
 import subprocess
 
 import pytest
+import yaml
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 GRAPHIFY_SKILL_DIR = os.path.join(PROJECT_ROOT, ".claude", "skills", "graphify")
@@ -216,6 +217,14 @@ def test_requirements_are_pinned(path):
     assert reqs
     for req in reqs:
         assert re.fullmatch(r"[A-Za-z0-9._-]+==[A-Za-z0-9.]+", req), req
+
+
+def test_dependabot_skips_pytestarch_5():
+    # pytestarch 5 needs Python 3.11; the CI compatibility matrix runs 3.10.
+    updates = yaml.safe_load(read_text(".github/dependabot.yml"))["updates"]
+    pip = next(u for u in updates if u["package-ecosystem"] == "pip")
+    rule = {"dependency-name": "pytestarch", "versions": [">=5"]}
+    assert rule in pip.get("ignore", [])
 
 
 def test_cloud_setup_installs_pinned_graphify():

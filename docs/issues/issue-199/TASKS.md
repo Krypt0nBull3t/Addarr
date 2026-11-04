@@ -181,10 +181,14 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
     - **Key Changes:** `test_graphify_out_is_git_ignored` runs `git check-ignore` from `PROJECT_ROOT` and compares the printed paths.
     - **Notes:** The test needs a git checkout; CI and local runs have one.
 
-- [ ] **2.6** [consider] Keep Dependabot off pytestarch 5 (audit 6)
+- [x] **2.6** [consider] Keep Dependabot off pytestarch 5 (audit 6)
     - **Context:** pytestarch 5.x needs Python 3.11; the CI Compatibility matrix runs 3.10. Dependabot PR #182 fails for this reason.
     - **Scope:** `ignore` entry for `pytestarch` versions `>=5` in the pip update; a test that reads it.
     - **Touches:** `.github/dependabot.yml`, test file
+    - **Completed:** 2026-11-04
+    - **Learnings:** Red first: the pip update had no `ignore` list.
+    - **Key Changes:** `.github/dependabot.yml` pip update: `ignore` `pytestarch` `>=5` with a comment that says why. Test `test_dependabot_skips_pytestarch_5` reads it with `yaml.safe_load`.
+    - **Notes:** Remove the rule when CI drops Python 3.10. Dependabot PR #182 stays open until someone closes it; this PR does not touch it.
 
 - [ ] **2.7** [consider] Known limits and retrospective (audit 7, 8)
     - **Scope:** PR body and this file name the hook-guard node-label injection (F273 part) as a known limit and the new deny-list limits; F275 note says it was verified locally only; "check pins on the lowest matrix Python" goes into CLAUDE.md `## CI/CD` (retrospective category: new convention).
