@@ -71,19 +71,26 @@ def _add_handlers(self):
         self.application.add_handler(handler)
 ```
 
-**Registration order matters.** PTB matches the first matching handler. Current order:
+**Registration order matters.** PTB matches the first matching handler. Current order (from `src/main.py:_add_handlers()`):
 
 1. AuthHandler
 2. MediaHandler
 3. SettingsHandler
-4. DeleteHandler
-5. LibraryHandler
-6. TransmissionHandler *(conditional)*
-7. SabnzbdHandler *(conditional)*
-8. HelpHandler
-9. PreferencesHandler
-10. SystemHandler
-11. StartHandler *(last: its `menu_cancel` must not take Cancel taps from an open conversation)*
+4. WebhooksHandler
+5. DeleteHandler
+6. LibraryHandler
+7. CalendarHandler
+8. MissingHandler
+9. QueueHandler
+10. HistoryHandler
+11. TransmissionHandler *(conditional on transmission.enable)*
+12. SabnzbdHandler *(conditional on sabnzbd.enable)*
+13. BazarrHandler *(conditional on bazarr.enable)*
+14. DownloadsHandler
+15. HelpHandler
+16. PreferencesHandler
+17. SystemHandler
+18. StartHandler *(last: its `menu_cancel` must not take Cancel taps from an open conversation)*
 
 **Placement rules:**
 - Handlers with unique command names (`/myfeature`) can go anywhere

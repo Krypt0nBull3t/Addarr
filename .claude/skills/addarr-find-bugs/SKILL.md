@@ -1,5 +1,5 @@
 ---
-name: find-bugs
+name: addarr-find-bugs
 description: Use when reviewing branch changes for bugs, security vulnerabilities, or code quality issues. Covers async Python, Telegram bot handlers, API clients, config access, and singleton patterns.
 ---
 

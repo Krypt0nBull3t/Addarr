@@ -8,12 +8,12 @@ Argument: $ARGUMENTS
 - `addarr-testing`
 - `addarr-handlers`
 - `addarr-services`
-- `python-testing-pro`
+- `superpowers:test-driven-development`
 
 ### If argument is `dev` (or no argument):
 - `task-writer`
-- `find-bugs`
-- `code-simplifier`
+- `addarr-find-bugs`
+- `addarr-code-simplifier`
 - `superpowers:test-driven-development`
 - `superpowers:writing-plans`
 - `superpowers:brainstorming`
@@ -21,8 +21,8 @@ Argument: $ARGUMENTS
 - `superpowers:verification-before-completion`
 
 ### If argument is `pr`:
-- `find-bugs`
-- `code-simplifier`
+- `addarr-find-bugs`
+- `addarr-code-simplifier`
 - `superpowers:verification-before-completion`
 
 Also read these reference files into context (use the Read tool):

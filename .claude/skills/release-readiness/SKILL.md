@@ -9,7 +9,7 @@ Gate for `development` -> `main` merges. Default stance: **NOT READY** unless al
 
 ## Phase 1: Code Quality
 
-* [ ] **Bug review** — Run `find-bugs` on full diff: `git diff main...development`
+* [ ] **Bug review** — Run `addarr-find-bugs` on full diff: `git diff main...development`
 * [ ] **Simplification** — Run `simplify` on full diff
 * [ ] **No debug artifacts** — No `TODO`, `FIXME`, `HACK` comments in changed files
 * [ ] **No print statements** — No `print()` in `src/` (use `get_logger` from `src/utils/logger.py`)

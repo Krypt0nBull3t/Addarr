@@ -55,28 +55,17 @@ def test_one():
 
 ## Transmission Mocking
 
-**Don't** use `aioresponses` for Transmission API tests:
-
-```python
-# BAD - Transmission uses requests, not aiohttp
-async def test_transmission(aio_mock):
-    aio_mock.post("http://localhost:9091/transmission/rpc", ...)
-```
-
-**Instead**, mock `requests.post` directly:
+Transmission uses `aiohttp` like other clients — mock with `aioresponses`:
 
 ```python
 # GOOD
-from unittest.mock import patch, MagicMock
-
-def test_transmission():
-    mock_response = MagicMock(status_code=200)
-    mock_response.json.return_value = {"result": "success"}
-    with patch("requests.post", return_value=mock_response):
-        result = api._make_request("session-get", {})
+async def test_transmission(aio_mock):
+    aio_mock.post("http://localhost:9091/transmission/rpc", payload={"result": "success"})
+    result = await api._make_request("session-get", {})
+    assert result["result"] == "success"
 ```
 
-**Why**: `src/api/transmission.py` uses synchronous `requests.post()`, not `aiohttp`. `aioresponses` only intercepts `aiohttp.ClientSession` calls. Also note: `TransmissionAPI.__init__` calls `super().__init__()` without `service_name`, so you must patch `BaseApiClient.__init__` too.
+**Why**: `src/api/transmission.py` uses `aiohttp.ClientSession`, same as other API clients. `aioresponses` intercepts it.
 
 ---
 

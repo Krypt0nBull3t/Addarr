@@ -7,7 +7,7 @@ Sequence is defined in SKILL.md. This file provides implementation details per s
 Invoke three skills in sequence. Each covers a distinct concern with no overlap.
 Fix actionable findings after each pass. Skip pre-existing codebase patterns.
 
-### Pass 1: INVOKE @find-bugs
+### Pass 1: INVOKE @addarr-find-bugs
 
 **Scope:** Security, correctness, and runtime errors.
 
@@ -35,7 +35,7 @@ Covers (and ONLY covers):
 
 Does NOT cover: security bugs, structural readability, Python-specific simplifications.
 
-### Pass 3: INVOKE @code-simplifier
+### Pass 3: INVOKE @addarr-code-simplifier
 
 **Scope:** Structural clarity and readability of changed files.
 

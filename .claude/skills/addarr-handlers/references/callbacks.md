@@ -29,6 +29,13 @@ All callback data is a flat string with underscore-delimited segments. Max 64 by
 | `delete_` | DeleteHandler | `delete_movie_123` | Delete media |
 | `lib_` | LibraryHandler | `lib_movies`, `lib_page_2` | Library browsing |
 | `pref_` | PreferencesHandler | `pref_view_list` | Preference changes |
+| `wh_` | WebhooksHandler | `wh_toggle_`, `wh_regen_` | Webhook management |
+| `cal_` | CalendarHandler | `cal_page_`, `cal_period_` | Calendar browsing |
+| `missing_` | MissingHandler | `missing_filter_`, `missing_page_` | Missing/wanted media |
+| `queue_` | QueueHandler | `queue_filter_`, `queue_page_` | Queue management |
+| `hist_` | HistoryHandler | `hist_filter_`, `hist_page_` | History browsing |
+| `bazarr_` | BazarrHandler | `bazarr_search`, `bazarr_wanted_movies` | Bazarr subtitles |
+| `dl_client_` / `dl_page_` / `dl_pause_` / `dl_resume_` / `dl_tab_` | DownloadsHandler | `dl_tab_movies` | Downloads management |
 
 ## Pattern Matching in ConversationHandler
 

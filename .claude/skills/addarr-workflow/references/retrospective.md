@@ -23,7 +23,7 @@ For each learning, determine if it fits a category:
 |----------|--------|---------|
 | New anti-pattern | `addarr-testing/references/anti-patterns.md` | "Patching at source module instead of import site silently passes" |
 | New convention | `CLAUDE.md` or `test_conventions.py` | "All handler entry points must have @require_auth" |
-| Recurring bug pattern | `find-bugs` checklist | "Missing query.answer() in callback handlers" |
+| Recurring bug pattern | `addarr-find-bugs` checklist | "Missing query.answer() in callback handlers" |
 | New fixture pattern | `addarr-testing/references/patterns.md` | "Use make_context(user_data={'key': val}) for state-dependent tests" |
 | Workflow improvement | `addarr-workflow` references | "Always run integration tests after handler changes" |
 

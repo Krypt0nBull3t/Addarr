@@ -71,43 +71,31 @@ async def test_add_movie_success(radarr_client, aio_mock, radarr_url):
     assert success is True
 ```
 
-### Transmission (sync requests)
+### Transmission (async, aiohttp)
 
-Transmission uses `requests.post`, NOT aiohttp. Mock differently:
+Transmission uses `aiohttp` like other clients. Mock with `aioresponses`:
 
 ```python
-from unittest.mock import patch, MagicMock
-from src.api.base import BaseApiClient
+from aioresponses import aioresponses
+from src.api.transmission import TransmissionClient
 
-@patch.object(BaseApiClient, '__init__', lambda self, *a, **kw: None)
-def test_make_request_success():
-    from src.api.transmission import TransmissionAPI
-    api = TransmissionAPI(host="localhost", port=9091)
-
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"result": "success", "arguments": {}}
-
-    with patch("requests.post", return_value=mock_response):
-        result = api._make_request("session-get", {})
-        assert result["result"] == "success"
+async def test_make_request_success(aio_mock):
+    api = TransmissionClient()
+    aio_mock.post("http://localhost:9091/transmission/rpc", payload={"result": "success", "arguments": {}})
+    result = await api._make_request("session-get", {})
+    assert result["result"] == "success"
 ```
 
 ### Session ID Negotiation (Transmission)
 
-Transmission returns 409 with `X-Transmission-Session-Id` header on first request:
+Transmission returns 409 with `X-Transmission-Session-Id` header on first request; the client retries with that session id:
 
 ```python
-def test_session_id_negotiation():
-    response_409 = MagicMock(status_code=409)
-    response_409.headers = {"X-Transmission-Session-Id": "abc123"}
-
-    response_200 = MagicMock(status_code=200)
-    response_200.json.return_value = {"result": "success"}
-
-    with patch("requests.post", side_effect=[response_409, response_200]):
-        result = api._make_request("session-get", {})
-        assert result["result"] == "success"
+async def test_session_id_negotiation(aio_mock):
+    aio_mock.post("http://localhost:9091/transmission/rpc", status=409, headers={"X-Transmission-Session-Id": "abc123"})
+    aio_mock.post("http://localhost:9091/transmission/rpc", payload={"result": "success"})
+    result = await api._make_request("session-get", {})
+    assert result["result"] == "success"
 ```
 
 ---

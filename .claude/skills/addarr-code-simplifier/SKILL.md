@@ -1,5 +1,5 @@
 ---
-name: code-simplifier
+name: addarr-code-simplifier
 description: Use when asked to simplify, clean up, or refactor code for clarity. Focuses on reducing complexity, eliminating redundant abstractions, and improving readability while preserving functionality. Complements the quick-pass simplify superpowers skill with deeper, focused refactoring.
 ---
 
