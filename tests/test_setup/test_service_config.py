@@ -63,7 +63,7 @@ class TestGetDefaultServiceConfig:
         """Lidarr config includes metadataProfileId and album features."""
         config = get_default_service_config("lidarr")
         assert config["metadataProfileId"] == 1
-        assert config["features"]["albumFolder"] is True
+        assert "albumFolder" not in config["features"]
         assert config["features"]["monitorOption"] == "all"
         assert config["server"]["port"] == "8686"
 

@@ -271,3 +271,25 @@ ConversationHandler(
 ```
 
 **Why**: PTB warns because `per_message=False` means callback queries from different messages can be handled by the same conversation. This is the intended behavior in Addarr — the warning confirms the setting is active. Issue #67 confirmed this is safe to ignore.
+
+---
+
+## Acting on an Item From user_data at Tap Time
+
+**Don't** let a button that acts on one item read its target from `context.user_data`:
+
+```python
+# BAD - callback_data has only an id; the type comes from user_data when the user taps
+callback_data=f"delete_item_{item['id']}"
+media_type = context.user_data.get("delete_type")
+```
+
+**Instead**, put the item's type and id in `callback_data` (64 bytes max) and read the target from it:
+
+```python
+# GOOD
+callback_data=f"delete_item_{media_type}_{item['id']}"
+_, _, media_type, item_id = query.data.split("_")  # check item_id with isdigit()
+```
+
+**Why**: A user can have several lists open. A tap on an older list then acts on whatever the newest list stored, and Radarr and Sonarr ids collide, so it deleted a different item (issue #196). This applies to buttons that act on one item (delete, confirm, select). Conversation flows keep their step state in `user_data` by design (the media flow does); that is fine.

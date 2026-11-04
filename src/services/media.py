@@ -20,6 +20,15 @@ from src.api.lidarr import LidarrClient
 logger = get_logger("addarr.services.media")
 
 
+def _poster_url(item: Dict) -> Optional[str]:
+    """First poster or cover image URL of a Lidarr artist or album, else None."""
+    return next(
+        (img["remoteUrl"] for img in item.get("images") or []
+         if img.get("coverType", "").lower() in ["poster", "cover"]),
+        None,
+    )
+
+
 class MediaService:
     """Service for handling media operations"""
 
@@ -167,7 +176,7 @@ class MediaService:
             raise
 
     async def search_music(self, query: str) -> List[Dict]:
-        """Search for music using Lidarr (artists, albums, and songs)"""
+        """Search for music using Lidarr (artists and albums)"""
         if not self.lidarr:
             raise ValueError("Lidarr is not enabled or configured")
 
@@ -183,18 +192,7 @@ class MediaService:
                     "id": str(artist["foreignArtistId"]),
                     "title": artist["artistName"],
                     "overview": artist.get("overview", "No overview available"),
-                    "year": artist.get("statistics", {}).get("yearStart", "N/A"),
-                    "poster": (
-                        next((img["remoteUrl"] for img in artist.get("images", [])
-                             if img.get("coverType", "").lower() in ["poster", "cover"]), None)
-                        or (f"https://coverartarchive.org/release-group/{artist.get('foreignArtistId')}/front"
-                            if artist.get("foreignArtistId")
-                            else None)
-                        or (f"https://ws.audioscrobbler.com/2.0/?method=artist.getinfo"
-                            f"&artist={artist['artistName']}&format=json"
-                            if artist.get('artistName')
-                            else None)
-                    ),
+                    "poster": _poster_url(artist),
                     "rating": artist.get("ratings", {}).get("value", "N/A"),
                     "genres": artist.get("genres", []),
                     "type": artist.get("artistType", "Unknown"),
@@ -211,7 +209,6 @@ class MediaService:
 
             # Normalize album results
             albums = []
-            songs = []
             for album in album_results:
                 album_id = album.get("foreignAlbumId")
                 if not album_id:
@@ -224,11 +221,7 @@ class MediaService:
                     "id": f"album:{album_id}",
                     "title": album["title"],
                     "overview": album.get("overview", "No overview available"),
-                    "poster": next(
-                        (img["remoteUrl"] for img in album.get("images", [])
-                         if img.get("coverType", "").lower() in ["poster", "cover"]),
-                        None,
-                    ),
+                    "poster": _poster_url(album),
                     "release_date": album.get("releaseDate", ""),
                     "artist_name": artist_info.get("artistName", ""),
                     "artist_id": artist_id,
@@ -240,28 +233,7 @@ class MediaService:
                     "data": album,
                 })
 
-                # Extract song matches from track data (best-effort)
-                query_lower = query.lower()
-                for medium in album.get("media", []):
-                    for track in medium.get("tracks", []):
-                        track_title = track.get("title", "")
-                        if track_title and query_lower in track_title.lower():
-                            songs.append({
-                                "id": f"album:{album_id}",
-                                "title": track_title,
-                                "album_title": album["title"],
-                                "artist_name": artist_info.get("artistName", ""),
-                                "artist_id": artist_id,
-                                "album_id": album_id,
-                                "music_type": "song",
-                                "external_ids": {
-                                    "musicbrainz": album.get("foreignAlbumId"),
-                                },
-                                "data": album,
-                            })
-
-            # Merge: artists → albums → songs
-            return artists + albums + songs
+            return artists + albums
 
         except Exception as e:
             logger.error(f"Error searching music: {e}")
@@ -476,9 +448,11 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_music: {str(e)}")
             return False, str(e)
 
-    async def get_artist_albums(self, artist_id: str) -> List[Dict]:
+    async def get_artist_albums(self, artist_id: str, artist_name: str) -> List[Dict]:
         """Get albums for an artist from Lidarr.
 
+        album/lookup treats a bare MBID as free text, so search by artist name
+        and keep only albums whose artist MBID is artist_id.
         Returns normalized list of {album_id, title, release_date} dicts.
         Returns [] if Lidarr disabled or on error.
         """
@@ -486,7 +460,7 @@ class MediaService:
             return []
 
         try:
-            results = await self.lidarr.search_albums(artist_id)
+            results = await self.lidarr.search_albums(artist_name)
             return [
                 {
                     "album_id": album["foreignAlbumId"],
@@ -495,6 +469,7 @@ class MediaService:
                 }
                 for album in results
                 if album.get("foreignAlbumId")
+                and (album.get("artist") or {}).get("foreignArtistId") == artist_id
             ]
         except Exception as e:
             logger.error(f"Error getting artist albums: {e}")

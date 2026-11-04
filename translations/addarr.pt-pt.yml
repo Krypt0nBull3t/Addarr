@@ -69,7 +69,7 @@ pt-pt:
     CancelHint: "(Use /cancel para cancelar)"
     Add: "✅ Sim, adicione este %{subject}"
     This: "❓ É este %{subjectWithArticle} que quer adicionar?"
-    ThisDelete: "❓ É este %{subjectWithArticle} que pretende eliminar?"
+    ThisDelete: "❓ É este %{subjectWithArticle} que pretende eliminar: %{title}? Os ficheiros no disco também são eliminados."
     AddFailed: "❌ Oops, falha ao adicionar %{subjectWithArticle}. Tente novamente."
     DeleteFailed: "❌ Oops, não apagou %{subjectWithArticle}. Tente novamente."
     AddSuccess: "✅ %{subjectWithArticle} foi adicionado com sucesso 🙂"

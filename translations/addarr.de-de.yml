@@ -69,7 +69,7 @@ de-de:
     CancelHint: "(Benutze /cancel zum Abbrechen)"
     Add: "✅ Ja, %{subject} hinzufügen"
     This: "❓ Willst du %{subjectWithArticle} hinzufügen?"
-    ThisDelete: "❓ Möchten sie %{subjectWithArticle} wirklich löschen?"
+    ThisDelete: "❓ Möchten sie %{subjectWithArticle} wirklich löschen: %{title}? Die Dateien auf dem Datenträger werden auch gelöscht."
     AddFailed: "❌ Oops, das Hinzufügen von %{subjectWithArticle} ist fehlgeschlagen. Probiere es doch nochmal."
     DeleteFailed: "❌ Oops, das Löschen von %{subjectWithArticle} ist fehlgeschlagen. Probiere es doch nochmal."
     AddSuccess: "✅ %{subjectWithArticle} wurde erfolgreich hinzugefügt 🙂"
