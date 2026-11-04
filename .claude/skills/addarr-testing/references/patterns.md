@@ -9,6 +9,7 @@
 - [Config](#config)
 - [Keyboards](#keyboards)
 - [Translations](#translations)
+- [Shell Scripts](#shell-scripts)
 
 ---
 
@@ -536,3 +537,14 @@ async def test_custom_client():
 ### Why This Matters
 
 `_get_session()` keeps the session open until `close()`. An unclosed session outlives its test, and aiohttp reports `Unclosed client session` when it is garbage-collected.
+
+---
+
+## Shell Scripts
+
+`tests/test_install_scripts.py` tests `scripts/install.sh`, the PowerShell installer, the systemd unit and the README install text. Root-level test file, same style as `tests/test_dockerfile.py`.
+
+- **Never run a whole install script.** It installs software. Read the file text and assert on it, or run one function.
+- **Run one function:** extract its text with a regex (`function_text(script, name)`), then run it under `bash -c` in `tmp_path` with `subprocess.run(..., check=True, capture_output=True)` (`run_cleanup()` shows the pattern). Set the variables the function reads (`INSTALL_DIR`, `BACKUP_DIR`) in the script text.
+- **Check order with line indexes:** to prove a trap is set before a `mv`, compare the line index of each.
+- **`EUID` is read-only in bash:** a test cannot fake root. Branch on `os.geteuid()`, and call `pytest.skip` on a host that cannot take the branch. A bare `return` hides the skip.
