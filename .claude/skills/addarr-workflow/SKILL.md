@@ -145,15 +145,20 @@ Step 1  RUN     Pre-PR review of the branch diff (details in create-pr.md):
                 Agent arr-api-contract-checker, only when src/api/ or tests/test_api/ changed
                 Fix any actionable findings. Skip pre-existing patterns.
 Step 2  RUN     Commit the review fixes (see create-pr.md)
-Step 3  RUN     Flow: preflight (all checks must pass; it runs the CI coverage gate)
-Step 4  RUN     Verify readiness (not on main/development, all committed, push)
-Step 5  RUN     Generate PR title + body from commits and issue context
-Step 6  RUN     gh pr create --base development (body file, see create-pr.md)
-Step 7  RUN     Report PR URL
-Step 8  RUN     Retrospective: extract learnings from TASKS.md completion
+Step 3  ASK     Retrospective: extract learnings from TASKS.md completion
                 metadata and suggest durable skill/convention updates.
                 See [references/retrospective.md](references/retrospective.md).
-                Human-reviewed; approved edits are committed on this branch and pushed.
+                Human-reviewed; approved edits are committed on this branch.
+                It runs before the preflight and the push, so its edits are
+                tested and go out in the same push
+Step 4  RUN     Merge origin/development into the branch (conflict: ASK)
+Step 5  RUN     Flow: preflight (all checks must pass; it runs the CI coverage gate)
+Step 6  RUN     Verify readiness, then push once: <lock> git push -u origin <branch>
+Step 7  RUN     PR title + body: fill .github/PULL_REQUEST_TEMPLATE.md from plan.md
+Step 8  RUN     gh pr create --base development (body file, see create-pr.md)
+Step 9  RUN     Report PR URL; suggest a wiki re-ingest when it applies
+Step 10 INVOKE  /pshepard <PR number> when that skill is available (PR driver)
+Step 11 RUN     Suggest /clear before the next issue (not while pshepard watches)
 ```
 
 ## Flow: preflight
@@ -298,3 +303,6 @@ available, stop and report it instead of continuing without it.
 | built-in `/simplify` | Reuse, quality, efficiency | create-pr step 1 |
 | agent `arr-api-contract-checker` | *arr requests against the Servarr OpenAPI specs | create-pr step 1, when `src/api/` or `tests/test_api/` changed |
 | `@release-readiness` | Release gate | release step 2 |
+
+Optional, user scope: `pshepard` (PR driver: red CI, review threads, a live watch) at create-pr
+step 10. A session without it skips that step and says to run `/addarr feedback` when reviews arrive.

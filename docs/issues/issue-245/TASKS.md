@@ -131,7 +131,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - `.claude/skills/task-writer/SKILL.md`: TDD flow and rule 3 name scoped checks.
     - **Notes:** Step 4d sits after 4c because the "5+ dependent tasks" trigger needs TASKS.md.
 
-- [ ] **2.5** create-pr: one push, template body, PR driver (changes 5, 6, 8, 10, 14)
+- [x] **2.5** create-pr: one push, template body, PR driver (changes 5, 6, 8, 10, 14)
     - **Context:**
         - **Why:** The retrospective pushed a second time after the PR opened (CI and the review bot ran twice); the branch was not merged with `development` before the gates; the body ignored the PR template; the PR was left alone once open.
         - **Architecture:** New create-pr order in `SKILL.md` and `references/create-pr.md`: review, commit fixes, retrospective, merge `origin/development`, preflight, one push, PR, report, `pshepard`, `/clear` hint.
@@ -143,6 +143,15 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [RED] Search the skill for "PULL_REQUEST_TEMPLATE", "pshepard" and "merge origin/development": no hit; `retrospective.md` step 4 pushes.
         - [GREEN] Rewrite the create-pr sequence and steps; retrospective commits without pushing.
     - **Success:** `tests/test_architecture` passes; the only push in create-pr is the one lock-wrapped push.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The SKILL.md Skill Reference says every listed skill must be available or the flow stops, so `pshepard` went into a separate "Optional, user scope" line instead of the table.
+        - "After the passes" ran the full unit gate before the preflight ran it again; it now runs the scoped checks.
+    - **Key Changes:**
+        - `SKILL.md`: create-pr sequence is review, commit, retrospective (`ASK`), merge development, preflight, one push, template body, PR, report, `pshepard`, `/clear` hint; optional `pshepard` note.
+        - `references/create-pr.md`: steps 2-11 rewritten (merge step, push once, template sections with CI-only lanes, wiki re-ingest suggestion, hand-off, `/clear` hint in seat-usage terms).
+        - `references/retrospective.md`: create-pr step 3, commits without pushing.
+    - **Notes:** The PR body now uses the template's `Fixes #<N>` instead of `Closes #<N>`.
 
 - [ ] **2.6** feedback: replies, resolve, up-to-date branch (changes 4, 8)
     - **Context:**
