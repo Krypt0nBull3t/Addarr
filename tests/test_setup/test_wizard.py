@@ -196,6 +196,62 @@ class TestWizardAsyncSetup:
 
         assert wizard.config["allow_list"] == [222]
 
+    @pytest.mark.asyncio
+    @patch("src.setup.wizard.config_handler")
+    @patch("src.setup.wizard.configure_logging", new_callable=AsyncMock)
+    @patch("src.setup.wizard.configure_access_control", new_callable=AsyncMock)
+    @patch("src.setup.wizard.configure_telegram", new_callable=AsyncMock)
+    @patch("src.setup.wizard.select_services", new_callable=AsyncMock)
+    @patch("src.setup.wizard.configure_language", new_callable=AsyncMock)
+    async def test_existing_chat_mode_survives_wizard(
+        self, mock_language, mock_services, mock_telegram, mock_access,
+        mock_logging, mock_handler,
+    ):
+        """An existing security.chatMode is kept and offered as the default."""
+        mock_handler.load_config.return_value = {
+            "security": {"chatMode": "allow_all", "enableAdmin": False},
+        }
+        mock_handler.save_config = MagicMock()
+        mock_services.return_value = []
+        mock_access.return_value = {
+            "security": {"enableAdmin": True}, "admins": [],
+        }
+
+        wizard = SetupWizard()
+        await wizard._async_setup()
+
+        mock_access.assert_awaited_once_with("allow_all")
+        assert wizard.config["security"] == {
+            "chatMode": "allow_all", "enableAdmin": True,
+        }
+
+    @pytest.mark.asyncio
+    @patch("src.setup.wizard.config_handler")
+    @patch("src.setup.wizard.configure_logging", new_callable=AsyncMock)
+    @patch("src.setup.wizard.configure_access_control", new_callable=AsyncMock)
+    @patch("src.setup.wizard.configure_telegram", new_callable=AsyncMock)
+    @patch("src.setup.wizard.select_services", new_callable=AsyncMock)
+    @patch("src.setup.wizard.configure_language", new_callable=AsyncMock)
+    async def test_security_merge_keeps_unrelated_keys(
+        self, mock_language, mock_services, mock_telegram, mock_access,
+        mock_logging, mock_handler,
+    ):
+        """Keys the wizard does not ask about stay in the security section."""
+        mock_handler.load_config.return_value = {"security": {"custom": 1}}
+        mock_handler.save_config = MagicMock()
+        mock_services.return_value = []
+        mock_access.return_value = {
+            "security": {"chatMode": "private_only"}, "admins": [],
+        }
+
+        wizard = SetupWizard()
+        await wizard._async_setup()
+
+        mock_access.assert_awaited_once_with(None)
+        assert wizard.config["security"] == {
+            "custom": 1, "chatMode": "private_only",
+        }
+
 
 # ---------------------------------------------------------------------------
 # SetupWizard._reset_config tests

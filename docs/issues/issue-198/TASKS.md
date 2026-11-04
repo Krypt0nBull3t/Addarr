@@ -178,14 +178,14 @@ services, and the tests exercise the real module.
     - **Success:** Auth handler and integration tests pass.
     - **Completed:** 2026-11-04
     - **Learnings:**
-        - A chatMode set to None is not replaced by the `config.get` default, so the old `!= private_only` check still let it through only for non-private values; the new check blocks it.
+        - A chatMode set to None is not replaced by the `config.get` default. The old `!= private_only` check let it through, so groups were allowed. The new check blocks it.
         - The existing allow_all test already covered the open path.
     - **Key Changes:**
         - `src/bot/handlers/auth.py`: `_enforce_private_chat` returns False only for `allow_all` or when there is no chat.
         - Added `test_require_auth_rejects_group_when_chat_mode_invalid` (4 cases).
     - **Notes:** Integration tests (95) and handler coverage (612 tests, 100%) pass.
 
-- [ ] **2.2** F023: the wizard keeps and asks chatMode (plan task 7)
+- [x] **2.2** F023: the wizard keeps and asks chatMode (plan task 7)
     - **Context:**
         - **Why:** The wizard replaces `security` and drops `chatMode`.
         - **Architecture:** `_async_setup` merges into the existing `security` dict;
@@ -202,6 +202,15 @@ services, and the tests exercise the real module.
           `test_security_merge_keeps_unrelated_keys`
         - [GREEN] Implement the prompt and the merge
     - **Success:** `scripts/test_runner.py setup --coverage` passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The wizard merges into `self.config.get("security") or {}` so an empty (None) section cannot break `update`.
+        - Existing access-control prompt tests needed a `questionary.select` mock once the new prompt was awaited.
+    - **Key Changes:**
+        - `src/setup/prompts.py`: `configure_access_control(current_chat_mode)` asks chatMode with `questionary.select` over `CHAT_MODES`.
+        - `src/setup/wizard.py`: `_async_setup` merges the security answers into the existing section and passes the current chatMode.
+        - Tests: 5 new in `tests/test_setup/`; 4 existing prompt tests got a select mock.
+    - **Notes:** `src/setup/` imports CHAT_MODES from `src.definitions`, never from `src.config.settings`.
 
 - [ ] **2.3** F022: reset runs the wizard once (plan task 8)
     - **Context:**

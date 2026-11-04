@@ -4,10 +4,12 @@ All functions are standalone async, returning values instead of mutating state.
 The wizard assigns return values to its config dict.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import questionary
 from colorama import Fore
+
+from src.definitions import CHAT_MODES
 
 
 async def select_services() -> List[str]:
@@ -139,8 +141,14 @@ async def configure_telegram() -> Dict[str, str]:
     }
 
 
-async def configure_access_control() -> Dict[str, Any]:
+async def configure_access_control(
+    current_chat_mode: Optional[str] = None,
+) -> Dict[str, Any]:
     """Configure access control settings.
+
+    Args:
+        current_chat_mode: chatMode already in config; it is the select default
+            when it is valid.
 
     Returns dict with keys: 'security', 'admins', and optionally 'allow_list'.
     """
@@ -154,6 +162,15 @@ async def configure_access_control() -> Dict[str, Any]:
         "enableAllowlist": await questionary.confirm(
             "Enable allowlist restriction?",
             default=True,
+        ).ask_async(),
+        "chatMode": await questionary.select(
+            "Which chats may use the bot?",
+            choices=list(CHAT_MODES),
+            default=(
+                current_chat_mode
+                if current_chat_mode in CHAT_MODES
+                else CHAT_MODES[0]
+            ),
         ).ask_async(),
     }
 

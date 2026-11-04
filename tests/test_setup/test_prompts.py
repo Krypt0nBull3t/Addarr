@@ -181,6 +181,9 @@ class TestConfigureAccessControl:
                 side_effect=["111", "", "222", ""]
             )
             mock_q.text.return_value = text_mock
+            select_mock = MagicMock()
+            select_mock.ask_async = AsyncMock(return_value="private_only")
+            mock_q.select.return_value = select_mock
 
             result = await configure_access_control()
 
@@ -201,6 +204,9 @@ class TestConfigureAccessControl:
             text_mock = MagicMock()
             text_mock.ask_async = AsyncMock(side_effect=["abc", "111", ""])
             mock_q.text.return_value = text_mock
+            select_mock = MagicMock()
+            select_mock.ask_async = AsyncMock(return_value="private_only")
+            mock_q.select.return_value = select_mock
 
             result = await configure_access_control()
 
@@ -221,6 +227,9 @@ class TestConfigureAccessControl:
                 side_effect=["111", "", "xyz", "222", ""]
             )
             mock_q.text.return_value = text_mock
+            select_mock = MagicMock()
+            select_mock.ask_async = AsyncMock(return_value="private_only")
+            mock_q.select.return_value = select_mock
 
             result = await configure_access_control()
 
@@ -240,12 +249,58 @@ class TestConfigureAccessControl:
             text_mock = MagicMock()
             text_mock.ask_async = AsyncMock(side_effect=["111", ""])
             mock_q.text.return_value = text_mock
+            select_mock = MagicMock()
+            select_mock.ask_async = AsyncMock(return_value="private_only")
+            mock_q.select.return_value = select_mock
 
             result = await configure_access_control()
 
         assert result["security"]["enableAllowlist"] is False
         assert result["admins"] == [111]
         assert "allow_list" not in result
+
+    @staticmethod
+    def _wire(mock_q, chat_answer="private_only"):
+        """Wire questionary mocks for a run with no admin or allowed IDs."""
+        confirm_mock = MagicMock()
+        confirm_mock.ask_async = AsyncMock(side_effect=[False, False])
+        mock_q.confirm.return_value = confirm_mock
+        text_mock = MagicMock()
+        text_mock.ask_async = AsyncMock(side_effect=[""])
+        mock_q.text.return_value = text_mock
+        select_mock = MagicMock()
+        select_mock.ask_async = AsyncMock(return_value=chat_answer)
+        mock_q.select.return_value = select_mock
+
+    @pytest.mark.asyncio
+    async def test_chat_mode_select_offers_valid_values(self):
+        """chatMode is asked with a select over CHAT_MODES and stored."""
+        from src.definitions import CHAT_MODES
+        with patch("src.setup.prompts.questionary") as mock_q:
+            self._wire(mock_q, chat_answer="allow_all")
+            result = await configure_access_control()
+
+        assert mock_q.select.call_args.kwargs["choices"] == list(CHAT_MODES)
+        assert result["security"]["chatMode"] == "allow_all"
+
+    @pytest.mark.asyncio
+    async def test_chat_mode_default_is_current_value(self):
+        """The select defaults to the chatMode already in config."""
+        with patch("src.setup.prompts.questionary") as mock_q:
+            self._wire(mock_q)
+            await configure_access_control("allow_all")
+
+        assert mock_q.select.call_args.kwargs["default"] == "allow_all"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("current", ["private", "", None])
+    async def test_chat_mode_invalid_current_falls_back(self, current):
+        """An invalid or missing current chatMode defaults to private_only."""
+        with patch("src.setup.prompts.questionary") as mock_q:
+            self._wire(mock_q)
+            await configure_access_control(current)
+
+        assert mock_q.select.call_args.kwargs["default"] == "private_only"
 
 
 # ---------------------------------------------------------------------------

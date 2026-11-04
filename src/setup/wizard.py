@@ -111,8 +111,12 @@ class SetupWizard:
         self.config["telegram"] = await configure_telegram()
 
         # Configure access control
-        access_config = await configure_access_control()
-        self.config["security"] = access_config["security"]
+        # Merge into the existing section so keys the wizard does not ask
+        # about (and the current chatMode) survive
+        security = self.config.get("security") or {}
+        access_config = await configure_access_control(security.get("chatMode"))
+        security.update(access_config["security"])
+        self.config["security"] = security
         self.config["admins"] = access_config["admins"]
         if "allow_list" in access_config:
             self.config["allow_list"] = access_config["allow_list"]
