@@ -25,7 +25,7 @@ Add a `/downloads` command that displays a SABnzbd queue dashboard with active d
     - **Success:** `python -m pytest tests/test_api/test_sabnzbd_api.py -v` all pass
     - **Completed:** 2026-03-06
     - **Learnings:** API client follows f-string URL pattern (not params dict). Methods are straightforward — SABnzbd uses `mode=queue&name=pause&value=<nzo_id>` for per-item control.
-    - **Key Changes:** Added `pause_item(nzo_id)` and `resume_item(nzo_id)` to `src/api/sabnzbd.py`, 6 new tests in `tests/test_api/test_sabnzbd_api.py`
+    - **Key Changes:** Added `pause_item(nzo_id)` and `resume_item(nzo_id)` to `src/api/sabnzbd.py`, 6 new tests in `tests/test_api/test_sabnzbd_api.py` (Superseded by 0846b97: `src/api/sabnzbd.py` and `tests/test_api/test_sabnzbd_api.py` removed.)
     - **Notes:** None
 
 - [x] **1.2** Add per-item control and queue details to service layer

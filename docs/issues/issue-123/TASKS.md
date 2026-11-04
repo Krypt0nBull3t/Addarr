@@ -65,6 +65,6 @@ Extend `HealthService` to proactively notify admins via Telegram when services g
 
 - [x] `pytest tests/test_services/test_health_service.py -v` — all pass (62 tests)
 - [x] `pytest --tb=short -q` — full suite green (1987 passed)
-- [ ] `python -m flake8 .` — clean
-- [ ] `mypy src/` — no new errors
+- [x] `python -m flake8 .` — clean (re-checked 2026-11-04 on 80943da: passes)
+- [x] `mypy src/` — no new errors (re-checked 2026-11-04 on 80943da: passes)
 - [x] `pytest --cov=src.services.health --cov-report=term-missing` — 100%

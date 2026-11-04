@@ -24,11 +24,11 @@
             - `check()` must record the timestamp ONLY if the request is allowed (don't count blocked requests against the user)
             - `time.time()` returns float — store as-is, compare with `>` not `>=` for window boundary
             - Singleton reset in conftest must clear both `_instance` and `_records`
-    - **Scope:** `RateLimitService` class with `check()`, `_get_limit()`, `reset()`, `is_enabled` property. Config integration reads from `rateLimit` config section with hardcoded defaults as fallback. Also includes `RateLimitExceededError` in error_handler, conftest singleton reset, SINGLETON_CLASSES update, and mock config data.
+    - **Scope:** `RateLimitService` class with `check()`, `_get_limit()`, `reset()`, `is_enabled` property. Config integration reads from `rateLimit` config section with hardcoded defaults as fallback. Also includes `RateLimitExceededError` in error_handler, conftest singleton reset, SINGLETON_CLASSES update, and mock config data. (Superseded by 0846b97: `RateLimitExceededError` removed from `src/utils/error_handler.py`.)
     - **Touches:**
         - Create: `src/services/rate_limit.py`
         - Create: `tests/test_services/test_rate_limit_service.py`
-        - Modify: `src/utils/error_handler.py` (add `RateLimitExceededError`)
+        - Modify: `src/utils/error_handler.py` (add `RateLimitExceededError`) (Superseded by 0846b97: `RateLimitExceededError` removed.)
         - Modify: `config_example.yaml` (add `rateLimit` section after `security:`)
         - Modify: `tests/conftest.py` (singleton reset + mock config data)
         - Modify: `tests/test_architecture/test_conventions.py` (SINGLETON_CLASSES)
@@ -38,7 +38,7 @@
         - [RED] Write tests for isolation: `test_different_categories_independent`, `test_different_users_independent`
         - [RED] Write tests for `_get_limit()`: `test_get_limit_defaults`, `test_get_limit_from_config`, `test_get_limit_missing_category_uses_default`
         - [RED] Write tests for `is_enabled`: `test_is_enabled_true`, `test_is_enabled_false`, `test_is_enabled_missing_config`
-        - [RED] Write test for `RateLimitExceededError`: `test_rate_limit_exceeded_error_attributes`
+        - [RED] Write test for `RateLimitExceededError`: `test_rate_limit_exceeded_error_attributes` (Superseded by 0846b97: the test and `RateLimitExceededError` removed.)
         - [GREEN] Implement `RateLimitService` in `src/services/rate_limit.py` with defaults:
             ```python
             DEFAULT_LIMITS = {
@@ -48,7 +48,7 @@
             }
             DEFAULT_FALLBACK = (10, 60)
             ```
-        - [GREEN] Add `RateLimitExceededError` to `src/utils/error_handler.py` after `ServiceNotEnabledError`
+        - [GREEN] Add `RateLimitExceededError` to `src/utils/error_handler.py` after `ServiceNotEnabledError` (Superseded by 0846b97: `RateLimitExceededError` removed.)
         - [GREEN] Add `rateLimit` section to `config_example.yaml` after `security:` (~line 139)
         - [GREEN] Add `rateLimit` to `MOCK_CONFIG_DATA` in `tests/conftest.py` (**`enable: False` by default** — rate limit tests override to `True` in their fixtures)
         - [GREEN] Add `RateLimitService` singleton reset to `tests/conftest.py` autouse fixture
@@ -62,7 +62,7 @@
     - **Key Changes:**
         - Created `src/services/rate_limit.py` with `RateLimitService` singleton (sliding window algorithm)
         - Created `tests/test_services/test_rate_limit_service.py` (17 tests)
-        - Added `RateLimitExceededError` to `src/utils/error_handler.py`
+        - Added `RateLimitExceededError` to `src/utils/error_handler.py` (Superseded by 0846b97: `RateLimitExceededError` removed.)
         - Added `rateLimit` section to `config_example.yaml`
         - Updated `tests/conftest.py` (mock config data + singleton reset)
         - Updated `tests/test_architecture/test_conventions.py` (SINGLETON_CLASSES)

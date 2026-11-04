@@ -39,8 +39,8 @@
         - [GREEN] Implement all methods with format helpers for speed/size/eta
     - **Success:** `pytest tests/test_services/test_transmission_service.py -v` all pass
     - **Completed:** 2026-03-06
-    - **Learnings:** Format helpers (_format_speed, _format_size, _format_eta) as @staticmethod makes them easily testable without needing a full service instance
-    - **Key Changes:** Added `get_queue_details()`, `pause_item()`, `resume_item()`, `pause_queue()`, `resume_queue()` + 3 format helpers to `src/services/transmission.py`; 30 new tests
+    - **Learnings:** Format helpers (_format_speed, _format_size, _format_eta) as @staticmethod makes them easily testable without needing a full service instance (Replaced in e67a981: `_format_speed` and `_format_size` are gone, `src.utils.helpers.format_bytes` replaces them. `_format_eta` remains.)
+    - **Key Changes:** Added `get_queue_details()`, `pause_item()`, `resume_item()`, `pause_queue()`, `resume_queue()` + 3 format helpers to `src/services/transmission.py`; 30 new tests (Replaced in e67a981: two of the 3 format helpers (`_format_speed`, `_format_size`) are gone, `src.utils.helpers.format_bytes` replaces them.)
     - **Notes:** Return shape matches SABnzbd exactly — `nzo_id` is torrent int ID, `progress` is 0-100 int
 
 - [x] **1.3** Phase 1 integration check

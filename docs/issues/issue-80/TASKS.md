@@ -136,7 +136,7 @@ Close the coverage gap by adding tests for 5 files currently excluded from `.cov
     - **Key Changes:**
         - Created `tests/test_main.py` — 31 tests across 8 test classes
         - Covers: `AddarrBot.__init__`, `initialize()` (happy path, health fail, missing token, InvalidToken+restart, InvalidToken+reraise, NetworkError, generic exception), `_add_handlers()` (9 always-on, transmission/sabnzbd enabled/disabled, both enabled, handler error), `start()` (app+polling, running flag, error), `stop()` (full shutdown, None app, updater not running, error swallowed), `main()` (start_bot init error, start error, signal registration, Windows fallback, KeyboardInterrupt, generic exception), `run_bot()` (asyncio.run, KeyboardInterrupt, generic exception)
-    - **Notes:** The `HANDLER_PATCHES` dict is reused across test classes via `patch.multiple` — if new handlers are added to main.py, add them to this dict
+    - **Notes:** The `_make_handler_patches()` helper (returns a dict) in `tests/test_main.py` is reused across test classes via `patch.multiple` — if new handlers are added to main.py, add them to this dict (Corrected: was `HANDLER_PATCHES`.)
 
 ---
 

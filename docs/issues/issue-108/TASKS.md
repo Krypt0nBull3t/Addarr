@@ -49,13 +49,13 @@ Add disk space information to the `/status` command via a "Disk Space" button. S
     - **Action items:**
         - [RED] Write tests: diskspace callback shows drives with percentage, empty drives shows "no data" message, error shows error message, low space (<10% free) shows warning emoji
         - [RED] Write unit tests for `_format_usage_bar` (0%, 50%, 100%) and `_format_bytes` (0 B, GB range, TB range)
-        - [GREEN] Add `LOW_SPACE_THRESHOLD` constant, `_format_usage_bar()`, `_format_bytes()`, `_build_disk_space_text()` to `system.py`
+        - [GREEN] Add `LOW_SPACE_THRESHOLD` constant, `_format_usage_bar()`, `_format_bytes()`, `_build_disk_space_text()` to `system.py` (Replaced in 1498e48: `_format_bytes` is now `src.utils.helpers.format_bytes`.)
         - [GREEN] Add `_handle_diskspace()` method and dispatch branch in `handle_system_action()`
         - [GREEN] Add "Disk Space" button to `get_system_keyboard()` in `keyboards.py`
     - **Success:** `pytest tests/test_handlers/test_system_handler.py -v -k "diskspace or format_usage or format_bytes"` — 6+ tests pass
     - **Completed:** 2026-03-09
     - **Learnings:** `_format_bytes` uses binary division (1024) so 1TB = 1,099,511,627,776 bytes — test fixtures need values above this threshold. Mock `get_text` with `side_effect=lambda key, **kw: key` swallows kwargs, so `assert_any_call("key")` fails when `default=` is passed — use `call_args_list` extraction instead.
-    - **Key Changes:** Added `_format_usage_bar()`, `_format_bytes()`, `_build_disk_space_text()`, `_handle_diskspace()` to `system.py`. Added `diskspace` dispatch branch. Added "Disk Space" button to `get_system_keyboard()` in `keyboards.py`. 10 new tests.
+    - **Key Changes:** Added `_format_usage_bar()`, `_format_bytes()`, `_build_disk_space_text()`, `_handle_diskspace()` to `system.py`. Added `diskspace` dispatch branch. Added "Disk Space" button to `get_system_keyboard()` in `keyboards.py`. 10 new tests. (Replaced in 1498e48: `_format_bytes` is now `src.utils.helpers.format_bytes`.)
     - **Notes:** `LOW_SPACE_THRESHOLD = 10` is a module constant — easy to adjust later.
 
 - [x] **1.4** Add translation keys

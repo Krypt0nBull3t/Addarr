@@ -38,9 +38,9 @@
         - `add_nzb()` optional params appended via f-string `+=` to match API client convention (not params dict like service layer)
         - `aioresponses` matches exact URL strings including query params — spaces in nzbname become `+` encoding in the mock URL
     - **Key Changes:**
-        - Added `SabnzbdClient.get_queue()` to `src/api/sabnzbd.py` — returns parsed dict on 200, `{}` on error
-        - Added `SabnzbdClient.add_nzb(url, nzbname, category)` to `src/api/sabnzbd.py` — returns `data['status']` bool on 200, `False` on error
-        - Added `TestSabnzbdGetQueue` (3 tests) and `TestSabnzbdAddNzb` (4 tests) to `tests/test_api/test_sabnzbd_api.py`
+        - Added `SabnzbdClient.get_queue()` to `src/api/sabnzbd.py` — returns parsed dict on 200, `{}` on error (Superseded by 0846b97: `src/api/sabnzbd.py` and `SabnzbdClient` removed.)
+        - Added `SabnzbdClient.add_nzb(url, nzbname, category)` to `src/api/sabnzbd.py` — returns `data['status']` bool on 200, `False` on error (Superseded by 0846b97: `src/api/sabnzbd.py` and `SabnzbdClient` removed.)
+        - Added `TestSabnzbdGetQueue` (3 tests) and `TestSabnzbdAddNzb` (4 tests) to `tests/test_api/test_sabnzbd_api.py` (Superseded by 0846b97: `tests/test_api/test_sabnzbd_api.py` removed.)
     - **Notes:** Tests from previous session were already in the file — picked up at verify RED stage
 
 - [x] **1.2** Add `pause_queue()` and `resume_queue()` to both layers
@@ -73,7 +73,7 @@
         - `SABNZBD_API_PATTERN` regex in service tests handles the double-slash URL seamlessly — no special handling needed
         - pause/resume are a true mirror pair, identical except for the `mode` param
     - **Key Changes:**
-        - Added `SabnzbdClient.pause_queue()` and `resume_queue()` to `src/api/sabnzbd.py` — returns `response.status == 200`
+        - Added `SabnzbdClient.pause_queue()` and `resume_queue()` to `src/api/sabnzbd.py` — returns `response.status == 200` (Superseded by 0846b97: `src/api/sabnzbd.py` and `SabnzbdClient` removed.)
         - Added `SABnzbdService.pause_queue()` and `resume_queue()` to `src/services/sabnzbd.py` — params dict, returns `data.get('status', False)`
         - Added `TestSabnzbdPauseQueue` + `TestSabnzbdResumeQueue` (6 tests) to API tests
         - Added `TestPauseQueue` + `TestResumeQueue` (6 tests) to service tests

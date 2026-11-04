@@ -31,7 +31,7 @@
         - Service's `set_speed_limit` placed before `add_nzb` to group config operations together
         - SABnzbd API uses `mode=config&name=speedlimit&value=<pct>` and returns `{"status": true}` on success
     - **Key Changes:**
-        - Added `SabnzbdClient.set_speed_limit(percentage: int) -> bool` in `src/api/sabnzbd.py:57`
+        - Added `SabnzbdClient.set_speed_limit(percentage: int) -> bool` in `src/api/sabnzbd.py:57` (Superseded by 0846b97: `src/api/sabnzbd.py` and `SabnzbdClient` removed.)
         - Added `SABnzbdService.set_speed_limit(percentage: int) -> bool` in `src/services/sabnzbd.py:36`
         - Added `TestSabnzbdSetSpeedLimit` (3 tests) in `tests/test_api/test_sabnzbd_api.py`
         - Added `TestSetSpeedLimit` (3 tests) in `tests/test_services/test_sabnzbd_service.py`
