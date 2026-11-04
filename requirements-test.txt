@@ -6,5 +6,5 @@ aioresponses==0.7.9
 freezegun==1.5.5
 pytestarch==4.0.1
 mypy==2.4.0
-types-PyYAML==6.0.12.20260906
+types-PyYAML==6.0.12.20261030
 flake8==7.4.1
