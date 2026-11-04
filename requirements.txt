@@ -15,4 +15,4 @@ aiohttp>=3.14.4
 questionary>=2.0.1
 
 # YAML handling
-ruamel.yaml>=0.17.22
+ruamel.yaml>=0.19.1
