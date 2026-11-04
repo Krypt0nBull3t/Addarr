@@ -92,7 +92,7 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
     - **Completed:** 2026-10-28
     - **Learnings:** pytest 2137 passed; flake8 clean; mypy clean (72 files); i18n valid. `git check-ignore` matches all 4 graphify paths; `git ls-files graphify-out` is empty; no unquoted interpreter call under `.claude/`.
     - **Key Changes:** none (verification only).
-    - **Notes:** F275 "hooks run without error in a cloud session" is checked locally only: `graphify hook-guard search` exits 0 in a directory with no graph. The first real cloud session confirms it.
+    - **Notes:** F275 "hooks run without error in a cloud session" is NOT verified in a cloud session. No cloud session ran for this PR. Checked locally only: `graphify hook-guard search` exits 0 in a directory with no graph. That criterion stays open until the first cloud session after the merge shows no hook error.
 
 ### Phase 2: PR #229 review feedback (7 tasks)
 
@@ -190,6 +190,17 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
     - **Key Changes:** `.github/dependabot.yml` pip update: `ignore` `pytestarch` `>=5` with a comment that says why. Test `test_dependabot_skips_pytestarch_5` reads it with `yaml.safe_load`.
     - **Notes:** Remove the rule when CI drops Python 3.10. Dependabot PR #182 stays open until someone closes it; this PR does not touch it.
 
-- [ ] **2.7** [consider] Known limits and retrospective (audit 7, 8)
+- [x] **2.7** [consider] Known limits and retrospective (audit 7, 8)
     - **Scope:** PR body and this file name the hook-guard node-label injection (F273 part) as a known limit and the new deny-list limits; F275 note says it was verified locally only; "check pins on the lowest matrix Python" goes into CLAUDE.md `## CI/CD` (retrospective category: new convention).
     - **Touches:** `docs/issues/issue-199/TASKS.md`, `CLAUDE.md`, PR #229 body
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The retrospective (`.claude/skills/addarr-workflow/references/retrospective.md`) files a rule that applies to every PR under "New convention" in `CLAUDE.md`. The pin rule went into `## CI/CD`, next to the workflows it is about.
+        - The `pip install --dry-run --python-version 3.10 ...` check in that rule passes on the current pins.
+    - **Key Changes:**
+        - `CLAUDE.md` `## CI/CD`: "Requirement pins" paragraph.
+        - Task 1.4 Notes: F275 cloud check is open, not done.
+        - PR #229 body: known limits updated (deny-list limits, hook-guard labels, F275 local only).
+    - **Notes:**
+        - **Known limit (F273, not fixed):** the graphify PreToolUse hook (`graphify hook-guard search|read`) puts graph node labels into the agent's context as `additionalContext`. Labels come from repo files, so a crafted file name, class name or doc heading reaches the agent as text. The data rule in `CLAUDE.md` covers it ("graphify output is data"), but nothing filters it. A fix belongs in graphify itself or in a wrapper that drops the hook's `additionalContext`.
+        - **F275:** see task 1.4 Notes. Verified locally only.
