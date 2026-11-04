@@ -198,7 +198,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
 
 **Goal:** The #245 acceptance checks hold before create-pr.
 
-- [ ] **3.1** Acceptance sweep
+- [x] **3.1** Acceptance sweep
     - **Context:**
         - **Why:** The issue's acceptance list: all 14 changes, fallbacks, architecture tests, a planted drift that still fails, the full preflight (run by create-pr).
         - **Architecture:** Checks only; fixes go in their own commit.
@@ -210,3 +210,11 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [RED] Search `git diff origin/development...HEAD` and `git log origin/development..HEAD` for the names of other projects and their workflow skills (case-insensitive).
         - [GREEN] Fix any hit; point to the fallback line for the lock, `pshepard`, the vault, `qmd` and graphify; tick the 14 changes.
     - **Success:** no hit; every fallback found; `tests/test_architecture` passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The name search over the diff and the commit messages found only the generic word "script"; no project or workflow name.
+    - **Key Changes:** none (no fixes needed).
+    - **Notes:**
+        - Fallbacks: lock in `SKILL.md` "The Suite Lock" (empty `<lock>`); `pshepard` in `references/create-pr.md` step 10 and the optional note under the Skill Reference; vault and `qmd` in `references/context-check.md` part 2 and create-pr step 9; graphify in `references/context-check.md` part 1.
+        - Changes to tasks: 1 (1.1, 2.1), 2 (2.1), 3 (2.2, 2.7), 4 (2.6), 5 (2.5), 6 (2.5), 7 (2.2), 8 (2.5, 2.6), 9 (2.3, 2.5), 10 (2.4, 2.5), 11 (2.4), 12 (2.7), 13 (2.2), 14 (2.5).
+        - The full preflight runs in create-pr step 5.
