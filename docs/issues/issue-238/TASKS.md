@@ -30,7 +30,7 @@ Run checks with the worktree venv: `.venv/bin/python -m pytest`, `.venv/bin/pyth
         - `CLAUDE.md`: prerun path, all 9 CI jobs and the branch-protection note, 5 more convention tests plus the agent-tooling and docs-drift files, `reset_singletons`, `ALBUM_SELECT`, keyboard locations, branch-name format.
     - **Notes:** All four checks were seen red first (the test-name check on a planted `test_does_not_exist`). Full suite: 2177 passed.
 
-- [ ] **1.2** ADRs for rules in force (D7)
+- [x] **1.2** ADRs for rules in force (D7)
     - **Context:** See plan.md Task 2. Key refs: `tests/test_architecture/test_conventions.py:219,445,472,525`, `tests/integration/test_start_flow.py:75`, CLAUDE.md § Handler Registration Order, § Git Branching.
     - **Watch out:** Facts only from code, tests, CLAUDE.md and the commits named in the plan; no invented history.
     - **Scope:** 4 ADRs and their CLAUDE.md links
@@ -39,6 +39,14 @@ Run checks with the worktree venv: `.venv/bin/python -m pytest`, `.venv/bin/pyth
         - [RED] Add the ADR links to CLAUDE.md; `test_claude_md_paths_exist` fails on the 4 ADR paths and `docs/adr/`
         - [GREEN] Write the 4 ADRs
     - **Success:** `pytest tests/test_architecture/` passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Not every module in `src/services/` is a singleton: `webhook_formatter.py` is a helper. ADR 0001 defines services as the classes in `SINGLETON_CLASSES`.
+        - The original reasons for merge commits are not written down anywhere. ADR 0004 states only checkable facts (Docker publish on push to `main`, per-task commits, branch protection) rather than a guessed history.
+    - **Key Changes:**
+        - New `docs/adr/0001-singleton-services.md`, `0002-config-get-access.md`, `0003-handler-registration-order.md`, `0004-prs-target-development.md`.
+        - `CLAUDE.md` links each ADR next to its rule and adds an "Architecture decisions" note under Planning & Task Conventions.
+    - **Notes:** The links went in first, and `test_claude_md_paths_exist` failed on the 4 ADR paths and on `docs/adr/` until the files existed. ADR 0004 names `.github/PULL_REQUEST_TEMPLATE.md`, which task 1.3 creates.
 
 - [ ] **1.3** PR template, issue forms, CODEOWNERS (D6)
     - **Context:** See plan.md Task 3. Key refs: issue #200 (bug layout), #236/#238 (problem layout).

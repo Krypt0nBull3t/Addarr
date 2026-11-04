@@ -101,7 +101,7 @@ Automated architecture tests in `tests/test_architecture/` enforce conventions a
 
 **When adding new API clients inheriting `BaseApiClient`:** They must implement `search()` or the convention test will fail.
 
-**Config access rule:** `config["key"]` bracket access is banned in `src/` business logic (enforced by test). Use `config.get("key", default)` instead. Excluded from this rule: `src/setup/` (interactive config building), `src/api/base.py` (`self.config` service dict), `src/config/settings.py` (`__getitem__` definition).
+**Config access rule:** `config["key"]` bracket access is banned in `src/` business logic (enforced by test). Use `config.get("key", default)` instead. Excluded from this rule: `src/setup/` (interactive config building), `src/api/base.py` (`self.config` service dict), `src/config/settings.py` (`__getitem__` definition). See `docs/adr/0002-config-get-access.md`.
 
 **PyTestArch on Windows:** The conftest monkey-patches PyTestArch's file parser to use UTF-8 encoding (upstream defaults to cp1252 on Windows, fails on emoji in source files).
 
@@ -128,7 +128,7 @@ The codebase follows a three-layer architecture with strict separation:
 
 1. **Handlers** (`src/bot/handlers/`) — Telegram command/callback handlers. Each handler class exposes `get_handler()` returning a list of `ConversationHandler` or `CommandHandler` instances. Multi-step interactions use `ConversationHandler` with states defined in `src/bot/states.py`.
 
-2. **Services** (`src/services/`) — Business logic layer using singleton pattern (`__new__` override). `MediaService` aggregates all API clients. `HealthService` runs periodic health checks. `TranslationService` loads the YAML translation files.
+2. **Services** (`src/services/`): Business logic layer using singleton pattern (`__new__` override; see `docs/adr/0001-singleton-services.md`). `MediaService` aggregates all API clients. `HealthService` runs periodic health checks. `TranslationService` loads the YAML translation files.
 
 3. **API Clients** (`src/api/`) — All inherit from `BaseApiClient` (`src/api/base.py`), which provides async `_make_request()`, URL construction from config, and standard error parsing. Each client (Radarr, Sonarr, Lidarr) implements the `search()` abstract method.
 
@@ -154,7 +154,7 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 ### Handler Registration Order
 
-Handlers are registered in `AddarrBot._add_handlers()` in this order: Auth, Media, Settings, the other feature handlers, Help, Preferences, System, and Start last. Order matters because `python-telegram-bot` matches the first matching handler. Start is last because its `menu_cancel` handler must not take a Cancel tap from an open media or settings conversation.
+Handlers are registered in `AddarrBot._add_handlers()` in this order: Auth, Media, Settings, the other feature handlers, Help, Preferences, System, and Start last. Order matters because `python-telegram-bot` matches the first matching handler. Start is last because its `menu_cancel` handler must not take a Cancel tap from an open media or settings conversation. See `docs/adr/0003-handler-registration-order.md`.
 
 ## Git Branching
 
@@ -163,6 +163,8 @@ Handlers are registered in `AddarrBot._add_handlers()` in this order: Auth, Medi
 - The only PRs that target `main` are merge PRs from `development` → `main` (releases).
 - **Merge strategy**: Use `--merge` (regular merge commit, same as GitHub's "Merge pull request" button). Do not squash or rebase.
 - **Branch names**: `<prefix>/<N>-<slug>`, where `<prefix>` is `feature`, `fix` or `refactor` and `<N>` is the issue number, so a new session can find `docs/issues/issue-<N>/`.
+
+See `docs/adr/0004-prs-target-development.md`.
 
 ## CI/CD
 
@@ -211,6 +213,8 @@ All issue work follows a two-file workflow stored in `docs/issues/issue-<N>/`:
 - `**Notes:** <important context for future work>`
 
 **Existing examples:** issues 12, 17, 20, 21, 22, 67, 76, 77, 78, 79, 127.
+
+**Architecture decisions:** Rules in force are recorded in `docs/adr/` as `NNNN-<slug>.md` with Status, Context, Decision and Consequences. Add one when a decision changes a rule in this file.
 
 ## Docker
 
