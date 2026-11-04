@@ -60,11 +60,6 @@ def get_allowed_chats():
     return config.get('chat_id', [])
 
 
-def is_admin(user_id: int) -> bool:
-    """Check if user ID is an admin"""
-    return user_id in get_admins()
-
-
 def is_allowed_chat(chat_id: int) -> bool:
     """Check if chat ID is allowed"""
     return chat_id in get_allowed_chats()

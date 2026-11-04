@@ -105,6 +105,31 @@ class TestAdminGate:
         assert result == ConversationHandler.END
 
 
+class TestWebhookAdminCheck:
+    """/webhooks uses the shared admin check, reading the patched config."""
+
+    @pytest.mark.asyncio
+    async def test_admins_none_does_not_raise(
+        self, handler, admin_update, context, webhook_handler_config
+    ):
+        """`admins:` with no value is no admin and raises no TypeError."""
+        webhook_handler_config._set("admins", None)
+        with patch("src.utils.helpers.config", webhook_handler_config):
+            result = await handler.show_menu(admin_update, context)
+        assert result == ConversationHandler.END
+
+    @pytest.mark.asyncio
+    async def test_quoted_admin_id_is_admin(
+        self, handler, admin_update, context, webhook_handler_config
+    ):
+        """An admin id written as a quoted string still counts."""
+        webhook_handler_config._set("admins", ["12345"])
+        with patch("src.utils.helpers.config", webhook_handler_config):
+            result = await handler.show_menu(admin_update, context)
+        from src.bot.states import States
+        assert result == States.WEBHOOK_MENU
+
+
 # ---------------------------------------------------------------------------
 # Menu display tests
 # ---------------------------------------------------------------------------

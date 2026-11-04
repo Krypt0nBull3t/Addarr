@@ -380,7 +380,11 @@ async def _make_harness(app):
         side_effect=h._fake_do_request,
     ):
         await app.initialize()
+        # Application.start() starts the job queue in production; the media
+        # conversation_timeout needs it running
+        await app.job_queue.start()
         yield h
+        await app.job_queue.stop(wait=False)
         await app.shutdown()
 
 

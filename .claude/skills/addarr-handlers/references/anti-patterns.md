@@ -216,6 +216,48 @@ Every entry point needs `@require_auth`: `CommandHandler` callbacks, `Conversati
 
 ---
 
+## Acting on a Stale Keyboard
+
+**Don't** let a button act on whatever selection is newest. Starting a second search inside the same conversation leaves the first keyboard on screen, and its buttons still match the same pattern:
+
+```python
+# BAD - a tap on an older quality keyboard picks a profile for the newest selection
+profile_id = int(query.data.replace("quality_", ""))
+context.user_data["selected_profile_id"] = profile_id
+```
+
+**Instead**, store the keyboard's message id when you draw it and ignore callbacks from any other message:
+
+```python
+# GOOD - handle_selection stores it after the edit
+context.user_data["quality_message_id"] = query.message.message_id
+
+# GOOD - handle_quality_selection, right after query.answer()
+if query.message.message_id != context.user_data.get("quality_message_id"):
+    return QUALITY_SELECT
+```
+
+**Why**: `callback_data` carries a profile id, not the selection it was drawn for. Without the check, a Radarr profile id can reach a Sonarr add. Return the current state so the conversation stays open. Ignore the cancel button of a stale keyboard too.
+
+---
+
+## Rate-Limiting Picker Taps Instead of the Add
+
+**Don't** put `@rate_limit("modify")` on the picker or toggle callbacks of an add flow. `modify` allows 5 calls per 60 s, and one album add (result tap, quality tap, album toggles, confirm) can use them all.
+
+**Instead**, check the limit once, just before each add request:
+
+```python
+# GOOD - outside the try, so a refusal is not swallowed
+if not await enforce_rate_limit(update, "modify"):
+    return None
+success, message = await self.media_service.add_series_with_profile(...)
+```
+
+**Why**: `enforce_rate_limit` (`src/services/rate_limit.py`) counts one call and replies with the wait time when the limit is used up. Returning `None` keeps the conversation state, so the user can tap Confirm again after the wait. Every call to an `add_*_with_profile` method needs this check.
+
+---
+
 ## per_message=False Warning
 
 **Don't** worry about the `PTBUserWarning` when using `per_message=False` with `CallbackQueryHandler`:

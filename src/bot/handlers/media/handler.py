@@ -7,6 +7,8 @@ Description: Media handler module.
 This module handles media-related commands (movies, TV shows, music).
 """
 
+from typing import Optional, Union
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     CommandHandler,
@@ -20,7 +22,7 @@ from telegram.ext import (
 from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
-from src.services.rate_limit import rate_limit
+from src.services.rate_limit import enforce_rate_limit, rate_limit
 from src.bot.keyboards import get_album_monitor_mode_keyboard
 from src.services.media import MediaService
 from src.services.translation import TranslationService
@@ -146,6 +148,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                     CallbackQueryHandler(self.handle_menu_callback, pattern="^menu_cancel$")
                 ],
                 name="media_conversation",
+                # An abandoned search must not take text meant for other flows
+                conversation_timeout=600,
                 persistent=False,
                 per_message=False,
                 allow_reentry=True,
@@ -233,6 +237,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         """Start music search conversation"""
         return await self._start_search(update, context, "music")
 
+    @rate_limit("search")
     async def handle_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle search query"""
         if not update.effective_message:
@@ -457,6 +462,15 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 if isinstance(result, dict) and result.get("type") == "quality_selection":
                     context.user_data["quality_data"] = result
 
+                    # A saved /settings default profile skips the picker
+                    default_id = self._default_profile_id(
+                        search_type, result["profiles"]
+                    )
+                    if default_id is not None:
+                        return await self._continue_with_profile(
+                            update, context, default_id
+                        )
+
                     # Create keyboard with quality profile buttons
                     keyboard = []
                     for profile in result["profiles"]:
@@ -485,6 +499,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                             text=message_text,
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
+                    # Only this keyboard may answer: older ones are stale
+                    context.user_data["quality_message_id"] = query.message.message_id
                     return QUALITY_SELECT
                 else:
                     success, message = result
@@ -512,6 +528,10 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
         query = update.callback_query
         await query.answer()
 
+        # A button from an older keyboard must not act on the newest selection
+        if query.message.message_id != context.user_data.get("quality_message_id"):
+            return QUALITY_SELECT
+
         if query.data == "quality_cancel":
             await send_response(
                 query.message,
@@ -519,6 +539,23 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             )
             return ConversationHandler.END
 
+        return await self._continue_with_profile(
+            update, context, query.data.replace("quality_", "")
+        )
+
+    def _default_profile_id(self, search_type: str, profiles: list) -> Optional[int]:
+        """Saved /settings default profile id for this media type, if still offered"""
+        service_config = config.get(MEDIA_CONFIG[search_type]["config_key"]) or {}
+        default_id = (service_config.get("quality") or {}).get("defaultProfileId")
+        if any(profile["id"] == default_id for profile in profiles):
+            return default_id
+        return None
+
+    async def _continue_with_profile(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, profile_id: Union[int, str]
+    ):
+        """Continue the add flow once a quality profile is chosen (picker or default)"""
+        query = update.callback_query
         try:
             # Get quality selection data
             quality_data = context.user_data.get("quality_data")
@@ -533,7 +570,7 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 return ConversationHandler.END
 
             # Get selected profile ID
-            profile_id = int(query.data.replace("quality_", ""))
+            profile_id = int(profile_id)
             context.user_data["selected_profile_id"] = profile_id
             context.user_data["selected_root_folder"] = quality_data["root_folder"]
 
@@ -596,6 +633,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 artist_id = context.user_data.get("artist_id", selected["id"])
                 albums_to_monitor = [album_id] if album_id else None
 
+                if not await enforce_rate_limit(update, "modify"):
+                    return None
                 success, message = await self.media_service.add_music_with_profile(
                     artist_id, profile_id, quality_data["root_folder"],
                     albums_to_monitor=albums_to_monitor,
@@ -608,6 +647,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 return ConversationHandler.END
 
             # For other media types, proceed with adding
+            if not await enforce_rate_limit(update, "modify"):
+                return None
             success, message = await self._add_media_with_profile(
                 search_type, selected, profile_id, quality_data["root_folder"]
             )
