@@ -68,7 +68,8 @@ Unless an argument gives it, every flow reads the issue number `<N>` from the br
 Check the current state and recommend a flow:
 
 1. Check if an open PR exists for current branch with unresolved review threads
-   (GraphQL query in references/feedback.md step 2) -> recommend **feedback**
+   whose last comment is not yours (GraphQL query in references/feedback.md step 3)
+   -> recommend **feedback**
 2. Check `docs/issues/issue-<N>/TASKS.md` exists with pending tasks -> recommend **continue**
 3. Check if branch has committed work not yet in a PR -> recommend **pr**
 4. Otherwise -> recommend **new**
@@ -123,15 +124,21 @@ Step 3  RUN     Flow: create-pr (when all tasks complete)
 See [references/feedback.md](references/feedback.md) for detailed instructions.
 
 ```
-Step 1  RUN     Find PR for current branch
-Step 2  RUN     Fetch all review comments (PR reviews + inline + bot review)
-Step 3  RUN     Categorize feedback (must-fix / should-fix / consider)
-Step 3b ASK     Present categorized list, user selects which to address
-Step 4  RUN     Create tasks in TASKS.md for selected items
-Step 5  RUN     Execute tasks (see "Execution Loop" below)
+Step 1  INVOKE  @superpowers:receiving-code-review (before any code change)
+Step 2  RUN     Find the PR (argument or current branch); stop if pshepard watches it
+Step 3  RUN     Fetch all review comments (PR reviews + inline + bot review),
+                with thread and comment ids
+Step 4  RUN     Categorize feedback (must-fix / should-fix / consider)
+Step 4b ASK     Present categorized list, user selects which to address
+Step 5  RUN     Create tasks in TASKS.md for selected items
+Step 6  RUN     Execute tasks (see "Execution Loop" below)
                 INVOKE @superpowers:systematic-debugging for bug-fix feedback items
-Step 6  RUN     Flow: preflight
-Step 7  RUN     Commit any fixes (only your files), push, report what was addressed
+Step 7  RUN     Merge origin/development, then Flow: preflight; commit fixes
+                (only your files)
+Step 8  ASK     Draft one reply per thread (what changed + commit SHA); user approves
+Step 9  RUN     Push once: <lock> git push
+Step 10 RUN     Post the approved replies; resolve each thread whose fix landed
+Step 11 RUN     Report what was addressed
 ```
 
 ## Flow: create-pr
@@ -290,6 +297,7 @@ available, stop and report it instead of continuing without it.
 
 | Skill or agent | Role | Invoked when |
 |-|-|-|
+| `@superpowers:receiving-code-review` | Weigh review feedback before changing code | feedback step 1 |
 | `@superpowers:brainstorming` | Explore design space | new-task step 3b (only if complex/ambiguous) |
 | `@superpowers:writing-plans` | Plan content | new-task step 4 |
 | `@task-writer` | Convert plan into sized TASKS.md | new-task step 4c |

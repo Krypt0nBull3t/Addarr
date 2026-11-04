@@ -153,7 +153,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - `references/retrospective.md`: create-pr step 3, commits without pushing.
     - **Notes:** The PR body now uses the template's `Fixes #<N>` instead of `Closes #<N>`.
 
-- [ ] **2.6** feedback: replies, resolve, up-to-date branch (changes 4, 8)
+- [x] **2.6** feedback: replies, resolve, up-to-date branch (changes 4, 8)
     - **Context:**
         - **Why:** Feedback changed code without `receiving-code-review`, never answered threads, and ran the gates on a branch behind `development`.
         - **Architecture:** New feedback order in `SKILL.md` and `references/feedback.md` (plan Task 7 Step 1).
@@ -165,6 +165,14 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [RED] Search the skill for "receiving-code-review" and "resolveReviewThread": no hit.
         - [GREEN] Rewrite the feedback sequence and steps; update auto-detection item 1.
     - **Success:** `tests/test_architecture` passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Replying in an inline thread needs a comment `databaseId`, and resolving it needs the thread node `id`; the old GraphQL query fetched neither.
+        - Declined threads stay open by design, so "unresolved" alone would make auto-detection recommend feedback forever; the rule is now "unresolved and the last comment is not yours".
+    - **Key Changes:**
+        - `references/feedback.md`: rewritten as 11 steps (receiving-code-review, PR, ids, categorize, tasks, execute, merge plus preflight, drafted replies with `ASK`, one push, post and resolve, report); keeps the data sentence.
+        - `SKILL.md`: feedback sequence, auto-detection item 1 (step 3, last-comment rule), Skill Reference row for `@superpowers:receiving-code-review`.
+    - **Notes:** Step 2 stops when `pshepard` watches the PR, so two drivers never answer one thread.
 
 - [ ] **2.7** `/addarr end` save mode (change 12)
     - **Context:**
