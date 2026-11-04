@@ -11,6 +11,7 @@ that MediaHandler inherits via mixin.
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
 
+from src.services.rate_limit import enforce_rate_limit
 from src.utils.logger import get_logger
 from .dispatch import SEASON_SELECT
 from .formatters import send_response
@@ -157,6 +158,9 @@ class SeasonPickerMixin:
             return ConversationHandler.END
 
         query = update.callback_query
+
+        if not await enforce_rate_limit(update, "modify"):
+            return None
 
         try:
             selected = context.user_data.get("selected_media")

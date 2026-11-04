@@ -20,7 +20,7 @@ from telegram.ext import (
 from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
-from src.services.rate_limit import rate_limit
+from src.services.rate_limit import enforce_rate_limit, rate_limit
 from src.bot.keyboards import get_album_monitor_mode_keyboard
 from src.services.media import MediaService
 from src.services.translation import TranslationService
@@ -605,6 +605,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 artist_id = context.user_data.get("artist_id", selected["id"])
                 albums_to_monitor = [album_id] if album_id else None
 
+                if not await enforce_rate_limit(update, "modify"):
+                    return None
                 success, message = await self.media_service.add_music_with_profile(
                     artist_id, profile_id, quality_data["root_folder"],
                     albums_to_monitor=albums_to_monitor,
@@ -617,6 +619,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                 return ConversationHandler.END
 
             # For other media types, proceed with adding
+            if not await enforce_rate_limit(update, "modify"):
+                return None
             success, message = await self._add_media_with_profile(
                 search_type, selected, profile_id, quality_data["root_folder"]
             )

@@ -112,7 +112,7 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - Tests: three `enforce_rate_limit` tests, `test_handle_search_refuses_once_search_limit_is_used_up`, `test_show_upcoming_refuses_once_modify_limit_is_used_up`.
     - **Notes:** `enforce_rate_limit` is the call task 1.5 puts before each add request.
 
-- [ ] **1.5** F063b: modify limit checked before every add request
+- [x] **1.5** F063b: modify limit checked before every add request
     - **Context:**
         - **Why:** Adds have no `modify` limit. Decorating picker or toggle callbacks would use up 5 calls per 60 s on one normal add, so the check goes just before each add request.
         - **Architecture:** `if not await enforce_rate_limit(update, "modify"): return None` just before the add call, outside the `try` so a refusal is not swallowed. `None` keeps the conversation state, and a retry of the same confirm works after the wait.
@@ -125,3 +125,12 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - [RED] Write a test that five picker or toggle taps followed by an add still add (taps do not use the limit)
         - [GREEN] Add the `enforce_rate_limit(update, "modify")` call before each add request
     - **Success:** new tests fail before and pass after; `scripts/test_runner.py handlers --coverage` passes; flake8 and mypy clean
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - A test that calls `handle_quality_selection` twice must reuse the same update. A new update has a new message id, and the F062 guard would ignore it before the rate limit runs.
+        - A refused `handle_season_confirm` returns `None` through `handle_season_selection` (including the "Monitor All" auto-submit), so the conversation keeps `SEASON_SELECT` and a retry of the same confirm works after the wait.
+        - Six sites call an add request: the movie or other-media add and the music album or song add in `handle_quality_selection`, `handle_season_confirm`, and three in `album_picker.py`. The `add_fn` call in `handle_selection` only fetches the profile list and gets no check.
+    - **Key Changes:**
+        - `src/bot/handlers/media/handler.py`, `season_picker.py`, `album_picker.py`: `if not await enforce_rate_limit(update, "modify"): return None` just before each add request, outside the `try`.
+        - `tests/test_handlers/test_media_add_rate_limit.py` (new): a parametrized test with one case per add site (second add refused, reply `RateLimitExceeded`), and a test that a quality tap, five season toggles and the confirm use one `modify` call.
+    - **Notes:** #202 (addarr-20) moves the add part of `handle_quality_selection` into `MediaHandler._continue_with_profile`. If #202 merges first, move the check inside `_continue_with_profile`, just before the add call. Whichever PR merges second rebases.
