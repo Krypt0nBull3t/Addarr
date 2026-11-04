@@ -97,9 +97,9 @@ See [references/create-pr.md](references/create-pr.md) for detailed instructions
 
 ```
 Step 1  RUN     Pre-PR review — three complementary passes over the branch diff.
-                INVOKE @find-bugs          (security, bugs, async errors, Telegram misuse)
+                INVOKE @addarr-find-bugs          (security, bugs, async errors, Telegram misuse)
                 INVOKE @simplify           (code reuse, quality patterns, efficiency)
-                INVOKE @code-simplifier    (structural clarity, nesting, readability)
+                INVOKE @addarr-code-simplifier    (structural clarity, nesting, readability)
                 See create-pr.md for execution details.
                 Fix any actionable findings. Skip pre-existing patterns.
 Step 2  RUN     Coverage check: run pytest with --cov on all changed source modules
@@ -166,10 +166,9 @@ when the specific trigger condition is met — never routinely per task or per b
 | `@addarr-handlers` | First task in a session that touches `src/bot/handlers/` |
 | `@addarr-services` | First task in a session that touches `src/services/` or `src/api/` |
 | `@addarr-testing` | First task in a session that touches `tests/` |
-| `@python-testing-pro` | Facing a non-trivial test design question (parametrize strategy, complex mock setup, fixture architecture) |
 | `@superpowers:test-driven-development` | First task in a session (load once to set TDD discipline) |
 | `@superpowers:verification-before-completion` | After all tasks complete, before create-pr flow |
-| `@code-simplifier` | Refactor step produces overly complex code; also invoked in create-pr step 1 |
+| `@addarr-code-simplifier` | Refactor step produces overly complex code; also invoked in create-pr step 1 |
 | `@superpowers:systematic-debugging` | Unexpected test failure (not a simple typo/import fix) |
 
 "First task in a session" means: invoke once when the trigger first applies, then
@@ -248,7 +247,6 @@ on-demand table in the Execution Loop section for per-task triggers.
 | `@addarr-handlers` | Handler class patterns | First handler task in session |
 | `@addarr-services` | Service/API client patterns | First service/API task in session |
 | `@addarr-testing` | Project-specific test patterns | First test-writing task in session |
-| `@python-testing-pro` | Advanced pytest strategies | Non-trivial test design questions |
-| `@code-simplifier` | Structural clarity & readability | create-pr step 1; also during execution when refactor produces complex code |
-| `@find-bugs` | Security, bugs, async/Telegram errors | create-pr step 1 |
+| `@addarr-code-simplifier` | Structural clarity & readability | create-pr step 1; also during execution when refactor produces complex code |
+| `@addarr-find-bugs` | Security, bugs, async/Telegram errors | create-pr step 1 |
 | `@simplify` | Code reuse, quality patterns, efficiency | create-pr step 1 |

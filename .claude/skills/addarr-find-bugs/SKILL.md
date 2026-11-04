@@ -1,11 +1,11 @@
 ---
-name: find-bugs
+name: addarr-find-bugs
 description: Use when reviewing branch changes for bugs, security vulnerabilities, or code quality issues. Covers async Python, Telegram bot handlers, API clients, config access, and singleton patterns.
 ---
 
 # Find Bugs
 
-Review changes on the current branch for bugs, security vulnerabilities, and code quality issues. Adapted from [Sentry's find-bugs skill](https://github.com/getsentry/sentry-skills) with Addarr-specific checks.
+Review changes on the current branch for bugs, security vulnerabilities, and code quality issues. Adapted from the bug-finding skill in [Sentry's skills repository](https://github.com/getsentry/skills) (Apache-2.0), with Addarr-specific checks.
 
 ## Phase 1: Input Gathering
 

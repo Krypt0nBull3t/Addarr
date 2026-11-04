@@ -88,24 +88,24 @@ radarr:                    # Same structure for sonarr, lidarr
 
 transmission:
   enable: false
-  server:
-    ssl: false
-    addr: "localhost"
-    port: 9091
-    path: "/transmission"
-  auth:
-    username: ""
-    password: ""
+  onlyAdmin: true
+  host: localhost
+  authentication: false
+  username:
+  password:
 
 sabnzbd:
   enable: false
+  onlyAdmin: true
   server:
+    addr: localhost
+    port: 8090
+    path: /
     ssl: false
-    addr: "localhost"
-    port: 8080
-    path: "/sabnzbd"
   auth:
-    apikey: "xyz789"
+    apikey:
+    username:
+    password:
 ```
 
 ## Path Constants

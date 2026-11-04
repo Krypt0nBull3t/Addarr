@@ -1,11 +1,11 @@
 ---
-name: code-simplifier
+name: addarr-code-simplifier
 description: Use when asked to simplify, clean up, or refactor code for clarity. Focuses on reducing complexity, eliminating redundant abstractions, and improving readability while preserving functionality. Complements the quick-pass simplify superpowers skill with deeper, focused refactoring.
 ---
 
 # Code Simplifier
 
-Simplify and refine code for clarity, consistency, and maintainability while preserving exact functionality. Adapted from [Sentry's code-simplifier skill](https://github.com/getsentry/sentry-skills).
+Simplify and refine code for clarity, consistency, and maintainability while preserving exact functionality. Adapted from the code simplification skill in [Sentry's skills repository](https://github.com/getsentry/skills) (Apache-2.0).
 
 **Relationship to `superpowers:simplify`:** The `simplify` skill is a quick post-change review pass (reuse, quality, efficiency). This skill is for deeper, focused refactoring sessions where you methodically simplify a file or feature area.
 

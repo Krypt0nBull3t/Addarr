@@ -1,6 +1,6 @@
 ---
 name: security-audit
-description: Use when performing a full-codebase security audit of Addarr. Covers auth surface, secret handling, API safety, and Telegram-specific risks. Unlike find-bugs (branch diffs only), this audits the entire security posture.
+description: Use when performing a full-codebase security audit of Addarr. Covers auth surface, secret handling, API safety, and Telegram-specific risks. Unlike addarr-find-bugs (branch diffs only), this audits the entire security posture.
 ---
 
 # Security Audit

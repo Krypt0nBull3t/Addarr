@@ -5,7 +5,7 @@ description: Use when writing tests for Addarr, setting up test fixtures, or deb
 
 # Addarr Testing
 
-Addarr-specific test patterns. For generic pytest knowledge (TDD cycle, fixtures, parametrization, mocking, async), see @superpowers:test-driven-development and @python-testing-pro.
+Addarr-specific test patterns. For generic pytest knowledge (TDD cycle, fixtures, parametrization, mocking, async), see @superpowers:test-driven-development.
 
 ## Quick Start
 
@@ -37,9 +37,10 @@ pytest -x                                   # Stop on first failure
 
 | Fixture | Description |
 |---------|-------------|
+| `cleanup_sessions` | autouse: closes the radarr/sonarr/lidarr/bazarr client sessions after each test |
 | `aio_mock` | `aioresponses()` context manager for mocking async HTTP |
-| `radarr_url` / `sonarr_url` / `lidarr_url` / `sabnzbd_url` | Base URL strings |
-| `radarr_client` / `sonarr_client` / `lidarr_client` / `sabnzbd_client` | Real client instances (safe — config mock is active) |
+| `radarr_url` / `sonarr_url` / `lidarr_url` / `bazarr_url` / `transmission_url` | Base URL strings |
+| `radarr_client` / `sonarr_client` / `lidarr_client` / `bazarr_client` / `transmission_client` | Real client instances (safe, because the config mock is active) |
 
 ### Service Fixtures (`tests/test_services/conftest.py`)
 
@@ -54,12 +55,24 @@ pytest -x                                   # Stop on first failure
 | Fixture | Description |
 |---------|-------------|
 | `mock_media_service` | `MagicMock` with async methods for all media operations |
-| `mock_translation_service` | `MagicMock` where `get_text` returns the key |
-| `mock_notification_service` | `MagicMock` with async notify methods |
+| `mock_translation_service` | `MagicMock` where `get_text` and `get_message` return the key |
+| `mock_notification_service` | `MagicMock` with async `notify_admin` |
+| `admin_mode` | Admin mode on with admin user 1, so the default test user 12345 is no admin |
+| `<name>_handler` | A handler with its services patched and user 12345 authenticated, e.g. `media_handler`, `settings_handler`, `transmission_handler`, `sabnzbd_handler` (full list in [references/fixtures.md](references/fixtures.md#handler-fixtures)) |
+| `unchanged_edit` | Wires a query so `edit_text` raises Telegram's "Message is not modified" `BadRequest` |
 
-### Sample Data (`tests/fixtures/sample_data.py`)
+### Integration Fixtures (`tests/integration/conftest.py`)
 
-Constants: `RADARR_SEARCH_RESULTS`, `RADARR_MOVIE_DETAIL`, `RADARR_ROOT_FOLDERS`, `RADARR_QUALITY_PROFILES`, `RADARR_SYSTEM_STATUS`, `SONARR_SEARCH_RESULTS`, `SONARR_SERIES_DETAIL`, `LIDARR_SEARCH_RESULTS`, `LIDARR_METADATA_PROFILES`, `TRANSMISSION_SESSION`, `SABNZBD_QUEUE`
+| Fixture | Description |
+|---------|-------------|
+| `harness` | `BotHarness` with the full handler chain |
+| `downloads_harness` | `harness` with Transmission and SABnzbd enabled |
+| `bazarr_harness` | `harness` with Bazarr enabled |
+| `aio_mock` | `aioresponses()` context manager |
+
+### Sample Data (`tests/fixtures/`)
+
+`sample_data.py` constants include: `RADARR_SEARCH_RESULTS`, `RADARR_MOVIE_DETAIL`, `RADARR_ROOT_FOLDERS`, `RADARR_QUALITY_PROFILES`, `SONARR_SEARCH_RESULTS`, `SONARR_SERIES_DETAIL`, `LIDARR_SEARCH_RESULTS`, `LIDARR_METADATA_PROFILES`, `TRANSMISSION_SESSION`, `SABNZBD_QUEUE`. `bazarr_data.py` has `BAZARR_SYSTEM_STATUS`, `BAZARR_MOVIES`, `BAZARR_MOVIES_WANTED`, `BAZARR_EPISODES_WANTED`. Full list in [references/fixtures.md](references/fixtures.md#sample-data).
 
 ## Layer Quick Reference
 
@@ -82,10 +95,9 @@ Override values via `MockConfig._set()`. See [references/patterns.md#config](ref
 
 1. Importing `src.*` at module level in test files — triggers real `Config()`. See [references/anti-patterns.md#module-level-imports](references/anti-patterns.md#module-level-imports).
 2. Forgetting singleton reset — tests randomly fail based on execution order. See [references/anti-patterns.md#singleton-leakage](references/anti-patterns.md#singleton-leakage).
-3. Using `aioresponses` for Transmission — it uses sync `requests`, not `aiohttp`. See [references/anti-patterns.md#transmission-mocking](references/anti-patterns.md#transmission-mocking).
-4. Testing translated text literally — mock returns keys, not translated strings. See [references/anti-patterns.md#translation-testing](references/anti-patterns.md#translation-testing).
-5. Creating real `aiohttp.ClientSession` in tests — use `aioresponses` instead. See [references/anti-patterns.md#real-sessions](references/anti-patterns.md#real-sessions).
-6. Patching services at source module instead of import site — patch where the handler imports it. See [references/anti-patterns.md#patching-at-wrong-import-path](references/anti-patterns.md#patching-at-wrong-import-path).
-7. Not cleaning up reusable sessions between tests — mock state leaks. See [references/anti-patterns.md#not-cleaning-up-sessions-between-tests](references/anti-patterns.md#not-cleaning-up-sessions-between-tests).
-8. Registering too few mocks for retry scenarios — need N+1 mocks for N retries. See [references/anti-patterns.md#insufficient-retry-mocks](references/anti-patterns.md#insufficient-retry-mocks).
-9. Mocking `sys.exit` without stopping execution — use `pytest.raises(SystemExit)`. See [references/anti-patterns.md#mocking-sysexit-without-stopping-execution](references/anti-patterns.md#mocking-sysexit-without-stopping-execution).
+3. Testing translated text literally — mock returns keys, not translated strings. See [references/anti-patterns.md#translation-testing](references/anti-patterns.md#translation-testing).
+4. Creating real `aiohttp.ClientSession` in tests — use `aioresponses` instead. See [references/anti-patterns.md#real-sessions](references/anti-patterns.md#real-sessions).
+5. Patching services at source module instead of import site — patch where the handler imports it. See [references/anti-patterns.md#patching-at-wrong-import-path](references/anti-patterns.md#patching-at-wrong-import-path).
+6. Not cleaning up reusable sessions between tests — mock state leaks. See [references/anti-patterns.md#not-cleaning-up-sessions-between-tests](references/anti-patterns.md#not-cleaning-up-sessions-between-tests).
+7. Registering too few mocks for retry scenarios — need N+1 mocks for N retries. See [references/anti-patterns.md#insufficient-retry-mocks](references/anti-patterns.md#insufficient-retry-mocks).
+8. Mocking `sys.exit` without stopping execution — use `pytest.raises(SystemExit)`. See [references/anti-patterns.md#mocking-sysexit-without-stopping-execution](references/anti-patterns.md#mocking-sysexit-without-stopping-execution).

@@ -10,25 +10,55 @@ All callback data is a flat string with underscore-delimited segments. Max 64 by
 
 ## Prefix Registry
 
-| Prefix | Handler | Example | Description |
-|--------|---------|---------|-------------|
-| `menu_` | MediaHandler | `menu_movie`, `menu_series`, `menu_cancel` | Main menu actions |
-| `select_` | MediaHandler | `select_123` | Media selection by index |
-| `nav_` | MediaHandler | `nav_next_5`, `nav_prev_3` | Card view navigation |
-| `quality_` | MediaHandler | `quality_42` | Quality profile selection |
-| `season_` | MediaHandler | `season_5`, `season_confirm` | Season selection |
+Built from the `CallbackQueryHandler(..., pattern=...)` calls in `src/bot/handlers/`. Handlers are listed in `_add_handlers()` order (see [wiring.md](wiring.md)). AuthHandler registers no callbacks. Placeholders in `<angle brackets>` are filled at runtime.
+
+| Prefix / data | Handler | Example | Description |
+|-|-|-|-|
+| `menu_movie` / `menu_series` / `menu_music` | MediaHandler | `menu_movie` | Start a media search (conversation entry) |
+| `menu_cancel` | MediaHandler | `menu_cancel` | Cancel the media conversation (every state) |
+| `select_` | MediaHandler | `select_<result id>`, `select_cancel` | Pick a search result; `select_cancel` also ends season selection |
+| `nav_` | MediaHandler | `nav_next_<index>`, `nav_prev_<index>` | Card view navigation |
 | `listsel_` | MediaHandler | `listsel_3` | List view item selection |
+| `listback` | MediaHandler | `listback` | Back from the detail view to the list |
 | `listpage_` | MediaHandler | `listpage_2`, `listpage_noop` | List view pagination |
 | `viewtoggle` | MediaHandler | `viewtoggle` | Toggle card/list view |
+| `quality_` | MediaHandler | `quality_<profile id>`, `quality_cancel` | Quality profile selection |
+| `season_` | MediaHandler | `season_5`, `season_all`, `season_confirm`, `season_future_seasons` | Season selection |
+| `album_monitor_mode_` | MediaHandler | `album_monitor_mode_all`, `album_monitor_mode_pick` | Lidarr: monitor all albums or pick |
+| `albumsel_` | MediaHandler | `albumsel_<album id>`, `albumsel_all`, `albumsel_confirm` | Lidarr album selection |
+| `menu_settings` | SettingsHandler | `menu_settings` | Open settings (conversation entry) |
+| `settings_` | SettingsHandler | `settings_language`, `settings_radarr`, `settings_downloads`, `settings_users`, `settings_back` | Settings sub-menus and back |
 | `lang_` | SettingsHandler | `lang_en-us` | Language selection |
+| `svc_toggle_` | SettingsHandler | `svc_toggle_radarr` | Enable/disable a service |
+| `svc_quality_` | SettingsHandler | `svc_quality_radarr` | Open the default quality menu of a service |
 | `setquality_` | SettingsHandler | `setquality_radarr_42` | Default quality setting |
-| `svc_toggle_` | SettingsHandler | `svc_toggle_radarr` | Enable/disable service |
-| `dl_trans_` | SettingsHandler | `dl_trans_turtle` | Transmission settings |
-| `dl_sab_` | SettingsHandler | `dl_sab_speed`, `dl_sab_speed_25` | SABnzbd settings |
-| `settings_` | SettingsHandler | `settings_back` | Settings navigation |
-| `delete_` | DeleteHandler | `delete_movie_123` | Delete media |
-| `lib_` | LibraryHandler | `lib_movies`, `lib_page_2` | Library browsing |
-| `pref_` | PreferencesHandler | `pref_view_list` | Preference changes |
+| `dl_transmission` / `dl_sabnzbd` | SettingsHandler | `dl_transmission` | Open Transmission or SABnzbd settings |
+| `dl_trans_` | SettingsHandler | `dl_trans_toggle`, `dl_trans_turtle` | Transmission enable and turtle mode |
+| `dl_sab_` | SettingsHandler | `dl_sab_toggle`, `dl_sab_speed`, `dl_sab_speed_25`, `dl_sab_pause`, `dl_sab_resume` | SABnzbd settings |
+| `dl_back` | SettingsHandler | `dl_back` | Back from download client settings |
+| `usr_` | SettingsHandler | `usr_toggle_admin`, `usr_toggle_allowlist`, `usr_back` | User access settings |
+| `menu_cancel` | SettingsHandler | `menu_cancel` | Cancel settings (fallback) |
+| `wh_` | WebhooksHandler | `wh_setup_radarr`, `wh_regen_radarr`, `wh_events`, `wh_toggle_<event>`, `wh_port`, `wh_back`, `wh_close` | Webhook management |
+| `delete_` | DeleteHandler | `delete_type_movie`, `delete_item_<id>`, `delete_confirm`, `delete_cancel` | Delete media |
+| `library_` | LibraryHandler | `library_movie`, `library_series`, `library_music` | Library type selection |
+| `lib_` | LibraryHandler | `lib_m_2` (`m`/`s`/`a` = movie/series/music) | Library pagination |
+| `cal_` | CalendarHandler | `cal_period_7`, `cal_page_2`, `cal_add_movie_<id>`, `cal_refresh`, `cal_back`, `cal_noop` | Calendar browsing and adding |
+| `missing_` | MissingHandler | `missing_filter_movie`, `missing_page_2`, `missing_search_<service>_<id>`, `missing_refresh`, `missing_back`, `missing_noop` | Missing/wanted media |
+| `queue_` | QueueHandler | `queue_filter_movie`, `queue_page_2`, `queue_refresh`, `queue_back`, `queue_noop` | Queue browsing |
+| `hist_` | HistoryHandler | `hist_filter_all`, `hist_page_2`, `hist_refresh`, `hist_back`, `hist_noop` | History browsing |
+| `transmission_` | TransmissionHandler | `transmission_toggle_yes`, `transmission_toggle_no` | Confirm the `/transmission` turtle mode toggle |
+| `sabnzbd_speed_` | SabnzbdHandler | `sabnzbd_speed_25`, `sabnzbd_speed_50`, `sabnzbd_speed_100` | `/sabnzbd` speed limit |
+| `bazarr_` | BazarrHandler | `bazarr_menu`, `bazarr_search`, `bazarr_wanted_movies`, `bazarr_wanted_episodes`, `bazarr_cancel` | Bazarr subtitles |
+| `dl_client_` | DownloadsHandler | `dl_client_tx`, `dl_client_sab` | Switch download client |
+| `dl_tab_` | DownloadsHandler | `dl_tab_queue`, `dl_tab_history` | Queue/history tab |
+| `dl_page_` | DownloadsHandler | `dl_page_2` | Downloads pagination |
+| `dl_pause_` / `dl_resume_` | DownloadsHandler | `dl_pause_<nzo_id>`, `dl_resume_<nzo_id>` | Pause/resume one item (pattern `(?!all)` excludes the next row) |
+| `dl_pauseall` / `dl_resumeall` | DownloadsHandler | `dl_pauseall` | Pause/resume everything |
+| `dl_refresh` / `dl_noop` | DownloadsHandler | `dl_refresh` | Refresh; `dl_noop` is a disabled button |
+| `menu_back` | HelpHandler | `menu_back` | Back from help to the main menu |
+| `pref_toggle_view` | PreferencesHandler | `pref_toggle_view` | Toggle the card/list view preference |
+| `system_` | SystemHandler | `system_details`, `system_diskspace`, `system_refresh`, `system_back` | System status |
+| `menu_cancel` / `menu_status` / `menu_upcoming` / `menu_library` / `menu_help` / `menu_delete` | StartHandler | `menu_status` | Main menu buttons that start no conversation (registered last) |
 
 ## Pattern Matching in ConversationHandler
 

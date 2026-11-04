@@ -39,6 +39,12 @@ The template root key is `template:`. Each locale file has its locale code as ro
 text = self.translation.get_text("AlbumTracksTitle")
 ```
 
+Keys under the `messages.` section are read with `get_message()`, not `get_text()`:
+
+```python
+text = self.translation.get_message("SomeMessage")
+```
+
 Missing keys fall back to `en-us`, then to the key name itself, with a warning in the log.
 
 ## Validate
@@ -47,7 +53,7 @@ Missing keys fall back to `en-us`, then to the key name itself, with a warning i
 PYTHONIOENCODING=utf-8 .venv/bin/python run.py --validate-i18n
 ```
 
-Older versions of the validator always exit 0, so read the output, not only the exit code: success is the line `All translations are valid!`. Anything under `Missing keys`, `Extra keys`, `Format errors`, or `Emoji consistency issues` is a failure.
+The validator exits 1 on errors, so check the exit code too. Success is the line `All translations are valid!`. Anything under `Missing keys`, `Extra keys`, `Format errors`, or `Emoji consistency issues` is a failure.
 
 The project PostToolUse hook runs this validator after each edit to a translation file. While you edit the 10 files one by one, it reports the files you have not edited yet. That is expected. After the last file, the hook must pass.
 
