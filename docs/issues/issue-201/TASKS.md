@@ -33,7 +33,7 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - Added `ReadWritePaths=%h/.addarr` to `scripts/addarr.service`.
     - **Notes:** Later tasks add tests to this file. Keep `read()` and the path constants.
 
-- [ ] **1.2** F171: point URLs to `Krypt0nBull3t/Addarr`
+- [x] **1.2** F171: point URLs to `Krypt0nBull3t/Addarr`
     - **Context:**
         - **Why:** The installers and README fetch `Cyneric/Addarr`, not this repo.
         - **Architecture:** Plain text replacement, keep the `main` branch in raw URLs.
@@ -45,6 +45,14 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - [RED] Write `test_no_upstream_repo_urls`: no line in install.sh, install.ps1 or README.md matches `cyneric/addarr` (ignore case)
         - [GREEN] Replace each URL with `Krypt0nBull3t/Addarr`
     - **Success:** The test fails before and passes after
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The matching is on the substring `cyneric/addarr` (lowercased line), so the author credit lines (`github.com/Cyneric)`) need no exception.
+        - One `sed` over the three files changed exactly the 16 listed lines and no others (checked with `git diff -U0`).
+    - **Key Changes:**
+        - `scripts/install.sh` (clone, wiki, issues), `scripts/install.ps1` (clone, wiki), `README.md` (install commands, clone and zip links) now use `Krypt0nBull3t/Addarr`.
+        - Added `TestRepoUrls.test_no_upstream_repo_urls`.
+    - **Notes:** The README `| sudo bash` text on lines 75, 259 and 264 is still there. Task 1.6 removes it.
 
 - [ ] **1.3** F172: Python 3.10 minimum
     - **Context:**

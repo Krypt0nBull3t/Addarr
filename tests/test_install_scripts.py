@@ -23,3 +23,19 @@ class TestServiceUnit:
         lines = [line.strip() for line in read(SERVICE).splitlines()]
         if "ProtectHome=read-only" in lines:
             assert "ReadWritePaths=%h/.addarr" in lines
+
+
+class TestRepoUrls:
+    """Verify the installers and README point to this repo, not upstream."""
+
+    def test_no_upstream_repo_urls(self):
+        """No clone, download, wiki or issue URL names cyneric/addarr (case-insensitive).
+
+        Author credit lines name only the profile (github.com/Cyneric), so they pass.
+        """
+        offenders = []
+        for path in (INSTALL_SH, INSTALL_PS1, README):
+            for number, line in enumerate(read(path).splitlines(), start=1):
+                if "cyneric/addarr" in line.lower():
+                    offenders.append(f"{os.path.basename(path)}:{number}")
+        assert offenders == []

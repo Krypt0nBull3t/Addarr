@@ -403,7 +403,7 @@ fi
 
 # Clone repository with progress
 echo -e "\n${BLUE}Cloning Addarr repository...${NC}"
-if ! git clone --progress https://github.com/Cyneric/Addarr.git "$INSTALL_DIR" 2>&1 | while read -r line; do
+if ! git clone --progress https://github.com/Krypt0nBull3t/Addarr.git "$INSTALL_DIR" 2>&1 | while read -r line; do
     echo -ne "\r\033[K${BLUE}Progress: ${NC}$line"
 done; then
     echo -e "\n${RED}Failed to clone repository${NC}"
@@ -609,8 +609,8 @@ echo -e "   1. Start Addarr: ${YELLOW}addarr${NC} (on first run, setup wizard wi
 echo -e "   2. Stop Addarr: ${YELLOW}Ctrl+C${NC}"
 
 echo -e "\n${BLUE}📚 Documentation:${NC}"
-echo -e "   • GitHub Wiki: ${YELLOW}https://github.com/cyneric/addarr/wiki${NC}"
-echo -e "   • Report Issues: ${YELLOW}https://github.com/cyneric/addarr/issues${NC}"
+echo -e "   • GitHub Wiki: ${YELLOW}https://github.com/Krypt0nBull3t/Addarr/wiki${NC}"
+echo -e "   • Report Issues: ${YELLOW}https://github.com/Krypt0nBull3t/Addarr/issues${NC}"
 
 echo -e "\n${BLUE}💡 Quick Tips:${NC}"
 echo -e "   • Run setup wizard again: ${YELLOW}addarr --setup${NC}"
