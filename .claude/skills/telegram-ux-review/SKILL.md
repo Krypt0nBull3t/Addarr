@@ -9,25 +9,27 @@ On-demand review of bot interaction quality. Fills the gap left by traditional U
 
 **Key files to audit:** `src/bot/keyboards.py`, `src/bot/handlers/media/formatters.py`, `src/bot/handlers/media/handler.py`, all handler files that build inline keyboards.
 
-## Telegram Platform Constraints
+## Telegram Limits
 
-These are hard limits enforced by the Telegram API:
+Limits from the Bot API (values as in python-telegram-bot 22.8 `telegram.constants`). Nothing in the code guards them.
 
 | Constraint | Limit | Consequence |
-|-----------|-------|-------------|
-| `callback_data` | 64 bytes | Button silently fails if exceeded |
-| Photo caption | 1024 characters | Caption truncated |
-| Text message | 4096 characters | Message fails to send |
-| Inline keyboard buttons per row | 8 | Layout breaks |
-| Button text | ~30 chars on mobile | Text truncated on small screens |
+|-|-|-|
+| `callback_data` | 64 bytes | The Bot API rejects the whole send or edit with HTTP 400 (`BUTTON_DATA_INVALID`); the user sees nothing |
+| Photo caption | 1024 characters | The send fails with HTTP 400 (caption too long); the user sees nothing |
+| Text message | 4096 characters | The send fails with HTTP 400 |
+| Buttons in one inline keyboard | 100 | The send fails |
+| Buttons per row | 8 | Undocumented by Telegram (PTB `InlineKeyboardMarkupLimit.BUTTONS_PER_ROW`); may change |
+
+Heuristic, not an API limit: button text longer than about 30 characters gets cut off on small phone screens.
 
 ## Phase 1: Keyboard Consistency
 
 * [ ] **Back/cancel placement** — Every keyboard has back/cancel in the last row
 * [ ] **Pagination pattern** — All paginated views use same format (e.g., arrows + page indicator)
-* [ ] **Filter checkmark convention** — Consistent symbol for active/inactive filters across all keyboards. Known issue: history uses `bullet` for active filter while queue/missing use `checkmark` — flag if still present
+* [ ] **Filter checkmark convention**: Consistent symbol for active/inactive filters across all keyboards
 * [ ] **Mobile fit** — Button text fits typical phone screen widths without truncation
-* [ ] **Callback data size** — All `callback_data` values in `src/bot/keyboards.py` stay within 64-byte limit
+* [ ] **Callback data size**: Every `callback_data=` under `src/bot/` (keyboards.py and the handlers that build buttons, including f-strings with IDs) stays within 64 bytes. This skill owns the check; security-audit points here.
 * [ ] **No duplicate callback_data** — No identical callback_data values across unrelated keyboards (would cause wrong handler to fire)
 
 ## Phase 2: Flow Efficiency
@@ -35,7 +37,6 @@ These are hard limits enforced by the Telegram API:
 * [ ] **Tap count** — Common actions (search -> select -> add) require <= 5 taps. Count and flag if more.
 * [ ] **Dead-end detection** — Every conversation state has a clear exit path (back, cancel, or timeout)
 * [ ] **Actionable errors** — Error states offer next steps, not just "something went wrong"
-* [ ] **Conversation timeouts** — All `ConversationHandler` flows have `conversation_timeout` configured
 * [ ] **Cancel from anywhere** — `/cancel` command works from every conversation state (check `fallbacks` in each ConversationHandler)
 
 ## Phase 3: Information Density

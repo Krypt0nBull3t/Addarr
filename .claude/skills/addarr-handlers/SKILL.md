@@ -14,23 +14,17 @@ When adding a new handler:
 1. Create handler class in `src/bot/handlers/<name>.py`
 2. Define any new states in `src/bot/states.py`
 3. Add keyboard functions to `src/bot/keyboards.py`
-4. Add translation keys to `translations/addarr.*.yml`
-5. Export from `src/bot/handlers/__init__.py`
-6. Register in `src/main.py:AddarrBot._add_handlers()`
+4. Add keys with `@i18n-key` (template plus all 9 locales)
+5. Import it from its own module in `src/main.py` and register it in `AddarrBot._add_handlers()`
 
 ## Handler Class Template
 
 ```python
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    CommandHandler, CallbackQueryHandler,
-    ConversationHandler, ContextTypes, filters
+    CommandHandler, CallbackQueryHandler, ConversationHandler
 )
 
-from src.config.settings import config
-from src.utils.logger import get_logger, log_user_interaction
-from src.bot.handlers.auth import require_auth
-from src.bot.keyboards import get_<name>_keyboard
+from src.utils.logger import get_logger
 from src.services.<service> import <Service>Service
 from src.services.translation import TranslationService
 from src.bot.states import States
@@ -74,9 +68,10 @@ class <Name>Handler:
 
 **Critical:**
 - `get_handler()` returns a **list** (even for a single handler)
-- Always set `persistent=False, per_message=False`
-- Fallbacks always include `menu_cancel` pattern
+- `persistent=False` and `per_message=False` are the PTB defaults. Most handlers spell them out; `AuthHandler` omits `persistent` and `BazarrHandler` omits both
+- Fallbacks route the cancel callback your keyboards send (`menu_cancel` here; see [references/keyboards.md](references/keyboards.md))
 - Services injected as singletons in `__init__`
+- Add `Update`, `ContextTypes`, `require_auth` and the other imports with the methods that use them ([references/methods.md](references/methods.md))
 
 ## Method Signatures
 
@@ -92,7 +87,7 @@ See [references/keyboards.md](references/keyboards.md) for keyboard function pat
 
 ## Wiring a New Handler
 
-See [references/wiring.md](references/wiring.md) for state definitions, handler registration order, exports, and translation key format.
+See [references/wiring.md](references/wiring.md) for state definitions, translation keys, handler registration order, and the import in `src/main.py`.
 
 ## Common Mistakes
 
@@ -105,5 +100,5 @@ See [references/anti-patterns.md](references/anti-patterns.md) for detailed exam
 5. Not clearing `context.user_data` on cancel — Stale data leaks into next conversation.
 6. Wrong pattern anchor — `^prefix_$` won't match `prefix_42`; `^exact` matches `exact_extra`.
 7. Registering handlers in wrong order — PTB matches first match. Specific patterns before general.
-8. Forgetting `@require_auth` on entry points — All command entry points need auth decorator.
+8. Forgetting `@require_auth` on entry points. All entry points need the auth decorator, including standalone callback handlers.
 9. Ignoring `per_message=False` warning — It's informational, not an error. Safe to ignore.

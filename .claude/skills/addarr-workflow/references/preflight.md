@@ -1,49 +1,65 @@
-# Preflight Flow — Step Details
+# Preflight Flow: Step Details
 
-Sequence is defined in SKILL.md. This file provides implementation details per step.
+Sequence is defined in SKILL.md. This file holds the commands.
 
-Run sequentially. Stop on first failure. Fix automatically where possible, then re-run.
+The commands are the ones the CI jobs `lint`, `type-check`, `validate-translations`, `unit-test`, `integration-test` and `architecture-test` run in `.github/workflows/ci.yml`. `tests/test_architecture/test_skills.py` fails when they drift apart. Locally the unit-test command leaves out `--cov-report=html:coverage-html` (a CI upload artifact). Preflight does not run the 3.10-3.14 compatibility matrix, pip-audit or the Docker build; CI does.
 
-## Step 1: Tests
+**Interpreter (`<py>`):** `.venv/bin/python` in the main checkout. A git worktree has no `.venv` of its own: use the main checkout's `.venv/bin/python` by absolute path, or create one in the worktree. A cloud session without a venv uses `python`. flake8 is not in the requirements files; install it into the venv as CI does (`pip install flake8`).
 
-```bash
-pytest --tb=short -q
-```
+Run the steps in order. Stop on the first failure. After any code fix, re-run from step 1 (a type fix can break a test). At most 3 fix rounds; then report the failing output and `ASK`.
 
-**On failure:** `INVOKE` @superpowers:systematic-debugging — investigate root cause, fix, re-run. Do not proceed until all tests pass.
-
-## Step 2: Flake8 Lint
+## Step 1: Lint
 
 ```bash
-flake8 .
+<py> -m flake8 .
 ```
 
-**On failure:** Auto-fix formatting issues (line length, whitespace). Report logic-level lint issues that need manual review. Re-run after fixes.
+**On failure:** fix by hand (no formatter is installed). `.flake8` ignores E203, E501 and W503, so line length is not reported.
 
-## Step 3: Type Check
+## Step 2: Type Check
 
 ```bash
-mypy src/
+<py> -m mypy src/
 ```
 
-**On failure:** Fix type errors. Common fixes: add `Optional[]` for params with `None` default, add class-level annotations on singletons, use `isinstance(result, BaseException)` for asyncio.gather results. Re-run after fixes.
+**On failure:** fix the type errors. Common fixes: `Optional[]` for parameters with a `None` default, class-level annotations on singletons, `isinstance(result, BaseException)` for `asyncio.gather` results.
 
-## Step 4: Translation Validation
+## Step 3: Translation Validation
 
 ```bash
-PYTHONIOENCODING=utf-8 python run.py --validate-i18n
+PYTHONIOENCODING=utf-8 <py> run.py --validate-i18n
 ```
 
-**On failure:** Report which translation files have problems and what keys are missing/malformed. Fix if possible, otherwise report.
+**On failure:** report which translation files have problems and which keys are missing or malformed. Fix them with `@i18n-key`.
 
-## Step 5: Report Results
+## Step 4: Unit Tests With the Coverage Gate
+
+```bash
+<py> -m pytest tests/ --ignore=tests/integration --ignore=tests/test_architecture --cov=src --cov-report=term-missing --cov-fail-under=100 --tb=short
+```
+
+**On failure:** `INVOKE` @superpowers:systematic-debugging for a failing test; find the root cause before fixing. For a coverage gap, add tests for the lines `term-missing` lists.
+
+## Step 5: Integration Tests
+
+```bash
+<py> -m pytest tests/integration --tb=short -v
+```
+
+## Step 6: Architecture Tests
+
+```bash
+<py> -m pytest tests/test_architecture --tb=short -v
+```
+
+## Step 7: Report Results
 
 ```
 Preflight passed:
-  - Tests: X passed
-  - Flake8: clean
-  - Type check: clean
-  - Translations: valid
+  - Lint, type check, translations: clean
+  - Unit: X passed, coverage 100%
+  - Integration: X passed
+  - Architecture: X passed
 ```
 
-If any check failed and could not be fixed, report clearly which one and what the errors are. Do NOT proceed to PR creation until all required checks pass.
+If a check failed and could not be fixed, report which one and its errors. Do not continue to PR creation until every check passes.

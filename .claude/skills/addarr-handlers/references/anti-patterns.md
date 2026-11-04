@@ -13,7 +13,7 @@ Common mistakes when building Telegram bot handlers in Addarr.
 async def handle_action(self, update, context):
     query = update.callback_query
     action = query.data.replace("prefix_", "")
-    await query.message.edit_text("Done!")
+    await query.edit_message_text("Done!")
 ```
 
 **Instead**, always acknowledge first:
@@ -24,7 +24,7 @@ async def handle_action(self, update, context):
     query = update.callback_query
     await query.answer()  # Always first
     action = query.data.replace("prefix_", "")
-    await query.message.edit_text("Done!")
+    await query.edit_message_text("Done!")
 ```
 
 **Why**: Telegram requires callback queries to be answered within a timeout. Without `answer()`, users see a perpetual loading spinner on the button.
@@ -50,7 +50,7 @@ async def handle_callback(self, update, context):
 async def handle_callback(self, update, context):
     query = update.callback_query
     await query.answer()
-    await query.message.edit_text("Result", reply_markup=keyboard)
+    await query.edit_message_text("Result", reply_markup=keyboard)
 ```
 
 **Why**: Callback queries come from inline keyboard button presses. The user expects the message to update, not a new message to appear. Use `edit_text` or `edit_caption` (for photo messages).
@@ -63,17 +63,16 @@ async def handle_callback(self, update, context):
 
 ```python
 # BAD - crashes with BadRequest if message has a photo
-await query.message.edit_text(text=new_text, reply_markup=keyboard)
+await query.edit_message_text(text=new_text, reply_markup=keyboard)
 ```
 
-**Instead**, check for photos:
+**Instead**, use `send_response`, which checks for photos:
 
 ```python
 # GOOD
-if query.message.photo:
-    await query.message.edit_caption(caption=new_text, reply_markup=keyboard)
-else:
-    await query.message.edit_text(text=new_text, reply_markup=keyboard)
+from src.bot.handlers.media.formatters import send_response
+
+await send_response(query.message, new_text, keyboard)
 ```
 
 **Why**: Messages with images use `caption` not `text`. Calling `edit_text` on a photo message raises `telegram.error.BadRequest`. The media handler's card view sends photos, so any handler that edits those messages must handle both cases.
@@ -211,7 +210,9 @@ async def handle_command(self, update, context):
     await update.message.reply_text("Welcome!")
 ```
 
-**Why**: `@require_auth` checks if the user's ID is in the authenticated users set. Without it, unauthenticated users can access bot features. Note: `@require_auth` accesses `update.message.reply_text()` which only works for command handlers and message handlers, not bare callback queries from unauthenticated sessions.
+**Why**: `@require_auth` checks if the user's ID is in the authenticated users set. Without it, unauthenticated users can access bot features. It works on button presses too: `_refuse` in `src/bot/handlers/auth.py` answers a refused callback query with an alert (`show_alert=True`).
+
+Every entry point needs `@require_auth`: `CommandHandler` callbacks, `ConversationHandler` `entry_points`, and standalone `CallbackQueryHandler` callbacks. Only `AuthHandler.start_auth` is exempt. It is listed in `AUTH_ALLOWLIST` in `tests/test_architecture/test_conventions.py`, and `test_handler_entry_points_have_require_auth` fails on any other entry point without the decorator.
 
 ---
 

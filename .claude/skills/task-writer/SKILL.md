@@ -1,6 +1,6 @@
 ---
 name: task-writer
-description: Break down features into sized tasks with TDD ordering. Use when planning a new feature, creating implementation tasks, updating TASKS.md, estimating effort, or organizing multi-step work into phases.
+description: Use when converting an Addarr plan.md into docs/issues/issue-<N>/TASKS.md, or when adding, splitting or resizing tasks in TASKS.md. Produces TDD-ordered tasks with context blocks.
 ---
 
 # Task Writer Skill
@@ -74,22 +74,6 @@ Phase: [Large Feature] (3-4 tasks)
 - Action items MUST list [RED] test-writing steps BEFORE [GREEN] implementation steps
 - **Context block is REQUIRED** for every implementation task
 
-**Compact mode:** When tasks will be executed sequentially in the same session
-(i.e., immediately after planning), use compact context blocks:
-
-```markdown
-- [ ] **N.1** Implement [feature/layer]
-    - **Context:** See plan.md Phase N. Key refs: `file.py:line` (pattern template)
-    - **Watch out:** [Only non-obvious gotchas not in the plan]
-    - **Scope:** Brief description
-    - **Touches:** Key files
-    - **Action items:** ...
-    - **Success:** ...
-```
-
-Use full context blocks only when tasks may be picked up after context loss
-(e.g., across sessions, by a different person, or when plan.md doesn't exist).
-
 ## What Goes IN a Single Task
 
 Bundle these together (one logical unit):
@@ -131,10 +115,10 @@ Task: Add the Bazarr wanted-subtitles list
     [GREEN] 3. Implement the client and BazarrService methods
     [GREEN] 4. Implement the handler method and its keyboard
   ↓
-  Per behavior: pytest tests/path/test_file.py::test_name -v (fails), implement,
-  pytest tests/path/test_file.py -v (passes)
+  Per behavior: pytest tests/<path>/test_<name>.py::test_<behavior> -v (fails), implement,
+  pytest tests/<path>/test_<name>.py -v (passes)
   ↓
-  Full suite: pytest --tb=short -q, coverage on changed modules
+  Full suite with the CI coverage gate (addarr-workflow preflight step 4)
   ↓
   Mark complete with metadata, one commit for the task
 ```
@@ -166,14 +150,6 @@ Task: Add the Bazarr wanted-subtitles list
 | Trivial (1-line change)? | Don't create task, just do it |
 
 ## Test Count Estimation
-
-Historical data shows test counts in plans are consistently underestimated by 1.5-2x:
-
-| Issue | Planned Tests | Actual Tests | Ratio |
-|-|-|-|-|
-| #79 (task 2.1) | 8 | 15 | 1.9x |
-| #79 (task 2.2) | 13 | 17 | 1.3x |
-| #81 | baseline | +extra coverage tests | ~1.5x |
 
 **Rule of thumb:** When listing `[RED]` action items, the obvious test cases cover ~60-70% of what you'll actually write. Edge cases (error paths, boundary conditions, format variations) add another 30-40%. Plan for ~1.5x the obvious test count when estimating task size.
 
@@ -207,7 +183,7 @@ Before finalizing tasks, check:
     - **Context:**
         - **Why:** The preferences message goes stale after a change made elsewhere
         - **Architecture:** Plain `CommandHandler` + `CallbackQueryHandler` in `PreferencesHandler.get_handler()`, no conversation
-        - **Key refs:** `src/bot/handlers/preferences.py:27` (`get_handler()`), `tests/test_handlers/conftest.py` (`preferences_handler`, `unchanged_edit` fixtures)
+        - **Key refs:** `src/bot/handlers/preferences.py` (`get_handler()`), `tests/test_handlers/conftest.py` (`preferences_handler`, `unchanged_edit` fixtures)
         - **Watch out:** Anchor the new pattern (`^pref_refresh$`) and add it to the addarr-handlers callback registry. Editing a message to identical text raises `BadRequest("Message is not modified")`; test it with `unchanged_edit`.
     - **Scope:** Refresh button, callback handler, translation key
     - **Touches:** `src/bot/handlers/preferences.py`, `translations/addarr.template.yml` + 9 locale files, `tests/test_handlers/test_preferences_handler.py`
@@ -220,6 +196,8 @@ Before finalizing tasks, check:
 ```
 
 ### Medium Feature (API Client + Service + Handler)
+
+How Bazarr was built. Its files exist now; "(new)" shows how to mark a file the task creates.
 
 ```markdown
 ### Phase 4: Bazarr Subtitles (3 tasks)
@@ -258,7 +236,7 @@ Before finalizing tasks, check:
     - **Context:**
         - **Why:** Expose the service through `/subtitles`
         - **Architecture:** `ConversationHandler` with a `BAZARR_SEARCH` state; config-gated registration
-        - **Key refs:** `src/bot/handlers/bazarr.py` callbacks (`bazarr_` prefix), `src/bot/states.py`, `src/main.py:180` (registration on `bazarr.enable`)
+        - **Key refs:** `src/bot/handlers/bazarr.py` callbacks (`bazarr_` prefix), `src/bot/states.py`, `src/main.py` (the Bazarr registration in `AddarrBot._add_handlers()`, on `bazarr.enable`)
         - **Watch out:** Register before `DownloadsHandler` and `StartHandler` (see addarr-handlers `wiring.md`); every user-facing string needs a translation key
     - **Scope:** Handler, state, keyboards, translation keys, registration, integration test
     - **Touches:** `src/bot/handlers/bazarr.py` (new), `src/bot/states.py`, `src/main.py`, `translations/`, `tests/test_handlers/test_bazarr_handler.py` (new), `tests/integration/test_bazarr_flow.py` (new)

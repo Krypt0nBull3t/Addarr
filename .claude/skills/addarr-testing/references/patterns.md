@@ -19,7 +19,7 @@ All HTTP clients use `aiohttp`, Transmission included. Test with `aioresponses`.
 ### URL Patterns
 
 | Client | API Version | Base URL |
-|--------|------------|----------|
+|-|-|-|
 | Radarr | `/api/v3/` | `http://localhost:7878` |
 | Sonarr | `/api/v3/` | `http://localhost:8989` |
 | Lidarr | `/api/v1/` | `http://localhost:8686` |
@@ -57,20 +57,19 @@ async def test_search_connection_error(radarr_client, aio_mock, radarr_url):
 
 ```python
 async def test_add_movie_success(radarr_client, aio_mock, radarr_url):
-    # Mock the lookup first
+    # Mock the lookup first (add_movie uses the first result of the list)
     aio_mock.get(
-        f"{radarr_url}/api/v3/movie/lookup/tmdb/123",
-        payload={"tmdbId": 123, "title": "Test Movie"}
+        f"{radarr_url}/api/v3/movie/lookup?term=tmdb:123",
+        payload=[{"tmdbId": 123, "title": "Test Movie"}]
     )
-    # Mock the POST
+    # Mock the POST (sent with max_retries=0, so one mock is enough)
     aio_mock.post(
         f"{radarr_url}/api/v3/movie",
         payload={"id": 1, "title": "Test Movie"}
     )
-    success, message = await radarr_client.add_movie(
-        tmdb_id=123, quality_profile_id=1, root_folder="/movies"
-    )
+    success, message = await radarr_client.add_movie(123, "/movies", 1)
     assert success is True
+    assert message == "Successfully added Test Movie"
 ```
 
 ### Transmission (async, aiohttp)
@@ -138,21 +137,21 @@ async def test_search_movies(mock_radarr_client):
 
 ### Health Service Pattern
 
+`check_service_health(url, api_key, service_type)` opens its own `aiohttp.ClientSession`, so mock it with `aioresponses`:
+
 ```python
 async def test_check_service_health():
+    from aioresponses import aioresponses
     from src.services.health import HealthService
     service = HealthService()
 
-    with patch("aiohttp.ClientSession") as mock_session_class:
-        mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"version": "5.0"})
-        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-
-        online, msg = await service._check_service_health("http://localhost:7878/api/v3/system/status", "test-key")
-        assert online is True
+    with aioresponses() as m:
+        m.get("http://localhost:7878/api/v3/system/status", payload={"version": "5.0"})
+        online, msg = await service.check_service_health(
+            "http://localhost:7878", "test-key", "radarr"
+        )
+    assert online is True
+    assert msg == "Online (v5.0)"
 ```
 
 ### TranslationService Pattern
@@ -164,7 +163,7 @@ def test_get_text():
     from src.services.translation import TranslationService
     service = TranslationService()
     TranslationService._translations = {
-        "en-us": {"greeting": "Hello %(name)s"},
+        "en-us": {"greeting": "Hello %{name}"},
     }
     service._current_language = "en-us"
 
@@ -184,18 +183,22 @@ Handlers create services in `__init__`. Patch service constructors before instan
 from unittest.mock import patch, MagicMock, AsyncMock
 
 async def test_handle_movie(make_update, make_context, mock_media_service, mock_translation_service):
-    with patch("src.bot.handlers.media.MediaService", return_value=mock_media_service):
-        with patch("src.bot.handlers.media.TranslationService", return_value=mock_translation_service):
+    with patch("src.bot.handlers.media.handler.MediaService", return_value=mock_media_service):
+        with patch("src.bot.handlers.media.handler.TranslationService", return_value=mock_translation_service):
             from src.bot.handlers.media import MediaHandler
+            from src.bot.handlers.auth import AuthHandler
+            AuthHandler._authenticated_users = {12345}  # pass @require_auth
             handler = MediaHandler()
             handler.media_service = mock_media_service
             handler.translation = mock_translation_service
 
-    update = make_update(callback_data="menu_movie")
+    update = make_update(text="/movie")
     context = make_context()
     result = await handler.handle_movie(update, context)
     assert context.user_data["search_type"] == "movie"
 ```
+
+The `<name>_handler` fixtures in `tests/test_handlers/conftest.py` do this setup for you; prefer them. `media_handler` exposes the mocks as `media_handler._mock_service` and `media_handler._mock_ts`.
 
 ### Text Message vs Callback Query
 
@@ -212,26 +215,31 @@ update = make_update(callback_data="select_0")
 ```python
 from src.bot.states import States
 
-async def test_search_returns_selecting(handler, make_update, make_context):
-    mock_media_service.search_movies.return_value = [{"title": "Movie"}]
+async def test_search_returns_selecting(media_handler, make_update, make_context):
+    media_handler._mock_service.search_movies.return_value = [{"title": "Movie"}]
     update = make_update(text="Movie")
     context = make_context(user_data={"search_type": "movie"})
-    result = await handler.handle_search(update, context)
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock) as mock_show:
+        result = await media_handler.handle_search(update, context)
     assert result == States.SELECTING
+    mock_show.assert_awaited_once()
+    assert context.user_data["current_index"] == 0
 ```
 
 ### Testing @require_auth
 
 ```python
-async def test_require_auth_blocks_unauthenticated(make_update, make_context):
+async def test_require_auth_blocks_unauthenticated(media_handler, make_update, make_context):
     from src.bot.handlers.auth import AuthHandler
     AuthHandler._authenticated_users = set()  # Empty
 
-    update = make_update(text="/start")
+    update = make_update(text="/movie")
     context = make_context()
 
-    # The decorated handler should reply with auth message
-    result = await decorated_handler(update, context)
+    # handle_movie is decorated with @require_auth: it replies with the auth message
+    result = await media_handler.handle_movie(update, context)
+    assert result is None
+    assert "search_type" not in context.user_data
     update.effective_message.reply_text.assert_called()
 ```
 
@@ -240,8 +248,8 @@ async def test_require_auth_blocks_unauthenticated(make_update, make_context):
 ```python
 def test_get_handler_returns_list():
     from src.bot.handlers.media import MediaHandler
-    with patch("src.bot.handlers.media.MediaService"), \
-         patch("src.bot.handlers.media.TranslationService"):
+    with patch("src.bot.handlers.media.handler.MediaService"), \
+         patch("src.bot.handlers.media.handler.TranslationService"):
         handler = MediaHandler()
     handlers = handler.get_handler()
     assert isinstance(handlers, list)
@@ -257,8 +265,8 @@ Integration tests live in `tests/integration/` and exercise full conversation fl
 ### Infrastructure
 
 | File | Purpose |
-|------|---------|
-| `conftest.py` | `BotHarness` class, update factories, `harness` and `downloads_harness` fixtures |
+|-|-|
+| `conftest.py` | `BotHarness` class, update factories, `harness`, `downloads_harness` and `bazarr_harness` fixtures |
 | `fixtures.py` | Shared test data (search results, quality profiles, queue data) |
 | `api_mocks.py` | Mock API helper for consistent service responses |
 
@@ -287,6 +295,10 @@ async def harness():
 @pytest.fixture
 async def downloads_harness():
     """Like harness but with Transmission + SABnzbd handlers enabled."""
+
+@pytest.fixture
+async def bazarr_harness():
+    """Like harness but with the Bazarr handler enabled."""
 ```
 
 ### Writing a New Integration Test
@@ -355,14 +367,14 @@ def test_with_custom_config(mock_config):
 
 ### Testing with Disabled Services
 
+A changed `mock_config` only reaches code that reads it, so patch `config` where the module under test imports it (`admin_mode` in `tests/test_handlers/conftest.py` does the same):
+
 ```python
-def test_radarr_disabled():
-    from tests.conftest import MockConfig, MOCK_CONFIG_DATA
-    from copy import deepcopy
-    data = deepcopy(MOCK_CONFIG_DATA)
-    data["radarr"]["enable"] = False
-    cfg = MockConfig(data)
-    assert cfg["radarr"]["enable"] is False
+def test_radarr_disabled(mock_config):
+    mock_config._set("radarr", {**mock_config.get("radarr"), "enable": False})
+    with patch("src.services.media.config", mock_config):
+        from src.services.media import MediaService
+        assert MediaService().radarr is None
 ```
 
 ---
@@ -434,8 +446,9 @@ async def test_retry_then_succeed(radarr_client, aio_mock, radarr_url):
     # Second attempt: success (consumed second)
     aio_mock.get(url, payload={"version": "5.0"})
 
-    result = await radarr_client.check_status()
-    assert result is True
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        success, data, error = await radarr_client._make_request("system/status")
+    assert (success, data, error) == (True, {"version": "5.0"}, None)
 ```
 
 For N retries, register N+1 mocks (1 initial + N retries). Example with 2 retries configured:
@@ -447,8 +460,9 @@ async def test_all_retries_exhausted(radarr_client, aio_mock, radarr_url):
     for _ in range(3):
         aio_mock.get(url, exception=aiohttp.ClientError("fail"))
 
-    result = await radarr_client.check_status()
-    assert result is False
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        success, data, error = await radarr_client._make_request("system/status")
+    assert (success, data, error) == (False, None, "Connection error: fail")
 ```
 
 ### Patching asyncio.sleep for Backoff
@@ -462,23 +476,23 @@ async def test_retry_backoff(radarr_client, aio_mock, radarr_url):
     aio_mock.get(url, payload={"version": "5.0"})
 
     with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-        await radarr_client.check_status()
+        await radarr_client._make_request("system/status")
         mock_sleep.assert_called_once_with(1)  # First backoff = 1s
 ```
 
 ### TimeoutError Handling
 
-`asyncio.TimeoutError` does NOT inherit from `aiohttp.ClientError` — they require separate handling but both are retryable:
+`asyncio.TimeoutError` does NOT inherit from `aiohttp.ClientError`; `_make_request` catches both, but never retries a timeout, because a timeout already waited the full timeout. One mock is enough, and `asyncio.sleep` is not awaited:
 
 ```python
-async def test_timeout_triggers_retry(radarr_client, aio_mock, radarr_url):
+async def test_timeout_is_not_retried(radarr_client, aio_mock, radarr_url):
     url = f"{radarr_url}/api/v3/system/status"
     aio_mock.get(url, exception=asyncio.TimeoutError())
-    aio_mock.get(url, payload={"version": "5.0"})
 
-    with patch("asyncio.sleep", new_callable=AsyncMock):
-        result = await radarr_client.check_status()
-        assert result is True
+    with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        success, data, error = await radarr_client._make_request("system/status")
+    assert (success, data, error) == (False, None, "Connection error: timeout")
+    mock_sleep.assert_not_awaited()
 ```
 
 ### Updating Existing Tests for Retry
@@ -498,16 +512,11 @@ for _ in range(3):
 
 ## Session Cleanup
 
-API clients reuse `aiohttp.ClientSession` for performance. Tests must close sessions to prevent mock state leaking across test boundaries.
+API clients reuse one `aiohttp.ClientSession` per client until `close()`.
 
-### Autouse Cleanup Fixture
+### Client Fixtures
 
-```python
-@pytest.fixture(autouse=True)
-async def cleanup_session(radarr_client):
-    yield
-    await radarr_client.close()
-```
+The autouse `cleanup_sessions` fixture in `tests/test_api/conftest.py` closes the `radarr_client`, `sonarr_client`, `lidarr_client` and `bazarr_client` fixtures after each test. Do not add a cleanup fixture of your own.
 
 ### Ad-hoc Client Instances
 
@@ -515,9 +524,10 @@ Tests that create their own client instances (bypassing the shared fixture) must
 
 ```python
 async def test_custom_client():
+    from src.api.radarr import RadarrClient
     client = RadarrClient()
     try:
-        result = await client.some_method()
+        result = await client.<method>()
         assert result is not None
     finally:
         await client.close()
@@ -525,45 +535,4 @@ async def test_custom_client():
 
 ### Why This Matters
 
-`_get_session()` returns an existing session if one is open. If a previous test's session is still open with stale mock state, the next test inherits that state. The `cleanup_session` fixture ensures each test starts with a fresh session.
-
----
-
-## API Client vs Service Layer Conventions
-
-The codebase has two distinct patterns for API interaction. Tests must match the convention of the layer under test.
-
-### API Client Layer
-
-- URLs built with f-strings and inline query params
-- Returns raw responses: `response.status == 200`
-- Error handling: catches `aiohttp.ClientError`
-- Mock with: `aioresponses` matching exact URL strings (including query params)
-
-```python
-# API client code style
-url = f"{self.base_url}/api/v3/movie/lookup?term={query}"
-async with self._session.get(url) as response:
-    if response.status == 200:
-        return await response.json()
-```
-
-### Service Layer
-
-- Uses params dicts passed to `session.get(url, params=...)`
-- Returns normalized shapes: `data.get('status', False)`
-- Error handling: checks parsed data structure, returns domain-specific defaults
-- Service tests often define their own response dicts inline (not from `sample_data.py`)
-
-```python
-# Service layer code style
-params = {"mode": "queue", "apikey": self._api_key, "output": "json"}
-data = await self._make_request(params=params)
-return {"total": data.get("noofslots", 0), "items": data.get("slots", [])}
-```
-
-### Testing Implications
-
-- API tests: mock exact URLs with `aioresponses`, assert on raw return values
-- Service tests: inject mock clients via class attributes, assert on normalized return shapes
-- SABnzbd API uses `mode=config&name=speedlimit&value=<pct>` query params — spaces in values become `+` encoding in mock URLs
+`_get_session()` keeps the session open until `close()`. An unclosed session outlives its test, and aiohttp reports `Unclosed client session` when it is garbage-collected.

@@ -4,29 +4,6 @@ Common mistakes specific to Addarr's test suite.
 
 ---
 
-## Module-Level Imports
-
-**Don't** import `src.*` modules at the top of test files:
-
-```python
-# BAD - triggers Config() at import time, reads config.yaml from disk
-from src.services.media import MediaService
-```
-
-**Instead**, import inside test functions or fixtures:
-
-```python
-# GOOD
-def test_singleton():
-    from src.services.media import MediaService
-    s1 = MediaService()
-    assert s1 is not None
-```
-
-**Why**: `src/config/settings.py:138` runs `config = Config()` at module level. Any `src.*` import chains back to this. The `tests/conftest.py` mock injection only works if it runs first — module-level imports in test files can race with conftest loading.
-
----
-
 ## Singleton Leakage
 
 **Don't** skip the `reset_singletons` fixture or manually create singletons without cleanup:
@@ -59,7 +36,7 @@ def test_one():
 
 ```python
 # BAD - fragile, locale-dependent
-assert "Welcome to Addarr" in reply_text.call_args[0][0]
+assert "No movie found" in reply_text.call_args[0][0]
 ```
 
 **Instead**, mock `get_text` to return keys and assert on those:
@@ -67,8 +44,8 @@ assert "Welcome to Addarr" in reply_text.call_args[0][0]
 ```python
 # GOOD
 mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-# Then assert:
-assert "Welcome" in reply_text.call_args[0][0]  # Checks for the key
+# Then assert on the key itself:
+assert reply_text.call_args[0][0] == "SearchNoResults"
 ```
 
 **Why**: The autouse `mock_translation` fixture prevents YAML loading but doesn't replace `get_text`. Handler tests need `get_text` to return predictable values. Using translation keys (identity function) makes tests locale-independent.
@@ -90,10 +67,11 @@ async def test_api():
 
 ```python
 # GOOD
-async def test_api(aio_mock, radarr_url):
+async def test_api(radarr_client, aio_mock, radarr_url):
     aio_mock.get(f"{radarr_url}/api/v3/system/status", payload={"version": "5.0"})
     # Client uses aiohttp internally, aioresponses intercepts it
-    result = await client.check_status()
+    success, data, error = await radarr_client._make_request("system/status")
+    assert (success, data, error) == (True, {"version": "5.0"}, None)
 ```
 
 **Why**: Real sessions attempt network connections, making tests slow, flaky, and dependent on external services. `aioresponses` intercepts at the `aiohttp` level, so client code runs normally but HTTP is mocked.
@@ -110,18 +88,23 @@ with patch("src.services.media.config", mock_config):
     service = MediaService()  # But API client also reads config separately
 ```
 
-**Instead**, use the global `sys.modules` injection (already handled by conftest) or patch at every import site:
+**Instead**, set the value on a fresh `mock_config` with `_set()` and patch `config` at every module that reads it. The `admin_mode` fixture in `tests/test_handlers/conftest.py` is the model:
 
 ```python
-# GOOD - conftest.py already handles this globally
-# For per-test config overrides, modify the mock data:
-from tests.conftest import MockConfig, MOCK_CONFIG_DATA
-from copy import deepcopy
-data = deepcopy(MOCK_CONFIG_DATA)
-data["radarr"]["enable"] = False
+# GOOD - admin_mode in tests/test_handlers/conftest.py
+@pytest.fixture
+def admin_mode(mock_config):
+    mock_config._set("security", {
+        "enableAdmin": True, "enableAllowlist": False, "chatMode": "private_only",
+    })
+    mock_config._set("admins", [1])
+    with patch("src.utils.helpers.config", mock_config):
+        yield mock_config
 ```
 
-**Why**: Python creates separate name bindings for each `from X import Y`. Patching `src.config.settings.config` doesn't affect `src.services.media.config` if media.py did `from src.config.settings import config`. The `sys.modules` injection in conftest solves this by replacing the entire module before any imports happen.
+When several modules read the value, patch each of them in the same `with`.
+
+**Why**: Python creates separate name bindings for each `from X import Y`. Patching `src.config.settings.config` doesn't affect `src.services.media.config` if media.py did `from src.config.settings import config`. The `sys.modules` injection in conftest only decides which object every module binds at import time. To change a value for one test, patch the binding the code under test reads. A fresh `mock_config` keeps the change out of other tests.
 
 ---
 
@@ -140,46 +123,47 @@ with patch("src.services.media.MediaService"):
 
 ```python
 # GOOD - patch where the handler imports it from
-with patch("src.bot.handlers.media.MediaService", return_value=mock_media_service):
+with patch("src.bot.handlers.media.handler.MediaService", return_value=mock_media_service):
     from src.bot.handlers.media import MediaHandler
     handler = MediaHandler()
 ```
 
-**Why**: Python name bindings are per-module. When `media.py` does `from src.services.media import MediaService`, it creates a local binding. Patching the source module doesn't affect that local binding. You must patch at `src.bot.handlers.media.MediaService`. This applies to all services, not just config — three separate issues (#17, #67, #78) independently hit this.
+**Why**: Python name bindings are per-module. When `src/bot/handlers/media/handler.py` does `from src.services.media import MediaService`, it creates a local binding. Patching the source module doesn't affect that local binding. You must patch at `src.bot.handlers.media.handler.MediaService`; the `src.bot.handlers.media` package only re-exports `MediaHandler` and the states. This applies to all services, not just config. Three separate issues (#17, #67, #78) independently hit this.
 
 ---
 
 ## Not Cleaning Up Sessions Between Tests
 
-**Don't** skip session cleanup when testing API clients with reusable sessions:
+The `radarr_client`, `sonarr_client`, `lidarr_client` and `bazarr_client` fixtures need nothing: the autouse `cleanup_sessions` fixture in `tests/test_api/conftest.py` closes them after each test. Do not add a cleanup fixture of your own.
+
+**Don't** leave the session of a client you create yourself open:
 
 ```python
-# BAD - session persists, mock state leaks to next test
-async def test_one(radarr_client, aio_mock, radarr_url):
+# BAD - not a fixture, so cleanup_sessions never closes it
+async def test_custom_client(aio_mock, radarr_url):
+    from src.api.radarr import RadarrClient
+    client = RadarrClient()
     aio_mock.get(f"{radarr_url}/api/v3/system/status", payload={"version": "5.0"})
-    await radarr_client.check_status()
-    # Session stays open with stale mock state
+    await client._make_request("system/status")
+    # Session stays open
 ```
 
-**Instead**, use an autouse cleanup fixture or close explicitly:
+**Instead**, close it in `finally`:
 
 ```python
-# GOOD - autouse fixture closes session after each test
-@pytest.fixture(autouse=True)
-async def cleanup_session(radarr_client):
-    yield
-    await radarr_client.close()
-
 # GOOD - explicit cleanup for ad-hoc clients
-async def test_custom_client():
+async def test_custom_client(aio_mock, radarr_url):
+    from src.api.radarr import RadarrClient
     client = RadarrClient()
+    aio_mock.get(f"{radarr_url}/api/v3/system/status", payload={"version": "5.0"})
     try:
-        result = await client.some_method()
+        success, data, error = await client._make_request("system/status")
+        assert success is True
     finally:
         await client.close()
 ```
 
-**Why**: `BaseApiClient._get_session()` returns the existing session if one is open. Without cleanup, the next test inherits a session with stale mock state, causing mysterious failures. Two issues (#21, #76) hit this independently.
+**Why**: `BaseApiClient._get_session()` opens one `aiohttp.ClientSession` per client and keeps it until `close()`. An unclosed session outlives its test, and aiohttp reports `Unclosed client session` when it is garbage-collected. Two issues (#21, #76) hit this independently.
 
 ---
 
@@ -217,8 +201,10 @@ def test_reset_config():
 ```python
 # BAD - only 1 mock but client retries 2 times (needs 3 total)
 aio_mock.get(url, exception=aiohttp.ClientError("fail"))
-result = await client.check_status()
-# Raises ConnectionError on second attempt because no mock is registered
+success, data, error = await radarr_client._make_request("system/status")
+# The retries find no mock: aioresponses raises
+# ClientConnectionError("Connection refused: GET ..."), which _make_request
+# catches, so error ends as "Connection error: Connection refused: GET ..."
 ```
 
 **Instead**, register one mock per attempt (initial + retries):
@@ -229,11 +215,11 @@ for _ in range(3):
     aio_mock.get(url, exception=aiohttp.ClientError("fail"))
 
 with patch("asyncio.sleep", new_callable=AsyncMock):
-    result = await client.check_status()
-    assert result is False
+    success, data, error = await radarr_client._make_request("system/status")
+assert (success, data, error) == (False, None, "Connection error: fail")
 ```
 
-**Why**: `aioresponses` mocks are consumed in FIFO order per URL. Each request consumes one mock. If the client retries twice after the initial failure, you need 3 mocks total. Also remember to patch `asyncio.sleep` to avoid real delays during retries.
+**Why**: `aioresponses` mocks are consumed in FIFO order per URL. Each request consumes one mock. If the client retries twice after the initial failure, you need 3 mocks total. Without them, the test checks aioresponses' "no mock" error instead of the one you set up. Also remember to patch `asyncio.sleep` to avoid real delays during retries. A timeout is never retried, so it needs one mock (see `_make_request` in `src/api/base.py`).
 
 ---
 

@@ -23,9 +23,9 @@ Built from the `CallbackQueryHandler(..., pattern=...)` calls in `src/bot/handle
 | `listpage_` | MediaHandler | `listpage_2`, `listpage_noop` | List view pagination |
 | `viewtoggle` | MediaHandler | `viewtoggle` | Toggle card/list view |
 | `quality_` | MediaHandler | `quality_<profile id>`, `quality_cancel` | Quality profile selection |
-| `season_` | MediaHandler | `season_5`, `season_all`, `season_confirm`, `season_future_seasons` | Season selection |
+| `season_` | MediaHandler | `season_5`, `season_all`, `season_confirm`, `season_future_seasons`, `season_future_episodes`, `season_monitor_all` | Season selection (buttons built in `src/bot/handlers/media/season_picker.py`) |
 | `album_monitor_mode_` | MediaHandler | `album_monitor_mode_all`, `album_monitor_mode_pick` | Lidarr: monitor all albums or pick |
-| `albumsel_` | MediaHandler | `albumsel_<album id>`, `albumsel_all`, `albumsel_confirm` | Lidarr album selection |
+| `albumsel_` | MediaHandler | `albumsel_<album id>`, `albumsel_all`, `albumsel_confirm`, `albumsel_future`, `albumsel_monitor_all` | Lidarr album selection (`get_album_selection_keyboard` in `src/bot/keyboards.py`) |
 | `menu_settings` | SettingsHandler | `menu_settings` | Open settings (conversation entry) |
 | `settings_` | SettingsHandler | `settings_language`, `settings_radarr`, `settings_downloads`, `settings_users`, `settings_back` | Settings sub-menus and back |
 | `lang_` | SettingsHandler | `lang_en-us` | Language selection |
@@ -83,9 +83,16 @@ CallbackQueryHandler(self.handle_nav, pattern="^(nav_|listpage_)")
 
 ### Single value
 ```python
-# callback_data = "select_42"
-index = int(query.data.replace("select_", ""))  # 42
+# callback_data = "select_603" or "select_cancel"
+selection = query.data.replace("select_", "")  # "603": result ids are strings
+if selection == "cancel":
+    await send_response(query.message, "🚫 Search cancelled.")
+    return ConversationHandler.END
+results = context.user_data.get("search_results", [])
+selected = next((r for r in results if r["id"] == selection), None)
 ```
+
+Search result ids are strings (`str(tmdbId)`, `str(tvdbId)`, `album:<id>`), built in `src/services/media.py`. Do not cast them to `int`.
 
 ### Multi-part value
 ```python

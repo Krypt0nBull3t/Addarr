@@ -9,32 +9,31 @@ Gate for `development` -> `main` merges. Default stance: **NOT READY** unless al
 
 ## Phase 1: Code Quality
 
-* [ ] **Bug review** — Run `addarr-find-bugs` on full diff: `git diff main...development`
-* [ ] **Simplification** — Run `simplify` on full diff
-* [ ] **No debug artifacts** — No `TODO`, `FIXME`, `HACK` comments in changed files
-* [ ] **No print statements** — No `print()` in `src/` (use `get_logger` from `src/utils/logger.py`)
-* [ ] **No bare excepts** — No `except:` without specific exception types in `src/`
+Run `git fetch origin` first. The diffs below compare the remote branches, not stale local ones.
+
+* [ ] **Bug review**: Run `addarr-find-bugs` on `git diff origin/main...origin/development` (this range overrides its Phase 1)
+* [ ] **No debug artifacts**: No `TODO`, `FIXME`, `HACK` comments in changed files
+* [ ] **No print statements**: No `print()` in `src/` (use `get_logger` from `src/utils/logger.py`)
+* [ ] **No bare excepts**: No `except:` without specific exception types in `src/`
 
 ## Phase 2: Test Confidence
 
-* [ ] **Full suite passes** — `pytest --tb=short -q`
-* [ ] **Coverage threshold** — `pytest --cov=src --cov-report=term-missing` on changed modules
-* [ ] **Architecture tests pass** — Both `tests/test_architecture/test_layer_boundaries.py` and `tests/test_architecture/test_conventions.py`
-* [ ] **Integration tests** — `pytest tests/integration/ --tb=short -v` covers all modified handler flows
+* [ ] **Preflight passes**: Run `/addarr check` (the addarr-workflow preflight, which runs the ci.yml lint, type, i18n, unit-with-100%-coverage, integration and architecture commands). Report a failure; do not fix it here.
+* [ ] **Integration coverage**: `tests/integration/` has a flow test for every handler flow the release adds or changes
 
 ## Phase 3: Documentation & Metadata
 
-* [ ] **Completion metadata** — All TASKS.md files for included issues have `**Completed:**`, `**Learnings:**`, `**Key Changes:**`, `**Notes:**` fields
-* [ ] **Config template** — Any new config keys are present in `config_example.yaml`
-* [ ] **Translation coverage** — New translation keys present in all locale files: `PYTHONIOENCODING=utf-8 python run.py --validate-i18n`
-* [ ] **CLAUDE.md current** — Any new conventions, services, or patterns reflected in project CLAUDE.md
+* [ ] **Completion metadata**: All TASKS.md files for included issues have `**Completed:**`, `**Learnings:**`, `**Key Changes:**`, `**Notes:**` fields
+* [ ] **Config template**: Any new config keys are present in `config_example.yaml`
+* [ ] **Translation coverage**: New translation keys present in all locale files: `PYTHONIOENCODING=utf-8 python run.py --validate-i18n`
+* [ ] **CLAUDE.md current**: Any new conventions, services, or patterns reflected in project CLAUDE.md
 
 ## Phase 4: Release Safety
 
-* [ ] **Preflight passes** — Full preflight: pytest, flake8, mypy, i18n validation
-* [ ] **Docker build** — `docker build -t addarr .` succeeds
-* [ ] **No blocking issues** — Check for open issues tagged as blockers: `gh issue list --repo Krypt0nBull3t/Addarr --label blocker`
-* [ ] **Clean diff** — `git diff main...development --stat` shows only expected files changed
+* [ ] **CI green on development**: ci.yml runs on pull requests only, so check the last PR merged into `development`: `gh pr list --repo Krypt0nBull3t/Addarr --base development --state merged --limit 1 --json number,mergedAt`, then `gh pr checks <number> --repo Krypt0nBull3t/Addarr`. Its checks cover the 3.10-3.14 matrix and pip-audit, which no local check runs (pip-audit is `continue-on-error`, so read its result, not only the overall status).
+* [ ] **Docker build**: `docker build -t addarr-test .` succeeds (the CI tag; `-t addarr` would overwrite the user's image)
+* [ ] **No blocking issues**: `gh issue list --repo Krypt0nBull3t/Addarr --state open --label priority:critical`, and the same with `--label security`, list no open issues
+* [ ] **Clean diff**: `git diff origin/main...origin/development --stat` shows only expected files changed
 
 ## Output
 

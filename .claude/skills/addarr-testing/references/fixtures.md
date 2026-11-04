@@ -216,7 +216,7 @@ Sets `security.enableAdmin` on and `admins` to `[1]` on `mock_config`, and patch
 
 Each one patches the handler's services where the handler module imports them, sets `AuthHandler._authenticated_users = {12345}`, and yields the handler. The mocks are on `_mock_*` attributes (for example `handler._mock_service`, `handler._mock_ts`).
 
-`media_handler`, `delete_handler`, `start_handler`, `transmission_handler`, `sabnzbd_handler`, `help_handler`, `library_handler`, `system_handler`, `settings_handler`, `calendar_handler`, `missing_handler`, `queue_handler`, `history_handler`, `preferences_handler`
+`media_handler`, `delete_handler`, `start_handler`, `transmission_handler`, `help_handler`, `library_handler`, `system_handler`, `settings_handler`, `calendar_handler`, `missing_handler`, `queue_handler`, `history_handler`, `preferences_handler`
 
 `auth_handler` is the exception: it starts with no authenticated users.
 
@@ -248,7 +248,7 @@ from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
 ```
 
 | Constant | Type | Description |
-|----------|------|-------------|
+|-|-|-|
 | `RADARR_SEARCH_RESULTS` | list[dict] | 2 movie results with tmdbId, title, year, etc. |
 | `RADARR_MOVIE_DETAIL` | dict | Single movie with full fields |
 | `RADARR_ROOT_FOLDERS` | list[dict] | Root folder paths with free space |
@@ -274,7 +274,7 @@ from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
 Bazarr responses are in `tests/fixtures/bazarr_data.py` (`from tests.fixtures.bazarr_data import BAZARR_MOVIES`):
 
 | Constant | Type | Description |
-|----------|------|-------------|
+|-|-|-|
 | `BAZARR_SYSTEM_STATUS` | dict | `data` with Bazarr, Sonarr and Radarr versions |
 | `BAZARR_MOVIES` | dict | `data` list of movies with subtitles, and `total` |
 | `BAZARR_MOVIES_WANTED` | dict | `data` list of movies missing subtitles, and `total` |
