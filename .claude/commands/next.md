@@ -4,7 +4,6 @@ Continue working through TASKS.md:
 2. Find the next uncompleted task (not marked with `[x]`)
 3. Before starting work, check if one of these skills applies to the task:
     - `addarr-testing` - Testing patterns for async Telegram bot handlers, aiohttp API clients, and singleton services
-    - `superpowers:test-driven-development` - Python testing strategies using pytest, TDD methodology, fixtures, mocking
     - `task-writer` - Breaking down features into sized tasks with TDD ordering
     If a skill applies, invoke it first.
 

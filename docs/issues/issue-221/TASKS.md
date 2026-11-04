@@ -119,7 +119,7 @@ and `src/main.py`, with Python and pytest examples only.
 - Source: review of PR #234 (2026-11-04). The PR has no human review comments; the automated review found nothing.
 - Every claim written in a skill must be checked against `src/` and `tests/`.
 
-- [ ] **2.1** [must-fix] Remove the duplicate skill references left by the `python-testing-pro` swap
+- [x] **2.1** [must-fix] Remove the duplicate skill references left by the `python-testing-pro` swap
     - **Context:**
         - **Why:** Replacing `python-testing-pro` with `superpowers:test-driven-development` created duplicate rows and entries, and one entry with a wrong description
         - **Architecture:** Delete the replacement entries; keep the `superpowers:test-driven-development` entries that existed before #221
@@ -131,6 +131,10 @@ and `src/main.py`, with Python and pytest examples only.
         - [RED] List every `superpowers:test-driven-development` line; see the duplicates
         - [GREEN] Delete the duplicate rows and entries
     - **Success:** Each file names `superpowers:test-driven-development` only where it did before #221
+    - **Completed:** 2026-11-04
+    - **Learnings:** A blind search-and-replace of a deleted skill name doubles entries wherever the replacement was already listed. Remove the reference instead of swapping in a user-level plugin.
+    - **Key Changes:** Deleted the `superpowers:test-driven-development` rows that replaced `python-testing-pro` in `addarr-workflow/SKILL.md` (Execution Loop and Skill Reference tables), the duplicate entry in `commands/addarr-setup.md`, the wrongly described entry in `commands/next.md`, and the doubled mention in `addarr-testing/SKILL.md:8`.
+    - **Notes:** The remaining `superpowers:test-driven-development` references all existed before #221.
 
 - [ ] **2.2** [must-fix] F290: Document the fixtures and constants that exist in `tests/`
     - **Context:**

@@ -5,7 +5,7 @@ description: Use when writing tests for Addarr, setting up test fixtures, or deb
 
 # Addarr Testing
 
-Addarr-specific test patterns. For generic pytest knowledge (TDD cycle, fixtures, parametrization, mocking, async), see @superpowers:test-driven-development and @superpowers:test-driven-development.
+Addarr-specific test patterns. For generic pytest knowledge (TDD cycle, fixtures, parametrization, mocking, async), see @superpowers:test-driven-development.
 
 ## Quick Start
 

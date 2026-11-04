@@ -8,7 +8,6 @@ Argument: $ARGUMENTS
 - `addarr-testing`
 - `addarr-handlers`
 - `addarr-services`
-- `superpowers:test-driven-development`
 
 ### If argument is `dev` (or no argument):
 - `task-writer`

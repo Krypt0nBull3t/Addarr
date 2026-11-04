@@ -166,7 +166,6 @@ when the specific trigger condition is met — never routinely per task or per b
 | `@addarr-handlers` | First task in a session that touches `src/bot/handlers/` |
 | `@addarr-services` | First task in a session that touches `src/services/` or `src/api/` |
 | `@addarr-testing` | First task in a session that touches `tests/` |
-| `@superpowers:test-driven-development` | Facing a non-trivial test design question (parametrize strategy, complex mock setup, fixture architecture) |
 | `@superpowers:test-driven-development` | First task in a session (load once to set TDD discipline) |
 | `@superpowers:verification-before-completion` | After all tasks complete, before create-pr flow |
 | `@addarr-code-simplifier` | Refactor step produces overly complex code; also invoked in create-pr step 1 |
@@ -248,7 +247,6 @@ on-demand table in the Execution Loop section for per-task triggers.
 | `@addarr-handlers` | Handler class patterns | First handler task in session |
 | `@addarr-services` | Service/API client patterns | First service/API task in session |
 | `@addarr-testing` | Project-specific test patterns | First test-writing task in session |
-| `@superpowers:test-driven-development` | Advanced pytest strategies | Non-trivial test design questions |
 | `@addarr-code-simplifier` | Structural clarity & readability | create-pr step 1; also during execution when refactor produces complex code |
 | `@addarr-find-bugs` | Security, bugs, async/Telegram errors | create-pr step 1 |
 | `@simplify` | Code reuse, quality patterns, efficiency | create-pr step 1 |
