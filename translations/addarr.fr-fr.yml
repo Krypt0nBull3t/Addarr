@@ -68,7 +68,7 @@ fr-fr:
     CancelHint: "(Utilisez /cancel pour annuler)"
     Add: "✅ Oui, ajoutez ce %{subject}"
     This: "❓ Est-ce %{subjectWithArticle} que vous souhaitez ajouter ?"
-    ThisDelete: "❓ Ce %{subjectWithArticle} est-il à supprimer ?"
+    ThisDelete: "❓ Ce %{subjectWithArticle} est-il à supprimer : %{title} ? Les fichiers sur le disque sont aussi supprimés."
     AddFailed: "❌ Oups, impossible d'ajouter %{subjectWithArticle}. Réessayez."
     DeleteFailed: "❌ Oups, impossible de supprimer %{subjectWithArticle}. Réessayez."
     AddSuccess: "✅ %{subjectWithArticle} a été ajouté avec succès 🙂"

@@ -68,7 +68,7 @@ ru-ru:
     CancelHint: "(Используйте /cancel для отмены)"
     Add: "✅ Да, добавить %{subject}"
     This: "❓ Этот %{subjectWithArticle} вы хотите добавить?"
-    ThisDelete: "❓ Этот %{subjectWithArticle} вы хотите удалить?"
+    ThisDelete: "❓ Этот %{subjectWithArticle} вы хотите удалить: %{title}? Файлы на диске тоже будут удалены."
     AddFailed: "❌ Упс, не удалось добавить %{subjectWithArticle}. Попробуйте еще раз."
     DeleteFailed: "❌ Упс, не удалось удалить %{subjectWithArticle}. Попробуйте еще раз."
     AddSuccess: "✅ %{subjectWithArticle} успешно добавлен 🙂"

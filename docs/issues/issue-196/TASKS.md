@@ -13,7 +13,7 @@ Branch: `fix/196-delete-wrong-media`. PR targets `development`.
 - Why NOT a keep-files option: decided 2026-10-28. The prompt says it. `deleteFiles=true` and `enableAdmin` stay.
 - Why the helper lives here: issue #223 (F265) is open. It specifies `_build_pagination_row`. #223 replaces the other 5 copies later.
 
-- [ ] **1.1** ThisDelete names the title and the files (F003, F001)
+- [x] **1.1** ThisDelete names the title and the files (F003, F001)
     - **Context:**
         - **Why:** The confirm text has no title and does not say the files on disk are deleted. The handler passes `title=` but `ThisDelete` has no `%{title}`.
         - **Architecture:** `TranslationService.get_message("ThisDelete", subject=..., title=...)` reads `messages.ThisDelete`. `get_message` adds `title` to the params (`src/services/translation.py:118`).
@@ -27,6 +27,14 @@ Branch: `fix/196-delete-wrong-media`. PR targets `development`.
         - [GREEN] Edit the 10 files with the texts in `plan.md` Task 1
         - [GREEN] Run `PYTHONIOENCODING=utf-8 python run.py --validate-i18n`
     - **Success:** New tests fail before and pass after. `--validate-i18n`, flake8 and the translation tests pass.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Each locale file nests its keys under one top-level locale key (`en-us:`), and the template under its own key. The test reads the single top-level value.
+        - A first run failed with `KeyError: 'messages'`, not on the missing placeholder. Fix the reader before trusting a red run.
+    - **Key Changes:**
+        - `translations/addarr.*.yml` (9 locales and the template): `messages.ThisDelete` now has `%{title}` and a files-on-disk sentence
+        - New `tests/test_services/test_delete_prompt_translations.py`
+    - **Notes:** `#224` (F211) rewrites `ThisDelete` in fr, it, pt and de later. Expect a small merge touch there.
 
 - [ ] **1.2** Paged delete item keyboard (F004)
     - **Context:**

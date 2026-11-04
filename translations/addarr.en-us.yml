@@ -56,7 +56,7 @@ en-us:
     CancelHint: "(Use /cancel to cancel)"
     Add: "✅ Yes, add this %{subject}"
     This: "❓ Is this %{subjectWithArticle} you want to add?"
-    ThisDelete: "❓ Is this %{subjectWithArticle} you want to delete?"
+    ThisDelete: "❓ Is this %{subjectWithArticle} you want to delete: %{title}? It and its files on disk are deleted too."
     AddFailed: "❌ Oops, failed to add %{subjectWithArticle}. Maybe give it another try."
     DeleteFailed: "❌ Oops, failed to delete %{subjectWithArticle}. Maybe give it another try."
     AddSuccess: "✅ %{subjectWithArticle} is added successfully 🙂"

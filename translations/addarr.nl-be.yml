@@ -68,7 +68,7 @@ nl-be:
     CancelHint: "(Gebruik /cancel om te annuleren)"
     Add: "✅ Ja, voeg deze %{subject} toe"
     This: "❓ Is dit %{subjectWithArticle} die je wilt toevoegen?"
-    ThisDelete: "❓ Is dit %{subjectWithArticle} die je wilt verwijderen?"
+    ThisDelete: "❓ Is dit %{subjectWithArticle} die je wilt verwijderen: %{title}? De bestanden op schijf worden ook verwijderd."
     AddFailed: "❌ Oeps, mislukt om %{subjectWithArticle} toe te voegen. Probeer misschien nog eens."
     DeleteFailed: "❌ Oeps, %{subjectWithArticle} verwijderen mislukt. Probeer misschien nog eens."
     AddSuccess: "✅ %{subjectWithArticle} is succesvol toegevoegd 🙂"
