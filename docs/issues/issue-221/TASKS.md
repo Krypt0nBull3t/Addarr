@@ -112,7 +112,7 @@ and `src/main.py`, with Python and pytest examples only.
     - **Key Changes:** `task-writer/SKILL.md` (see 2.4).
     - **Notes:** none
 
-- [ ] **1.8** Verify: acceptance greps from #221 and preflight
+- [x] **1.8** Verify: acceptance greps from #221 and preflight
     - **Context:** Acceptance criteria in #221
     - **Watch out:** Run every grep and show its output; a passing preflight does not prove the doc criteria
     - **Scope:** Verification only
@@ -121,7 +121,10 @@ and `src/main.py`, with Python and pytest examples only.
         - [GREEN] Run all acceptance greps
         - [GREEN] Run pytest, flake8, mypy and validate-i18n
     - **Success:** Every grep and check passes
-    - **Reopened (2026-11-04):** Was marked done with "All checks pass" while the F290 grep still matched. Finished by 2.7.
+    - **Completed:** 2026-11-04 (finished by 2.7)
+    - **Learnings:** A green preflight says nothing about doc acceptance criteria; run and record each grep.
+    - **Key Changes:** none (verification only)
+    - **Notes:** Results in 2.7.
 
 ### Phase 2: PR #234 review feedback (7 tasks)
 
@@ -248,7 +251,7 @@ and `src/main.py`, with Python and pytest examples only.
     - **Key Changes:** Credit lines in `addarr-find-bugs/SKILL.md:8` and `addarr-code-simplifier/SKILL.md:8` reworded, linked to `https://github.com/getsentry/skills`, license named.
     - **Notes:** none
 
-- [ ] **2.7** Verify: acceptance greps from #221 and preflight
+- [x] **2.7** Verify: acceptance greps from #221 and preflight
     - **Context:** Replaces 1.8. Acceptance criteria in #221.
     - **Watch out:** Run tests, lint, type check and push under the suite lock
     - **Scope:** Verification only
@@ -257,3 +260,10 @@ and `src/main.py`, with Python and pytest examples only.
         - [GREEN] Run every acceptance grep from #221 and record the output
         - [GREEN] Run pytest, flake8, mypy and validate-i18n
     - **Success:** Every grep returns nothing (or the expected text); every check passes
+    - **Completed:** 2026-11-04
+    - **Learnings:** The literal F294 wording ("names `find-bugs` without the `addarr-` prefix") is checkable with `git grep -nE "(^|[^-])(find-bugs|code-simplifier)|git-cleanup|python-testing-pro" -- .claude`; `git grep` limits it to tracked files, so the untracked `.claude/worktrees/` copies of other branches do not count.
+    - **Key Changes:** none (verification only)
+    - **Notes:**
+        - F290, F294 (directories and names), F296, F291 greps: no output. F295: `get_message()` note present, no exit-0 claim.
+        - F292: both blocks match `config_example.yaml` key for key (inline comments left out). F293: wiring list equals the 18 `*Handler()` calls in `src/main.py`; every `pattern=` in `src/bot/handlers/` matches a registry entry.
+        - Preflight under the suite lock: pytest 2123 passed, flake8 clean, mypy clean (72 files), `--validate-i18n` all valid.
