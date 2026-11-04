@@ -5,6 +5,8 @@ import re
 import shutil
 import subprocess
 
+import pytest
+
 ROOT = os.path.dirname(os.path.dirname(__file__))
 SERVICE = os.path.join(ROOT, "scripts", "addarr.service")
 INSTALL_SH = os.path.join(ROOT, "scripts", "install.sh")
@@ -155,7 +157,7 @@ class TestSudoHandling:
             'check_sudo; echo "[$SUDO]"\n'
         )
         if os.geteuid() != 0 and shutil.which("sudo") is None:
-            return  # check_sudo exits here by design: nothing to prefix with
+            pytest.skip("check_sudo exits here by design: nothing to prefix with")
         result = subprocess.run(["bash", "-c", script], check=True, capture_output=True, text=True)
         expected = "[]" if os.geteuid() == 0 else "[sudo]"
         assert result.stdout.strip() == expected
