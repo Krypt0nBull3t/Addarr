@@ -32,7 +32,7 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - `tests/test_handlers/test_media_handler.py`: `test_season_untick_after_all_seasons_monitors_only_remaining`.
     - **Notes:** `future_seasons` and `future_episodes` keep their meaning on a single-season toggle.
 
-- [ ] **1.2** F062: a quality button acts only on the keyboard it was drawn for
+- [x] **1.2** F062: a quality button acts only on the keyboard it was drawn for
     - **Context:**
         - **Why:** `handle_selection` draws the quality keyboard but stores no message id. `handle_quality_selection` acts on any `quality_` callback and overwrites `selected_profile_id`, so a tap on an old movie keyboard reaches the newest series selection.
         - **Architecture:** `MediaHandler` in `src/bot/handlers/media/handler.py`; `context.user_data` keys.
@@ -47,6 +47,16 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - [GREEN] Update the existing quality tests to set the id
         - Integration: extend the media flow test in `tests/integration/` with a stale-button case when it exists and the BotHarness fits (flow rule, step 4)
     - **Success:** new tests fail before and pass after; media handler and integration tests pass; flake8 and mypy clean
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The BotHarness `tap_button(..., message_id=...)` already takes a message id, so the stale-button case needed no harness change. Existing integration taps use the default id 100, which is also the id the keyboard edit stores, so those tests passed unchanged.
+        - The `make_message` factory gives `message.message_id` as an auto attribute. Unit tests set it to an int when they compare it.
+        - Reverted the guard once to watch the integration test fail (`add_movie_with_profile` awaited once), then restored it.
+    - **Key Changes:**
+        - `src/bot/handlers/media/handler.py`: `handle_selection` stores `quality_message_id` after the keyboard edit; `handle_quality_selection` returns `QUALITY_SELECT` for any callback from another message, `quality_cancel` included.
+        - `tests/test_handlers/test_media_handler.py`: two new tests (stores the id, ignores stale `quality_1` and `quality_cancel`); eight existing `handle_quality_selection` tests set `quality_message_id` from the update's message.
+        - `tests/integration/test_media_flow.py`: `test_stale_quality_button_is_ignored`.
+    - **Notes:** A missing stored id counts as a mismatch. #202 moves the add part of `handle_quality_selection` into `_continue_with_profile`; the guard stays at the top of `handle_quality_selection`, so a rebase keeps it.
 
 - [ ] **1.3** F061: abandoned search ends after a timeout
     - **Context:**

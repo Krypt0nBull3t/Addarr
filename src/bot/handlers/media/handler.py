@@ -485,6 +485,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                             text=message_text,
                             reply_markup=InlineKeyboardMarkup(keyboard)
                         )
+                    # Only this keyboard may answer: older ones are stale
+                    context.user_data["quality_message_id"] = query.message.message_id
                     return QUALITY_SELECT
                 else:
                     success, message = result
@@ -511,6 +513,10 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
 
         query = update.callback_query
         await query.answer()
+
+        # A button from an older keyboard must not act on the newest selection
+        if query.message.message_id != context.user_data.get("quality_message_id"):
+            return QUALITY_SELECT
 
         if query.data == "quality_cancel":
             await send_response(

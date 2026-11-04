@@ -9,6 +9,7 @@ handler holds a reference obtained at construction time.
 import pytest
 from unittest.mock import AsyncMock, patch
 
+from src.bot.handlers.media.dispatch import QUALITY_SELECT
 from src.services.media import MediaService
 
 from tests.integration.fixtures import (
@@ -52,6 +53,29 @@ async def test_movie_happy_path(harness):
         resp = await harness.tap_button("quality_1")
         assert resp is not None
         assert "added" in resp.text.lower() or "Fight Club" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_stale_quality_button_is_ignored(harness):
+    """A quality tap from an older keyboard adds nothing; the live one still adds."""
+    with (
+        patch.object(MediaService, "search_movies", new_callable=AsyncMock, return_value=MOVIE_SEARCH_RESULTS),
+        patch.object(MediaService, "add_movie", new_callable=AsyncMock, return_value=MOVIE_QUALITY_RESULT),
+        patch.object(MediaService, "add_movie_with_profile", new_callable=AsyncMock, return_value=(True, "Fight Club added")) as add,
+    ):
+        await harness.send_command("/movie")
+        await harness.send_text("fight club")
+        await harness.tap_button("select_550")
+
+        await harness.tap_button("quality_1", message_id=999)
+
+        add.assert_not_awaited()
+        assert harness.get_conversation_state(MEDIA_CONVERSATION) == QUALITY_SELECT
+
+        resp = await harness.tap_button("quality_1")
+
+    add.assert_awaited_once()
+    assert "Fight Club added" in resp.text
 
 
 @pytest.mark.asyncio

@@ -282,6 +282,62 @@ async def test_handle_selection_quality_selection(
 
 
 @pytest.mark.asyncio
+async def test_handle_selection_stores_quality_message_id(
+    media_handler, make_update, make_context
+):
+    """F062: the quality keyboard's message id is stored for later checks."""
+    media_handler._mock_service.add_movie = AsyncMock(return_value={
+        "type": "quality_selection",
+        "profiles": [{"id": 1, "name": "HD-1080p"}],
+        "root_folder": "/movies",
+    })
+
+    update = make_update(callback_data="select_123")
+    update.callback_query.message.photo = None
+    update.callback_query.message.message_id = 7
+    context = make_context(user_data={
+        "search_type": "movie",
+        "search_results": [{"id": "123", "title": "Test Movie"}],
+    })
+
+    await media_handler.handle_selection(update, context)
+
+    assert context.user_data["quality_message_id"] == 7
+
+
+@pytest.mark.parametrize("callback_data", ["quality_1", "quality_cancel"])
+@pytest.mark.asyncio
+async def test_stale_quality_callback_is_ignored(
+    media_handler, make_update, make_context, callback_data
+):
+    """F062: a quality callback from an older keyboard changes and adds nothing."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    media_handler._mock_service.add_movie_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+    update = make_update(callback_data=callback_data)
+    update.callback_query.message.photo = None
+    update.callback_query.message.message_id = 99
+    context = make_context(user_data={
+        "search_type": "series",
+        "selected_media": {"id": "123", "title": "Test Series"},
+        "quality_message_id": 7,
+        "quality_data": {
+            "profiles": [{"id": 5, "name": "Sonarr HD"}],
+            "root_folder": "/tv",
+        },
+    })
+
+    result = await media_handler.handle_quality_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    assert "selected_profile_id" not in context.user_data
+    media_handler._mock_service.add_movie_with_profile.assert_not_awaited()
+    update.callback_query.message.reply_text.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_handle_selection_quality_selection_with_photo(
     media_handler, make_update, make_context
 ):
@@ -518,6 +574,7 @@ async def test_handle_quality_cancel(media_handler, make_update, make_context):
     update.callback_query.message.photo = None
     context = make_context()
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -543,6 +600,7 @@ async def test_handle_quality_selection_movie(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -570,6 +628,7 @@ async def test_handle_quality_selection_series_with_seasons(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == SEASON_SELECT
@@ -584,6 +643,7 @@ async def test_handle_quality_selection_no_data(
     update.callback_query.message.photo = None
     context = make_context(user_data={"search_type": "movie"})
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -610,6 +670,7 @@ async def test_handle_quality_selection_exception(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -2588,6 +2649,7 @@ async def test_handle_quality_selection_music_artist_shows_album_monitor(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ALBUM_SELECT
@@ -2616,6 +2678,7 @@ async def test_handle_quality_selection_music_album_adds_directly(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -2648,6 +2711,7 @@ async def test_handle_quality_selection_music_song_adds_with_album(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
