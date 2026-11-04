@@ -125,7 +125,7 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
 
 **Goal:** The whole change passes the CI checks.
 
-- [ ] **3.1** Preflight
+- [x] **3.1** Preflight
     - **Context:**
         - **Why:** The PR must pass every CI job, including the 100% coverage gate.
         - **Architecture:** Flow `preflight` (`references/preflight.md`) through the suite lock.
@@ -136,3 +136,8 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
     - **Action items:**
         - [GREEN] Run the preflight
     - **Success:** All checks pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The retrospective added one entry, "Patching the Helper Under Test", to `addarr-testing/references/anti-patterns.md`.
+    - **Key Changes:** None (verification only).
+    - **Notes:** flake8, mypy and `--validate-i18n` clean; unit tests 2032 passed at 100% coverage; integration 95 passed; architecture 154 passed.
