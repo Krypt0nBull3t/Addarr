@@ -199,7 +199,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [GREEN] Apply plan.md Task 5.3
     - **Success:** no hit; architecture tests pass
 
-- [ ] **5.4** telegram-ux-review (K9, D11)
+- [x] **5.4** telegram-ux-review (K9, D11)
     - **Context:**
         - **Why:** Wrong consequences, overstated limits, a known bug written into the checklist.
         - **Architecture:** Markdown; plan.md Task 5.4; write the GitHub issue draft for the `•` bug to the scratchpad (`issues/ux-bug.md`).
@@ -210,6 +210,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] Read-through: items present
         - [GREEN] Apply plan.md Task 5.4; write the draft
     - **Success:** architecture tests pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - PTB 22.8 `telegram.constants`: `MAX_CALLBACK_DATA` 64, `CAPTION_LENGTH` 1024, `MAX_TEXT_LENGTH` 4096, `TOTAL_BUTTON_NUMBER` 100, `BUTTONS_PER_ROW` 8 (undocumented by Telegram).
+        - History marks the active filter with `"• "`, queue and missing with `"✓ "`; `tests/test_bot/test_keyboards.py` pins the bullet.
+    - **Key Changes:** `.claude/skills/telegram-ux-review/SKILL.md`: limits table with real consequences (HTTP 400), 100-button total, heuristic button width; known-bug sentence and `conversation_timeout` item removed; callback-size check covers all of `src/bot/` and owns the check.
+    - **Notes:** GitHub issue draft for the bullet bug: session scratchpad `issues/ux-bug.md` (the coordinator files it).
 
 ### Phase 6: Verification (1 task)
 
