@@ -159,3 +159,11 @@ class TestSudoHandling:
         result = subprocess.run(["bash", "-c", script], check=True, capture_output=True, text=True)
         expected = "[]" if os.geteuid() == 0 else "[sudo]"
         assert result.stdout.strip() == expected
+
+
+class TestReadmeInstallCommand:
+    """Verify the README install command runs as the current user."""
+
+    def test_readme_has_no_sudo_pipe(self):
+        """`| sudo bash` sets HOME=/root on Ubuntu, so the install lands under /root."""
+        assert "| sudo bash" not in read(README)

@@ -121,7 +121,7 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - Added `TestSudoHandling` (three tests).
     - **Notes:** The inline `sudo` calls later in the script are unchanged. No guard against running as root (lead decision).
 
-- [ ] **1.6** F174: README command installs for the current user, then verify
+- [x] **1.6** F174: README command installs for the current user, then verify
     - **Context:**
         - **Why:** `| sudo bash` sets `HOME=/root` on Ubuntu, so Addarr installs under `/root`.
         - **Architecture:** Replace `| sudo bash` with `| bash` on the README install commands.
@@ -134,3 +134,11 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - [GREEN] Edit the three lines
         - [GREEN] Run the preflight (flake8, mypy, i18n, unit tests with the 100% coverage gate, integration, architecture) and fix any failure
     - **Success:** The test fails before and passes after, the full preflight passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Preflight result: flake8 and mypy clean, translations valid, unit 2032 passed at 100% coverage, integration 95 passed, architecture 154 passed.
+        - The change touches no `src/` file, so the coverage gate only confirms nothing regressed.
+    - **Key Changes:**
+        - `README.md:75,259,264`: `| sudo bash` became `| bash`.
+        - Added `TestReadmeInstallCommand.test_readme_has_no_sudo_pipe`.
+    - **Notes:** `install.sh` now calls `sudo` itself for system packages (task 1.5), which is why the README no longer needs it. `scripts/install.sh` was never run in full (it installs software). Its trap, cleanup and clone logic was checked with a scratch-dir simulation (task 1.4).

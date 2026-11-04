@@ -72,7 +72,7 @@ Whether you're managing movies, TV shows, or music, Addarr Refresh makes it simp
 Open a terminal and run:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | sudo bash
+wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 #### Windows
@@ -256,12 +256,12 @@ Install Addarr with a single command
 
 Using curl:
 ```bash
-curl -sSL https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 or Using wget:
 ```bash
-wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | sudo bash
+wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 The linux/macOS installer will:
