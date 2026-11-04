@@ -67,7 +67,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - `references/create-pr.md`, `references/feedback.md`: existing pushes prefixed with `<lock>` (both rewritten later in 2.5 and 2.6).
     - **Notes:** `retrospective.md` still has a bare `git push`; task 2.5 removes that push.
 
-- [ ] **2.2** Issue argument, issue comments, bug issues (changes 3, 7, 13)
+- [x] **2.2** Issue argument, issue comments, bug issues (changes 3, 7, 13)
     - **Context:**
         - **Why:** `/addarr new <N>` still opened the issue chooser; the analysis read the issue body but not its comments; a bug went to planning without a root cause.
         - **Architecture:** An "Arguments" paragraph under Entry Points in `SKILL.md`; new-task steps 1 and 3; feedback step 1.
@@ -79,6 +79,14 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [RED] Search the skill for "--comments" and for "systematic-debugging" in new-task: no hit.
         - [GREEN] Write the arguments paragraph and the entry table forms; new-task step 1 skip rule; step 3 two calls and the bug root-cause step; Skill Reference trigger.
     - **Success:** `tests/test_architecture` passes; each of the three changes is in the text.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `gh issue view <N> --comments` printed nothing for #245 in this session (no comments, output not a terminal), so a lone `--comments` call would have hidden the body.
+    - **Key Changes:**
+        - `SKILL.md`: entry table shows `[<N>]` / `[<PR>]`; "Arguments after the flow name pass through" paragraph; auto-detection reads `<N>` from the branch unless an argument gives it; new-task steps 1 and 3 and continue step 1 updated; systematic-debugging trigger for `fix/` branches.
+        - `references/new-task.md`: step 1 skip rule; step 3 reads the body and comments with two calls; bug root-cause step.
+        - `references/feedback.md`: step 1 uses a given PR number.
+    - **Notes:** `/addarr end <N>` joins the arguments paragraph in task 2.7.
 
 - [ ] **2.3** Context check before code (change 9)
     - **Context:**

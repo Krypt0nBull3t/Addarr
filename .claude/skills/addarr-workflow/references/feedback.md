@@ -6,7 +6,7 @@ This flow is for your own PR. A PR from a fork or an outside contributor goes to
 
 ## Step 1: Find the PR
 
-`gh pr view` without a number uses the PR of the current branch:
+With `/addarr feedback <PR>`, use that PR number. Otherwise `gh pr view` without a number uses the PR of the current branch:
 ```bash
 gh pr view --repo Krypt0nBull3t/Addarr --json number,title,url,state
 ```

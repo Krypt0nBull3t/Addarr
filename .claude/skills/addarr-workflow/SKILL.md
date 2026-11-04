@@ -46,18 +46,23 @@ Some machines run one test suite at a time through a lock script. Every test, ga
 | Command | Flow | Description |
 |-|-|-|
 | `/addarr` | auto-detect | Detect state and select flow |
-| `/addarr new` | new-task | Issue -> branch -> analyze -> plan -> execute |
-| `/addarr continue` | continue | Resume from TASKS.md |
-| `/addarr feedback` | feedback | Process review comments on your own PR |
+| `/addarr new [<N>]` | new-task | Issue -> branch -> analyze -> plan -> execute |
+| `/addarr continue [<N>]` | continue | Resume from TASKS.md |
+| `/addarr feedback [<PR>]` | feedback | Process review comments on your own PR |
 | `/addarr pr` | create-pr | Review -> preflight -> push -> create PR |
 | `/addarr check` | preflight | Run the core CI checks locally |
 | `/addarr release` | release | Full readiness check for development -> main merge |
+
+**Arguments after the flow name pass through.** `/addarr new <N>` works on issue #N and skips
+the issue chooser: running the chooser again could pick a different issue. `/addarr continue <N>`
+uses #N instead of reading it from the branch name; when the current branch is not
+`<prefix>/<N>-<slug>`, `ASK` before switching. `/addarr feedback <PR>` works on that PR.
 
 A PR from a fork or an outside contributor is not this workflow: use `/review-external-pr` (agent `untrusted-pr-reviewer`). Never check out its code.
 
 ## Auto-Detection (no argument)
 
-Every flow reads the issue number `<N>` from the branch name `<prefix>/<N>-<slug>`;
+Unless an argument gives it, every flow reads the issue number `<N>` from the branch name `<prefix>/<N>-<slug>`;
 "TASKS.md" means `docs/issues/issue-<N>/TASKS.md`. On a feature branch without `<N>`, `ASK` for it.
 
 Check the current state and recommend a flow:
@@ -77,10 +82,13 @@ Check the current state and recommend a flow:
 See [references/new-task.md](references/new-task.md) for detailed instructions per step.
 
 ```
-Step 1  ASK     Issue selection (AskUserQuestion with open issues)
+Step 1  ASK     Issue selection (AskUserQuestion with open issues);
+                skipped when `/addarr new <N>` names the issue
 Step 2  ASK     Branch type selection (feature/fix/refactor)
 Step 2b RUN     Create branch <prefix>/<N>-<slug> from latest development
-Step 3  RUN     Analyze task (read issue, identify layers/config/i18n)
+Step 3  RUN     Analyze task (read the issue and its comments, identify
+                layers/config/i18n). On a fix/ branch: INVOKE
+                @superpowers:systematic-debugging for the root cause first
 Step 3b ASK/INVOKE  @superpowers:brainstorming (if task is complex/ambiguous/multi-approach;
                 it asks the user questions). Write the design to
                 docs/issues/issue-<N>/design.md, not docs/superpowers/specs/
@@ -99,7 +107,8 @@ Step 6  RUN     Flow: create-pr (automatic transition)
 ## Flow: continue
 
 ```
-Step 1  RUN     Read docs/issues/issue-<N>/TASKS.md, find next pending task
+Step 1  RUN     Read docs/issues/issue-<N>/TASKS.md (<N> from the argument or
+                the branch name), find next pending task
 Step 2  RUN     Execute tasks (see "Execution Loop" below)
 Step 3  RUN     Flow: create-pr (when all tasks complete)
 ```
@@ -259,7 +268,7 @@ available, stop and report it instead of continuing without it.
 | `@superpowers:writing-plans` | Plan content | new-task step 4 |
 | `@task-writer` | Convert plan into sized TASKS.md | new-task step 4c |
 | `@superpowers:test-driven-development` | Enforce TDD discipline | First task in a session (once) |
-| `@superpowers:systematic-debugging` | Investigate unexpected failures | Unexpected test failure (not a simple typo/import fix) |
+| `@superpowers:systematic-debugging` | Investigate unexpected failures | Unexpected test failure (not a simple typo/import fix); new-task step 3 on a `fix/` branch |
 | `@superpowers:verification-before-completion` | Final verification gate | After all tasks, before create-pr |
 | `@addarr-handlers` | Handler class patterns | First task in a session that touches `src/bot/handlers/` |
 | `@addarr-services` | Service/API client patterns | First task in a session that touches `src/services/` or `src/api/` |
