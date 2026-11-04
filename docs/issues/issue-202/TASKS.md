@@ -99,7 +99,7 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
         - Removed `CalendarAddSuccess` and `CalendarAddFailed` from the template and 9 locales; updated `.claude/skills/addarr-handlers/references/callbacks.md`.
     - **Notes:** `media_id` and `internal_id` stay in the calendar item schema (their tests stay); nothing reads `media_id` now. `UnknownMediaType` is untouched.
 
-- [ ] **2.2** F073b: default quality profile in the add flow
+- [x] **2.2** F073b: default quality profile in the add flow
     - **Context:**
         - **Why:** `defaultProfileId` is read only by the calendar add path, which task 2.1 deletes. The `/settings` default profile must act in the normal add flow.
         - **Architecture:** `handle_selection` calls `add_fn`, which only returns `{"type": "quality_selection", "profiles", "root_folder", ["seasons"]}`. Add `MediaHandler._default_profile_id(search_type, profiles) -> Optional[int]` and extract the code from `profile_id = int(...)` to the end of `handle_quality_selection` into `_continue_with_profile(query, context, profile_id: Union[int, str]) -> int`. `handle_selection` calls it when a default exists. Series and artists keep their season and album pickers.
@@ -113,6 +113,13 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
         - [RED] `test_handle_selection_default_series_goes_to_season_select` (result `SEASON_SELECT`) and `test_handle_selection_default_is_per_service` (radarr default set, search type `series`, picker shows)
         - [GREEN] Implement `_default_profile_id` and `_continue_with_profile`; call them from `handle_selection` and `handle_quality_selection`
     - **Success:** New tests fail before and pass after; existing `handle_quality_selection` tests stay green; `python scripts/test_runner.py handlers --coverage` shows full coverage for the changed lines
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `send_response` shows the final add result through `edit_text(text=..., reply_markup=None)`, so "picker skipped" is tested as "the only message has no keyboard and no picker prompt", not as "edit_text not called".
+        - The no-default and stale-default tests pass before the change (they guard the old behavior); the default-skips-picker and series tests are the red ones.
+    - **Key Changes:**
+        - `handler.py`: new `_default_profile_id(search_type, profiles)` and `_continue_with_profile(query, context, profile_id)` (extracted from `handle_quality_selection`); `handle_selection` calls the second when a default is set and in the profile list.
+    - **Notes:** The default path adds only through `_continue_with_profile`. Issue #203 must put its modify check in `_continue_with_profile` to cover it (PR body says so).
 
 ### Phase 3: Verify (1 task)
 

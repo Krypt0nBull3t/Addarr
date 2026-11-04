@@ -307,6 +307,156 @@ async def test_handle_selection_quality_selection_with_photo(
     update.callback_query.message.edit_caption.assert_called_once()
 
 
+def _config_with_defaults(**defaults):
+    """Config mock whose <service>.quality.defaultProfileId comes from defaults."""
+    data = {
+        service: {"quality": {"defaultProfileId": profile_id}}
+        for service, profile_id in defaults.items()
+    }
+    return MagicMock(get=MagicMock(side_effect=lambda k, d=None: data.get(k, d)))
+
+
+def _selection(media_handler, make_update, make_context, search_type, result,
+               title="Test"):
+    """Build update and context for handle_selection with add_fn returning result."""
+    add_fn = {"movie": "add_movie", "series": "add_series"}[search_type]
+    setattr(media_handler._mock_service, add_fn, AsyncMock(return_value=result))
+    update = make_update(callback_data="select_123")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": search_type,
+        "search_results": [{"id": "123", "title": title}],
+    })
+    return update, context
+
+
+MOVIE_PROFILES = {
+    "type": "quality_selection",
+    "profiles": [{"id": 1, "name": "HD"}, {"id": 2, "name": "4K"}],
+    "root_folder": "/movies",
+}
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_default_profile_skips_picker(
+    media_handler, make_update, make_context
+):
+    """A saved default profile is used and the quality picker is not shown."""
+    update, context = _selection(
+        media_handler, make_update, make_context, "movie", MOVIE_PROFILES
+    )
+
+    with patch(
+        "src.bot.handlers.media.handler.config", _config_with_defaults(radarr=2)
+    ):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_movie_with_profile.assert_awaited_once_with(
+        "123", 2, "/movies"
+    )
+    update.callback_query.message.edit_text.assert_called_once()
+    sent = update.callback_query.message.edit_text.call_args.kwargs
+    assert sent["reply_markup"] is None
+    assert "select a quality profile" not in sent["text"]
+
+
+@pytest.mark.parametrize("config_obj", [
+    _config_with_defaults(),
+    _config_with_defaults(radarr=None),
+    MagicMock(get=MagicMock(return_value=None)),
+])
+@pytest.mark.asyncio
+async def test_handle_selection_no_default_shows_picker(
+    media_handler, make_update, make_context, config_obj
+):
+    """Without a saved default the quality picker shows as before."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    update, context = _selection(
+        media_handler, make_update, make_context, "movie", MOVIE_PROFILES
+    )
+
+    with patch("src.bot.handlers.media.handler.config", config_obj):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    media_handler._mock_service.add_movie_with_profile.assert_not_awaited()
+    update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_stale_default_shows_picker(
+    media_handler, make_update, make_context
+):
+    """A saved default that is not in the profile list falls back to the picker."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    update, context = _selection(
+        media_handler, make_update, make_context, "movie", MOVIE_PROFILES
+    )
+
+    with patch(
+        "src.bot.handlers.media.handler.config", _config_with_defaults(radarr=99)
+    ):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    media_handler._mock_service.add_movie_with_profile.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_default_series_goes_to_season_select(
+    media_handler, make_update, make_context
+):
+    """With a default profile, a series still goes through the season picker."""
+    from src.bot.handlers.media import SEASON_SELECT
+
+    update, context = _selection(
+        media_handler, make_update, make_context, "series",
+        {
+            "type": "quality_selection",
+            "profiles": [{"id": 1, "name": "HD"}],
+            "root_folder": "/tv",
+            "seasons": [{"seasonNumber": 1}],
+        },
+    )
+
+    with patch(
+        "src.bot.handlers.media.handler.config", _config_with_defaults(sonarr=1)
+    ):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == SEASON_SELECT
+    assert context.user_data["selected_profile_id"] == 1
+    media_handler._mock_service.add_series_with_profile.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_default_is_per_service(
+    media_handler, make_update, make_context
+):
+    """A radarr default does not apply when the user adds a series."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    update, context = _selection(
+        media_handler, make_update, make_context, "series",
+        {
+            "type": "quality_selection",
+            "profiles": [{"id": 1, "name": "HD"}],
+            "root_folder": "/tv",
+            "seasons": [{"seasonNumber": 1}],
+        },
+    )
+
+    with patch(
+        "src.bot.handlers.media.handler.config", _config_with_defaults(radarr=1)
+    ):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == QUALITY_SELECT
+
+
 @pytest.mark.asyncio
 async def test_handle_selection_tuple_success(
     media_handler, make_update, make_context
