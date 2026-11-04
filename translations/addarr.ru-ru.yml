@@ -13,6 +13,7 @@ ru-ru:
     Services: "Сервисы"
     ServiceEnabled: "%{service} включён"
     ServiceDisabled: "%{service} отключён"
+    ServiceRestartNotice: "Перезапустите бота, чтобы изменение вступило в силу."
     QualityProfile: "Профиль качества по умолчанию"
     QualityProfileSet: "Профиль качества по умолчанию установлен на %{profile} для %{service}"
     AdminOnly: "Настройки доступны только администраторам."

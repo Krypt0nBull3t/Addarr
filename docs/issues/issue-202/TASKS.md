@@ -51,7 +51,7 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
         - `get_users_keyboard` parameter `auth_count` is now `allow_count` (keyboard and `test_keyboards.py`).
     - **Notes:** The button text stays "Allowlist (N users)".
 
-- [ ] **1.3** F071: restart notice on the service toggle
+- [x] **1.3** F071: restart notice on the service toggle
     - **Context:**
         - **Why:** `handle_service_toggle` writes `<service>.enable`, but `MediaService` and `SABnzbdService` build their clients once at boot. The reply hides that the change needs a restart.
         - **Architecture:** Append a translated notice to the toggle reply, as `WebhookPortSaved` does. No change to the services.
@@ -63,6 +63,14 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
         - [RED] `test_handle_service_toggle_reply_has_restart_notice`, parametrized for enable and disable: the `edit_text` text contains the notice (read how the mock translation returns text in `conftest.py`)
         - [GREEN] Build the reply from the notice; add the key to the template and all locales
     - **Success:** The test fails before and passes after; `--validate-i18n` passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `mock_translation_service.get_text` returns the key, so the test asserts the key is in the reply text.
+        - `WebhookPortSaved` is English in every locale; the new key is translated in all 9 locales.
+    - **Key Changes:**
+        - `handle_service_toggle` appends `Settings.ServiceRestartNotice` to the reply.
+        - New key `Settings.ServiceRestartNotice` after `Settings.ServiceDisabled` in the template and 9 locales.
+    - **Notes:** The notice has no placeholder and no emoji. SABnzbd and `MediaService` are unchanged.
 
 ### Phase 2: Calendar add path and default quality profile (2 tasks)
 

@@ -13,6 +13,7 @@ pt-pt:
     Services: "Serviços"
     ServiceEnabled: "%{service} ativado"
     ServiceDisabled: "%{service} desativado"
+    ServiceRestartNotice: "Reinicie o bot para que a alteração tenha efeito."
     QualityProfile: "Perfil de qualidade padrão"
     QualityProfileSet: "Perfil de qualidade padrão definido como %{profile} para %{service}"
     AdminOnly: "As configurações estão disponíveis apenas para administradores."

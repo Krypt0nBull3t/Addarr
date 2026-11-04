@@ -343,8 +343,12 @@ class SettingsHandler:
                 service=service,
             )
 
+        notice = self.translation.get_text(
+            "Settings.ServiceRestartNotice",
+            default="Restart the bot for this to take effect.",
+        )
         await query.message.edit_text(
-            f"✅ {text}", reply_markup=get_settings_keyboard()
+            f"✅ {text}\n{notice}", reply_markup=get_settings_keyboard()
         )
         return States.SETTINGS_MENU
 

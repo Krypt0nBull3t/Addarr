@@ -170,6 +170,7 @@ en-us:
     Services: "Services"
     ServiceEnabled: "enabled %{service}"
     ServiceDisabled: "disabled %{service}"
+    ServiceRestartNotice: "Restart the bot for this to take effect."
     QualityProfile: "Default Quality Profile"
     QualityProfileSet: "Default quality profile set to %{profile} for %{service}"
     AdminOnly: "Settings are only available to admins."

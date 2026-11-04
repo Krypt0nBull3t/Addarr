@@ -200,6 +200,22 @@ class TestServiceFlow:
         settings_handler._mock_cfg.save.assert_called_once()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("enabled_now", [True, False])
+    async def test_handle_service_toggle_reply_has_restart_notice(
+        self, settings_handler, make_update, make_context, enabled_now
+    ):
+        """The toggle reply tells the user a restart is needed"""
+        settings_handler._mock_cfg.get.side_effect = lambda k, d=None: (
+            {"enable": enabled_now} if k == "radarr" else d
+        )
+        update = make_update(callback_data="svc_toggle_radarr")
+
+        await settings_handler.handle_service_toggle(update, make_context())
+
+        text = update.callback_query.message.edit_text.call_args.args[0]
+        assert "Settings.ServiceRestartNotice" in text
+
+    @pytest.mark.asyncio
     async def test_handle_service_back_returns_to_menu(
         self, settings_handler, make_update, make_context
     ):
