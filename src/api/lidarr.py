@@ -130,11 +130,6 @@ class LidarrClient(BaseApiClient):
                         logger.info(f"✅ Found artist: {result.get('artistName')}")
                         return result
 
-                # If no exact match but we have results, use first one
-                if results[0]:
-                    logger.info(f"✅ Found artist: {results[0].get('artistName')}")
-                    return results[0]
-
             logger.warning(f"⚠️ No artist found with ID: {artist_id}")
             return None
 
@@ -160,10 +155,6 @@ class LidarrClient(BaseApiClient):
                 if result.get("foreignArtistId") == artist_id:
                     artist = result
                     break
-
-            # If no exact match, use first result
-            if not artist and lookup_response:
-                artist = lookup_response[0]
 
             if not artist:
                 logger.error(f"❌ No artist found with ID: {artist_id}")

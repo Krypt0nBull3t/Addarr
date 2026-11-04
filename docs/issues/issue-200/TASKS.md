@@ -35,7 +35,7 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
     - **Key Changes:** src/api/lidarr.py add_artist sends monitorNewItems none when future_albums is false and no albumFolder. Removed albumFolder from prompts.py, service_config.py, config_example.yaml, tests/conftest.py.
     - **Notes:** Existing user config.yaml files may still hold albumFolder; it is ignored.
 
-- [ ] **1.2** F052: exact id match only
+- [x] **1.2** F052: exact id match only
     - **Context:**
         - **Why:** If `artist/lookup?term=lidarr:<mbid>` is empty, the free-text fallback returns other artists and the bot adds `results[0]`.
         - **Architecture:** Keep the free-text fallback lookup. Accept only a result whose `foreignArtistId` equals the id.
@@ -49,6 +49,11 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
         - [RED] Rewrite `test_add_artist_no_exact_match_uses_first` and `test_get_artist_fallback_no_exact_match_uses_first` to expect not found
         - [GREEN] Remove the `results[0]` fallback in `get_artist` and `add_artist`
     - **Success:** `scripts/test_runner.py api --coverage` passes
+
+    - **Completed:** 2026-11-04
+    - **Learnings:** The first lidarr: lookup in get_artist still returns results[0] unchecked; the lidarr: term is an exact id lookup, so only the free-text fallback needed the match.
+    - **Key Changes:** src/api/lidarr.py get_artist and add_artist: removed both results[0] fallbacks. Tests flipped to expect not found, plus a no-POST assertion via aio_mock.requests.
+    - **Notes:** add_artist matches foreignArtistId on both lookups.
 
 - [ ] **1.3** F050: album picker lists the picked artist's albums
     - **Context:**

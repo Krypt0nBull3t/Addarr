@@ -175,8 +175,10 @@ class TestLidarrGetArtist:
         assert result["artistName"] == "Linkin Park"
 
     @pytest.mark.asyncio
-    async def test_get_artist_fallback_no_exact_match_uses_first(self, aio_mock, lidarr_client):
-        """Lines 113-115: fallback returns results but no exact ID match, uses first."""
+    async def test_get_artist_fallback_no_exact_match_returns_none(
+        self, aio_mock, lidarr_client
+    ):
+        """Free-text fallback returns other artists only: not found, never results[0]."""
         aio_mock.get(
             f"{BASE}/artist/lookup?term=lidarr:unknown-id",
             payload=[],
@@ -188,9 +190,7 @@ class TestLidarrGetArtist:
             status=200,
         )
         result = await lidarr_client.get_artist("unknown-id")
-        assert result is not None
-        # No exact match so uses first result
-        assert result["artistName"] == "Linkin Park"
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_artist_not_found(self, aio_mock, lidarr_client):
@@ -309,21 +309,39 @@ class TestLidarrAddArtist:
         assert "not found" in message.lower()
 
     @pytest.mark.asyncio
-    async def test_add_artist_no_exact_match_uses_first(self, aio_mock, lidarr_client):
-        """Line 145: no exact foreignArtistId match, uses first result."""
+    async def test_add_artist_no_exact_match_returns_not_found(
+        self, aio_mock, lidarr_client
+    ):
+        """lidarr: lookup returns other artists only: not found, no POST."""
         aio_mock.get(
             f"{BASE}/artist/lookup?term=lidarr:unknown-id",
             payload=LIDARR_SEARCH_RESULTS,
             status=200,
         )
-        aio_mock.post(
-            f"{BASE}/artist",
-            payload={"id": 1, "artistName": "Linkin Park"},
+        success, message = await lidarr_client.add_artist("unknown-id")
+        assert success is False
+        assert message == "Artist not found"
+        assert not any(method == "POST" for method, _ in aio_mock.requests)
+
+    @pytest.mark.asyncio
+    async def test_add_artist_lidarr_lookup_empty_and_fallback_other_artist(
+        self, aio_mock, lidarr_client
+    ):
+        """Empty lidarr: lookup, free-text lookup returns another artist: no POST."""
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=lidarr:unknown-id",
+            payload=[],
+            status=200,
+        )
+        aio_mock.get(
+            f"{BASE}/artist/lookup?term=unknown-id",
+            payload=LIDARR_SEARCH_RESULTS[1:],
             status=200,
         )
         success, message = await lidarr_client.add_artist("unknown-id")
-        assert success is True
-        assert "Linkin Park" in message
+        assert success is False
+        assert message == "Artist not found"
+        assert not any(method == "POST" for method, _ in aio_mock.requests)
 
     @pytest.mark.asyncio
     async def test_add_artist_falsy_first_element(self, aio_mock, lidarr_client):
