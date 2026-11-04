@@ -26,7 +26,7 @@ and `src/main.py`, with Python and pytest examples only.
     - **Key Changes:** `addarr-testing` SKILL.md, `references/patterns.md`, `references/anti-patterns.md`, `references/fixtures.md` (see 2.2 and 2.5).
     - **Notes:** none
 
-- [ ] **1.2** F294: Rename the shadowed skills and delete the duplicates
+- [x] **1.2** F294: Rename the shadowed skills and delete the duplicates
     - **Context:** See plan.md task 2. Key refs: `.claude/skills/addarr-workflow/SKILL.md` (create-pr step 1, skill tables), `.claude/commands/addarr-setup.md`
     - **Watch out:** Personal Emmie skills named `find-bugs` and `code-simplifier` shadow the project skills. Do not point project docs at user-only plugins in place of a deleted skill.
     - **Scope:** Rename `find-bugs` and `code-simplifier` to `addarr-*`; delete `git-cleanup` and `python-testing-pro`; update every reference under `.claude/`
@@ -36,7 +36,10 @@ and `src/main.py`, with Python and pytest examples only.
         - [GREEN] Rename and delete the directories
         - [GREEN] Update or remove every reference
     - **Success:** No `find-bugs`, `code-simplifier`, `git-cleanup` or `python-testing-pro` directory; no file under `.claude/` names them without the `addarr-` prefix
-    - **Reopened (2026-11-04):** Directories were renamed and deleted. A blind replace of `python-testing-pro` by `superpowers:test-driven-development` created duplicate rows and entries, and the Sentry credit lines still name `find-bugs` and `code-simplifier`. Finished by 2.1 and 2.6.
+    - **Completed:** 2026-11-04 (finished by 2.1 and 2.6)
+    - **Learnings:** Renames need a check for every form of the old name, including credit lines and descriptions, not only `@skill` references.
+    - **Key Changes:** Renamed `find-bugs` and `code-simplifier` to `addarr-*`; deleted `git-cleanup` and `python-testing-pro`; references updated across `.claude/` (see 2.1 and 2.6).
+    - **Notes:** none
 
 - [x] **1.3** F292: Copy the Transmission and SABnzbd blocks from `config_example.yaml`
     - **Context:** See plan.md task 3. Key refs: `config_example.yaml:115-135`
@@ -228,7 +231,7 @@ and `src/main.py`, with Python and pytest examples only.
         - `SKILL.md`: "(removed)" Common Mistakes item deleted, list renumbered 1-8.
     - **Notes:** Ran both `patterns.md` Transmission examples as a temporary test file under `tests/test_api/` (2 passed), then deleted it.
 
-- [ ] **2.6** [consider] F294: Make the credit lines pass the F294 check and keep the attribution
+- [x] **2.6** [consider] F294: Make the credit lines pass the F294 check and keep the attribution
     - **Context:**
         - **Why:** The F294 check still matches the Sentry credit lines in the two renamed skills
         - **Architecture:** Name the source repository, not the upstream skill directory
@@ -240,6 +243,10 @@ and `src/main.py`, with Python and pytest examples only.
         - [RED] Run the F294 check; it matches both lines
         - [GREEN] Reword both lines
     - **Success:** F294 check returns nothing; both skills still credit Sentry with a link
+    - **Completed:** 2026-11-04
+    - **Learnings:** The upstream repo is Apache-2.0 and has moved from `getsentry/sentry-skills` to `getsentry/skills` (checked with `gh api`). Attribution stays; it names the repository instead of the upstream skill directory, so the F294 check passes.
+    - **Key Changes:** Credit lines in `addarr-find-bugs/SKILL.md:8` and `addarr-code-simplifier/SKILL.md:8` reworded, linked to `https://github.com/getsentry/skills`, license named.
+    - **Notes:** none
 
 - [ ] **2.7** Verify: acceptance greps from #221 and preflight
     - **Context:** Replaces 1.8. Acceptance criteria in #221.
