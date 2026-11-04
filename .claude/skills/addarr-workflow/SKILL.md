@@ -88,9 +88,9 @@ Step 2  ASK     Branch type selection (feature/fix/refactor)
 Step 2b RUN     Create branch <prefix>/<N>-<slug> from latest development
 Step 3  RUN     Context check first (references/context-check.md: graphify,
                 the Addarr wiki, with fallbacks). Then analyze the task (read
-                the issue and its comments, identify
-                layers/config/i18n). On a fix/ branch: INVOKE
-                @superpowers:systematic-debugging for the root cause first
+                the issue and its comments; identify layers, config, i18n).
+                On a fix/ branch: INVOKE @superpowers:systematic-debugging
+                for the root cause first
 Step 3b ASK/INVOKE  @superpowers:brainstorming (if task is complex/ambiguous/multi-approach;
                 it asks the user questions). Write the design to
                 docs/issues/issue-<N>/design.md, not docs/superpowers/specs/
@@ -102,6 +102,8 @@ Step 4  INVOKE  @superpowers:writing-plans for plan content only -> explore code
                 Use @addarr-handlers, @addarr-services, @addarr-testing for patterns
 Step 4b ASK     User reviews plan.md and approves before continuing
 Step 4c INVOKE  @task-writer -> convert plan.md into docs/issues/issue-<N>/TASKS.md
+Step 4d ASK     Model check: a stronger model for the work phase? Only when the
+                plan meets a trigger in references/new-task.md step 4d
 Step 5  RUN     Execute tasks (see "Execution Loop" below)
 Step 6  RUN     Flow: create-pr (automatic transition)
 ```
@@ -216,12 +218,28 @@ the skill stays in context for the rest of the session. Do not re-invoke.
    On unexpected test failure:
    -> INVOKE @superpowers:systematic-debugging — find root cause before fixing
 
-   Blocked: after 2 rounds of systematic-debugging without a fix, or on a
-   design question the plan does not answer, stop and ASK with the evidence.
+   Stall rule: stop when a task has two failed attempts (or two rounds of
+   systematic-debugging without a fix), five clarification turns without
+   progress, or fixes that keep breaking the plan, or on a design question
+   the plan does not answer. ASK with the evidence: the ambiguity, the
+   failing output or the open design question. Suggest a stronger model
+   (`/model`) for this task only; the user decides and switches.
 
-3  RUN     Full suite with the CI coverage gate, once per task (not per behavior):
-           the unit-test command from references/preflight.md step 4.
-           Fix coverage gaps by adding tests for uncovered lines.
+3  RUN     Scoped checks, once per task, for each layer the task changed
+           (in src/ or in its tests):
+             src/api/            <lock> <py> scripts/test_runner.py api --coverage
+             src/services/       <lock> <py> scripts/test_runner.py services --coverage
+             src/bot/handlers/   <lock> <py> scripts/test_runner.py handlers --coverage
+             src/models/         <lock> <py> scripts/test_runner.py models --coverage
+             rest of src/bot/    <lock> <py> scripts/test_runner.py bot --coverage
+             src/utils/          <lock> <py> scripts/test_runner.py utils --coverage
+             src/config/         <lock> <py> scripts/test_runner.py config --coverage
+             src/setup/          <lock> <py> scripts/test_runner.py setup --coverage
+             translations/       PYTHONIOENCODING=utf-8 <lock> <py> run.py --validate-i18n
+             skills, CLAUDE.md, docs/, .github/ or tests/test_architecture/:
+                                 <lock> <py> -m pytest tests/test_architecture --tb=short -v
+           Add tests for the uncovered lines the scoped run lists. The full
+           suite with the 100% coverage gate runs once, in the preflight.
 4  RUN     Integration test check: if the task adds or modifies a user-facing
            flow (handler, command, conversation state, callback routing):
            a  Check tests/integration/ for an existing test covering this flow

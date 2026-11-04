@@ -105,6 +105,22 @@ Write the plan to `docs/issues/issue-<N>/plan.md`.
 
 `INVOKE` @task-writer — read `docs/issues/issue-<N>/plan.md` and convert it into sized, TDD-ordered tasks. Write output to `docs/issues/issue-<N>/TASKS.md`.
 
+## Step 4d: Model Check
+
+Read plan.md and TASKS.md. `ASK` (header: "Model") only when one of these holds:
+
+- The plan adds a pattern or abstraction the codebase does not have yet
+- It touches authorization: `@require_auth`, `AUTH_ALLOWLIST` or the admin checks
+- It changes the conversation states (`src/bot/states.py`, `src/bot/handlers/media/dispatch.py`)
+- It changes singleton or config loading (`src/config/settings.py`)
+- It has 5 or more tasks that depend on each other
+
+Options:
+1. Switch to a stronger model for the work phase (the user runs `/model`)
+2. Stay on the current model, and escalate only if a task stalls (Execution Loop stall rule)
+
+State the cost in seat usage: a stronger model draws down the weekly and session limits faster per turn, but one task done right on it uses less than many circling turns on a weaker one. The user decides and switches; never switch the model yourself. When no trigger holds, skip this step.
+
 ## Step 5: Execute
 
 Follows the Execution Loop defined in SKILL.md. No additional details needed here — the loop is self-contained.

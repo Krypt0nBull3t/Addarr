@@ -109,7 +109,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - `references/new-task.md`: step 3 runs it before the first source read; the plan gets `## Wiki gaps` when there are any.
     - **Notes:** The skill names no vault path; it points to `~/.claude/CLAUDE.md` § LLM Wiki, so the public repo holds nothing machine-specific.
 
-- [ ] **2.4** Model gate, stall rule, scoped checks (changes 10, 11)
+- [x] **2.4** Model gate, stall rule, scoped checks (changes 10, 11)
     - **Context:**
         - **Why:** No escalation point after planning, no stall rule, and the full coverage gate ran after every task.
         - **Architecture:** New new-task step 4d (`ASK` "Model"); the Execution Loop "Blocked" line becomes the stall rule; Execution Loop step 3 becomes a scoped-check table using `scripts/test_runner.py <domain>`.
@@ -121,6 +121,15 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [RED] Search the skill for "test_runner" and "Model": no hit.
         - [GREEN] Write step 4d, the stall rule and the scoped table; fix the Execution Loop text that says the full gate runs per task.
     - **Success:** `tests/test_architecture` passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The `task-writer` skill also described a per-task full gate ("Full suite with the CI coverage gate", "after the full suite passes"); left alone it would contradict change 11, so it now names the scoped checks too.
+        - `scripts/test_runner.py` has no integration or architecture domain; those rows use the preflight commands.
+    - **Key Changes:**
+        - `SKILL.md`: new-task Step 4d (Model); Execution Loop stall rule replaces "Blocked"; step 3 is a scoped-check list per layer, with the 100% gate only in the preflight; new-task step 3 text tidied.
+        - `references/new-task.md`: `## Step 4d: Model Check` (triggers, two options, seat-usage cost line).
+        - `.claude/skills/task-writer/SKILL.md`: TDD flow and rule 3 name scoped checks.
+    - **Notes:** Step 4d sits after 4c because the "5+ dependent tasks" trigger needs TASKS.md.
 
 - [ ] **2.5** create-pr: one push, template body, PR driver (changes 5, 6, 8, 10, 14)
     - **Context:**
