@@ -667,6 +667,60 @@ class TestUsersFlow:
         settings_handler._mock_cfg.save.assert_called_once()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("allow_list", [[], None])
+    @pytest.mark.parametrize("handler_name,callback_data", [
+        ("handle_users_menu", "settings_users"),
+        ("handle_users_toggle", "usr_toggle_allowlist"),
+    ])
+    async def test_allowlist_count_uses_allow_list(
+        self, settings_handler, make_update, make_context,
+        handler_name, callback_data, allow_list
+    ):
+        """The Allowlist count is len(allow_list), not len(authenticated_users)"""
+        data = {
+            "authenticated_users": [1, 2, 3, 4, 5],
+            "allow_list": allow_list,
+            "admins": [],
+            "security": {},
+        }
+        settings_handler._mock_cfg.get.side_effect = (
+            lambda k, d=None: data.get(k, d)
+        )
+        update = make_update(callback_data=callback_data)
+
+        with patch(
+            "src.bot.handlers.settings.get_users_keyboard"
+        ) as mock_keyboard:
+            await getattr(settings_handler, handler_name)(
+                update, make_context()
+            )
+
+        assert mock_keyboard.call_args.args[3] == 0
+
+    @pytest.mark.asyncio
+    async def test_allowlist_count_counts_entries(
+        self, settings_handler, make_update, make_context
+    ):
+        """With 2 allow_list entries the Allowlist count is 2"""
+        data = {
+            "authenticated_users": [1, 2, 3, 4, 5],
+            "allow_list": [10, 20],
+            "admins": [],
+            "security": {},
+        }
+        settings_handler._mock_cfg.get.side_effect = (
+            lambda k, d=None: data.get(k, d)
+        )
+        update = make_update(callback_data="settings_users")
+
+        with patch(
+            "src.bot.handlers.settings.get_users_keyboard"
+        ) as mock_keyboard:
+            await settings_handler.handle_users_menu(update, make_context())
+
+        assert mock_keyboard.call_args.args[3] == 2
+
+    @pytest.mark.asyncio
     async def test_handle_users_back(
         self, settings_handler, make_update, make_context
     ):

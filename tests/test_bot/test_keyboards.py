@@ -480,7 +480,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=False, allowlist_enabled=False,
-            admin_count=0, auth_count=1
+            admin_count=0, allow_count=1
         )
         callback_data = [
             btn.callback_data
@@ -496,7 +496,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=False, allowlist_enabled=False,
-            admin_count=0, auth_count=1
+            admin_count=0, allow_count=1
         )
         callback_data = [
             btn.callback_data
@@ -512,7 +512,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=True, allowlist_enabled=True,
-            admin_count=2, auth_count=5
+            admin_count=2, allow_count=5
         )
         callback_data = [
             btn.callback_data

@@ -30,7 +30,7 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
         - Tests: `TestAdminCheck` (settings), `TestWebhookAdminCheck` (webhooks), `test_is_admin_not_defined_in_definitions`.
     - **Notes:** `get_admins` and the rest of `src/definitions.py` stay for issue #226.
 
-- [ ] **1.2** F072: Allowlist button counts `allow_list`
+- [x] **1.2** F072: Allowlist button counts `allow_list`
     - **Context:**
         - **Why:** The button shows `len(authenticated_users)`, so an admin sees "Allowlist (5 users)" while `allow_list` is empty and turns the allowlist on, which locks out every non-admin.
         - **Architecture:** Pass `len(config.get("allow_list") or [])` where `settings.py` builds `get_users_keyboard`.
@@ -43,6 +43,13 @@ Plan: `docs/issues/issue-202/plan.md`. Branch: `fix/202-settings-admin-controls`
         - [RED] Same check with `allow_list: None`
         - [GREEN] Change both call sites and the keyboard parameter name
     - **Success:** The tests fail before and pass after; `pytest tests/test_handlers tests/test_bot` passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `settings_handler._mock_cfg.get.side_effect` can return per-key data, so one parametrized test covers both call sites (`handle_users_menu`, `handle_users_toggle`) and both empty shapes (`[]`, `None`).
+    - **Key Changes:**
+        - `settings.py` passes `len(config.get("allow_list") or [])` at both call sites.
+        - `get_users_keyboard` parameter `auth_count` is now `allow_count` (keyboard and `test_keyboards.py`).
+    - **Notes:** The button text stays "Allowlist (N users)".
 
 - [ ] **1.3** F071: restart notice on the service toggle
     - **Context:**

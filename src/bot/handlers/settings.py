@@ -656,10 +656,10 @@ class SettingsHandler:
         admin_enabled = security.get("enableAdmin", False)
         allowlist_enabled = security.get("enableAllowlist", False)
         admin_count = len(config.get("admins") or [])
-        auth_count = len(config.get("authenticated_users", []))
+        allow_count = len(config.get("allow_list") or [])
 
         keyboard = get_users_keyboard(
-            admin_enabled, allowlist_enabled, admin_count, auth_count
+            admin_enabled, allowlist_enabled, admin_count, allow_count
         )
         await query.message.edit_text(
             "👥 Users", reply_markup=keyboard
@@ -696,7 +696,7 @@ class SettingsHandler:
                 config.get("security", {}).get("enableAdmin", False),
                 config.get("security", {}).get("enableAllowlist", False),
                 len(config.get("admins") or []),
-                len(config.get("authenticated_users", [])),
+                len(config.get("allow_list") or []),
             ),
         )
         return States.SETTINGS_USERS
