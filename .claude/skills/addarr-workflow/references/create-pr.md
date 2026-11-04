@@ -54,7 +54,7 @@ Check:
 
 If not pushed:
 ```bash
-git push -u origin <branch-name>
+<lock> git push -u origin <branch-name>
 ```
 
 ## Step 5: Generate PR Info

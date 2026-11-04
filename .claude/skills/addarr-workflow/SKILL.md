@@ -22,6 +22,25 @@ Self-driving development workflow for Addarr. Entry point: `/addarr [argument]`
 - Phase/task summaries: 1-2 sentences max.
 - Agent prompts: instruct agents to return only actionable findings. "Skip items consistent with existing codebase patterns. Only report issues you would actually fix."
 
+## The Suite Lock
+
+Some machines run one test suite at a time through a lock script. Every test, gate and
+`git push` command in this skill is written `<lock> <command>`:
+
+- `<lock>` is `~/.local/share/agent-suite/with-suite-lock.sh <agent>/issue-<N> --` when that
+  script exists. `<agent>` is the agent name a lead's brief gives you, `addarr` otherwise.
+  Without an issue number (`/addarr check` on `development`, the release flow) the label is
+  `<agent>/<branch>`.
+- When the script does not exist (a cloud session, another contributor), `<lock>` is empty:
+  run the command bare.
+- Call the script by its literal path, never through a variable, alias or function.
+- `[suite-lock] waiting for the lock` is expected. Do not kill the command.
+- An environment variable goes before `<lock>`: the script runs its arguments as a command.
+- Addarr has no pre-push hook, but a push still goes through the lock. A lock-wrapped force
+  or delete push is denied like a bare one.
+- If a hook or guard refuses a push, stop and report it. Never work around it: no
+  `--no-verify`, no other path.
+
 ## Entry Points
 
 | Command | Flow | Description |
@@ -150,7 +169,8 @@ Full readiness check before merging `development` -> `main`. Invokes the `@relea
 
 ```
 Step 1  RUN     Checkout development branch, ensure up-to-date with origin
-Step 2  INVOKE  @release-readiness (runs all 4 phases)
+Step 2  INVOKE  @release-readiness (runs all 4 phases; run its test and gate
+                commands under <lock>, label <agent>/development)
 Step 3  RUN     Report final verdict: READY or NOT READY
 Step 4  ASK     If READY, confirm user wants to create the merge PR to main
 Step 5  RUN     If confirmed: write the body (merged PRs since main, the
@@ -177,9 +197,9 @@ the skill stays in context for the rest of the session. Do not re-invoke.
 
 2  RUN     TDD cycle, for each behavior in the task:
    a  RED     Write failing test
-   b  RUN     <py> -m pytest tests/<path>/test_<name>.py::test_<case> -v (confirm it fails correctly)
+   b  RUN     <lock> <py> -m pytest tests/<path>/test_<name>.py::test_<case> -v (confirm it fails correctly)
    c  GREEN   Write minimal implementation
-   d  RUN     <py> -m pytest tests/<path>/test_<name>.py -v (confirm the relevant tests pass)
+   d  RUN     <lock> <py> -m pytest tests/<path>/test_<name>.py -v (confirm the relevant tests pass)
 
    On unexpected test failure:
    -> INVOKE @superpowers:systematic-debugging — find root cause before fixing
@@ -197,7 +217,7 @@ the skill stays in context for the rest of the session. Do not re-invoke.
               (see tests/integration/conftest.py for harness, fixtures, and
               update factories). Test the happy path end-to-end.
            c  If one exists but doesn't cover the new behavior: extend it.
-           d  Run: <py> -m pytest tests/integration --tb=short -v (all pass).
+           d  Run: <lock> <py> -m pytest tests/integration --tb=short -v (all pass).
            Skip this step for non-handler changes (API clients, services,
            config, utils, translations, CI, docs).
 5  RUN     Mark task complete in TASKS.md and add the completion metadata

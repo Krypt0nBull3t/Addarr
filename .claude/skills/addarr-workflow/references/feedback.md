@@ -71,7 +71,7 @@ After completing all feedback tasks:
 1. Run the preflight flow (SKILL.md "Flow: preflight"); commit any fixes it needs. Stage only the files you changed and check `git diff --cached` first.
 2. Push changes:
    ```bash
-   git push
+   <lock> git push
    ```
 3. Report what was addressed
 

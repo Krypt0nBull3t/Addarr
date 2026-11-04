@@ -43,7 +43,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
 - Skill text rules from `tests/test_architecture/test_skills.py`: real `src/`, `tests/`, `scripts/`, `translations/` paths; no `file:line` citations; no `$(` in bash blocks; no `name(` in inline backticks unless the repo defines `name`; any `--cov=` line contains the CI unit command.
 - Never name another project, another project's workflow skill or its paths.
 
-- [ ] **2.1** The suite lock and the worktree venv (changes 1, 2)
+- [x] **2.1** The suite lock and the worktree venv (changes 1, 2)
     - **Context:**
         - **Why:** Gates ran outside the machine's suite lock, and `preflight.md` told a worktree to use the main checkout's `.venv`, which the worktree guard blocks.
         - **Architecture:** New `## The Suite Lock` section in `SKILL.md` defines `<lock>`; every test, gate and push command is written `<lock> <command>`.
@@ -57,6 +57,15 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [GREEN] Read every `<lock>` line with `<lock>` removed: each is a valid command.
         - [RED] Planted drift: change `<lock> <py> -m flake8 .` to `<lock> <py> -m flake8 src`; `test_preflight_runs_the_ci_commands` fails. Revert with an Edit; it passes.
     - **Success:** `tests/test_architecture` passes; the planted drift failed; no bare test or push command left in the skill.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The planted drift (`flake8 .` to `flake8 src`) made `test_preflight_runs_the_ci_commands` fail with `AssertionError: <py> -m flake8 .`; reverted, 14 skill tests pass. The `<lock>` prefix keeps each CI command a substring, so the test needed no change.
+        - `with-suite-lock.sh` runs `"$@"`, so `VAR=value` must come before `<lock>`, not after it.
+    - **Key Changes:**
+        - `SKILL.md`: new `## The Suite Lock` section; `<lock>` on Execution Loop 2b, 2d, 4d; release step 2 runs `@release-readiness` commands under the lock.
+        - `references/preflight.md`: worktree venv rule (own Python 3.11 `.venv`), `<lock>` note, `<lock>` on steps 1-6.
+        - `references/create-pr.md`, `references/feedback.md`: existing pushes prefixed with `<lock>` (both rewritten later in 2.5 and 2.6).
+    - **Notes:** `retrospective.md` still has a bare `git push`; task 2.5 removes that push.
 
 - [ ] **2.2** Issue argument, issue comments, bug issues (changes 3, 7, 13)
     - **Context:**
