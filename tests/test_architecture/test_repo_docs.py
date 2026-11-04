@@ -19,7 +19,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 ABSENT_ON_PURPOSE = {"docs/plans/"}
 
 # A code span that holds a repo path; spans with placeholders are skipped.
-REPO_PATH = re.compile(r"`((?:src|tests|scripts|docs|\.github|\.claude)/[^`<>*\s]*)`")
+REPO_PATH = re.compile(
+    r"`((?:src|tests|scripts|docs|translations|\.github|\.claude)/[^`<>*\s]*)`"
+)
 
 
 def read_text(rel_path):
@@ -60,19 +62,15 @@ def test_claude_md_names_every_ci_job():
 
 def test_claude_md_names_every_architecture_test_file():
     testing = section(read_text("CLAUDE.md"), "Testing")
-    pattern = os.path.join(PROJECT_ROOT, "tests", "test_architecture", "test_*.py")
-    files = sorted(os.path.basename(p) for p in glob.glob(pattern))
-    assert files
+    files = sorted(glob.glob("test_*.py", root_dir=os.path.dirname(__file__)))
     assert [f for f in files if f not in testing] == []
 
 
 def test_claude_md_test_names_exist():
     named = set(re.findall(r"`(test_\w+)`", read_text("CLAUDE.md")))
-    pattern = os.path.join(PROJECT_ROOT, "tests", "**", "test_*.py")
     defined = set()
-    for path in glob.glob(pattern, recursive=True):
-        with open(path, encoding="utf-8") as f:
-            defined.update(re.findall(r"^\s*(?:async )?def (test_\w+)", f.read(), re.M))
+    for path in glob.glob("tests/**/test_*.py", root_dir=PROJECT_ROOT, recursive=True):
+        defined.update(re.findall(r"^\s*(?:async )?def (test_\w+)", read_text(path), re.M))
     assert sorted(named - defined) == []
 
 
