@@ -34,6 +34,7 @@ For each changed file, check:
 * [ ] **Singleton issues**: State in `__init__` vs `_initialize`, missing `is_enabled()` checks
 * [ ] **Config safety**: Direct `config["key"]` indexing, missing `.get()` defaults
 * [ ] **Telegram API misuse**: Missing `query.answer()`, `reply_text` on callbacks, `edit_text` on photo messages
+* [ ] **Repeated callback edits**: Paged, refresh or filter callbacks that can render the same text again use `edit_text_ignoring_unmodified` (`src/utils/chat.py`), or a double tap raises "Message is not modified"
 * [ ] **Error handling**: Swallowing exceptions silently, raising from `_initialize`
 
 ## Phase 3: Verification

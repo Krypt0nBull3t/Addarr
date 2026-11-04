@@ -270,3 +270,23 @@ for path, body in bodies:
 ```
 
 **Why**: A loop over zero items asserts nothing. In issue #199, two RED tests passed before the fix for this reason: no heredocs existed yet, and a regex only matched the quoted form. Watch each new test fail before you trust it.
+
+## Translation Placeholders Hidden by the Mock
+
+**Don't** trust a handler test to prove that a translation key has the placeholder the handler fills:
+
+```python
+# BAD - the autouse mock returns the key, so %{title} can be missing and this still passes
+delete_handler._mock_ts.get_message.assert_any_call("ThisDelete", subject="movie", title="X")
+```
+
+**Instead**, add a test that reads the real `translations/addarr.*.yml` files and checks the text:
+
+```python
+# GOOD - see tests/test_services/test_delete_prompt_translations.py
+data = yaml.safe_load(path.read_text(encoding="utf-8"))
+(locale_data,) = data.values()  # each file has one top-level locale key
+assert "%{title}" in locale_data["messages"]["ThisDelete"]
+```
+
+**Why**: In issue #196 the handler passed `title=` for a long time, but `ThisDelete` had no `%{title}`, so no prompt named the item. The mock hid it. Also assert that the file list is not empty (see Vacuous Loop Assertions).
