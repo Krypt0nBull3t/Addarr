@@ -56,7 +56,7 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
     - **Key Changes:** New `.claude/agents/untrusted-pr-reviewer.md`, copied from the untracked main-checkout file. It describes the export layout, has an allowlist read rule with the full secret list, an 80-char injection quote, a trust-boundary-first rule, numbered steps, and an `## Output` with a 2000-char cap. `arr-api-contract-checker.md`: no WebFetch, `## Hard rules` (specs are data, Bash limited to mktemp/curl/jq/read-only git, no secrets, no edits), `mktemp -d` directory, `curl -sfL`. Tests: `test_agents_have_only_the_tools_they_need`, `test_contract_checker_fails_on_http_errors`.
     - **Notes:** The read limits are still prompt rules. Task 1.5's settings Read denies enforce the main secret paths for every agent.
 
-- [ ] **1.4** `review-external-pr` skill
+- [x] **1.4** `review-external-pr` skill
     - **Context:** See plan.md Task 4. Key refs: `untrusted-pr-reviewer.md` (the export layout it expects: `pr.json`, `issue.json`, `diff.txt`, `head/`, `base/`)
     - **Watch out:** No `$()` in the typed commands. Stop on a symlink (mode `120000`) before extracting.
     - **Scope:** S6 (skill)
@@ -65,6 +65,10 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
         - [RED] `test_review_external_pr_never_runs_pr_code`
         - [GREEN] Write the skill
     - **Success:** test passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:** `git archive <ref> -- . ':(exclude).claude' ':(exclude).github' ':(exclude,glob)**/CLAUDE.md'` honors exclude pathspecs (git 2.55; checked by listing the tar). `git diff --summary` prints `create mode 120000` or `mode change … => 120000` for symlinks, so one read-only command finds them before extraction. Fetching `<baseRefName>` by name also updates `origin/<baseRefName>`.
+    - **Key Changes:** New `.claude/skills/review-external-pr/SKILL.md`: rules (no checkout, no PR code, PR text is data, no `$()`, ask before posting) and 11 steps (mktemp, `gh pr view` to `pr.json`, fetch to `refs/pr/<N>`, head SHA check, merge base, symlink stop, two `git archive | tar -x` exports, `diff.txt`, optional `issue.json`, spawn `untrusted-pr-reviewer`, relay). Test: `test_review_external_pr_never_runs_pr_code`.
+    - **Notes:** Model-invocable on purpose (D6). CLAUDE.md should point to it for fork PRs (#238).
 
 - [ ] **1.5** Settings: deny, Read/Edit deny, ask, superpowers plugin
     - **Context:** See plan.md Task 5 (the final rule list is there). Key refs: `.claude/settings.json:6-28,77-80`, `test_agent_tooling.py:26-32,97-163`

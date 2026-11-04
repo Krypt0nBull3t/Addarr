@@ -370,5 +370,15 @@ def test_contract_checker_fails_on_http_errors():
     assert "curl -sfL" in text and not re.search(r"curl -s(?!f)", text)
 
 
+def test_review_external_pr_never_runs_pr_code():
+    # A checked-out fork runs its own hooks, conftest.py and scripts here.
+    text = read_text(".claude/skills/review-external-pr/SKILL.md")
+    blocks = "\n".join(re.findall(r"```bash\n(.*?)```", text, re.S))
+    assert "git fetch origin" in blocks and "git archive" in blocks
+    assert ":(exclude).claude" in blocks and ":(exclude).github" in blocks
+    pattern = r"\b(checkout|switch|worktree|pytest|pip|python|run\.py)\b"
+    assert not re.search(pattern, blocks)
+
+
 def test_graphify_llm_backend_is_off():
     assert load_settings()["env"]["GRAPHIFY_BACKEND"] == "none"
