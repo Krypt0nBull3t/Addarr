@@ -6,6 +6,7 @@ SABnzbdService() will raise ValueError. Tests that need a working service
 use the enabled_sabnzbd_config fixture.
 """
 
+import logging
 import re
 
 import pytest
@@ -481,17 +482,20 @@ class TestGetHistory:
 # ---------------------------------------------------------------------------
 
 
+EVERY_REQUEST = [
+    pytest.param(lambda s: s.set_speed_limit(50), id="set_speed_limit"),
+    pytest.param(lambda s: s.pause_queue(), id="pause_queue"),
+    pytest.param(lambda s: s.resume_queue(), id="resume_queue"),
+    pytest.param(lambda s: s.pause_item("nzo_1"), id="pause_item"),
+    pytest.param(lambda s: s.resume_item("nzo_1"), id="resume_item"),
+    pytest.param(lambda s: s.get_queue_details(), id="get_queue_details"),
+    pytest.param(lambda s: s.get_history(), id="get_history"),
+]
+
+
 class TestRequestTimeout:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("call", [
-        lambda s: s.set_speed_limit(50),
-        lambda s: s.pause_queue(),
-        lambda s: s.resume_queue(),
-        lambda s: s.pause_item("nzo_1"),
-        lambda s: s.resume_item("nzo_1"),
-        lambda s: s.get_queue_details(),
-        lambda s: s.get_history(),
-    ])
+    @pytest.mark.parametrize("call", EVERY_REQUEST)
     async def test_every_request_has_10s_timeout(self, sabnzbd_service, call):
         """Without a timeout a hung SABnzbd blocks the bot for aiohttp's 300 s default."""
         with patch(
@@ -499,3 +503,26 @@ class TestRequestTimeout:
         ) as session_cls:
             await call(sabnzbd_service)
         assert session_cls.call_args.kwargs["timeout"].total == 10
+
+
+# ---------------------------------------------------------------------------
+# API key never reaches the log (#197)
+# ---------------------------------------------------------------------------
+
+
+class TestNoApiKeyInLogs:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("call", EVERY_REQUEST)
+    async def test_error_log_hides_api_key(self, sabnzbd_service, call, caplog):
+        """A ContentTypeError carries the request URL with apikey=, so only its type is logged."""
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                status=200,
+                body="<html>Login</html>",
+                content_type="text/html",
+            )
+            await call(sabnzbd_service)
+
+        assert any(r.levelno == logging.ERROR for r in caplog.records)
+        assert not any(sabnzbd_service.api_key in r.getMessage() for r in caplog.records)
