@@ -91,6 +91,9 @@ class SeasonPickerMixin:
                     selected_seasons.remove(season_num)
                 else:
                     selected_seasons.add(season_num)
+                # A hand-picked set is no longer "all seasons"
+                if future_mode == "all":
+                    future_mode = None
             except ValueError:
                 pass
 

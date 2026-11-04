@@ -11,7 +11,7 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
 - Why NOT decorate the picker and toggle callbacks with `@rate_limit("modify")`: `modify` allows 5 calls per 60 s, so one normal album add (result tap, quality tap, album toggles, confirm) would use it up. The check sits just before each add request instead.
 - Why NOT remove the entry-point `@rate_limit("search")` decorators: the issue does not ask for it and tests pin them. One `/movie` search uses 2 of the `search` budget; accepted.
 
-- [ ] **1.1** F060: unticking a season after "All Seasons" leaves it unmonitored
+- [x] **1.1** F060: unticking a season after "All Seasons" leaves it unmonitored
     - **Context:**
         - **Why:** "All Seasons" sets `future_mode = "all"`. The single-season toggle edits `selected_seasons` but never clears `future_mode`, so `handle_season_confirm` (`future_mode == "all"`) monitors every season.
         - **Architecture:** `SeasonPickerMixin` in `src/bot/handlers/media/season_picker.py`; state lives in `context.user_data`.
@@ -23,6 +23,14 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - [RED] Write `test_season_untick_after_all_seasons_monitors_only_remaining`: tap `season_all`, tap `season_1`, then `handle_season_confirm`; assert `seasons_data` has season 1 `monitored: False` and season 2 `monitored: True`
         - [GREEN] In the single-season branch, `if future_mode == "all": future_mode = None`
     - **Success:** the new test fails before the fix and passes after; `pytest tests/test_handlers/test_media_handler.py` passes; flake8 and mypy clean
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The test drives the real sequence (`season_all`, `season_1`, `season_confirm`) through `handle_season_selection`, because the bug is state left behind between taps.
+        - The red run showed season 1 `monitored: True`, so the test failed for the right reason.
+    - **Key Changes:**
+        - `src/bot/handlers/media/season_picker.py`: the single-season toggle sets `future_mode = None` when it was `"all"`.
+        - `tests/test_handlers/test_media_handler.py`: `test_season_untick_after_all_seasons_monitors_only_remaining`.
+    - **Notes:** `future_seasons` and `future_episodes` keep their meaning on a single-season toggle.
 
 - [ ] **1.2** F062: a quality button acts only on the keyboard it was drawn for
     - **Context:**

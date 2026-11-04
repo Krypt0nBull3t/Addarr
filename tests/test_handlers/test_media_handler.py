@@ -855,6 +855,38 @@ async def test_handle_season_selection_individual_toggle(
 
 
 @pytest.mark.asyncio
+async def test_season_untick_after_all_seasons_monitors_only_remaining(
+    media_handler, make_update, make_context
+):
+    """F060: unticking a season after "All Seasons" leaves it unmonitored."""
+    media_handler._mock_service.add_series_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "123", "title": "Test"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/tv",
+        "selected_seasons": set(),
+        "future_mode": None,
+        "monitor_all": False,
+        "quality_data": {"seasons": [{"seasonNumber": 1}, {"seasonNumber": 2}]},
+    })
+
+    for data in ("season_all", "season_1", "season_confirm"):
+        update = make_update(callback_data=data)
+        update.callback_query.message.photo = None
+        update.callback_query.message.reply_markup = MagicMock()
+        update.callback_query.message.reply_markup.to_dict.return_value = {}
+        await media_handler.handle_season_selection(update, context)
+
+    seasons_data = media_handler._mock_service.add_series_with_profile.call_args.args[3]
+    assert seasons_data == [
+        {"seasonNumber": 1, "monitored": False},
+        {"seasonNumber": 2, "monitored": True},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_handle_season_selection_individual_deselect(
     media_handler, make_update, make_context
 ):
