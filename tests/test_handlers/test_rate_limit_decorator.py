@@ -327,3 +327,58 @@ async def test_auth_is_limited_when_rate_limiting_disabled(
     results = [await handler.guarded(update, make_context()) for _ in range(4)]
 
     assert results == ["allowed", "allowed", "allowed", None]
+
+
+# ---------------------------------------------------------------------------
+# enforce_rate_limit (the check without the decorator)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_enforce_rate_limit_allows_then_refuses_with_reply(
+    mock_ts_class, make_update
+):
+    """True under the limit; False plus a reply once it is used up."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+
+    from src.services.rate_limit import enforce_rate_limit
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"modify": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        update = make_update(text="/movie")
+
+        assert await enforce_rate_limit(update, "modify") is True
+        update.effective_message.reply_text.assert_not_called()
+
+        assert await enforce_rate_limit(update, "modify") is False
+        update.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_enforce_rate_limit_true_when_disabled(make_update):
+    """Default mock config has rateLimit.enable false: never refuses."""
+    from src.services.rate_limit import enforce_rate_limit
+
+    update = make_update(text="/movie")
+
+    results = [await enforce_rate_limit(update, "modify") for _ in range(20)]
+
+    assert all(results)
+
+
+@pytest.mark.asyncio
+async def test_enforce_rate_limit_false_without_user(make_update):
+    """No effective user: refused, nothing sent."""
+    from src.services.rate_limit import enforce_rate_limit
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {"enable": True, "limits": {}}
+        update = make_update(text="/movie")
+        update.effective_user = None
+
+        assert await enforce_rate_limit(update, "modify") is False
+        update.effective_message.reply_text.assert_not_called()

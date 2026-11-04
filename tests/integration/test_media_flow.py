@@ -9,6 +9,7 @@ handler holds a reference obtained at construction time.
 import pytest
 from unittest.mock import AsyncMock, patch
 
+from src.bot.handlers.media.dispatch import QUALITY_SELECT, SEARCHING
 from src.services.media import MediaService
 
 from tests.integration.fixtures import (
@@ -52,6 +53,71 @@ async def test_movie_happy_path(harness):
         resp = await harness.tap_button("quality_1")
         assert resp is not None
         assert "added" in resp.text.lower() or "Fight Club" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_stale_quality_button_is_ignored(harness):
+    """A quality tap from an older keyboard adds nothing; the live one still adds."""
+    with (
+        patch.object(MediaService, "search_movies", new_callable=AsyncMock, return_value=MOVIE_SEARCH_RESULTS),
+        patch.object(MediaService, "add_movie", new_callable=AsyncMock, return_value=MOVIE_QUALITY_RESULT),
+        patch.object(MediaService, "add_movie_with_profile", new_callable=AsyncMock, return_value=(True, "Fight Club added")) as add,
+    ):
+        await harness.send_command("/movie")
+        await harness.send_text("fight club")
+        await harness.tap_button("select_550")
+
+        await harness.tap_button("quality_1", message_id=999)
+
+        add.assert_not_awaited()
+        assert harness.get_conversation_state(MEDIA_CONVERSATION) == QUALITY_SELECT
+
+        resp = await harness.tap_button("quality_1")
+
+    add.assert_awaited_once()
+    assert "Fight Club added" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_refused_search_keeps_the_conversation_open(harness):
+    """F063: a rate-limited search replies and waits; the user can retry."""
+    with (
+        patch("src.services.rate_limit.config") as cfg,
+        patch.object(MediaService, "search_movies", new_callable=AsyncMock, return_value=MOVIE_SEARCH_RESULTS) as search,
+    ):
+        # /movie uses the one allowed search call, so the typed query is refused
+        cfg.get.return_value = {
+            "enable": True,
+            "limits": {"search": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        await harness.send_command("/movie")
+        await harness.send_text("fight club")
+
+    search.assert_not_awaited()
+    assert harness.get_conversation_state(MEDIA_CONVERSATION) == SEARCHING
+
+
+@pytest.mark.asyncio
+async def test_movie_default_profile_skips_quality_picker(harness):
+    """/movie -> search -> select -> added with the saved default profile."""
+    radarr_default = {"radarr": {"quality": {"defaultProfileId": 2}}}
+    with (
+        patch.object(MediaService, "search_movies", new_callable=AsyncMock, return_value=MOVIE_SEARCH_RESULTS),
+        patch.object(MediaService, "add_movie", new_callable=AsyncMock, return_value=MOVIE_QUALITY_RESULT),
+        patch.object(MediaService, "add_movie_with_profile", new_callable=AsyncMock, return_value=(True, "Fight Club added successfully")) as add_with_profile,
+        patch("src.bot.handlers.media.handler.config") as mock_cfg,
+    ):
+        mock_cfg.get.side_effect = lambda key, default=None: radarr_default.get(key, default)
+
+        await harness.send_command("/movie")
+        await harness.send_text("fight club")
+
+        # Select the result: no quality picker, the movie is added at once
+        resp = await harness.tap_button("select_550")
+
+        assert resp is not None
+        assert "added" in resp.text.lower()
+        add_with_profile.assert_awaited_once_with("550", 2, "/movies")
 
 
 @pytest.mark.asyncio

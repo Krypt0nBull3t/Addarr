@@ -340,6 +340,8 @@ async def test_movie_happy_path(harness):
 - **Check `harness.responses`** (plural) when a step produces multiple bot messages (e.g., photo + text).
 - **Verify conversation state** with `harness.get_conversation_state("media_conversation", 12345, 12345)` to confirm state transitions or conversation end (`None`).
 - **Test data** goes in `tests/integration/fixtures.py` — reuse existing constants where possible.
+- **A `conversation_timeout` needs a running job queue.** The harness setup in `tests/integration/conftest.py` awaits `app.job_queue.start()` (a coroutine in PTB 22.8) and `stop(wait=False)`, because the harness never calls `Application.start()`. Without it PTB only warns, and the suite turns the warning into an error.
+- **Tap from another message** with `harness.tap_button("quality_1", message_id=999)` to test a stale keyboard. The default is message 100. In a unit test, reuse one update across calls when the handler compares `query.message.message_id`: a new update has a new message id.
 
 ### When to Write Integration Tests
 

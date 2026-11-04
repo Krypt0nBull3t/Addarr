@@ -34,7 +34,7 @@ from src.services.media import MediaService
 from src.services.transmission import TransmissionService
 from src.services.sabnzbd import SABnzbdService
 from src.services.translation import TranslationService
-from src.definitions import is_admin
+from src.utils.helpers import is_admin
 
 logger = get_logger("addarr.settings")
 
@@ -343,8 +343,12 @@ class SettingsHandler:
                 service=service,
             )
 
+        notice = self.translation.get_text(
+            "Settings.ServiceRestartNotice",
+            default="Restart the bot for this to take effect.",
+        )
         await query.message.edit_text(
-            f"✅ {text}", reply_markup=get_settings_keyboard()
+            f"✅ {text}\n{notice}", reply_markup=get_settings_keyboard()
         )
         return States.SETTINGS_MENU
 
@@ -655,11 +659,11 @@ class SettingsHandler:
         security = config.get("security", {})
         admin_enabled = security.get("enableAdmin", False)
         allowlist_enabled = security.get("enableAllowlist", False)
-        admin_count = len(config.get("admins", []))
-        auth_count = len(config.get("authenticated_users", []))
+        admin_count = len(config.get("admins") or [])
+        allow_count = len(config.get("allow_list") or [])
 
         keyboard = get_users_keyboard(
-            admin_enabled, allowlist_enabled, admin_count, auth_count
+            admin_enabled, allowlist_enabled, admin_count, allow_count
         )
         await query.message.edit_text(
             "👥 Users", reply_markup=keyboard
@@ -695,8 +699,8 @@ class SettingsHandler:
             reply_markup=get_users_keyboard(
                 config.get("security", {}).get("enableAdmin", False),
                 config.get("security", {}).get("enableAllowlist", False),
-                len(config.get("admins", [])),
-                len(config.get("authenticated_users", [])),
+                len(config.get("admins") or []),
+                len(config.get("allow_list") or []),
             ),
         )
         return States.SETTINGS_USERS

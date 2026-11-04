@@ -282,7 +282,7 @@ def get_sabnzbd_settings_keyboard(
 
 def get_users_keyboard(
     admin_enabled: bool, allowlist_enabled: bool,
-    admin_count: int, auth_count: int,
+    admin_count: int, allow_count: int,
 ) -> InlineKeyboardMarkup:
     """Get users sub-menu keyboard"""
     translation = TranslationService()
@@ -294,7 +294,7 @@ def get_users_keyboard(
             callback_data="usr_toggle_admin"
         )],
         [InlineKeyboardButton(
-            f"{allowlist_status} Allowlist ({auth_count} users)",
+            f"{allowlist_status} Allowlist ({allow_count} users)",
             callback_data="usr_toggle_allowlist"
         )],
         [InlineKeyboardButton(
@@ -578,14 +578,6 @@ def get_calendar_items_keyboard(
                 f"{emoji} {title}", callback_data="cal_noop"
             )
         ])
-        # Add button for non-library items
-        if not item.get("in_library"):
-            keyboard.append([
-                InlineKeyboardButton(
-                    f"\u2795 {translation.get_text('Add')}",
-                    callback_data=f"cal_add_{item['type']}_{item['media_id']}"
-                )
-            ])
 
     # Pagination row
     if total_pages > 1:
