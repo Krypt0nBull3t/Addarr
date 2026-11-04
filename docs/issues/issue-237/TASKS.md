@@ -97,7 +97,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
 
 **Goal:** K10, K11.
 
-- [ ] **3.1** Dead fixture, old plan directory, `/next` and `/addarr-setup`
+- [x] **3.1** Dead fixture, old plan directory, `/next` and `/addarr-setup`
     - **Context:**
         - **Why:** `sabnzbd_handler` imports `SABnzbdHandler` (class is `SabnzbdHandler`) and no test uses it; `.claude/issues/19-*` is an old plan location; two commands duplicate or contradict the workflow.
         - **Architecture:** Deletions plus one `git mv` (D5).
@@ -110,6 +110,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [GREEN] Remove the name from the two skill lines
         - [GREEN] `git mv` the plan directory; delete the two commands
     - **Success:** handler and architecture tests pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Rule R6 caught the two `sabnzbd_handler` mentions as soon as the fixture was gone (RED), which is the check working as intended.
+        - Nothing referenced `/next` or `/addarr-setup` except `addarr-setup.md` itself.
+    - **Key Changes:** `tests/test_handlers/conftest.py`: fixture `sabnzbd_handler` deleted. addarr-testing `SKILL.md` and `references/fixtures.md`: `sabnzbd_handler` removed. `.claude/issues/19-transmission-sync-to-async/` moved to `docs/issues/issue-19/` (`PLAN.md` renamed `plan.md`). `.claude/commands/next.md` and `.claude/commands/addarr-setup.md` deleted.
+    - **Notes:** `transmission_handler` is also unused by tests but works; left in place.
 
 ### Phase 4: addarr-workflow (5 tasks)
 

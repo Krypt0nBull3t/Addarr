@@ -58,7 +58,7 @@ pytest -x                                   # Stop on first failure
 | `mock_translation_service` | `MagicMock` where `get_text` and `get_message` return the key |
 | `mock_notification_service` | `MagicMock` with async `notify_admin` |
 | `admin_mode` | Admin mode on with admin user 1, so the default test user 12345 is no admin |
-| `<name>_handler` | A handler with its services patched and user 12345 authenticated, e.g. `media_handler`, `settings_handler`, `transmission_handler`, `sabnzbd_handler` (full list in [references/fixtures.md](references/fixtures.md#handler-fixtures)) |
+| `<name>_handler` | A handler with its services patched and user 12345 authenticated, e.g. `media_handler`, `settings_handler`, `transmission_handler` (full list in [references/fixtures.md](references/fixtures.md#handler-fixtures)) |
 | `unchanged_edit` | Wires a query so `edit_text` raises Telegram's "Message is not modified" `BadRequest` |
 
 ### Integration Fixtures (`tests/integration/conftest.py`)
