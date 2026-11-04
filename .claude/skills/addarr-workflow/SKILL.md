@@ -86,7 +86,9 @@ Step 1  ASK     Issue selection (AskUserQuestion with open issues);
                 skipped when `/addarr new <N>` names the issue
 Step 2  ASK     Branch type selection (feature/fix/refactor)
 Step 2b RUN     Create branch <prefix>/<N>-<slug> from latest development
-Step 3  RUN     Analyze task (read the issue and its comments, identify
+Step 3  RUN     Context check first (references/context-check.md: graphify,
+                the Addarr wiki, with fallbacks). Then analyze the task (read
+                the issue and its comments, identify
                 layers/config/i18n). On a fix/ branch: INVOKE
                 @superpowers:systematic-debugging for the root cause first
 Step 3b ASK/INVOKE  @superpowers:brainstorming (if task is complex/ambiguous/multi-approach;
@@ -108,7 +110,8 @@ Step 6  RUN     Flow: create-pr (automatic transition)
 
 ```
 Step 1  RUN     Read docs/issues/issue-<N>/TASKS.md (<N> from the argument or
-                the branch name), find next pending task
+                the branch name), find next pending task. In a fresh session,
+                run the context check (references/context-check.md) first
 Step 2  RUN     Execute tasks (see "Execution Loop" below)
 Step 3  RUN     Flow: create-pr (when all tasks complete)
 ```

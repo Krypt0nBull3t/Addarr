@@ -88,7 +88,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - `references/feedback.md`: step 1 uses a given PR number.
     - **Notes:** `/addarr end <N>` joins the arguments paragraph in task 2.7.
 
-- [ ] **2.3** Context check before code (change 9)
+- [x] **2.3** Context check before code (change 9)
     - **Context:**
         - **Why:** The flow went from the issue to the code without graphify or the Addarr wiki.
         - **Architecture:** New `references/context-check.md`, run in new-task step 3 and once per fresh session in continue step 1.
@@ -100,6 +100,14 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [RED] Search the skill for "graphify" and "wiki": no hit.
         - [GREEN] Write `context-check.md`; wire it into new-task step 3 and continue step 1; new-task step 4 adds `## Wiki gaps` to `plan.md` when there are gaps.
     - **Success:** `tests/test_architecture` passes; every part has its fallback.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The Addarr wiki has no page on the workflow skill or the agent tooling; this issue's own context check found nothing to read there (a gap for the next re-ingest).
+    - **Key Changes:**
+        - `references/context-check.md` (new): graphify, wiki (qmd `personal-wiki` or the vault), gaps into `plan.md`; one fallback per part.
+        - `SKILL.md`: new-task step 3 and continue step 1 run it.
+        - `references/new-task.md`: step 3 runs it before the first source read; the plan gets `## Wiki gaps` when there are any.
+    - **Notes:** The skill names no vault path; it points to `~/.claude/CLAUDE.md` § LLM Wiki, so the public repo holds nothing machine-specific.
 
 - [ ] **2.4** Model gate, stall rule, scoped checks (changes 10, 11)
     - **Context:**
