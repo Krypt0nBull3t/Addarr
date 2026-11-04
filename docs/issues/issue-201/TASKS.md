@@ -143,7 +143,7 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - Added `TestReadmeInstallCommand.test_readme_has_no_sudo_pipe`.
     - **Notes:** `install.sh` now calls `sudo` itself for system packages (task 1.5), which is why the README no longer needs it. `scripts/install.sh` was never run in full (it installs software). Its trap, cleanup and clone logic was checked with a scratch-dir simulation (task 1.4).
 
-### Phase 2: Review feedback round 1 (1 task)
+### Phase 2: Review feedback (2 tasks)
 
 - [x] **2.1** [must-fix] Use `$SUDO` for every package install in `install.sh` (from Krypt0nBull3t, two threads on `scripts/install.sh:104`)
     - **Context:**
@@ -168,3 +168,24 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - `scripts/install.sh`: `set_sudo` runs at load. `check_sudo` exits only for a non-root user without `sudo`. 18 package-manager calls in the pip, git, Python and venv paths use `$SUDO`. `check_sudo` runs before each path that installs a package (the arch venv arm installs nothing and has no call).
         - `tests/test_install_scripts.py`: replaced `test_check_sudo_sets_prefix_for_current_user` with `test_every_package_install_uses_sudo_prefix`, `test_sudo_prefix_by_user` (5 cases), `test_check_sudo_runs_before_each_install_path` (3 cases) and `test_venv_install_checks_sudo_in_each_installing_arm`.
     - **Notes:** Git clone, venv creation and `pip install -r requirements.txt` still run as the current user, without `sudo`. The echo hint lines keep their plain `sudo`.
+
+- [x] **2.2** [must-fix] Install `python3-venv` when `apt-get update` succeeds (from Krypt0nBull3t, thread on `scripts/install.sh:559`)
+    - **Context:**
+        - **Why:** `if ! $SUDO apt-get update && $SUDO apt-get install -y "python${PYTHON_VERSION}-venv"; then <fallback>` parses as `(! update) && install`. When `apt-get update` succeeds the test is false, so neither the install nor the fallback runs and `python3-venv` stays missing. The line is in this PR's diff (the `$SUDO` edit touched it).
+        - **Architecture:** Two explicit steps in the `"ubuntu"|"debian"` arm of `install_python_venv`: a failed `apt-get update` warns and continues (the install can work with the old package lists), then the versioned install, then the `python3-venv` fallback, then `return 1`.
+        - **Key refs:** `scripts/install.sh:553-566` (`install_python_venv`), `tests/test_install_scripts.py` (`function_text`)
+        - **Watch out:** Lines 164 and 277 use `! A && ! B` on purpose (both missing) and stay. No other `! A && B` exists in the script.
+    - **Scope:** One arm of one function, one new test
+    - **Touches:** `scripts/install.sh`, `tests/test_install_scripts.py`
+    - **Action items:**
+        - [RED] Write `test_venv_install_runs_after_successful_update` (parametrized, `apt-get`, `get_system_info`, `check_sudo` and the Python command stubbed as bash functions): update ok runs the versioned install and succeeds; update fails still tries the install and succeeds; versioned install fails falls back to `python3-venv`; both installs fail returns 1
+        - [GREEN] Replace the `! update && install` test with an explicit update step and an install step
+    - **Success:** The test fails before and passes after, `bash -n scripts/install.sh` passes, the preflight passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The old test `! A && B` was inverted in both directions: a successful update skipped the install, and a failed update with a successful install entered the "Failed to install" fallback. The four test cases failed before the fix, each with a different wrong call list.
+        - Stubbing `apt-get` as a bash function that logs its arguments and fails on chosen words checks the exact call sequence without touching the host.
+    - **Key Changes:**
+        - `scripts/install.sh` (`install_python_venv`, Debian and Ubuntu arm): a failed `apt-get update` warns and continues, then the versioned `python3.X-venv` install, then the `python3-venv` fallback, then `return 1`.
+        - `tests/test_install_scripts.py`: added `test_venv_install_runs_after_successful_update` (4 cases).
+    - **Notes:** The only other `! A && ...` lines in the script (164, 277) are `! pip3 && ! pip` checks and are correct.

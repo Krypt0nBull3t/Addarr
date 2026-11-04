@@ -555,8 +555,12 @@ install_python_venv() {
             PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1,2)
             echo -e "${BLUE}Detected Python version: $PYTHON_VERSION${NC}"
             
+            # A failed update is not fatal: the install can work with the old package lists
+            if ! $SUDO apt-get update; then
+                echo -e "${YELLOW}apt-get update failed, trying the install anyway...${NC}"
+            fi
             # Try version-specific package first
-            if ! $SUDO apt-get update && $SUDO apt-get install -y "python${PYTHON_VERSION}-venv"; then
+            if ! $SUDO apt-get install -y "python${PYTHON_VERSION}-venv"; then
                 echo -e "${YELLOW}Failed to install python${PYTHON_VERSION}-venv, trying generic package...${NC}"
                 # Fallback to generic package
                 if ! $SUDO apt-get install -y python3-venv; then

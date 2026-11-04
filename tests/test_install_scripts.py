@@ -214,6 +214,40 @@ class TestSudoHandling:
         body = function_text(read(INSTALL_SH), "install_python_venv")
         assert body.count("check_sudo") == 3
 
+    @pytest.mark.parametrize(
+        "failing, calls, returncode",
+        [
+            ("", ["update", "install -y python3.11-venv"], 0),
+            ("update", ["update", "install -y python3.11-venv"], 0),
+            (
+                "python3.11-venv",
+                ["update", "install -y python3.11-venv", "install -y python3-venv"],
+                0,
+            ),
+            (
+                "python3.11-venv python3-venv",
+                ["update", "install -y python3.11-venv", "install -y python3-venv"],
+                1,
+            ),
+        ],
+        ids=["update-ok", "update-fails", "versioned-fails", "both-installs-fail"],
+    )
+    def test_venv_install_runs_after_successful_update(self, tmp_path, failing, calls, returncode):
+        """apt-get update succeeding must not skip the install (`! update && install` did)."""
+        log = tmp_path / "apt.log"
+        script = (
+            'RED=""; YELLOW=""; BLUE=""; NC=""; SUDO=""; PYTHON_CMD=pystub\n'
+            'pystub() { echo "Python 3.11.2"; }\n'
+            "get_system_info() { echo ubuntu; }\n"
+            "check_sudo() { :; }\n"
+            f'apt-get() {{ echo "$*" >> "{log}"; for a in "$@"; do case " {failing} " in *" $a "*) return 1;; esac; done; return 0; }}\n'
+            f'{function_text(read(INSTALL_SH), "install_python_venv")}\n'
+            "install_python_venv\n"
+        )
+        result = subprocess.run([shutil.which("bash"), "-c", script], capture_output=True, text=True)
+        assert result.returncode == returncode
+        assert log.read_text().splitlines() == calls
+
 
 class TestReadmeInstallCommand:
     """Verify the README install command runs as the current user."""
