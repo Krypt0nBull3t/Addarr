@@ -204,7 +204,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
 
 **Goal:** K5, K7, K8, K9.
 
-- [ ] **5.1** release-readiness (K5)
+- [x] **5.1** release-readiness (K5)
     - **Context:**
         - **Why:** Empty find-bugs diff on development, `simplify` edits files, wrong file count, nonexistent `blocker` label, tag overwrite.
         - **Architecture:** Markdown; plan.md Task 5.1; D13.
@@ -215,6 +215,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] Read-through: each item present
         - [GREEN] Apply plan.md Task 5.1
     - **Success:** architecture tests pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - ci.yml runs on pull requests only, so `gh run list --branch development` finds only release-PR runs (the latest is months old). The check reads the checks of the last PR merged into `development` instead.
+        - pip-audit is `continue-on-error` in CI; a green overall status can hide a failed audit.
+    - **Key Changes:** `release-readiness/SKILL.md`: `git fetch origin` and `origin/main...origin/development` ranges, `simplify` line removed, tests via `/addarr check` (report only), `docker build -t addarr-test .`, `priority:critical` and `security` labels, CI-green check on the last merged PR, colons instead of em dashes in items.
+    - **Notes:** Done by a subagent; I replaced its `gh run list` CI check after it reported the stale-run problem.
 
 - [x] **5.2** addarr-find-bugs and task-writer (K7, K9)
     - **Context:**
