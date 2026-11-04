@@ -156,13 +156,22 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - `github-and-merge.md`: merge paths are the single-quoted paths `graphify clone` printed; `--backend '<name>'`.
     - **Notes:** Shell comments in bash blocks are scanned too, on purpose: agents copy commented commands. A `'` in a comment would start a fake quote and could hide a value; none of the current blocks has one.
 
-- [ ] **2.4** [should-fix] Pass save-result values through a file (audit 4)
+- [x] **2.4** [should-fix] Pass save-result values through a file (audit 4)
     - **Context:** `query.md` puts the answer text and node labels in single-quoted shell arguments. One `'` in that prose reopens injection. `--nodes` also lets a label that starts with `--` act as an option.
     - **Scope:** The agent writes `graphify-out/.save_result.json` with the Write tool; a `<<'GRAPHIFY_PY'` script reads it and calls `graphify.ingest.save_query_result`. The path and explain flows reuse that block.
     - **Touches:** `.claude/skills/graphify/references/query.md`, test file
     - **Action items:**
         - [RED] Test: no bash block runs `save-result` in shell or holds `ANSWER`, `ORIGINAL_QUESTION`, `NODE1`, `NODE2`
         - [GREEN] Rewrite the three save-result steps and the `--correction` prose
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Red first: `query.md` failed on the shell `save-result --question 'ORIGINAL_QUESTION' ...` line.
+        - `graphify save-result` has `--answer-file` but no file option for the question or the nodes, so the script calls `graphify.ingest.save_query_result` directly. That also removes argv injection: a node label such as `--memory-dir=/tmp/evil` stays a label.
+        - Smoke: a JSON file with `'`, `$(touch ..)`, a backtick `touch`, `'; touch MARK3; echo '` and a `--memory-dir=` label saved one memory file with the text verbatim, created no marker file and no `/tmp/evil`, and deleted the request file.
+    - **Key Changes:**
+        - `references/query.md`: new "Save the result" step (Write tool writes `graphify-out/.save_result.json`; a `<<'GRAPHIFY_PY'` script saves it with `out_path('memory')`); `outcome`/`correction` are JSON keys; the path and explain flows point to it.
+        - Test file: `test_graphify_save_result_reads_text_from_a_file`.
+    - **Notes:** After a graphify upgrade, check that `save_query_result` keeps its keyword arguments; the save script calls it directly.
 
 - [ ] **2.5** [consider] Check the ignore rule with `git check-ignore` (audit 5)
     - **Scope:** `test_graphify_out_is_git_ignored` runs `git check-ignore` on the 4 graphify paths (acceptance criterion F274).

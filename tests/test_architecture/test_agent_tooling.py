@@ -247,6 +247,16 @@ def test_graphify_bash_values_sit_in_single_quotes():
         assert not match, (path, match.group(0))
 
 
+def test_graphify_save_result_reads_text_from_a_file():
+    # Answers and node labels are long free text, often graph output: one
+    # mistyped '\'' would reopen the shell, so they never enter a command.
+    for path, block in bash_blocks():
+        assert "save-result" not in HEREDOC.sub(r"\1", block), path
+        match = re.search(r"\b(?:ANSWER|ORIGINAL_QUESTION|NODE1|NODE2)\b", block)
+        assert not match, (path, match.group(0))
+    assert skill_hits(r"\.save_result\.json")
+
+
 def test_graphify_installs_are_pinned():
     for path, token in skill_hits(r"graphifyy\S*"):
         assert f"=={GRAPHIFY_VERSION}" in token, (path, token)

@@ -172,19 +172,54 @@ GRAPHIFY_PY
 
 Replace `QUESTION` with the **expanded** query string, `MODE` with `bfs` or `dfs`, and `BUDGET` with the token budget (default `2000`, or whatever `--budget N` specifies). Then answer based on the subgraph output above, using only what the graph contains.
 
-After writing the answer, save it back into the graph so it improves future queries. Include the expanded tokens inside the `--answer` text (e.g. `"Expanded from original query via vocab: [tokens]. Then traversed..."`) so the next `--update` extracts the expansion history as a graph node:
+After writing the answer, save it back into the graph so it improves future queries. Include the expanded tokens inside the answer text (e.g. `Expanded from original query via vocab: [tokens]. Then traversed...`) so the next `--update` extracts the expansion history as a graph node.
 
-```bash
-"$(cat graphify-out/.graphify_python)" -m graphify save-result --question 'ORIGINAL_QUESTION' --answer 'ANSWER' --type query --nodes 'NODE1' 'NODE2'
+#### Save the result
+
+The question, the answer and the node labels are free text, partly graph output, so they never go on a command line (no `graphify save-result --answer '...'`). Write them with the **Write tool**, not the shell, to `graphify-out/.save_result.json`:
+
+```json
+{
+  "question": "the user's verbatim question",
+  "answer": "your full answer, with the expanded-token trace",
+  "type": "query",
+  "nodes": ["a node label you cited", "another cited label"],
+  "outcome": "useful"
+}
 ```
 
-Replace `ORIGINAL_QUESTION` with the user's verbatim question, `ANSWER` with your full answer text (containing the expanded-token trace), `'NODE1' 'NODE2'` with the node labels you cited, one single-quoted argument each. Keep every value in single quotes and write each `'` in it as `'\''`. This closes the feedback loop: the next `--update` will extract this Q&A as a node in the graph.
+Then run this script. It reads the file and saves the result without a shell:
 
-**Work memory (self-improving loop).** Add an `--outcome` so future sessions learn from this one — append `--outcome useful|dead_end|corrected` to the `save-result` command (and `--correction "the right answer"` when correcting):
+```bash
+"$(cat graphify-out/.graphify_python)" - <<'GRAPHIFY_PY'
+import json
+from pathlib import Path
+from graphify.ingest import save_query_result
+from graphify.paths import out_path
+
+request = Path('graphify-out/.save_result.json')
+r = json.loads(request.read_text(encoding='utf-8'))
+saved = save_query_result(
+    question=r['question'],
+    answer=r['answer'],
+    memory_dir=out_path('memory'),
+    query_type=r.get('type', 'query'),
+    source_nodes=r.get('nodes') or None,
+    outcome=r.get('outcome'),
+    correction=r.get('correction'),
+)
+request.unlink()
+print(f'Saved to {saved}')
+GRAPHIFY_PY
+```
+
+This closes the feedback loop: the next `--update` will extract this Q&A as a node in the graph.
+
+**Work memory (self-improving loop).** Set `"outcome"` in the JSON so future sessions learn from this one: one of `useful`, `dead_end`, `corrected` (and add `"correction": "the right answer"` when correcting). Leave both keys out when you have no signal:
 
 - `useful` — the cited nodes answered the question well (they become *preferred sources*).
 - `dead_end` — the question/path led nowhere; don't re-derive it next time.
-- `corrected` — the saved answer was wrong; `--correction` records what was right.
+- `corrected` — the saved answer was wrong; `"correction"` records what was right.
 
 At the **start** of graph work, refresh and read the lessons: run `graphify reflect --if-stale` (cheap, deterministic, no LLM; `--if-stale` makes it a no-op when `LESSONS.md` is already newer than every input, e.g. when the git hook just refreshed it), then read `graphify-out/reflections/LESSONS.md`. It lists **preferred sources** (start there), **known dead ends** (skip them), and prior **corrections**. Running `reflect` yourself keeps the lessons current even without the git hook installed; if the post-commit hook *is* installed, `--if-stale` means your session-start run costs almost nothing.
 
@@ -251,11 +286,7 @@ GRAPHIFY_PY
 
 Replace `NODE_A` and `NODE_B` with the actual concept names from the user. Then explain the path in plain language - what each hop means, why it's significant.
 
-After writing the explanation, save it back:
-
-```bash
-"$(cat graphify-out/.graphify_python)" -m graphify save-result --question 'Path from NODE_A to NODE_B' --answer 'ANSWER' --type path_query --nodes 'NODE_A' 'NODE_B'
-```
+After writing the explanation, save it back as in [Save the result](#save-the-result): write `graphify-out/.save_result.json` with the Write tool, with `"question": "Path from <A> to <B>"`, your explanation as `"answer"`, `"type": "path_query"` and the two concept names as `"nodes"`, then run the save script.
 
 ---
 
@@ -313,8 +344,4 @@ GRAPHIFY_PY
 
 Replace `NODE_NAME` with the concept the user asked about. Then write a 3-5 sentence explanation of what this node is, what it connects to, and why those connections are significant. Use the source locations as citations.
 
-After writing the explanation, save it back:
-
-```bash
-"$(cat graphify-out/.graphify_python)" -m graphify save-result --question 'Explain NODE_NAME' --answer 'ANSWER' --type explain --nodes 'NODE_NAME'
-```
+After writing the explanation, save it back as in [Save the result](#save-the-result): write `graphify-out/.save_result.json` with the Write tool, with `"question": "Explain <concept>"`, your explanation as `"answer"`, `"type": "explain"` and the concept name as the only entry in `"nodes"`, then run the save script.
