@@ -43,6 +43,22 @@ progress() {
     fi
 }
 
+# Restore the old install when the script exits with an error.
+# The script has no "set -e" and fails through "exit 1", so the trap is on EXIT
+# and reads the exit status. It is set before the backup is made.
+BACKUP_DIR=""
+cleanup() {
+    local status="${1:-0}"
+    if [ "$status" -ne 0 ] && [ -n "$BACKUP_DIR" ] && [ -n "$INSTALL_DIR" ] && [ -d "$BACKUP_DIR" ]; then
+        echo -e "${YELLOW}Installation failed. Restoring backup...${NC}"
+        rm -rf "$INSTALL_DIR"
+        mv "$BACKUP_DIR" "$INSTALL_DIR"
+    fi
+}
+trap 'cleanup $?' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 # Minimum required Python version
 MIN_PYTHON_VERSION="3.10"
 
@@ -403,9 +419,11 @@ fi
 
 # Clone repository with progress
 echo -e "\n${BLUE}Cloning Addarr repository...${NC}"
-if ! git clone --progress https://github.com/Krypt0nBull3t/Addarr.git "$INSTALL_DIR" 2>&1 | while read -r line; do
+git clone --progress https://github.com/Krypt0nBull3t/Addarr.git "$INSTALL_DIR" 2>&1 | while read -r line; do
     echo -ne "\r\033[K${BLUE}Progress: ${NC}$line"
-done; then
+done
+# The pipeline status is the while loop's, so read git's own status.
+if [ "${PIPESTATUS[0]}" -ne 0 ]; then
     echo -e "\n${RED}Failed to clone repository${NC}"
     exit 1
 fi
@@ -624,16 +642,3 @@ if [[ ":$PATH:" != *":$SHORTCUT_DIR:"* ]]; then
     echo -e "${YELLOW}source ~/.bashrc${NC}"
     echo -e "${YELLOW}to use the 'addarr' command.${NC}\n"
 fi
-
-cleanup() {
-    # If installation failed, restore backup if it exists
-    if [ "$1" = "error" ] && [ -d "$BACKUP_DIR" ]; then
-        echo -e "${YELLOW}Restoring backup...${NC}"
-        rm -rf "$INSTALL_DIR"
-        mv "$BACKUP_DIR" "$INSTALL_DIR"
-    fi
-}
-
-# Add trap
-trap 'cleanup error' ERR
-trap cleanup EXIT

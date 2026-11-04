@@ -75,7 +75,7 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - Added `TestPythonVersion.test_install_requires_python_310`.
     - **Notes:** `bash -n scripts/install.sh` passes.
 
-- [ ] **1.4** F173: failed reinstall restores the backup
+- [x] **1.4** F173: failed reinstall restores the backup
     - **Context:**
         - **Why:** The restore traps are the last lines of install.sh, and the script fails through `exit 1`, so the old install stays in `<dir>.backup.<date>`.
         - **Architecture:** `BACKUP_DIR=""` and `cleanup [status]` at the top, `trap 'cleanup $?' EXIT`, `trap 'exit 130' INT`, `trap 'exit 143' TERM`. `cleanup` restores only when the status is non-zero and `BACKUP_DIR` and `INSTALL_DIR` are non-empty and `BACKUP_DIR` is a directory.
@@ -89,6 +89,15 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - [RED] Write `test_clone_failure_is_detected`: the clone block tests `PIPESTATUS[0]`
         - [GREEN] Move and rewrite the traps and `cleanup`, delete the old lines, fix the clone status
     - **Success:** All five tests fail before and pass after, `bash -n scripts/install.sh` passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Before the fix, `test_restore_trap_set_before_backup_move`, `test_signals_exit_with_non_zero_status`, `test_cleanup_restores_backup_on_failure` and `test_clone_failure_is_detected` failed. The "keeps on success" and "no backup" tests passed on the old code, as guards against over-eager restore.
+        - A scratch-dir simulation of the new trap, cleanup and clone block (clone from a missing repo) confirmed: the failure is detected, the script exits 1, and the old `config.yaml` returns.
+    - **Key Changes:**
+        - `scripts/install.sh`: `BACKUP_DIR=""`, `cleanup [status]` and the `EXIT`, `INT`, `TERM` traps now sit before `check_and_install_requirements`. The old traps at the end of the file are gone.
+        - `scripts/install.sh`: the clone runs as a plain pipeline and tests `${PIPESTATUS[0]}`.
+        - Added `TestBackupRestore` (six tests) with helpers `function_text()` and `run_cleanup()`.
+    - **Notes:** `cleanup` defaults to status 0 when called without an argument, so it never restores by accident. The trap passes `$?`.
 
 - [ ] **1.5** F174: SUDO prefix in install.sh
     - **Context:**
