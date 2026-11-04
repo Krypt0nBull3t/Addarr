@@ -58,7 +58,7 @@ Branch: `fix/196-delete-wrong-media`. PR targets `development`.
         - `tests/test_bot/test_keyboards.py`: `TestPaginationRow`, `TestDeleteItemsKeyboard`
     - **Notes:** The row has no middle page indicator, so no noop callback is needed. `#223` can replace the other 5 copies with this helper.
 
-- [ ] **1.3** Handler reads type and id from callback_data (F002, F004)
+- [x] **1.3** Handler reads type and id from callback_data (F002, F004)
     - **Context:**
         - **Why:** `delete.py` reads `user_data["delete_type"]` and `user_data["delete_item"]` at tap time. Radarr and Sonarr ids collide, so a tap on an old list deletes a different item.
         - **Architecture:** `DeleteHandler.handle_delete_selection` is one callback handler for `^delete_`, decorated with `@require_auth` and `@require_admin()`. Callbacks after this task: `delete_type_<type>`, `delete_page_<type>_<n>`, `delete_item_<type>_<id>`, `delete_confirm_<type>_<id>`, `delete_cancel`.
@@ -73,6 +73,15 @@ Branch: `fix/196-delete-wrong-media`. PR targets `development`.
         - [GREEN] Implement the parsing, `_fetch_items`, `_fetch_item`, `_delete_item` and the paging callback
         - [GREEN] Keep the existing tests for cancel, no items, service errors, confirm failure and exception on the new callback shapes
     - **Success:** `scripts/test_runner.py handlers --coverage` passes with no uncovered new lines, flake8 and mypy clean.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - 37 new or rewritten tests failed before the change, for behavior reasons (wrong service called, no paging, `user_data` read).
+        - The access-control tests at the end of the file still used `delete_confirm` and `user_data`. They passed for the wrong reason until updated: the guard fired before any parsing. Moved them to the new shapes, and the admin test now sets `get_movie`.
+        - `str.isdigit()` accepts non-ASCII digits, so `_is_id` also checks `isascii()`.
+    - **Key Changes:**
+        - `src/bot/handlers/delete.py`: `MEDIA_METHODS`, `_is_id`, callback parsing, `_show_list`, `_show_confirm`, `_delete`, `_show_bad_callback`. No `user_data` use.
+        - `tests/test_handlers/test_delete_handler.py`: item, paging and confirm sections rewritten, access tests moved to the new callback shapes
+    - **Notes:** `delete.py` is at 100% in the handlers run. The confirm step makes one extra GET (refetch for the title) and never deletes when the item is gone.
 
 - [ ] **1.4** Integration flow and callback registry
     - **Context:**
