@@ -30,6 +30,7 @@ For each changed file, check:
 * [ ] **Race conditions**: TOCTOU in singleton initialization, concurrent user_data access
 * [ ] **Resource exhaustion**: Unbounded data, missing timeouts, session leaks
 * [ ] **Business logic**: State machine violations, numeric edge cases
+* [ ] **Null values**: `x.get(k, default)` returns None when the key exists with a null value (*arr JSON nulls, empty YAML keys). Use `(x.get(k) or default)`
 * [ ] **Async bugs**: Missing `await`, unclosed sessions, fire-and-forget coroutines
 * [ ] **Singleton issues**: State in `__init__` vs `_initialize`, missing `is_enabled()` checks
 * [ ] **Config safety**: Direct `config["key"]` indexing, missing `.get()` defaults
