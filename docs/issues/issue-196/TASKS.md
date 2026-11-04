@@ -36,7 +36,7 @@ Branch: `fix/196-delete-wrong-media`. PR targets `development`.
         - New `tests/test_services/test_delete_prompt_translations.py`
     - **Notes:** `#224` (F211) rewrites `ThisDelete` in fr, it, pt and de later. Expect a small merge touch there.
 
-- [ ] **1.2** Paged delete item keyboard (F004)
+- [x] **1.2** Paged delete item keyboard (F004)
     - **Context:**
         - **Why:** /delete builds one button per item. A library of about 100 items or more makes Telegram reject the keyboard, and the handler shows `MediaListError`.
         - **Architecture:** Keyboard builders live in `src/bot/keyboards.py` and take `translation` as a parameter. `library.py` pages with `ITEMS_PER_PAGE = 10`.
@@ -49,6 +49,14 @@ Branch: `fix/196-delete-wrong-media`. PR targets `development`.
         - [RED] Write tests for the keyboard: 150 movies give 10 item buttons then a nav row then the cancel row, exactly 10 items give no nav row, page 9 of 25 items shows items 21 to 25, a 10-digit series id stays under 64 bytes
         - [GREEN] Implement both functions
     - **Success:** `scripts/test_runner.py bot --coverage` passes, flake8 and mypy clean.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Red run was an `ImportError` on `DELETE_PAGE_SIZE` (feature missing), as wanted.
+        - The bot scoped run lists `src/bot/keyboards.py` lines 1266-1333 as uncovered. They are older keyboards that other test dirs cover, not this change.
+    - **Key Changes:**
+        - `src/bot/keyboards.py`: `_build_pagination_row`, `DELETE_PAGE_SIZE`, `get_delete_items_keyboard`
+        - `tests/test_bot/test_keyboards.py`: `TestPaginationRow`, `TestDeleteItemsKeyboard`
+    - **Notes:** The row has no middle page indicator, so no noop callback is needed. `#223` can replace the other 5 copies with this helper.
 
 - [ ] **1.3** Handler reads type and id from callback_data (F002, F004)
     - **Context:**

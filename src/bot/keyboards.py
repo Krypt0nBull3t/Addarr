@@ -891,6 +891,67 @@ def _build_dl_pagination_row(page: int, total_pages: int) -> list:
     return nav_row
 
 
+def _build_pagination_row(prefix: str, page: int, total_pages: int) -> list:
+    """Build a Prev/Next row; the page is clamped into 0..total_pages-1.
+
+    Buttons carry ``f"{prefix}_{page}"``. One page or none gives no row.
+    """
+    if total_pages <= 1:
+        return []
+    page = min(max(page, 0), total_pages - 1)
+    nav_row = []
+    if page > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                "◀️ Prev", callback_data=f"{prefix}_{page - 1}"
+            )
+        )
+    if page < total_pages - 1:
+        nav_row.append(
+            InlineKeyboardButton(
+                "Next ▶️", callback_data=f"{prefix}_{page + 1}"
+            )
+        )
+    return nav_row
+
+
+DELETE_PAGE_SIZE = 10
+
+
+def get_delete_items_keyboard(
+    items: list, media_type: str, page: int, translation
+) -> InlineKeyboardMarkup:
+    """Get one page of the /delete item list.
+
+    Every callback carries the media type, so a button acts on the type it
+    was drawn for, whatever other /delete lists are open.
+    """
+    total_pages = max(1, -(-len(items) // DELETE_PAGE_SIZE))
+    page = min(max(page, 0), total_pages - 1)
+    start = page * DELETE_PAGE_SIZE
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                item["title"],
+                callback_data=f"delete_item_{media_type}_{item['id']}"
+            )
+        ]
+        for item in items[start:start + DELETE_PAGE_SIZE]
+    ]
+    nav_row = _build_pagination_row(
+        f"delete_page_{media_type}", page, total_pages
+    )
+    if nav_row:
+        keyboard.append(nav_row)
+    keyboard.append([
+        InlineKeyboardButton(
+            f"❌ {translation.get_text('StopDelete')}",
+            callback_data="delete_cancel"
+        )
+    ])
+    return InlineKeyboardMarkup(keyboard)
+
+
 def _build_dl_client_tab_row(client: str) -> list:
     """Build client switcher row for multi-client downloads keyboards."""
     sab_mark = "\u2713 " if client == "sabnzbd" else ""

@@ -5,6 +5,9 @@ from unittest.mock import patch
 from telegram import InlineKeyboardMarkup
 
 from src.bot.keyboards import (
+    DELETE_PAGE_SIZE,
+    _build_pagination_row,
+    get_delete_items_keyboard,
     get_downloads_history_keyboard,
     get_downloads_queue_keyboard,
     get_history_items_keyboard,
@@ -2230,3 +2233,89 @@ class TestHistoryEmptyKeyboard:
         ]
         assert "hist_refresh" in callbacks
         assert "hist_back" in callbacks
+
+
+def _row_callbacks(row):
+    return [btn.callback_data for btn in row]
+
+
+class TestPaginationRow:
+    """Tests for _build_pagination_row"""
+
+    def test_single_page_gives_no_row(self):
+        assert _build_pagination_row("x", 0, 1) == []
+
+    def test_no_pages_gives_no_row(self):
+        assert _build_pagination_row("x", 0, 0) == []
+
+    def test_middle_page_has_prev_and_next(self):
+        row = _build_pagination_row("x", 1, 3)
+        assert _row_callbacks(row) == ["x_0", "x_2"]
+
+    def test_first_page_has_only_next(self):
+        row = _build_pagination_row("x", 0, 3)
+        assert _row_callbacks(row) == ["x_1"]
+
+    def test_last_page_has_only_prev(self):
+        row = _build_pagination_row("x", 2, 3)
+        assert _row_callbacks(row) == ["x_1"]
+
+    def test_page_past_end_clamps_to_last(self):
+        row = _build_pagination_row("x", 99, 3)
+        assert _row_callbacks(row) == ["x_1"]
+
+    def test_negative_page_clamps_to_first(self):
+        row = _build_pagination_row("x", -5, 3)
+        assert _row_callbacks(row) == ["x_1"]
+
+
+def _items(count, prefix="Item"):
+    return [{"id": str(i), "title": f"{prefix} {i}"} for i in range(count)]
+
+
+def _delete_kb(items, media_type="movie", page=0):
+    ts = type("T", (), {"get_text": lambda self, key, **kw: key})()
+    result = get_delete_items_keyboard(items, media_type, page, ts)
+    assert isinstance(result, InlineKeyboardMarkup)
+    return result.inline_keyboard
+
+
+class TestDeleteItemsKeyboard:
+    """Tests for get_delete_items_keyboard"""
+
+    def test_150_movies_give_one_page_a_nav_row_and_cancel(self):
+        rows = _delete_kb(_items(150))
+
+        assert len(rows) == DELETE_PAGE_SIZE + 2
+        item_rows = rows[:DELETE_PAGE_SIZE]
+        assert [r[0].callback_data for r in item_rows] == [
+            f"delete_item_movie_{i}" for i in range(DELETE_PAGE_SIZE)
+        ]
+        assert _row_callbacks(rows[-2]) == ["delete_page_movie_1"]
+        assert rows[-1][0].callback_data == "delete_cancel"
+
+    def test_exactly_one_page_has_no_nav_row(self):
+        rows = _delete_kb(_items(DELETE_PAGE_SIZE))
+
+        assert len(rows) == DELETE_PAGE_SIZE + 1
+        assert rows[-1][0].callback_data == "delete_cancel"
+
+    def test_page_past_end_shows_last_page(self):
+        rows = _delete_kb(_items(25), page=9)
+
+        titles = [r[0].text for r in rows[:-2]]
+        assert titles == [f"Item {i}" for i in range(20, 25)]
+        assert _row_callbacks(rows[-2]) == ["delete_page_movie_1"]
+
+    def test_callback_data_names_the_type(self):
+        rows = _delete_kb(_items(2), media_type="series")
+
+        assert rows[0][0].callback_data == "delete_item_series_0"
+
+    def test_callback_data_stays_under_64_bytes(self):
+        items = [{"id": "9" * 10, "title": "Long"}] * 30
+        rows = _delete_kb(items, media_type="series", page=1)
+
+        for row in rows:
+            for btn in row:
+                assert len(btn.callback_data.encode()) <= 64
