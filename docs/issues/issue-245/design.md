@@ -11,7 +11,7 @@ outside contributor who has none of the machine's tools.
 ## Goals
 
 - All 14 changes of #245 are in `.claude/skills/addarr-workflow/`.
-- Every machine-specific step (suite lock, `pshepard`, the wiki, `qmd`) says what to do when the
+- Every machine-specific step (suite lock, `pshepard`, graphify) says what to do when the
   tool is not there. Without them the flow still runs, with the step skipped or run bare.
 - The skill's tests stay green: `test_skills.py` (preflight commands equal `ci.yml`, no
   `file:line` citations, no `$(` in bash blocks, real paths), `test_agent_tooling.py` (the
@@ -95,14 +95,11 @@ outside contributor who has none of the machine's tools.
    step 1:
    - When `graphify-out/graph.json` exists, `graphify query '<question>'` before the first
      Grep or source read. No graph: Glob and Grep.
-   - When the personal vault is available (`~/.claude/CLAUDE.md` § LLM Wiki names it; or the
-     `qmd` collection `personal-wiki`), read `wiki/addarr/Addarr Gotchas.md` and the pages for
-     the layers the issue touches. Retrieve page bodies; a status call is not a lookup.
-   - No vault and no `qmd`: say so in one line and go on with CLAUDE.md and the code.
-   - Write what the wiki did not answer to a "Wiki gaps" section in `plan.md` as soon as it is
-     found, so `/clear`, `/addarr end` and a machine switch do not lose it. The skill never
-     writes to the vault. After the PR opens, when the vault exists, suggest
-     `/llm-wiki re-ingest addarr` and point to that section.
+   - When `graphify-out/wiki/index.md` exists, use it for broad navigation.
+   - Never install graphify or build a graph unless the user asks; the skill may suggest
+     `graphify update .`. After the PR opens, when a graph exists and the branch changed code,
+     run `graphify update .` (CLAUDE.md § graphify).
+   - **Revised:** the check is graphify only (maintainer decision, retrospective round): tools that exist only on the maintainer's machine have no place in the in-repo skills, so the check uses the map graphify builds of the repo. No other knowledge source is named.
 10. **Model and stall.**
     - new-task step 4d, after plan approval: `ASK` "Model" when the plan adds a new pattern,
       touches auth (`@require_auth`, the allowlist), the conversation state machine, singleton
@@ -146,7 +143,7 @@ outside contributor who has none of the machine's tools.
 - `<lock>` placeholder instead of the full path in every block (change 1).
 - Default lock agent name `addarr` (change 1).
 - Retrospective before preflight, not just before push (change 5).
-- Wiki gaps go into `plan.md`, not into the vault (change 9).
+- Change 9 uses graphify only (maintainer decision, retrospective round).
 - Save mode asks before pushing when a PR is open (change 12).
 - `pshepard` drives review rounds after the PR opens; `/addarr feedback` is the manual round
   (change 6).

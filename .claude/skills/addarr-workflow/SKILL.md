@@ -92,8 +92,8 @@ Step 1  ASK     Issue selection (AskUserQuestion with open issues);
                 skipped when `/addarr new <N>` names the issue
 Step 2  ASK     Branch type selection (feature/fix/refactor)
 Step 2b RUN     Create branch <prefix>/<N>-<slug> from latest development
-Step 3  RUN     Context check first (references/context-check.md: graphify,
-                the Addarr wiki, with fallbacks). Then analyze the task (read
+Step 3  RUN     Context check first (references/context-check.md: graphify's
+                map of the repo, with a fallback). Then analyze the task (read
                 the issue and its comments; identify layers, config, i18n).
                 On a fix/ branch: INVOKE @superpowers:systematic-debugging
                 for the root cause first
@@ -120,9 +120,8 @@ Step 6  RUN     Flow: create-pr (automatic transition)
 Step 1  RUN     Read docs/issues/issue-<N>/TASKS.md (<N> from the argument or
                 the branch name), find next pending task. Read the latest
                 **Session paused:** note, if any, and start from its next step.
-                In a fresh session, run the graphify part of
-                references/context-check.md; query the wiki only for a
-                question plan.md and TASKS.md do not answer
+                In a fresh session, run the context check
+                (references/context-check.md) first
 Step 2  RUN     Execute tasks (see "Execution Loop" below)
 Step 3  RUN     Flow: create-pr (when all tasks complete)
 ```
@@ -170,7 +169,7 @@ Step 5  RUN     Flow: preflight (all checks must pass; it runs the CI coverage g
 Step 6  RUN     Verify readiness, then push once: <lock> git push -u origin <branch>
 Step 7  RUN     PR title + body: fill .github/PULL_REQUEST_TEMPLATE.md from plan.md
 Step 8  RUN     gh pr create --base development (body file, see create-pr.md)
-Step 9  RUN     Report PR URL; suggest a wiki re-ingest when it applies
+Step 9  RUN     Report PR URL; refresh the graph (graphify update .) when one exists
 Step 10 INVOKE  /pshepard <PR number> when that skill is available (PR driver)
 Step 11 RUN     Suggest /clear before the next issue (not while pshepard watches)
 ```

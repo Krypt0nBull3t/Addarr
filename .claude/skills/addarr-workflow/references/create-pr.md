@@ -29,6 +29,8 @@ Do not simplify away:
 - `context.user_data.clear()` in cancel handlers (prevents state leaks)
 - State return values from handler methods (ConversationHandler requires them)
 
+A change to a workflow rule: search `.claude/skills/` for the old wording. Another skill may restate it (task-writer restated the per-task full gate).
+
 ### Pass 3 (only when the diff touches `src/api/` or `tests/test_api/`): the `arr-api-contract-checker` agent
 
 Delegate to the `arr-api-contract-checker` agent. It checks each changed Radarr, Sonarr or Lidarr request against the Servarr OpenAPI spec (paths, methods, query parameters, response fields), which the aioresponses mocks cannot catch.
@@ -93,7 +95,7 @@ gh pr create --repo Krypt0nBull3t/Addarr --base development --title "<title>" --
 
 Show the PR URL. One line.
 
-When the personal vault exists (see [context-check.md](context-check.md)) and the branch changed something a `wiki/addarr/` page describes, or `plan.md` has a `## Wiki gaps` section, suggest `/llm-wiki re-ingest addarr` and point to those gaps. Without the vault, skip this.
+When `graphify-out/graph.json` exists and the branch changed code, run `graphify update .` to keep the graph current (CLAUDE.md § graphify; AST-only, `graphify-out/` is git-ignored). Without a graph, skip this.
 
 ## Step 10: Hand Off to the PR Driver
 

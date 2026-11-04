@@ -90,24 +90,24 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
 
 - [x] **2.3** Context check before code (change 9)
     - **Context:**
-        - **Why:** The flow went from the issue to the code without graphify or the Addarr wiki.
+        - **Why:** The flow went from the issue to the code without graphify's map of the repo.
         - **Architecture:** New `references/context-check.md`, run in new-task step 3 and once per fresh session in continue step 1.
-        - **Key refs:** CLAUDE.md § graphify; `~/.claude/CLAUDE.md` § LLM Wiki (names the personal vault); qmd collection `personal-wiki`; vault pages `wiki/addarr/Addarr Gotchas.md`, `wiki/addarr/index.md`.
-        - **Watch out:** A qmd status call is not a lookup: retrieve page bodies. No graph, no vault, no qmd: each has a one-line fallback. Gaps go into `## Wiki gaps` in `plan.md`; never write to the vault.
-    - **Scope:** graphify part, wiki part, gaps part; wiring.
+        - **Key refs:** CLAUDE.md § graphify; `graphify-out/graph.json`, `graphify-out/wiki/index.md`.
+        - **Watch out:** No graph: Grep and Read. Never install graphify or build a graph unasked. Revised in the retrospective: graphify only (maintainer decision, retrospective round): tools that exist only on the maintainer's machine have no place in the in-repo skills, so the check uses the map graphify builds of the repo.
+    - **Scope:** graphify query/path/explain, `graphify-out/wiki/index.md`, fallback; wiring.
     - **Touches:** `references/context-check.md` (new), `SKILL.md`, `references/new-task.md`
     - **Action items:**
-        - [RED] Search the skill for "graphify" and "wiki": no hit.
-        - [GREEN] Write `context-check.md`; wire it into new-task step 3 and continue step 1; new-task step 4 adds `## Wiki gaps` to `plan.md` when there are gaps.
+        - [RED] Search the skill for "graphify": no hit.
+        - [GREEN] Write `context-check.md`; wire it into new-task step 3 and continue step 1.
     - **Success:** `tests/test_architecture` passes; every part has its fallback.
     - **Completed:** 2026-11-04
     - **Learnings:**
-        - The Addarr wiki has no page on the workflow skill or the agent tooling; this issue's own context check found nothing to read there (a gap for the next re-ingest).
+        - First written with a second, machine-only knowledge source; the retrospective round removed it, because only graphify's map is available to every contributor.
     - **Key Changes:**
-        - `references/context-check.md` (new): graphify, wiki (qmd `personal-wiki` or the vault), gaps into `plan.md`; one fallback per part.
+        - `references/context-check.md` (new): graphify query/path/explain, `graphify-out/wiki/index.md`, the no-graph fallback.
         - `SKILL.md`: new-task step 3 and continue step 1 run it.
-        - `references/new-task.md`: step 3 runs it before the first source read; the plan gets `## Wiki gaps` when there are any.
-    - **Notes:** The skill names no vault path; it points to `~/.claude/CLAUDE.md` § LLM Wiki, so the public repo holds nothing machine-specific.
+        - `references/new-task.md`: step 3 runs it before the first source read.
+    - **Notes:** Create-pr step 9 runs `graphify update .` when a graph exists and the branch changed code.
 
 - [x] **2.4** Model gate, stall rule, scoped checks (changes 10, 11)
     - **Context:**
@@ -137,7 +137,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - **Architecture:** New create-pr order in `SKILL.md` and `references/create-pr.md`: review, commit fixes, retrospective, merge `origin/development`, preflight, one push, PR, report, `pshepard`, `/clear` hint.
         - **Key refs:** `references/create-pr.md`, `references/retrospective.md` step 4, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/workflows/ci.yml` (Compatibility, Docker Build, Dependency Audit jobs).
         - **Watch out:** The retrospective goes before the preflight because its edits touch skills that `tests/test_architecture` checks. `pshepard` is user scope: fall back to "run `/addarr feedback` when reviews arrive". No `/clear` hint while `pshepard` watches. Template uses `Fixes #<N>`.
-    - **Scope:** Order, merge step, push once under `<lock>`, PR body from the template with the CI-only lanes, hand-off, wiki re-ingest suggestion, `/clear` hint.
+    - **Scope:** Order, merge step, push once under `<lock>`, PR body from the template with the CI-only lanes, hand-off, graph refresh, `/clear` hint.
     - **Touches:** `SKILL.md`, `references/create-pr.md`, `references/retrospective.md`
     - **Action items:**
         - [RED] Search the skill for "PULL_REQUEST_TEMPLATE", "pshepard" and "merge origin/development": no hit; `retrospective.md` step 4 pushes.
@@ -149,7 +149,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - "After the passes" ran the full unit gate before the preflight ran it again; it now runs the scoped checks.
     - **Key Changes:**
         - `SKILL.md`: create-pr sequence is review, commit, retrospective (`ASK`), merge development, preflight, one push, template body, PR, report, `pshepard`, `/clear` hint; optional `pshepard` note.
-        - `references/create-pr.md`: steps 2-11 rewritten (merge step, push once, template sections with CI-only lanes, wiki re-ingest suggestion, hand-off, `/clear` hint in seat-usage terms).
+        - `references/create-pr.md`: steps 2-11 rewritten (merge step, push once, template sections with CI-only lanes, graph refresh, hand-off, `/clear` hint in seat-usage terms).
         - `references/retrospective.md`: create-pr step 3, commits without pushing.
     - **Notes:** The PR body now uses the template's `Fixes #<N>` instead of `Closes #<N>`.
 
@@ -208,13 +208,13 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
     - **Touches:** fixes only
     - **Action items:**
         - [RED] Search `git diff origin/development...HEAD` and `git log origin/development..HEAD` for the names of other projects and their workflow skills (case-insensitive).
-        - [GREEN] Fix any hit; point to the fallback line for the lock, `pshepard`, the vault, `qmd` and graphify; tick the 14 changes.
+        - [GREEN] Fix any hit; point to the fallback line for the lock, `pshepard` and graphify; tick the 14 changes.
     - **Success:** no hit; every fallback found; `tests/test_architecture` passes.
     - **Completed:** 2026-11-04
     - **Learnings:**
         - The name search over the diff and the commit messages found only the generic word "script"; no project or workflow name.
     - **Key Changes:** none (no fixes needed).
     - **Notes:**
-        - Fallbacks: lock in `SKILL.md` "The Suite Lock" (empty `<lock>`); `pshepard` in `references/create-pr.md` step 10 and the optional note under the Skill Reference; vault and `qmd` in `references/context-check.md` part 2 and create-pr step 9; graphify in `references/context-check.md` part 1.
+        - Fallbacks: lock in `SKILL.md` "The Suite Lock" (empty `<lock>`); `pshepard` in `references/create-pr.md` step 10 and the optional note under the Skill Reference; graphify in `references/context-check.md` ("No graph") and create-pr step 9.
         - Changes to tasks: 1 (1.1, 2.1), 2 (2.1), 3 (2.2, 2.7), 4 (2.6), 5 (2.5), 6 (2.5), 7 (2.2), 8 (2.5, 2.6), 9 (2.3, 2.5), 10 (2.4, 2.5), 11 (2.4), 12 (2.7), 13 (2.2), 14 (2.5).
         - The full preflight runs in create-pr step 5.

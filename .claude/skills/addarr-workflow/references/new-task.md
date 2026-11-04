@@ -95,7 +95,6 @@ The plan should cover:
 - Test file locations and what tests to write for each implementation step (use @addarr-testing patterns)
 - Translation keys if applicable
 - Complete code snippets (not placeholders)
-- A `## Wiki gaps` section when the context check found any (see [context-check.md](context-check.md))
 
 Write the plan to `docs/issues/issue-<N>/plan.md`.
 

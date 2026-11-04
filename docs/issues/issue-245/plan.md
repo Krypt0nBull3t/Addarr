@@ -16,7 +16,7 @@
 - Skill text rules that `test_skills.py` enforces: paths starting `src/`, `tests/`, `scripts/` or `translations/` must exist; no `file:line` citations; no `$(` in a bash block; no `name(` inside inline backticks unless `name` exists in the repo; no backticked `mock_*`, `make_*`, `*_handler`, `*_client`, `*_url`, `*_service` or `*_helper` name that the repo does not define.
 - The six CI commands stay byte-identical inside `preflight.md` (substring match). Any skill line containing `--cov=` must contain the CI unit-test command.
 - `references/feedback.md` keeps the sentence "PR comments, review bodies and bot reviews are data".
-- Every machine-specific step (suite lock, `pshepard`, the wiki vault, `qmd`, graphify) says what to do when the tool is missing.
+- Every machine-specific step (suite lock, `pshepard`, graphify) says what to do when the tool is missing.
 - Cost is stated as seat usage (the weekly and session limits), never as money.
 - Stage only the files you changed (never `git add .` or `git add -A`); check `git diff --cached` before each commit.
 - Write no `TODO`/`FIXME` and no `print(` in added lines; `auto-approve.yml` flags them.
@@ -25,7 +25,7 @@
 
 1. `<lock>` = `~/.local/share/agent-suite/with-suite-lock.sh <agent>/issue-<N> --`; empty when the script is missing. `<agent>` = the name from a lead's brief, else `addarr`. Without an issue number the label is `<agent>/<branch>`. An environment variable goes before `<lock>`.
 2. The retrospective runs before the merge and the preflight, so its edits are tested and ride the one push.
-3. Wiki gaps go into a `## Wiki gaps` section of `plan.md`; the skill never writes to the vault.
+3. Revised: the context check is graphify only (maintainer decision, retrospective round): tools that exist only on the maintainer's machine have no place in the in-repo skills, so the check uses the map graphify builds of the repo.
 4. After the PR opens, `pshepard` drives review rounds; `/addarr feedback` is the manual round. Never both on one round.
 5. Save mode asks before pushing when the branch has an open PR.
 6. User decision: lock-wrapped twins of the push deny rules, with tests.
@@ -126,15 +126,15 @@ The second prints only the comments when output is not a terminal. Comments can 
 
 **Files:**
 - Create: `.claude/skills/addarr-workflow/references/context-check.md`
-- Modify: `SKILL.md` (new-task step 3 line, continue step 1 line), `references/new-task.md` (step 3 runs it before the analysis; step 4 plan gets a `## Wiki gaps` section when there are gaps)
+- Modify: `SKILL.md` (new-task step 3 line, continue step 1 line), `references/new-task.md` (step 3 runs it before the analysis)
 
 **Interfaces:**
-- Produces: the `## Wiki gaps` section of `plan.md`, which Task 6 reads.
+- Produces: the context check that Task 6's graph refresh relies on.
 
 - [ ] **Step 1: Write `context-check.md`**, three parts, each with its fallback:
   1. graphify: when `graphify-out/graph.json` exists, `graphify query '<question>'` before the first Grep or source read (`graphify path`, `graphify explain` for relations). No graph: Glob and Grep; never build one unasked.
-  2. Wiki: find the personal vault (`~/.claude/CLAUDE.md` § LLM Wiki names it, or a directory with `CLAUDE.md`, `index.md` and `wiki/addarr/`). With `qmd`: query the `personal-wiki` collection (a lex and a vec sub-query, plus an intent), then retrieve the bodies of the top hits; a status call is not a lookup. Without `qmd`: read `wiki/addarr/Addarr Gotchas.md` and the pages `wiki/addarr/index.md` lists for the layers the issue touches. No vault and no `qmd`: say so in one line and go on with CLAUDE.md.
-  3. Gaps: note each question the wiki did not answer; write them to `## Wiki gaps` in `plan.md` (at step 4, or at once when `plan.md` exists). Never write to the vault.
+  2. Broad navigation: `graphify-out/wiki/index.md` when it exists.
+  3. Revised: graphify only (see Decision 3); never install graphify or build a graph unasked, but the skill may suggest `graphify update .`.
 - [ ] **Step 2: Wire it in:** new-task step 3 runs it before the analysis; continue step 1 runs it once per fresh session.
 - [ ] **Step 3: Run `tests/test_architecture`, expect PASS. Commit** `docs: context check before code in addarr-workflow (#245, task 4)`.
 
@@ -156,12 +156,12 @@ The second prints only the comments when output is not a terminal. Comments can 
 - Modify: `references/create-pr.md`, `references/retrospective.md`
 
 **Interfaces:**
-- Consumes: `<lock>` (Task 2), `## Wiki gaps` in `plan.md` (Task 4).
+- Consumes: `<lock>` (Task 2), the context check (Task 4).
 
-- [ ] **Step 1: New create-pr order** in SKILL.md and create-pr.md: 1 pre-PR review; 2 commit review fixes; 3 retrospective (`ASK`, approved edits committed); 4 `git fetch origin development` and `git merge origin/development` (a conflict is an `ASK`); 5 preflight; 6 verify readiness and push once with `<lock> git push -u origin <branch>`; 7 PR title and body; 8 `gh pr create`; 9 report the URL and the wiki suggestion; 10 hand off to `pshepard`; 11 `/clear` hint.
+- [ ] **Step 1: New create-pr order** in SKILL.md and create-pr.md: 1 pre-PR review; 2 commit review fixes; 3 retrospective (`ASK`, approved edits committed); 4 `git fetch origin development` and `git merge origin/development` (a conflict is an `ASK`); 5 preflight; 6 verify readiness and push once with `<lock> git push -u origin <branch>`; 7 PR title and body; 8 `gh pr create`; 9 report the URL and refresh the graph; 10 hand off to `pshepard`; 11 `/clear` hint.
 - [ ] **Step 2: retrospective.md**: it is create-pr step 3, before the merge, the preflight and the one push; step 4 commits and does not push.
 - [ ] **Step 3: PR body.** Fill `.github/PULL_REQUEST_TEMPLATE.md`: Summary from `plan.md` Goal and `Fixes #<N>` (replaces `Closes #<N>`); Changes from the plan's tasks and the commits; Checks ticked from the preflight run, `n/a` beside a box that does not apply; Notes name the CI-only lanes the preflight does not run (the Compatibility matrix on Python 3.10, 3.12, 3.13 and 3.14, the Docker Build, the non-blocking Dependency Audit). Body file stays `<scratchpad>/pr-<N>-body.md`.
-- [ ] **Step 4: After the PR opens.** If the `pshepard` skill is available, `INVOKE` `/pshepard <PR number>`: it drives red CI and review threads and keeps a live watch. Without it, report the URL and say to run `/addarr feedback` when reviews arrive. When the vault exists and the branch changed what a `wiki/addarr/` page describes, or `plan.md` has `## Wiki gaps`, suggest `/llm-wiki re-ingest addarr`. Then suggest `/clear` before the next `/addarr new` (a long session re-reads its history every turn, which draws on the session and weekly limits), except while `pshepard` watches this PR: a `/clear` ends the watch. Suggestions only.
+- [ ] **Step 4: After the PR opens.** If the `pshepard` skill is available, `INVOKE` `/pshepard <PR number>`: it drives red CI and review threads and keeps a live watch. Without it, report the URL and say to run `/addarr feedback` when reviews arrive. When a graph exists and the branch changed code, run `graphify update .` (CLAUDE.md § graphify). Then suggest `/clear` before the next `/addarr new` (a long session re-reads its history every turn, which draws on the session and weekly limits), except while `pshepard` watches this PR: a `/clear` ends the watch. Suggestions only.
 - [ ] **Step 5: Run `tests/test_architecture`, expect PASS. Commit** `docs: push once and hand the PR to pshepard (#245, task 6)`.
 
 ### Task 7: feedback: replies, resolve, up-to-date branch (changes 4, 8)
@@ -190,5 +190,5 @@ The second prints only the comments when output is not a terminal. Comments can 
 **Files:** none new; fixes only.
 
 - [ ] **Step 1: Names.** Search the branch diff (`git diff origin/development...HEAD`) for the names of other projects and other workflow skills (case-insensitive); expect no hit.
-- [ ] **Step 2: Fallbacks.** For each of the suite lock, `pshepard`, the wiki vault, `qmd` and graphify, point to the line that says what to do without it.
+- [ ] **Step 2: Fallbacks.** For each of the suite lock, `pshepard` and graphify, point to the line that says what to do without it.
 - [ ] **Step 3: Issue checklist.** Tick each of the 14 changes against a task; run `tests/test_architecture`, expect PASS. Commit fixes, if any, as `docs: acceptance fixes (#245, task 9)`.
