@@ -146,6 +146,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
                     CallbackQueryHandler(self.handle_menu_callback, pattern="^menu_cancel$")
                 ],
                 name="media_conversation",
+                # An abandoned search must not take text meant for other flows
+                conversation_timeout=600,
                 persistent=False,
                 per_message=False,
                 allow_reentry=True,

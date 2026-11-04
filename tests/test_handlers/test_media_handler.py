@@ -1808,6 +1808,13 @@ def test_get_handler_returns_list(media_handler):
     assert len(handlers) > 0
 
 
+def test_media_conversation_has_timeout(media_handler):
+    """F061: an abandoned search ends after 600 s and stops taking other flows' text."""
+    conversation = media_handler.get_handler()[0]
+
+    assert conversation.conversation_timeout == 600
+
+
 # ---------------------------------------------------------------------------
 # _build_result_caption
 # ---------------------------------------------------------------------------

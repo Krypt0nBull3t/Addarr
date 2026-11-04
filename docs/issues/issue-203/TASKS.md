@@ -58,7 +58,7 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - `tests/integration/test_media_flow.py`: `test_stale_quality_button_is_ignored`.
     - **Notes:** A missing stored id counts as a mismatch. #202 moves the add part of `handle_quality_selection` into `_continue_with_profile`; the guard stays at the top of `handle_quality_selection`, so a rebase keeps it.
 
-- [ ] **1.3** F061: abandoned search ends after a timeout
+- [x] **1.3** F061: abandoned search ends after a timeout
     - **Context:**
         - **Why:** The media `ConversationHandler` has no timeout and is registered before Settings and Webhooks, so an open `SEARCHING` state takes their typed text ("8080" gets searched as a movie).
         - **Architecture:** `conversation_timeout=600` on the `ConversationHandler` in `MediaHandler.get_handler()`. PTB needs a job queue for it (APScheduler, from the `job-queue` extra). `Application.builder().build()` in `src/main.py:88` creates the job queue itself, so `main.py` needs no change.
@@ -73,6 +73,18 @@ Plan: `docs/issues/issue-203/plan.md`. Issue: https://github.com/Krypt0nBull3t/A
         - [GREEN] Set `conversation_timeout=600`; change the requirement line; install into `.venv`
         - Run the 3.10 dry-run pin check from CLAUDE.md for the new line
     - **Success:** new tests fail before and pass after; architecture tests pass; the 3.10 dry-run install succeeds
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Without APScheduler PTB only warns ("No `JobQueue` set up") and ignores `conversation_timeout`, so the timeout would fail silently. The test suite turns that warning into an error. `test_application_has_job_queue` pins that the dependency is installed.
+        - PTB 22.8 `JobQueue.start()` and `stop()` are coroutines. The integration `BotHarness` never calls `Application.start()`, so with a timeout every media test failed ("JobQueue is not running") until `_make_harness` awaited `job_queue.start()` and `stop(wait=False)`.
+        - `PreRunChecker.parse_requirements` kept the `[job-queue]` suffix, so the startup check would have reported `python-telegram-bot[job-queue]` as missing on every start. It now strips extras.
+    - **Key Changes:**
+        - `requirements.txt`: `python-telegram-bot[job-queue]==22.8` (one line, no APScheduler line).
+        - `src/bot/handlers/media/handler.py`: `conversation_timeout=600` on the media `ConversationHandler`.
+        - `src/utils/prerun.py`: `parse_requirements` strips `[extras]`.
+        - `tests/test_architecture/test_agent_tooling.py`: pinned-requirements regex accepts an `[extra]`; new `test_requirements_ask_for_job_queue_extra`.
+        - `tests/test_handlers/test_media_handler.py`: `test_media_conversation_has_timeout`. `tests/test_main.py`: `test_application_has_job_queue`. `tests/test_utils/test_prerun.py`: `test_strips_extras`. `tests/integration/conftest.py`: harness starts and stops the job queue.
+    - **Notes:** The 3.10 dry-run install of both requirement files exits 0. Install the extra into a worktree `.venv` with `pip install 'python-telegram-bot[job-queue]==22.8'`. #214 changes the pin on this same requirements line.
 
 - [ ] **1.4** F063a: search and /upcoming are rate-limited; shared helper
     - **Context:**
