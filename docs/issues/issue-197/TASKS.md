@@ -91,6 +91,10 @@
     - **Key Changes:** `TASKS.md`: 1.1 and 1.2 notes name the F010 and F011 tests; their action items are now [RED] then [GREEN]; 1.3 has completion metadata. `TASKS.md` and `plan.md` end with a newline.
     - **Notes:** 1.1 and 1.2 keep their original dates; the tests they now cite were added later, in 2.1 and 2.2.
 
-- [ ] **2.4** Preflight
+- [x] **2.4** Preflight
     - **Action items:** Full pytest suite, coverage on `src.services.sabnzbd` and `src.services.health`, flake8, mypy, i18n validation
     - **Success:** All pass; coverage 100% on both modules
+    - **Completed:** 2026-11-04
+    - **Learnings:** Full suite: 2130 passed. Coverage: 100% on `src/services/health.py` and `src/services/sabnzbd.py`. flake8 clean; mypy "no issues found in 72 source files"; all translations valid.
+    - **Key Changes:** None; verification only.
+    - **Notes:** Suite and push ran under the machine suite lock (`addarr/PR-232`).
