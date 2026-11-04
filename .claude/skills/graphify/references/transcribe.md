@@ -2,6 +2,8 @@
 
 Load this only when `detect` reported one or more `video` files. A corpus with no video never reads this.
 
+Outside a full `/graphify` build, run the interpreter guard (`SKILL.md` § Interpreter guard for subcommands) once, before the first block here that uses `.graphify_python`.
+
 ### Step 2.5 - Transcribe video / audio files (only if video files detected)
 
 Skip this step entirely if `detect` returned zero `video` files.

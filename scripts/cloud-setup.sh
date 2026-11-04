@@ -15,11 +15,8 @@ if ! command -v gh &> /dev/null; then
   apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1
 fi
 
-# Authenticate gh if GH_TOKEN is set (add as secret in web environment settings)
-if [ -n "$GH_TOKEN" ]; then
-  echo "Authenticating GitHub CLI..."
-  echo "$GH_TOKEN" | gh auth login --with-token
-fi
+# gh reads GH_TOKEN (a secret in the web environment settings) from the
+# environment itself; no login step.
 
 echo "Installing project dependencies..."
 pip install -q -r requirements.txt
