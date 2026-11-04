@@ -167,7 +167,7 @@ class MediaService:
             raise
 
     async def search_music(self, query: str) -> List[Dict]:
-        """Search for music using Lidarr (artists, albums, and songs)"""
+        """Search for music using Lidarr (artists and albums)"""
         if not self.lidarr:
             raise ValueError("Lidarr is not enabled or configured")
 
@@ -211,7 +211,6 @@ class MediaService:
 
             # Normalize album results
             albums = []
-            songs = []
             for album in album_results:
                 album_id = album.get("foreignAlbumId")
                 if not album_id:
@@ -240,28 +239,7 @@ class MediaService:
                     "data": album,
                 })
 
-                # Extract song matches from track data (best-effort)
-                query_lower = query.lower()
-                for medium in album.get("media", []):
-                    for track in medium.get("tracks", []):
-                        track_title = track.get("title", "")
-                        if track_title and query_lower in track_title.lower():
-                            songs.append({
-                                "id": f"album:{album_id}",
-                                "title": track_title,
-                                "album_title": album["title"],
-                                "artist_name": artist_info.get("artistName", ""),
-                                "artist_id": artist_id,
-                                "album_id": album_id,
-                                "music_type": "song",
-                                "external_ids": {
-                                    "musicbrainz": album.get("foreignAlbumId"),
-                                },
-                                "data": album,
-                            })
-
-            # Merge: artists → albums → songs
-            return artists + albums + songs
+            return artists + albums
 
         except Exception as e:
             logger.error(f"Error searching music: {e}")

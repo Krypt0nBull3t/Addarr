@@ -86,36 +86,6 @@ SAMPLE_ALBUM = {
     "albumType": "Album",
 }
 
-SAMPLE_ALBUM_WITH_TRACKS = {
-    "foreignAlbumId": "album-id-abc",
-    "title": "OK Computer",
-    "artist": {
-        "foreignArtistId": "some-mbid-123",
-        "artistName": "Radiohead",
-    },
-    "images": [
-        {"coverType": "cover", "remoteUrl": "https://example.com/okcomputer.jpg"}
-    ],
-    "releaseDate": "1997-05-21T00:00:00Z",
-    "overview": "Third studio album...",
-    "ratings": {"value": 9.5},
-    "genres": ["Alternative Rock"],
-    "albumType": "Album",
-    "media": [
-        {
-            "mediumNumber": 1,
-            "mediumName": "",
-            "mediumFormat": "CD",
-            "tracks": [
-                {"trackNumber": "1", "title": "Airbag"},
-                {"trackNumber": "2", "title": "Paranoid Android"},
-                {"trackNumber": "3", "title": "Subterranean Homesick Alien"},
-            ],
-        }
-    ],
-}
-
-
 # ---------------------------------------------------------------------------
 # Singleton
 # ---------------------------------------------------------------------------
@@ -346,22 +316,6 @@ class TestSearchMusic:
         albums = [r for r in results if r.get("music_type") == "album"]
         assert len(albums) == 1
         assert albums[0]["external_ids"] == {
-            "musicbrainz": "album-id-abc",
-        }
-
-    @pytest.mark.asyncio
-    async def test_search_music_song_external_ids(self, mock_lidarr_client):
-        """Normalized song results include musicbrainz external_id from parent album."""
-        service = MediaService()
-        MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.search.return_value = []
-        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM_WITH_TRACKS]
-
-        results = await service.search_music("paranoid android")
-
-        songs = [r for r in results if r.get("music_type") == "song"]
-        assert len(songs) == 1
-        assert songs[0]["external_ids"] == {
             "musicbrainz": "album-id-abc",
         }
 
@@ -1186,7 +1140,7 @@ class TestDeleteMusicService:
 
 
 # ---------------------------------------------------------------------------
-# search_music — combined artist + album + song search
+# search_music — combined artist + album search
 # ---------------------------------------------------------------------------
 
 
@@ -1219,37 +1173,6 @@ class TestSearchMusicCombined:
         assert results[0]["id"] == "album:album-id-abc"
         assert results[0]["album_id"] == "album-id-abc"
         assert results[0]["artist_id"] == "some-mbid-123"
-
-    @pytest.mark.asyncio
-    async def test_song_results_from_track_data(self, mock_lidarr_client):
-        """Song results extracted when album track data matches query."""
-        service = MediaService()
-        MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.search.return_value = []
-        mock_lidarr_client.search_albums.return_value = [
-            SAMPLE_ALBUM_WITH_TRACKS
-        ]
-
-        results = await service.search_music("paranoid android")
-
-        songs = [r for r in results if r["music_type"] == "song"]
-        assert len(songs) == 1
-        assert songs[0]["title"] == "Paranoid Android"
-        assert songs[0]["album_id"] == "album-id-abc"
-        assert songs[0]["artist_id"] == "some-mbid-123"
-
-    @pytest.mark.asyncio
-    async def test_no_song_when_no_track_data(self, mock_lidarr_client):
-        """No song results when album has no media/track data."""
-        service = MediaService()
-        MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.search.return_value = []
-        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
-
-        results = await service.search_music("paranoid android")
-
-        songs = [r for r in results if r["music_type"] == "song"]
-        assert len(songs) == 0
 
     @pytest.mark.asyncio
     async def test_albums_without_foreign_id_skipped(self, mock_lidarr_client):
@@ -1314,26 +1237,15 @@ class TestSearchMusicCombined:
 
     @pytest.mark.asyncio
     async def test_result_ordering(self, mock_lidarr_client):
-        """Results ordered: artists first, then albums, then songs."""
+        """Results ordered: artists first, then albums."""
         service = MediaService()
         MediaService._lidarr = mock_lidarr_client
         mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
-        mock_lidarr_client.search_albums.return_value = [
-            SAMPLE_ALBUM_WITH_TRACKS
-        ]
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
 
         results = await service.search_music("radiohead")
 
-        types = [r["music_type"] for r in results]
-        # Artists before albums; songs (if any) after albums
-        artist_idx = [i for i, t in enumerate(types) if t == "artist"]
-        album_idx = [i for i, t in enumerate(types) if t == "album"]
-        song_idx = [i for i, t in enumerate(types) if t == "song"]
-
-        if artist_idx and album_idx:
-            assert max(artist_idx) < min(album_idx)
-        if album_idx and song_idx:
-            assert max(album_idx) < min(song_idx)
+        assert [r["music_type"] for r in results] == ["artist", "album"]
 
 
 # ---------------------------------------------------------------------------

@@ -74,42 +74,6 @@ class LidarrClient(BaseApiClient):
         logger.info(Fore.GREEN + f"✅ Found {len(results)} album results for: {term}")
         return results
 
-    async def get_album_tracks(self, foreign_album_id: str) -> List[Dict]:
-        """Get track data from an album's media array.
-
-        Looks up the album by foreignAlbumId and extracts track info
-        from the media array. Returns [] if album not found or no
-        track data available (best-effort).
-        """
-        try:
-            logger.info(f"🔍 Looking up tracks for album: {foreign_album_id}")
-            results = await self._request(
-                f"album/lookup?term=lidarr:{foreign_album_id}"
-            )
-
-            if not results or not isinstance(results, list) or not results[0]:
-                logger.warning(
-                    f"⚠️ No album found for track lookup: {foreign_album_id}"
-                )
-                return []
-
-            album = results[0]
-            tracks = []
-            for medium in album.get("media", []):
-                for track in medium.get("tracks", []):
-                    tracks.append(track)
-
-            if not tracks:
-                logger.info(
-                    f"ℹ️ No track data in album: {foreign_album_id}"
-                )
-
-            return tracks
-
-        except Exception as e:
-            logger.error(f"❌ Failed to get album tracks: {str(e)}")
-            return []
-
     async def get_artist(self, artist_id: str) -> Optional[Dict]:
         """Get artist by ID"""
         try:

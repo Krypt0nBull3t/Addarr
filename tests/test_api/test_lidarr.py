@@ -18,7 +18,6 @@ from tests.conftest import _mock_config
 from tests.fixtures.sample_data import (
     LIDARR_SEARCH_RESULTS,
     LIDARR_ALBUM_SEARCH_RESULTS,
-    LIDARR_ALBUM_WITH_TRACKS,
     LIDARR_METADATA_PROFILES,
     LIDARR_LIBRARY_ARTISTS,
     LIDARR_LIBRARY_ARTIST_DETAIL,
@@ -888,67 +887,6 @@ class TestLidarrSearchAlbums:
         )
         results = await lidarr_client.search_albums(term)
         assert len(results) == 2
-
-
-# ---------------------------------------------------------------------------
-# get_album_tracks
-# ---------------------------------------------------------------------------
-
-
-class TestLidarrGetAlbumTracks:
-    @pytest.mark.asyncio
-    async def test_get_album_tracks_success(self, aio_mock, lidarr_client):
-        """get_album_tracks extracts track data from album media array."""
-        album_id = "b1ae2a0f-5b83-4d98-93e2-4e7a9f7a7c1d"
-        aio_mock.get(
-            f"{BASE}/album/lookup?term=lidarr:{album_id}",
-            payload=[LIDARR_ALBUM_WITH_TRACKS],
-            status=200,
-        )
-        tracks = await lidarr_client.get_album_tracks(album_id)
-        assert len(tracks) == 3
-        assert tracks[0]["title"] == "Papercut"
-        assert tracks[1]["title"] == "One Step Closer"
-        assert tracks[2]["title"] == "With You"
-
-    @pytest.mark.asyncio
-    async def test_get_album_tracks_no_media(self, aio_mock, lidarr_client):
-        """get_album_tracks returns [] when album has no media/track data."""
-        album_id = "b1ae2a0f-5b83-4d98-93e2-4e7a9f7a7c1d"
-        album_no_tracks = {
-            "foreignAlbumId": album_id,
-            "title": "Hybrid Theory",
-            "media": [
-                {"mediumNumber": 1, "mediumName": "", "mediumFormat": "CD"}
-            ],
-        }
-        aio_mock.get(
-            f"{BASE}/album/lookup?term=lidarr:{album_id}",
-            payload=[album_no_tracks],
-            status=200,
-        )
-        tracks = await lidarr_client.get_album_tracks(album_id)
-        assert tracks == []
-
-    @pytest.mark.asyncio
-    async def test_get_album_tracks_not_found(self, aio_mock, lidarr_client):
-        """get_album_tracks returns [] when album lookup returns empty."""
-        aio_mock.get(
-            f"{BASE}/album/lookup?term=lidarr:nonexistent",
-            payload=[],
-            status=200,
-        )
-        tracks = await lidarr_client.get_album_tracks("nonexistent")
-        assert tracks == []
-
-    @pytest.mark.asyncio
-    async def test_get_album_tracks_exception(self, lidarr_client):
-        """get_album_tracks returns [] on exception."""
-        with patch.object(
-            lidarr_client, "_make_request", side_effect=Exception("boom")
-        ):
-            tracks = await lidarr_client.get_album_tracks("some-id")
-        assert tracks == []
 
 
 # ---------------------------------------------------------------------------

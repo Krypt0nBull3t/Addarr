@@ -74,7 +74,7 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
     - **Key Changes:** MediaService.get_artist_albums(artist_id, artist_name) searches by name and filters on album.artist.foreignArtistId. album_picker.py passes selected id and title.
     - **Notes:** Albums without an artist object are dropped by the filter.
 
-- [ ] **1.4** F053: delete the dead song search
+- [x] **1.4** F053: delete the dead song search
     - **Context:**
         - **Why:** `MediumResource` has only `mediumNumber`, `mediumName` and `mediumFormat`, so the song loop finds 0 songs. `get_album_tracks` has no callers.
         - **Architecture:** `search_music` returns `artists + albums`. Song branches in `formatters.py:100` and `keyboards.py:344` and their tests stay (decision A).
@@ -87,6 +87,11 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
         - [GREEN] Remove the song loop and `songs` list; delete `get_album_tracks`
         - [GREEN] Delete the fixtures, the 4 `TestLidarrGetAlbumTracks` tests, the conftest mock and the `fixtures.md` mention
     - **Success:** `scripts/test_runner.py api services` pass with coverage; `pytest tests/test_architecture` passes
+
+    - **Completed:** 2026-11-04
+    - **Learnings:** Song tests also lived in test_media_service.py (3 tests plus a fixture), beyond the 4 get_album_tracks tests in test_lidarr.py. test_architecture reads fixtures.md, so the doc line had to go too.
+    - **Key Changes:** Removed LidarrClient.get_album_tracks, the song loop in MediaService.search_music, LIDARR_ALBUM_WITH_TRACKS, SAMPLE_ALBUM_WITH_TRACKS, the get_album_tracks mock and 7 tests. test_result_ordering now asserts [artist, album].
+    - **Notes:** Song branches in formatters.py and keyboards.py stay as dead code (decision A).
 
 - [ ] **1.5** F055: no fake year, no dead poster URLs
     - **Context:**

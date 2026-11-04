@@ -187,7 +187,7 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `get_root_folders()` -> `["/music"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "Lossless"}]`
 - `get_metadata_profiles()` -> `[{"id": 1, "name": "Standard"}]`
-- `search_albums()`, `get_album_tracks()`, `get_artists()`, `get_queue()` -> `[]`
+- `search_albums()`, `get_artists()`, `get_queue()` -> `[]`
 - `get_artist_by_id()` -> `None`; `delete_artist()` -> `True`
 
 ---
