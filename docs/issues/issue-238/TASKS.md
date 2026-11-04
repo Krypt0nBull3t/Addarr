@@ -72,7 +72,7 @@ Run checks with the worktree venv: `.venv/bin/python -m pytest`, `.venv/bin/pyth
 
 **Goal:** CLAUDE.md names the project agents, the fork-PR rule and #237's skills test.
 
-- [ ] **2.1** Agents section, fork-PR rule, `test_skills.py` (D5)
+- [x] **2.1** Agents section, fork-PR rule, `test_skills.py` (D5)
     - **Context:** See plan.md Task 4. Wait for the coordinator's message with #236's exact fork-PR sentence; rebase on `origin/development` first.
     - **Watch out:** `test_claude_md_names_every_architecture_test_file` fails after the rebase until `tests/test_architecture/test_skills.py` is named in § Testing.
     - **Scope:** `## Agents` section after `## Untrusted Input`; `test_skills.py` bullet in § Architecture Tests
@@ -81,3 +81,12 @@ Run checks with the worktree venv: `.venv/bin/python -m pytest`, `.venv/bin/pyth
         - [RED] After rebase, `test_repo_docs.py` fails on the unnamed `test_skills.py`; write the Agents section, see `test_claude_md_paths_exist` pass only with #236's files present
         - [GREEN] Add the section and the bullet with the coordinator's wording
     - **Success:** full suite, flake8, mypy, `--validate-i18n` pass; then create-pr flow
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The rebase onto #236/#237 had no conflicts. `test_claude_md_names_every_architecture_test_file` went red on the new `test_skills.py` right away, so the drift test caught the new test file as intended.
+        - #236 widened `test_agent_tooling.py` (ask rules, agent tool lists, review-external-pr, git-ignored secrets), so the Agent tooling bullet was updated too.
+    - **Key Changes:**
+        - `CLAUDE.md` § Untrusted Input: #236's fork-PR sentence, verbatim.
+        - New `CLAUDE.md` § Agents: `arr-api-contract-checker`, `untrusted-pr-reviewer`, the `review-external-pr` skill, with their paths.
+        - § Architecture Tests: a Skill accuracy (`test_skills.py`) bullet and the updated Agent tooling bullet.
+    - **Notes:** Full suite after the rebase: 2258 passed.
