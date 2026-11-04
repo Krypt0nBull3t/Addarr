@@ -267,7 +267,7 @@ services, and the tests exercise the real module.
 
 **Goal:** A bad token in a container exits with a message, and the logger obeys the config.
 
-- [ ] **3.1** F027: no token prompt without a terminal (plan task 10)
+- [x] **3.1** F027: no token prompt without a terminal (plan task 10)
     - **Context:**
         - **Why:** In Docker `input()` raises `EOFError`, so the container restart-loops on a bad token.
         - **Architecture:** One shared `is_interactive()` in `src/utils/terminal.py`, imported by
@@ -286,6 +286,15 @@ services, and the tests exercise the real module.
           `test_non_interactive_returns_false_without_prompt`
         - [GREEN] Implement `is_interactive`, use it in both modules
     - **Success:** Utils and config tests pass; no `input()` call when not interactive.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `settings.py` already imports `src.utils`, so a new `src.utils.terminal` module adds no cycle and does not load config.yaml.
+        - Existing token-prompt tests run without a tty, so they need a fixture that makes `is_interactive` True.
+    - **Key Changes:**
+        - Created `src/utils/terminal.py` (`is_interactive`); `settings.py` and `error_handler.py` import it; removed `settings._is_interactive` and its unused `sys` import.
+        - `src/utils/error_handler.py`: `handle_token_error` returns False without a prompt when not interactive; the help text moved to `_print_token_help`.
+        - Tests: new `tests/test_utils/test_terminal.py`; non-interactive test and an `interactive` fixture in `test_error_handler.py`.
+    - **Notes:** `main.py` needs no change: False leads to `raise`, so the container exits with a logged error and no EOFError.
 
 - [ ] **3.2** F026: logger reads debug and toConsole (plan task 11)
     - **Context:**

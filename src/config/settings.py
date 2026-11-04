@@ -10,7 +10,6 @@ all required settings are present and valid.
 """
 
 import os
-import sys
 import yaml
 import questionary
 from typing import Dict, Any, List
@@ -18,11 +17,7 @@ from colorama import Fore
 
 from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH, CHAT_MODES
 from ..utils.backup import create_backup
-
-
-def _is_interactive():
-    """Check if we're running in an interactive terminal."""
-    return sys.stdin.isatty() and sys.stdout.isatty()
+from ..utils.terminal import is_interactive
 
 
 class ConfigurationError(Exception):
@@ -115,7 +110,7 @@ class Config:
         if missing_keys:
             print(f"\n{Fore.YELLOW}Missing configuration keys detected: {', '.join(missing_keys)}")
 
-            if _is_interactive():
+            if is_interactive():
                 if questionary.confirm(
                     "Would you like to configure these settings now?"
                 ).ask():

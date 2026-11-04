@@ -8,6 +8,21 @@ Description: Error handling module for Addarr. This module provides centralized 
 from colorama import Fore, Style
 import yaml
 
+from .terminal import is_interactive
+
+
+def _print_token_help() -> None:
+    """Print how to get and set a new Telegram token"""
+    print(f"\n{Fore.YELLOW}To update the token later:")
+    print("1. Get a valid token from @BotFather:")
+    print("   • Open Telegram and message @BotFather")
+    print("   • Use /newbot to create a new bot")
+    print("   • Copy the token you receive")
+    print("\n2. Update your configuration:")
+    print("   • Run: python run.py --setup")
+    print("   • Or manually update the token in config.yaml")
+    print(f"\n{Fore.CYAN}Need help? Visit: https://github.com/cyneric/addarr/wiki")
+
 
 def handle_token_error() -> bool:
     """Handle invalid or missing Telegram token errors
@@ -17,6 +32,11 @@ def handle_token_error() -> bool:
     """
     print(f"\n{Fore.RED}❌ Error: Invalid Telegram Bot Token!")
     print(f"\n{Fore.YELLOW}The token in config.yaml was rejected by Telegram.")
+
+    # No terminal (Docker): input() would raise EOFError and restart-loop
+    if not is_interactive():
+        _print_token_help()
+        return False
 
     while True:
         choice = input(f"\n{Fore.CYAN}Would you like to update the token now? (y/n): {Style.RESET_ALL}").lower()
@@ -52,15 +72,7 @@ def handle_token_error() -> bool:
                 continue
 
         elif choice == 'n':
-            print(f"\n{Fore.YELLOW}To update the token later:")
-            print("1. Get a valid token from @BotFather:")
-            print("   • Open Telegram and message @BotFather")
-            print("   • Use /newbot to create a new bot")
-            print("   • Copy the token you receive")
-            print("\n2. Update your configuration:")
-            print("   • Run: python run.py --setup")
-            print("   • Or manually update the token in config.yaml")
-            print(f"\n{Fore.CYAN}Need help? Visit: https://github.com/cyneric/addarr/wiki")
+            _print_token_help()
             return False
 
         else:
