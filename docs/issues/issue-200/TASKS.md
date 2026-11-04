@@ -13,7 +13,7 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
 - Why NOT touch `Artist.album_folder` in `src/models/media.py`: #226 deletes that file.
 - Risk for the PR body: `monitorNewItems: "none"` is sent whenever `future_albums` is false, also with config `monitorOption: all`. `monitorOption` selects existing albums, a separate setting.
 
-- [ ] **1.1** F051 + F054: `add_artist` request body and `albumFolder` removal
+- [x] **1.1** F051 + F054: `add_artist` request body and `albumFolder` removal
     - **Context:**
         - **Why:** Lidarr uses its default (`all`) for new releases because `monitorNewItems` is never sent. `albumFolder` is not in `ArtistResource`, so the wizard question has no effect.
         - **Architecture:** `LidarrClient.add_artist` builds the POST body in `data`. `monitorNewItems` is a top-level `ArtistResource` field, not part of `addOptions`.
@@ -29,6 +29,11 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
         - [GREEN] Edit `add_artist`: drop `album_folder` and the `albumFolder` key, set `data["monitorNewItems"] = "none"` when `not future_albums`
         - [GREEN] Delete the wizard prompt, the `service_config.py` line, the `config_example.yaml` line and the `MockConfig` entry
     - **Success:** `scripts/test_runner.py api` and `setup` pass with coverage, flake8 and mypy clean
+
+    - **Completed:** 2026-11-04
+    - **Learnings:** monitorNewItems is a top-level ArtistResource field, not in addOptions. The wizard test mocked two confirm answers; one remains.
+    - **Key Changes:** src/api/lidarr.py add_artist sends monitorNewItems none when future_albums is false and no albumFolder. Removed albumFolder from prompts.py, service_config.py, config_example.yaml, tests/conftest.py.
+    - **Notes:** Existing user config.yaml files may still hold albumFolder; it is ignored.
 
 - [ ] **1.2** F052: exact id match only
     - **Context:**
