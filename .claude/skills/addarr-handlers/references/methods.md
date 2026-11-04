@@ -142,7 +142,7 @@ async def handle_<command>(self, update: Update, context: ContextTypes.DEFAULT_T
     ...
 ```
 
-1. `@require_auth` refuses users who are not authenticated or not on the allowlist, and group chats when `security.chatMode` is `private_only`.
+1. `@require_auth` refuses users who are not authenticated or not on the allowlist, and group chats unless `security.chatMode` is `allow_all` (any other value keeps groups out).
 2. `@require_admin(...)` (in `src/bot/handlers/auth.py`) refuses non-admins when `security.enableAdmin` is on. With a service name, such as `@require_admin("transmission")`, it refuses them only when that service's `onlyAdmin` is also set.
 3. `@rate_limit("<category>")` (in `src/services/rate_limit.py`) limits each user per category: `search`, `modify` or `auth`. It applies only when `rateLimit.enable` is set, except `auth`, which always applies.
 

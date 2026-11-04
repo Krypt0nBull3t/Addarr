@@ -329,7 +329,7 @@ services, and the tests exercise the real module.
 
 **Goal:** No doc contradicts the new behavior.
 
-- [ ] **4.1** Align docs with chatMode validation (plan task 12)
+- [x] **4.1** Align docs with chatMode validation (plan task 12)
     - **Context:**
         - **Why:** Skills and notes mention `chatMode` handling.
         - **Architecture:** Docs only.
@@ -342,3 +342,10 @@ services, and the tests exercise the real module.
         - [RED] Not applicable (docs). The architecture and docs-drift tests are the check.
         - [GREEN] Fix wording if needed, then run `tests/test_architecture`
     - **Success:** Architecture tests pass. Skip the commit if no file changed.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Only two lines described the old rule: `methods.md:145` and `security-audit/SKILL.md:51`. The security-audit line 15 still holds.
+    - **Key Changes:**
+        - `.claude/skills/addarr-handlers/references/methods.md`: groups are refused unless chatMode is `allow_all`.
+        - `.claude/skills/security-audit/SKILL.md`: the group-chat check applies when chatMode is `allow_all`.
+    - **Notes:** Architecture tests pass (154).
