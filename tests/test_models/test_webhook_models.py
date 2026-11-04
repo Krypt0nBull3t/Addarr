@@ -10,6 +10,8 @@ Tests cover:
 - Missing/malformed field handling
 """
 
+import pytest
+
 from src.models.webhook import (
     WebhookEvent,
     WebhookEventType,
@@ -312,6 +314,36 @@ class TestParseLidarrEvent:
         event = parse_lidarr_event(payload)
         assert event.event_type == WebhookEventType.DOWNLOAD
         assert event.is_upgrade is False
+
+    def test_download_event_quality_from_track_files(self):
+        payload = {
+            "eventType": "Download",
+            "artist": {"name": "Pink Floyd"},
+            "album": {"title": "The Dark Side of the Moon"},
+            "trackFiles": [{"quality": "FLAC"}],
+        }
+        event = parse_lidarr_event(payload)
+        assert event.details["quality"] == "FLAC"
+
+    def test_release_quality_wins_over_track_files(self):
+        payload = {
+            "eventType": "Grab",
+            "artist": {"name": "Pink Floyd"},
+            "release": {"quality": "MP3-320"},
+            "trackFiles": [{"quality": "FLAC"}],
+        }
+        event = parse_lidarr_event(payload)
+        assert event.details["quality"] == "MP3-320"
+
+    @pytest.mark.parametrize("track_files", [[], None, [{}]])
+    def test_download_event_without_quality_is_unknown(self, track_files):
+        payload = {
+            "eventType": "Download",
+            "artist": {"name": "Pink Floyd"},
+            "trackFiles": track_files,
+        }
+        event = parse_lidarr_event(payload)
+        assert event.details["quality"] == "Unknown"
 
     def test_upgrade_event(self):
         payload = {

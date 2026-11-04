@@ -2980,6 +2980,9 @@ async def test_handle_album_monitor_mode_pick(
 
     assert result == ALBUM_SELECT
     assert len(context.user_data.get("artist_albums", [])) == 2
+    media_handler._mock_service.get_artist_albums.assert_awaited_once_with(
+        "artist-1", "Test Artist"
+    )
 
 
 @pytest.mark.asyncio

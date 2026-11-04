@@ -74,42 +74,6 @@ class LidarrClient(BaseApiClient):
         logger.info(Fore.GREEN + f"✅ Found {len(results)} album results for: {term}")
         return results
 
-    async def get_album_tracks(self, foreign_album_id: str) -> List[Dict]:
-        """Get track data from an album's media array.
-
-        Looks up the album by foreignAlbumId and extracts track info
-        from the media array. Returns [] if album not found or no
-        track data available (best-effort).
-        """
-        try:
-            logger.info(f"🔍 Looking up tracks for album: {foreign_album_id}")
-            results = await self._request(
-                f"album/lookup?term=lidarr:{foreign_album_id}"
-            )
-
-            if not results or not isinstance(results, list) or not results[0]:
-                logger.warning(
-                    f"⚠️ No album found for track lookup: {foreign_album_id}"
-                )
-                return []
-
-            album = results[0]
-            tracks = []
-            for medium in album.get("media", []):
-                for track in medium.get("tracks", []):
-                    tracks.append(track)
-
-            if not tracks:
-                logger.info(
-                    f"ℹ️ No track data in album: {foreign_album_id}"
-                )
-
-            return tracks
-
-        except Exception as e:
-            logger.error(f"❌ Failed to get album tracks: {str(e)}")
-            return []
-
     async def get_artist(self, artist_id: str) -> Optional[Dict]:
         """Get artist by ID"""
         try:
@@ -129,11 +93,6 @@ class LidarrClient(BaseApiClient):
                     if result.get("foreignArtistId") == artist_id:
                         logger.info(f"✅ Found artist: {result.get('artistName')}")
                         return result
-
-                # If no exact match but we have results, use first one
-                if results[0]:
-                    logger.info(f"✅ Found artist: {results[0].get('artistName')}")
-                    return results[0]
 
             logger.warning(f"⚠️ No artist found with ID: {artist_id}")
             return None
@@ -161,10 +120,6 @@ class LidarrClient(BaseApiClient):
                     artist = result
                     break
 
-            # If no exact match, use first result
-            if not artist and lookup_response:
-                artist = lookup_response[0]
-
             if not artist:
                 logger.error(f"❌ No artist found with ID: {artist_id}")
                 return False, "Artist not found"
@@ -172,7 +127,6 @@ class LidarrClient(BaseApiClient):
             # Read feature options from config
             lidarr_features = config.get("lidarr", {}).get("features", {})
             monitor_option = lidarr_features.get("monitorOption", "all")
-            album_folder = lidarr_features.get("albumFolder", False)
 
             add_options: Dict[str, Any] = {
                 "searchForMissingAlbums": lidarr_features.get("search", True)
@@ -194,10 +148,12 @@ class LidarrClient(BaseApiClient):
                 "qualityProfileId": quality_profile_id or 1,  # Default profile if not specified
                 "metadataProfileId": config.get("lidarr", {}).get("metadataProfileId", 1),
                 "rootFolderPath": root_folder or "/music",  # Default path if not specified
-                "albumFolder": album_folder,
                 "monitored": True,
                 "addOptions": add_options
             }
+            if not future_albums:
+                # Lidarr defaults to "all", which monitors every new release
+                data["monitorNewItems"] = "none"
 
             success, _result, error = await self._make_request(
                 "artist", method="POST", data=data, title=artist["artistName"], max_retries=0
