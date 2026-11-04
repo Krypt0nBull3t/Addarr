@@ -173,9 +173,13 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - Test file: `test_graphify_save_result_reads_text_from_a_file`.
     - **Notes:** After a graphify upgrade, check that `save_query_result` keeps its keyword arguments; the save script calls it directly.
 
-- [ ] **2.5** [consider] Check the ignore rule with `git check-ignore` (audit 5)
+- [x] **2.5** [consider] Check the ignore rule with `git check-ignore` (audit 5)
     - **Scope:** `test_graphify_out_is_git_ignored` runs `git check-ignore` on the 4 graphify paths (acceptance criterion F274).
     - **Touches:** test file
+    - **Completed:** 2026-11-04
+    - **Learnings:** Red on a planted `.gitignore` line `graphify-out/graph.json` (instead of `graphify-out/`): `git check-ignore` printed only one of the 4 paths. Restored the line after.
+    - **Key Changes:** `test_graphify_out_is_git_ignored` runs `git check-ignore` from `PROJECT_ROOT` and compares the printed paths.
+    - **Notes:** The test needs a git checkout; CI and local runs have one.
 
 - [ ] **2.6** [consider] Keep Dependabot off pytestarch 5 (audit 6)
     - **Context:** pytestarch 5.x needs Python 3.11; the CI Compatibility matrix runs 3.10. Dependabot PR #182 fails for this reason.

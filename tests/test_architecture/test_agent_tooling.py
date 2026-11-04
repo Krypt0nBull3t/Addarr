@@ -194,7 +194,19 @@ def test_feedback_step_treats_pr_comments_as_data():
 
 
 def test_graphify_out_is_git_ignored():
-    assert "graphify-out/" in read_text(".gitignore").splitlines()
+    paths = [
+        "graphify-out/graph.json",
+        "graphify-out/cache",
+        "graphify-out/.graphify_python",
+        "graphify-out/.graphify_root",
+    ]
+    result = subprocess.run(
+        ["git", "check-ignore", *paths],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.splitlines() == paths, result.stderr
 
 
 @pytest.mark.parametrize("path", ["requirements.txt", "requirements-test.txt"])
