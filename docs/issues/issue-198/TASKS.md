@@ -77,7 +77,7 @@ services, and the tests exercise the real module.
         - Added class `TestRealSettingsEmptyConfig` (4 tests).
     - **Notes:** Messages name backup/ and python run.py --setup. No auto-heal, per the plan review.
 
-- [ ] **1.3** F020: missing sections are copied from the example (plan task 3)
+- [x] **1.3** F020: missing sections are copied from the example (plan task 3)
     - **Context:**
         - **Why:** In an upgrade from `main`, a missing `bazarr:` is prompted as "Enter value for bazarr:"
           and saved as text, so `config.get("bazarr", {}).get` fails at every start.
@@ -93,6 +93,14 @@ services, and the tests exercise the real module.
           `test_saved_file_has_section`
         - [GREEN] Add `_example_value`, use it in `_apply_default_key`, branch in `_validate_config`
     - **Success:** Tests pass; `questionary.text` is never called for `bazarr`.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `_get_missing_keys` lists a missing section by its own key only, so one dict check in the interactive loop is enough.
+        - The leaf-prompt test passes before the fix; it guards that leaves are still prompted.
+    - **Key Changes:**
+        - `src/config/settings.py`: new `_example_value`; `_apply_default_key` uses it; `_validate_config` copies dict defaults instead of prompting.
+        - Added class `TestRealSettingsMissingSection` (3 tests).
+    - **Notes:** The saved config.yaml holds the full example section.
 
 - [ ] **1.4** F025: startup runs the validators (plan task 4)
     - **Context:**

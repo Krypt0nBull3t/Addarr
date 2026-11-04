@@ -538,3 +538,44 @@ class TestRealSettingsEmptyConfig:
         result = load_settings(valid_config_text)
         assert result.error is None
         assert result.config["radarr"]["auth"]["apikey"] is None
+
+
+class TestRealSettingsMissingSection:
+    """F020: a missing section is copied from the example, not prompted (#198)."""
+
+    @staticmethod
+    def _example():
+        import yaml
+        from src.definitions import CONFIG_EXAMPLE_PATH
+        with open(CONFIG_EXAMPLE_PATH, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+
+    def _without_bazarr(self, text):
+        return _mutate(text, lambda d: d.pop("bazarr"))
+
+    def test_missing_section_is_copied_not_prompted(
+        self, load_settings, valid_config_text
+    ):
+        result = load_settings(
+            self._without_bazarr(valid_config_text), interactive=True
+        )
+        assert result.error is None
+        assert result.config["bazarr"] == self._example()["bazarr"]
+        result.q["text"].assert_not_called()
+
+    def test_missing_leaf_is_still_prompted(self, load_settings, valid_config_text):
+        text = _mutate(valid_config_text, lambda d: d["webhooks"].pop("port"))
+        result = load_settings(text, interactive=True)
+        assert result.error is None
+        message = result.q["text"].call_args.args[0]
+        assert "webhooks.port" in message
+        assert result.config["webhooks"]["port"] == "typed"
+
+    def test_saved_file_has_section(self, load_settings, valid_config_text):
+        import yaml
+        from src.definitions import CONFIG_PATH
+        result = load_settings(
+            self._without_bazarr(valid_config_text), interactive=True
+        )
+        saved = yaml.safe_load(result.written[CONFIG_PATH])
+        assert saved["bazarr"] == self._example()["bazarr"]

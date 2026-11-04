@@ -121,7 +121,10 @@ class Config:
                 ).ask():
                     create_backup()
                     for key in missing_keys:
-                        self._configure_missing_key(key)
+                        if isinstance(self._example_value(example_config, key), dict):
+                            self._apply_default_key(key, example_config)
+                        else:
+                            self._configure_missing_key(key)
                     with open(CONFIG_PATH, 'w') as f:
                         yaml.dump(self._config, f, default_flow_style=False)
                     print(f"{Fore.GREEN}✅ Configuration updated successfully!")
@@ -145,18 +148,20 @@ class Config:
 
         self._validate_values()
 
+    @staticmethod
+    def _example_value(example_config: Dict, key: str) -> Any:
+        """Return the example value for a dotted key, or None if absent."""
+        value: Any = example_config
+        for part in key.split('.'):
+            if not isinstance(value, dict):
+                return None
+            value = value.get(part)
+        return value
+
     def _apply_default_key(self, key: str, example_config: Dict):
         """Apply a default value from example config for a missing key."""
         parts = key.split('.')
-
-        # Get default value from example config
-        default: Any = example_config
-        for part in parts:
-            if isinstance(default, dict):
-                default = default.get(part)
-            else:
-                default = None
-                break
+        default = self._example_value(example_config, key)
 
         # Set value in config
         current = self._config
