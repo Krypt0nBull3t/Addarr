@@ -162,7 +162,7 @@ services, and the tests exercise the real module.
 **Goal:** The bot fails closed on chat mode, and the wizard keeps chatMode, runs once and works without
 `config.yaml`.
 
-- [ ] **2.1** F023: the bot fails closed on chatMode (plan task 6)
+- [x] **2.1** F023: the bot fails closed on chatMode (plan task 6)
     - **Context:**
         - **Why:** `_enforce_private_chat` blocks groups only for the exact value `private_only`.
         - **Architecture:** Compare with the literal `"allow_all"`; every other value takes the private path.
@@ -176,6 +176,14 @@ services, and the tests exercise the real module.
           `test_allow_all_still_allows_group`
         - [GREEN] Change the condition
     - **Success:** Auth handler and integration tests pass.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - A chatMode set to None is not replaced by the `config.get` default, so the old `!= private_only` check still let it through only for non-private values; the new check blocks it.
+        - The existing allow_all test already covered the open path.
+    - **Key Changes:**
+        - `src/bot/handlers/auth.py`: `_enforce_private_chat` returns False only for `allow_all` or when there is no chat.
+        - Added `test_require_auth_rejects_group_when_chat_mode_invalid` (4 cases).
+    - **Notes:** Integration tests (95) and handler coverage (612 tests, 100%) pass.
 
 - [ ] **2.2** F023: the wizard keeps and asks chatMode (plan task 7)
     - **Context:**
