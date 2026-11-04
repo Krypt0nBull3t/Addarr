@@ -206,8 +206,8 @@ def parse_lidarr_event(payload: dict) -> WebhookEvent:
     title = _format_lidarr_title(artist_name, payload)
     message = payload.get("message", "")
 
-    # Extract quality
-    # Grab carries release.quality; Download and Upgrade carry trackFiles[].quality
+    # Extract quality: Grab carries release.quality,
+    # Download and Upgrade carry trackFiles[].quality
     quality = "Unknown"
     release = payload.get("release", {})
     track_files = payload.get("trackFiles") or [{}]

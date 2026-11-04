@@ -1217,6 +1217,18 @@ class TestSearchMusicCombined:
         assert "year" not in results[0]
 
     @pytest.mark.asyncio
+    async def test_artist_with_null_images_has_no_poster(self, mock_lidarr_client):
+        """Lidarr may send images: null; that is no poster, not an error."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [{**SAMPLE_ARTIST, "images": None}]
+        mock_lidarr_client.search_albums.return_value = []
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["poster"] is None
+
+    @pytest.mark.asyncio
     async def test_albums_without_foreign_id_skipped(self, mock_lidarr_client):
         """Albums missing foreignAlbumId are filtered out."""
         service = MediaService()
@@ -1421,10 +1433,14 @@ class TestGetArtistAlbums:
             "releaseDate": "2010-01-01T00:00:00Z",
         }
         no_artist_album = {"foreignAlbumId": "album-id-orphan", "title": "Orphan"}
+        null_artist_album = {
+            "foreignAlbumId": "album-id-null", "title": "Null", "artist": None
+        }
         mock_lidarr_client.search_albums.return_value = [
             other_album,
             SAMPLE_ALBUM,
             no_artist_album,
+            null_artist_album,
         ]
 
         albums = await service.get_artist_albums("some-mbid-123", "Radiohead")

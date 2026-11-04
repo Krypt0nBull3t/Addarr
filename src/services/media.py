@@ -20,6 +20,15 @@ from src.api.lidarr import LidarrClient
 logger = get_logger("addarr.services.media")
 
 
+def _poster_url(item: Dict) -> Optional[str]:
+    """First poster or cover image URL of a Lidarr artist or album, else None."""
+    return next(
+        (img["remoteUrl"] for img in item.get("images") or []
+         if img.get("coverType", "").lower() in ["poster", "cover"]),
+        None,
+    )
+
+
 class MediaService:
     """Service for handling media operations"""
 
@@ -183,11 +192,7 @@ class MediaService:
                     "id": str(artist["foreignArtistId"]),
                     "title": artist["artistName"],
                     "overview": artist.get("overview", "No overview available"),
-                    "poster": next(
-                        (img["remoteUrl"] for img in artist.get("images", [])
-                         if img.get("coverType", "").lower() in ["poster", "cover"]),
-                        None,
-                    ),
+                    "poster": _poster_url(artist),
                     "rating": artist.get("ratings", {}).get("value", "N/A"),
                     "genres": artist.get("genres", []),
                     "type": artist.get("artistType", "Unknown"),
@@ -216,11 +221,7 @@ class MediaService:
                     "id": f"album:{album_id}",
                     "title": album["title"],
                     "overview": album.get("overview", "No overview available"),
-                    "poster": next(
-                        (img["remoteUrl"] for img in album.get("images", [])
-                         if img.get("coverType", "").lower() in ["poster", "cover"]),
-                        None,
-                    ),
+                    "poster": _poster_url(album),
                     "release_date": album.get("releaseDate", ""),
                     "artist_name": artist_info.get("artistName", ""),
                     "artist_id": artist_id,
@@ -468,7 +469,7 @@ class MediaService:
                 }
                 for album in results
                 if album.get("foreignAlbumId")
-                and album.get("artist", {}).get("foreignArtistId") == artist_id
+                and (album.get("artist") or {}).get("foreignArtistId") == artist_id
             ]
         except Exception as e:
             logger.error(f"Error getting artist albums: {e}")
