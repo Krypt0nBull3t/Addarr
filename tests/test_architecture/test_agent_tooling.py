@@ -11,6 +11,8 @@ import glob
 import json
 import os
 import re
+import shutil
+import subprocess
 
 import pytest
 
@@ -83,6 +85,22 @@ def test_settings_deny_dangerous_commands():
     deny = load_settings()["permissions"].get("deny", [])
     for pattern in DENY_PATTERNS:
         assert pattern in deny
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="needs a POSIX shell")
+def test_graphify_hooks_pass_on_a_machine_without_graphify(tmp_path):
+    hooks = load_settings()["hooks"]["PreToolUse"]
+    commands = [h["command"] for e in hooks for h in e["hooks"] if "graphify" in h["command"]]
+    assert commands
+    for command in commands:
+        result = subprocess.run(
+            [shutil.which("sh"), "-c", command],
+            input="{}",
+            capture_output=True,
+            text=True,
+            env={"PATH": str(tmp_path)},
+        )
+        assert (result.returncode, result.stderr) == (0, ""), command
 
 
 def test_claude_md_treats_external_text_as_data():

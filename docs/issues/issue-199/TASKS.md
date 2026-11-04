@@ -93,3 +93,65 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
     - **Learnings:** pytest 2137 passed; flake8 clean; mypy clean (72 files); i18n valid. `git check-ignore` matches all 4 graphify paths; `git ls-files graphify-out` is empty; no unquoted interpreter call under `.claude/`.
     - **Key Changes:** none (verification only).
     - **Notes:** F275 "hooks run without error in a cloud session" is checked locally only: `graphify hook-guard search` exits 0 in a directory with no graph. The first real cloud session confirms it.
+
+### Phase 2: PR #229 review feedback (7 tasks)
+
+**Goal:** Close the gaps the 2026-11-04 audit of PR #229 found. The PR's bot reviews had no actionable items (only a "large file" warning for the vendored skill).
+
+**Phase Context:**
+
+- Source: audit findings 1-8 on PR #229. The user chose to address all of them.
+- Every new or changed test is shown red first: on the current code, or on a violation planted by hand and removed after.
+
+- [x] **2.1** [should-fix] Guard the graphify PreToolUse hooks (audit 1)
+    - **Context:** `.claude/settings.json` runs `graphify hook-guard search|read` on every Bash/Grep/Read/Glob call. A machine without graphify gets a hook error per call (plan.md Review Focus 5).
+    - **Scope:** Prefix each hook command with `command -v graphify >/dev/null 2>&1 || exit 0;`.
+    - **Touches:** `.claude/settings.json`, `tests/test_architecture/test_agent_tooling.py`
+    - **Action items:**
+        - [RED] Test: run each graphify hook command with a `PATH` that has no graphify; it exits 0 with empty stderr
+        - [GREEN] Add the guard
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Red first: without the guard the hook exits 127 with `graphify: not found`.
+        - `command -v` and `exit` are shell builtins, so the guard works with an empty `PATH`.
+    - **Key Changes:**
+        - `.claude/settings.json`: both PreToolUse graphify hooks start with `command -v graphify >/dev/null 2>&1 || exit 0;`.
+        - New test `test_graphify_hooks_pass_on_a_machine_without_graphify` runs each hook in `sh -c` with a `PATH` that holds no graphify.
+    - **Notes:** The test skips where no `sh` exists (Windows without Git Bash).
+
+- [ ] **2.2** [should-fix] Deny the force-push and `rm` variants (audit 2)
+    - **Context:** `git -C . push --force`, `git push origin main --force`, `rm -fr`, `rm -r -f` and `rm -Rf` pass the 5 prefix rules. Claude Code docs (code.claude.com/docs/en/permissions, read 2026-11-04): `*` may stand anywhere and matches spaces; `:*` is a trailing ` *`; a trailing ` *` also matches the bare command; deny rules apply to each subcommand of `&&`, `;`, `|`; matching is case-sensitive; argument patterns are not a security boundary.
+    - **Scope:** Keep the 5 issue patterns; add wildcard rules for git options before `push`, `--force`/`-f` after other arguments, `+refspec`, and the `rm` flag orders and cases.
+    - **Touches:** `.claude/settings.json`, test file
+    - **Action items:**
+        - [RED] Test: a small matcher with the documented semantics; every bypass variant is denied; safe commands (`git push origin feature`, `rm -f file.txt`, `rm -r-notes.txt`) are not
+        - [GREEN] Add the rules
+
+- [ ] **2.3** [should-fix] Make the heredoc and quoting tests strict (audit 3)
+    - **Context:** Three planted violations passed: an unquoted `<<GRAPHIFY_PY` heredoc with `QUESTION`, a `<<'EOF'` script with `QUESTION`, and unquoted `graphify query <question>` / `SKILL_ARG_QUESTION=QUESTION`.
+    - **Scope:** Every heredoc delimiter is single-quoted; every heredoc body (any delimiter) holds no placeholder; outside heredoc bodies, every placeholder in a bash block sits inside single quotes. Convert the `GRAPHIFY_ROOT_EOF` data heredoc in `SKILL.md` Step 1 to `SKILL_ARG_INPUT_PATH`.
+    - **Touches:** test file, `.claude/skills/graphify/` files the new tests flag
+    - **Action items:**
+        - [RED] Plant each of the 3 violations; confirm a test fails on each; remove the plants
+        - [GREEN] Fix what the strict tests flag in the skill
+
+- [ ] **2.4** [should-fix] Pass save-result values through a file (audit 4)
+    - **Context:** `query.md` puts the answer text and node labels in single-quoted shell arguments. One `'` in that prose reopens injection. `--nodes` also lets a label that starts with `--` act as an option.
+    - **Scope:** The agent writes `graphify-out/.save_result.json` with the Write tool; a `<<'GRAPHIFY_PY'` script reads it and calls `graphify.ingest.save_query_result`. The path and explain flows reuse that block.
+    - **Touches:** `.claude/skills/graphify/references/query.md`, test file
+    - **Action items:**
+        - [RED] Test: no bash block runs `save-result` in shell or holds `ANSWER`, `ORIGINAL_QUESTION`, `NODE1`, `NODE2`
+        - [GREEN] Rewrite the three save-result steps and the `--correction` prose
+
+- [ ] **2.5** [consider] Check the ignore rule with `git check-ignore` (audit 5)
+    - **Scope:** `test_graphify_out_is_git_ignored` runs `git check-ignore` on the 4 graphify paths (acceptance criterion F274).
+    - **Touches:** test file
+
+- [ ] **2.6** [consider] Keep Dependabot off pytestarch 5 (audit 6)
+    - **Context:** pytestarch 5.x needs Python 3.11; the CI Compatibility matrix runs 3.10. Dependabot PR #182 fails for this reason.
+    - **Scope:** `ignore` entry for `pytestarch` versions `>=5` in the pip update; a test that reads it.
+    - **Touches:** `.github/dependabot.yml`, test file
+
+- [ ] **2.7** [consider] Known limits and retrospective (audit 7, 8)
+    - **Scope:** PR body and this file name the hook-guard node-label injection (F273 part) as a known limit and the new deny-list limits; F275 note says it was verified locally only; "check pins on the lowest matrix Python" goes into CLAUDE.md `## CI/CD` (retrospective category: new convention).
+    - **Touches:** `docs/issues/issue-199/TASKS.md`, `CLAUDE.md`, PR #229 body
