@@ -99,7 +99,7 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - Added `TestBackupRestore` (six tests) with helpers `function_text()` and `run_cleanup()`.
     - **Notes:** `cleanup` defaults to status 0 when called without an argument, so it never restores by accident. The trap passes `$?`.
 
-- [ ] **1.5** F174: SUDO prefix in install.sh
+- [x] **1.5** F174: SUDO prefix in install.sh
     - **Context:**
         - **Why:** `check_sudo` exits unless `EUID` is 0 and `install_system_packages` runs package managers without `sudo`. Once the README drops `sudo bash`, the script must ask for `sudo` itself.
         - **Architecture:** `check_sudo` sets a global `SUDO`: empty when root, `sudo` when it exists, otherwise an error and `exit 1`. Linux package-manager calls use `$SUDO`. macOS `brew` stays without it.
@@ -112,6 +112,14 @@ Run every test through the suite lock. Test file for all tasks: `tests/test_inst
         - [RED] Write `test_check_sudo_does_not_require_root`: the `check_sudo` text has no `sudo $0` hint and no `-ne 0` test on `EUID`
         - [GREEN] Rewrite `check_sudo` and prefix the calls
     - **Success:** Both tests fail before and pass after, `bash -n scripts/install.sh` passes
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `EUID` is read-only in bash, so a test cannot fake root. `test_check_sudo_sets_prefix_for_current_user` expects `[]` when the test runs as root and `[sudo]` otherwise, and returns early when a non-root host has no `sudo` (the function exits 1 there by design).
+        - The prefix test counts at least five package-manager calls, so it fails if the regexp stops matching them.
+    - **Key Changes:**
+        - `scripts/install.sh`: `check_sudo` sets `SUDO` (empty for root, `sudo` when available, else an error and `exit 1`). `install_system_packages` prefixes `apt-get`, `dnf`, `yum` and `pacman` with `$SUDO`. macOS `brew` has no prefix.
+        - Added `TestSudoHandling` (three tests).
+    - **Notes:** The inline `sudo` calls later in the script are unchanged. No guard against running as root (lead decision).
 
 - [ ] **1.6** F174: README command installs for the current user, then verify
     - **Context:**

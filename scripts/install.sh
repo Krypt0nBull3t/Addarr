@@ -65,11 +65,16 @@ MIN_PYTHON_VERSION="3.10"
 # Minimum required pip version
 MIN_PIP_VERSION="20.0" # Example minimum version
 
-# Check for sudo privileges
+# Set SUDO for package installs: empty for root, "sudo" for any other user.
+# The installer runs as the current user, so the install lands in that user's $HOME.
 check_sudo() {
-    if [ "$EUID" -ne 0 ]; then
-        echo -e "${YELLOW}This script requires sudo privileges to install system packages.${NC}"
-        echo -e "${YELLOW}Please run with: sudo $0${NC}"
+    if [ "$EUID" -eq 0 ]; then
+        SUDO=""
+    elif command -v sudo >/dev/null 2>&1; then
+        SUDO="sudo"
+    else
+        echo -e "${RED}System packages are missing and sudo is not installed.${NC}"
+        echo -e "${YELLOW}Install the packages as root, or install sudo, then run this script again.${NC}"
         exit 1
     fi
 }
@@ -96,17 +101,17 @@ install_system_packages() {
     
     case "$system" in
         "ubuntu"|"debian")
-            apt-get update -qq
-            apt-get install -y "${packages[@]}"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y "${packages[@]}"
             ;;
         "fedora")
-            dnf install -y "${packages[@]}"
+            $SUDO dnf install -y "${packages[@]}"
             ;;
         "rhel"|"centos")
-            yum install -y "${packages[@]}"
+            $SUDO yum install -y "${packages[@]}"
             ;;
         "arch")
-            pacman -Sy --noconfirm "${packages[@]}"
+            $SUDO pacman -Sy --noconfirm "${packages[@]}"
             ;;
         "macos")
             if ! command -v brew >/dev/null 2>&1; then

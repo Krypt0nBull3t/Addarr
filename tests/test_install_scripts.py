@@ -2,6 +2,7 @@
 
 import os
 import re
+import shutil
 import subprocess
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -124,3 +125,37 @@ class TestBackupRestore:
         start = script.index("Cloning Addarr repository")
         end = script.index("Repository cloned successfully")
         assert "PIPESTATUS[0]" in script[start:end]
+
+
+class TestSudoHandling:
+    """Verify install.sh asks for sudo only for packages, so it can run as the current user."""
+
+    def test_system_packages_use_sudo_prefix(self):
+        """Every Linux package-manager call in install_system_packages starts with $SUDO."""
+        body = function_text(read(INSTALL_SH), "install_system_packages")
+        calls = [
+            line.strip()
+            for line in body.splitlines()
+            if re.match(r"\s*(\$SUDO\s+)?(apt-get|dnf|yum|pacman)\b", line)
+        ]
+        assert len(calls) >= 5
+        assert [c for c in calls if not c.startswith("$SUDO ")] == []
+
+    def test_check_sudo_does_not_require_root(self):
+        """check_sudo no longer exits for a non-root user or tells them to rerun with sudo."""
+        body = function_text(read(INSTALL_SH), "check_sudo")
+        assert "sudo $0" not in body
+        assert "-ne 0" not in body
+
+    def test_check_sudo_sets_prefix_for_current_user(self):
+        """SUDO is empty for root and `sudo` for another user."""
+        script = (
+            'RED=""; YELLOW=""; NC=""\n'
+            f'{function_text(read(INSTALL_SH), "check_sudo")}\n'
+            'check_sudo; echo "[$SUDO]"\n'
+        )
+        if os.geteuid() != 0 and shutil.which("sudo") is None:
+            return  # check_sudo exits here by design: nothing to prefix with
+        result = subprocess.run(["bash", "-c", script], check=True, capture_output=True, text=True)
+        expected = "[]" if os.geteuid() == 0 else "[sudo]"
+        assert result.stdout.strip() == expected
