@@ -126,6 +126,11 @@ class TestLoadConfig:
         captured = capsys.readouterr()
         assert "Error loading config" in captured.out
 
+    def test_returns_empty_dict_on_empty_file(self, handler, tmp_path):
+        """An empty config.yaml loads as {} so --setup can repair it."""
+        Path(handler.config_path).write_text("", encoding="utf-8")
+        assert handler.load_config() == {}
+
     def test_returns_empty_dict_on_invalid_yaml(self, handler, tmp_path, capsys):
         """Returns {} on malformed YAML."""
         bad = tmp_path / "config.yaml"
@@ -210,10 +215,23 @@ class TestGlobalInstance:
         """Global instance is a ConfigHandler."""
         assert isinstance(config_handler, ConfigHandler)
 
-    def test_colors_is_none(self):
-        """Global instance has colors=None (set later by PreRunChecker)."""
-        assert config_handler.colors is None
+    def test_global_instance_has_colors(self):
+        """F021: the global instance has real colors without prerun."""
+        assert config_handler.colors is not None
+        assert hasattr(config_handler.colors.Fore, "GREEN")
 
-    def test_has_config_path(self):
-        """Global instance has config_path set."""
-        assert config_handler.config_path.endswith("config.yaml")
+    def test_create_from_example_without_config_returns_true(
+        self, tmp_path, example_yaml, monkeypatch
+    ):
+        """F021: create_from_example works on the global instance, no config.yaml."""
+        monkeypatch.setattr(config_handler, "config_path", str(tmp_path / "config.yaml"))
+        monkeypatch.setattr(config_handler, "config_example_path", str(example_yaml))
+        assert config_handler.create_from_example() is True
+        assert (tmp_path / "config.yaml").exists()
+
+    def test_load_config_missing_file_on_global_instance(
+        self, tmp_path, monkeypatch
+    ):
+        """F021: the load error path prints with real colors."""
+        monkeypatch.setattr(config_handler, "config_path", str(tmp_path / "none.yaml"))
+        assert config_handler.load_config() == {}

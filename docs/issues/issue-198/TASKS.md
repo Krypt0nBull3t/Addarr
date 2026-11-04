@@ -236,7 +236,7 @@ services, and the tests exercise the real module.
         - `tests/test_setup/test_wizard.py`: added `test_run_reset_calls_async_setup_once`; the success-path test now asserts `run` is not called.
     - **Notes:** The wizard prints "Starting setup wizard..." before returning to `run()`, which continues to `_async_setup`.
 
-- [ ] **2.4** F021: config handler has colors (plan task 9)
+- [x] **2.4** F021: config handler has colors (plan task 9)
     - **Context:**
         - **Why:** `config_handler = ConfigHandler(None)` crashes on `self.colors.Fore` when
           `python run.py --setup` runs without `config.yaml`, because prerun is skipped for `--setup`.
@@ -254,6 +254,14 @@ services, and the tests exercise the real module.
           `test_load_config_empty_file_returns_empty_dict`
         - [GREEN] Implement
     - **Success:** `scripts/test_runner.py utils --coverage` passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - `prerun.py` only imports the standard library at module level, so config_handler can import `ColorHandler` without a cycle.
+        - The load-error path crashed too (it prints with colors), not only `create_from_example`.
+    - **Key Changes:**
+        - `src/utils/config_handler.py`: global instance is `ConfigHandler(ColorHandler())`; `load_config` returns `{}` for an empty file.
+        - `tests/test_utils/test_config_handler.py`: `test_colors_is_none` replaced by 4 tests.
+    - **Notes:** `prerun.py` still assigns `config_handler.colors`; it is the same kind of object.
 
 ## Phase 3: Token error and logging (2 tasks)
 
