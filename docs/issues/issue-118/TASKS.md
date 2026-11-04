@@ -60,7 +60,7 @@ Add mypy as a blocking CI job. Create config with per-module overrides (lenient 
         - `AddarrError` doesn't store `.message` — use `str(e)` instead
     - **Key Changes:**
         - Fixed implicit Optional in 13 files (api/base, api/sabnzbd, api/sonarr, api/radarr, api/lidarr, services/sabnzbd, services/media, services/translation, utils/logger, utils/validate_translations, bot/keyboards)
-        - Added class-level type annotations to 6 singletons (SABnzbdService, JobScheduler, NotificationService, TransmissionService, RateLimitService, HealthService)
+        - Added class-level type annotations to 6 singletons (SABnzbdService, JobScheduler, NotificationService, TransmissionService, RateLimitService, HealthService) (Superseded by 0846b97: `JobScheduler` removed, five singletons remain.)
         - Fixed return types on MediaService.add_movie/add_series/add_music
         - Fixed aiohttp timeout types in HealthService
     - **Notes:** All 84 non-handler errors resolved. 1869 tests pass, flake8 clean.

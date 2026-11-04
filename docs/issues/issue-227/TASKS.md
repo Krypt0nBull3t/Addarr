@@ -12,7 +12,7 @@ All paths below are under `docs/issues/` unless they start with `src/` or `tests
 - Why NOT edit the `plan.md` files or the other lines that name the same symbols: the orchestrator's answer at step 3c limits the scope to the files and lines the issue lists. List the other hits in the PR body.
 - Why NOT write "Superseded by 0846b97" everywhere: only `SabnzbdClient`, `JobScheduler` and `RateLimitExceededError` were removed by that commit. Other changes cite their own commit.
 
-- [ ] **1.1** Note the code that `0846b97` removed
+- [x] **1.1** Note the code that `0846b97` removed
     - **Context:**
         - **Why:** The notes name `SabnzbdClient` (`src/api/sabnzbd.py`), `JobScheduler` (`src/services/scheduler.py`) and `RateLimitExceededError` (`src/utils/error_handler.py`). All three are gone since `0846b97`.
         - **Architecture:** Append the note to the line. Use ` (Superseded by 0846b97: <thing> removed.)`. Do not reword the old text.
@@ -25,6 +25,13 @@ All paths below are under `docs/issues/` unless they start with `src/` or `tests
         - [GREEN] Append the note to each listed line.
         - [GREEN] Re-run the checker: no miss left for these files.
     - **Success:** The checker reports no miss for the six files. `git diff` shows only appended text on those lines.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The checker (scratchpad, not committed) flagged 32 lines before the edits and none after.
+        - `0846b97` also removed the `JobScheduler` export from `src/services/__init__.py` and its reset from `tests/conftest.py`; the other exports remain.
+    - **Key Changes:**
+        - Appended a "Superseded by 0846b97" note to 16 listed lines in `issue-12`, `issue-20`, `issue-101`, `issue-78`, `issue-118` and `issue-116` `TASKS.md`.
+    - **Notes:** Unlisted lines that name the same symbols were left as they are (see 1.4).
 
 - [ ] **1.2** Correct the names that moved or were wrong
     - **Context:**

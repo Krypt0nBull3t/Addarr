@@ -29,9 +29,9 @@
         - The `__new__()` + `_initialize()` pattern drops in cleanly — existing tests pass because `reset_singletons` fixture gives each test a fresh instance
         - Type annotation `cls.jobs: Dict[str, aiocron.Cron]` works on class vars set in `_initialize()` just like in `__init__`
     - **Key Changes:**
-        - `src/services/scheduler.py`: Replaced `__init__` with `_instance`, `__new__()`, `_initialize()` classmethod
-        - `tests/test_services/test_scheduler.py`: Added `TestJobSchedulerSingleton` class
-        - `tests/conftest.py`: Added `JobScheduler._instance = None` to `reset_singletons`
+        - `src/services/scheduler.py`: Replaced `__init__` with `_instance`, `__new__()`, `_initialize()` classmethod (Superseded by 0846b97: `src/services/scheduler.py` removed.)
+        - `tests/test_services/test_scheduler.py`: Added `TestJobSchedulerSingleton` class (Superseded by 0846b97: `tests/test_services/test_scheduler.py` removed.)
+        - `tests/conftest.py`: Added `JobScheduler._instance = None` to `reset_singletons` (Superseded by 0846b97: the `JobScheduler` reset in `tests/conftest.py` removed.)
     - **Notes:** Module-level `scheduler = JobScheduler()` still works — first call creates the singleton, subsequent calls return it
 
 - [x] **1.2** Convert TransmissionService to singleton pattern
@@ -137,6 +137,6 @@
         - The generic `except Exception` branch in SABnzbdService._initialize() needed a dedicated test (corrupt config dict) to reach 100% coverage
         - Adding `SABnzbdService` import to `__init__.py` triggered the singleton at import time with disabled config — works fine since `is_enabled()` returns False
     - **Key Changes:**
-        - `src/services/__init__.py`: Added `JobScheduler`, `TransmissionService`, `transmission_service`, `SABnzbdService` exports
+        - `src/services/__init__.py`: Added `JobScheduler`, `TransmissionService`, `transmission_service`, `SABnzbdService` exports (Superseded by 0846b97: the `JobScheduler` export removed; the other exports remain.)
         - `tests/test_services/test_sabnzbd_service.py`: Added `test_init_config_error` for coverage of exception branch
     - **Notes:** All 1033 tests pass, 100% coverage, flake8 clean
