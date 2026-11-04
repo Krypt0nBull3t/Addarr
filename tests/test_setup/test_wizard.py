@@ -70,6 +70,34 @@ class TestWizardRun:
     @patch("src.setup.wizard.config_handler")
     @patch("src.setup.wizard.show_splash_screen")
     @patch("src.setup.wizard.asyncio")
+    @patch("src.setup.wizard.questionary")
+    @patch("src.setup.wizard.create_backup", return_value="/backup/config.yaml")
+    @patch("src.setup.wizard.os.path.exists", return_value=True)
+    @patch("builtins.open", new_callable=MagicMock)
+    @patch("src.setup.wizard.yaml")
+    def test_run_reset_calls_async_setup_once(
+        self, mock_yaml, mock_open, mock_exists, mock_backup, mock_q,
+        mock_asyncio, mock_splash, mock_handler
+    ):
+        """F022: run(reset=True) runs the real _reset_config, then setup once."""
+        mock_handler.load_config.return_value = {}
+        mock_q.confirm.return_value.ask.return_value = True
+        mock_yaml.load.return_value = {"telegram": {"token": ""}}
+        mock_asyncio.get_running_loop.side_effect = RuntimeError
+        mock_loop = MagicMock()
+        mock_asyncio.new_event_loop.return_value = mock_loop
+
+        wizard = SetupWizard()
+        wizard._create_directories = MagicMock()
+        wizard._async_setup = MagicMock()
+        wizard.run(reset=True)
+
+        wizard._async_setup.assert_called_once()
+        mock_loop.run_until_complete.assert_called_once()
+
+    @patch("src.setup.wizard.config_handler")
+    @patch("src.setup.wizard.show_splash_screen")
+    @patch("src.setup.wizard.asyncio")
     def test_run_with_reset_calls_reset_config(
         self, mock_asyncio, mock_splash, mock_handler
     ):
@@ -584,11 +612,11 @@ class TestResetConfigSuccess:
     @patch("src.setup.wizard.os.path.exists", return_value=True)
     @patch("builtins.open", new_callable=MagicMock)
     @patch("src.setup.wizard.yaml")
-    def test_success_loads_example_saves_and_runs(
+    def test_success_loads_example_and_saves(
         self, mock_yaml, mock_open, mock_exists, mock_backup,
         mock_q, mock_handler
     ):
-        """Success path: backup, load example, save, run()."""
+        """Success path: backup, load example, save. It does not run()."""
         mock_handler.load_config.return_value = {}
         mock_handler.save_config = MagicMock()
 
@@ -600,7 +628,6 @@ class TestResetConfigSuccess:
         mock_yaml.load.return_value = {"telegram": {"token": ""}}
 
         wizard = SetupWizard()
-        # Mock run() to prevent recursive loop
         wizard.run = MagicMock()
 
         wizard._reset_config()
@@ -608,7 +635,7 @@ class TestResetConfigSuccess:
         mock_backup.assert_called_once()
         mock_yaml.load.assert_called_once()
         mock_handler.save_config.assert_called_once()
-        wizard.run.assert_called_once()
+        wizard.run.assert_not_called()
 
     @patch("src.setup.wizard.config_handler")
     @patch("src.setup.wizard.questionary")

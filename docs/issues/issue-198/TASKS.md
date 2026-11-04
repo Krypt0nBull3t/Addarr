@@ -212,7 +212,7 @@ services, and the tests exercise the real module.
         - Tests: 5 new in `tests/test_setup/`; 4 existing prompt tests got a select mock.
     - **Notes:** `src/setup/` imports CHAT_MODES from `src.definitions`, never from `src.config.settings`.
 
-- [ ] **2.3** F022: reset runs the wizard once (plan task 8)
+- [x] **2.3** F022: reset runs the wizard once (plan task 8)
     - **Context:**
         - **Why:** `_reset_config` ends with `self.run()`, so `--reset` runs the wizard twice.
         - **Architecture:** `run(reset=True)` already continues to `_async_setup` after `_reset_config`.
@@ -227,6 +227,14 @@ services, and the tests exercise the real module.
           `run` is not called
         - [GREEN] Delete `self.run()`
     - **Success:** Wizard tests pass.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The old success-path test mocked `run()` to stop recursion, which hid the double run. The new test mocks `_async_setup` instead.
+        - `run.py --setup` with an existing config also goes through `run(reset=True)`, so one deletion fixes both entry points.
+    - **Key Changes:**
+        - `src/setup/wizard.py`: removed `self.run()` at the end of `_reset_config`.
+        - `tests/test_setup/test_wizard.py`: added `test_run_reset_calls_async_setup_once`; the success-path test now asserts `run` is not called.
+    - **Notes:** The wizard prints "Starting setup wizard..." before returning to `run()`, which continues to `_async_setup`.
 
 - [ ] **2.4** F021: config handler has colors (plan task 9)
     - **Context:**

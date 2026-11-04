@@ -223,9 +223,6 @@ class SetupWizard:
             print(f"\n{Fore.GREEN}✅ Configuration reset to default values")
             print(f"{Fore.CYAN}Starting setup wizard...")
 
-            # Run the setup wizard
-            self.run()
-
         except Exception as e:
             print(f"{Fore.RED}❌ Error resetting configuration: {str(e)}")
             sys.exit(1)
