@@ -216,7 +216,7 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [GREEN] Apply plan.md Task 5.1
     - **Success:** architecture tests pass
 
-- [ ] **5.2** addarr-find-bugs and task-writer (K7, K9)
+- [x] **5.2** addarr-find-bugs and task-writer (K7, K9)
     - **Context:**
         - **Why:** Descriptions overlap other skills; hard-coded diff base; stale task-writer content; `file:line` citations.
         - **Architecture:** Markdown; plan.md Task 5.2; D9.
@@ -227,6 +227,12 @@ Source: `docs/issues/issue-237/plan.md` (approved with decisions D1-D15 as recom
         - [RED] `test_skill_names_exist[task-writer]` without xfail fails
         - [GREEN] Apply plan.md Task 5.2
     - **Success:** architecture tests pass, `_PENDING` empty
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - task-writer's TDD block still said "coverage on changed modules"; it now points to the workflow's CI coverage gate.
+        - `/review-external-pr` comes from #236; find-bugs names it ahead of that merge.
+    - **Key Changes:** `addarr-find-bugs/SKILL.md`: Addarr-specific description, caller's diff range or fetched `origin/development`, untrusted-diff rule, access gates, `@rate_limit`, webhook secret, SABnzbd `apikey` items, no "Bare `except:`". `task-writer/SKILL.md`: narrow description, compact mode and test-count table removed, Bazarr example framed as history, `<name>` placeholder paths, no line citations. `_PENDING` is empty.
+    - **Notes:** Done by a subagent; reviewed both diffs.
 
 - [ ] **5.3** security-audit (K8, D10)
     - **Context:**
