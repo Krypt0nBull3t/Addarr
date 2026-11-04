@@ -52,13 +52,15 @@ git rev-parse refs/pr/<N>
 git merge-base origin/<baseRefName> refs/pr/<N>
 ```
 
-6. Look for symlinks. If any line shows mode `120000`, stop and tell the user: a symlink in the export lets a Read leave the export directory.
+6. Save the full diff. It includes the changes to `.claude/`, `.github/` and `CLAUDE.md`, so the reviewer can flag them.
 
 ```bash
-git diff --no-ext-diff --summary <base> refs/pr/<N>
+git diff --no-ext-diff <base> refs/pr/<N> > <dir>/diff.txt
 ```
 
-7. Export the files without `.claude/`, `.github/` and any `CLAUDE.md`, both for the PR head and for the merge base.
+7. Look for symlinks: Grep `<dir>/diff.txt` for `mode 120000`. If it matches, stop and tell the user. A symlink in the export lets a Read leave the export directory.
+
+8. Export the files without `.claude/`, `.github/` and any `CLAUDE.md`, both for the PR head and for the merge base.
 
 ```bash
 git archive refs/pr/<N> -- . ':(exclude).claude' ':(exclude).github' ':(exclude,glob)**/CLAUDE.md' | tar -x -C <dir>/head
@@ -66,12 +68,6 @@ git archive refs/pr/<N> -- . ':(exclude).claude' ':(exclude).github' ':(exclude,
 
 ```bash
 git archive <base> -- . ':(exclude).claude' ':(exclude).github' ':(exclude,glob)**/CLAUDE.md' | tar -x -C <dir>/base
-```
-
-8. Save the full diff. It includes the changes to `.claude/`, `.github/` and `CLAUDE.md`, so the reviewer can flag them.
-
-```bash
-git diff --no-ext-diff <base> refs/pr/<N> > <dir>/diff.txt
 ```
 
 9. If the PR body in `pr.json` links an issue (`#<M>`), save it. Take only the digits of `<M>`.

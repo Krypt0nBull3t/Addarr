@@ -87,9 +87,13 @@ Source: `docs/issues/issue-236/plan.md` (decisions D1-D7 are settled there). All
 
 ### Phase 2: Verification (1 task)
 
-- [ ] **2.1** Preflight and acceptance
+- [x] **2.1** Preflight and acceptance
     - **Context:** See plan.md Task 6
     - **Action items:**
         - [GREEN] Run pytest under the suite lock, then `flake8 .`, `mypy src/` and `--validate-i18n`
         - [GREEN] Run `git check-ignore` and the pip dry-run
     - **Success:** everything passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:** `.flake8` already excludes `.venv`, so a worktree venv does not slow lint or break it.
+    - **Key Changes:** none (verification only). pytest: 2238 passed. `flake8 .`, `mypy src/` (72 files) and `--validate-i18n` are clean. `git check-ignore` lists all 5 secret files and not `.env.example` (exit 1). The pip dry-run on 3.10 resolves.
+    - **Notes:** `src/` is unchanged, so the coverage bar on `src` is unaffected.

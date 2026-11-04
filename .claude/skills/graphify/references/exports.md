@@ -2,6 +2,8 @@
 
 Load this when the user passed one of the export flags (`--wiki`, `--neo4j`, `--neo4j-push`, `--falkordb`, `--falkordb-push`, `--svg`, `--graphml`, `--mcp`), or when the corpus is large enough for the token-reduction benchmark. Each step runs only for its own flag.
 
+Outside a full `/graphify` build, run the interpreter guard (`SKILL.md` § Interpreter guard for subcommands) once, before the first block here that uses `.graphify_python`.
+
 ### Step 6b - Wiki (only if --wiki flag)
 
 **Only run this step if `--wiki` was explicitly given in the original command.**

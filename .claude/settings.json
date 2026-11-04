@@ -11,7 +11,7 @@
     "ask": [
       "Edit(./.claude/hooks/**)",
       "Edit(./scripts/cloud-setup.sh)",
-      "Edit(./.claude/settings.json)"
+      "Edit(./.claude/settings*.json)"
     ],
     "deny": [
       "Bash(git push --force:*)",
@@ -39,6 +39,10 @@
       "Read(./config.yaml*)",
       "Edit(./config.yaml*)",
       "Read(./backup/**)",
+      "Read(./.env*)",
+      "Read(./chatid.txt)",
+      "Read(./admin.txt)",
+      "Read(./allowlist.txt)",
       "Read(~/.config/gh/**)",
       "Read(~/.ssh/**)"
     ]

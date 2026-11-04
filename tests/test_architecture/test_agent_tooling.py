@@ -29,6 +29,15 @@ DENY_PATTERNS = (
     "Bash(gh auth token:*)",
     "Bash(gh repo delete:*)",
     "Bash(rm *-r*)",
+    "Read(./config.yaml*)",
+    "Edit(./config.yaml*)",
+    "Read(./backup/**)",
+    "Read(./.env*)",
+    "Read(./chatid.txt)",
+    "Read(./admin.txt)",
+    "Read(./allowlist.txt)",
+    "Read(~/.config/gh/**)",
+    "Read(~/.ssh/**)",
 )
 
 DATA_RULE = (
@@ -67,6 +76,7 @@ HEREDOC = re.compile(r"(<<-?\s*(['\"]?)(\w+)\2[^\n]*\n)(.*?)^\t*\3\n", re.S | re
 # Single-quoted strings and backslash escapes; group 1 is a double-quoted
 # string, which the shell still expands, so callers keep it.
 SHELL_QUOTING = re.compile(r"\\.|'[^']*'|(\"(?:\\.|[^\"\\])*\")")
+BASH_BLOCK = r"```bash\n(.*?)```"
 
 
 def read_text(rel_path):
@@ -76,6 +86,20 @@ def read_text(rel_path):
 
 def load_settings():
     return json.loads(read_text(".claude/settings.json"))
+
+
+def frontmatter(rel_path):
+    return yaml.safe_load(read_text(rel_path).split("---")[1])
+
+
+def git_ignored(*paths):
+    result = subprocess.run(
+        ["git", "check-ignore", *paths],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.splitlines()
 
 
 def skill_files():
@@ -89,7 +113,7 @@ def skill_hits(pattern, flags=0):
 
 
 def bash_blocks():
-    blocks = skill_hits(r"```bash\n(.*?)```", re.S)
+    blocks = skill_hits(BASH_BLOCK, re.S)
     assert blocks
     return blocks
 
@@ -122,25 +146,13 @@ def test_settings_deny_dangerous_commands():
         assert pattern in deny
 
 
-def test_settings_deny_reading_secrets():
-    deny = set(load_settings()["permissions"]["deny"])
-    secrets = {
-        "Read(./config.yaml*)",
-        "Edit(./config.yaml*)",
-        "Read(./backup/**)",
-        "Read(~/.config/gh/**)",
-        "Read(~/.ssh/**)",
-    }
-    assert secrets <= deny
-
-
 def test_settings_ask_before_editing_self_running_files():
     # Hooks and the setup script run without a Bash permission check.
     ask = set(load_settings()["permissions"].get("ask", []))
     tooling = {
         "Edit(./.claude/hooks/**)",
         "Edit(./scripts/cloud-setup.sh)",
-        "Edit(./.claude/settings.json)",
+        "Edit(./.claude/settings*.json)",
     }
     assert tooling <= ask
 
@@ -283,13 +295,7 @@ def test_graphify_out_is_git_ignored():
         "graphify-out/.graphify_python",
         "graphify-out/.graphify_root",
     ]
-    result = subprocess.run(
-        ["git", "check-ignore", *paths],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    assert result.stdout.splitlines() == paths, result.stderr
+    assert git_ignored(*paths) == paths
 
 
 @pytest.mark.parametrize("path", ["requirements.txt", "requirements-test.txt"])
@@ -312,13 +318,7 @@ def test_dependabot_skips_versions_without_python_3_10(name, versions):
 
 def test_runtime_secret_files_are_git_ignored():
     ignored = [".env", ".env.local", "chatid.txt", "admin.txt", "allowlist.txt"]
-    result = subprocess.run(
-        ["git", "check-ignore", *ignored, ".env.example"],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    assert result.stdout.splitlines() == ignored, result.stderr
+    assert git_ignored(*ignored, ".env.example") == ignored
 
 
 def test_flake8_is_pinned_for_tests():
@@ -389,11 +389,12 @@ def test_graphify_installs_are_pinned():
 
 def interpreter_guard():
     text = read_text(".claude/skills/graphify/SKILL.md")
-    return re.search(r"## Interpreter guard.*?```bash\n(.*?)```", text, re.S).group(1)
+    return re.search(r"## Interpreter guard.*?" + BASH_BLOCK, text, re.S).group(1)
 
 
 @pytest.mark.skipif(
-    not (shutil.which("sh") and shutil.which("git")), reason="needs sh and git"
+    not all(map(shutil.which, ("sh", "git", "python3"))),
+    reason="needs sh, git and python3 (the guard's fallback interpreter)",
 )
 @pytest.mark.parametrize("repo", ["none", "untracked", "tracked"])
 def test_graphify_guard_rejects_a_planted_interpreter(tmp_path, repo):
@@ -418,9 +419,17 @@ def test_graphify_guard_rejects_a_planted_interpreter(tmp_path, repo):
         assert os.path.isabs(planted.read_text(encoding="utf-8"))
 
 
+def test_graphify_references_run_the_guard_first():
+    # The query fast path and the subcommands skip Step 1, which rewrites
+    # .graphify_python; every file that runs it must point to the guard.
+    for path, text in skill_files():
+        if path.endswith("SKILL.md") or "graphify_python)" not in text:
+            continue
+        assert "interpreter guard" in text, path
+
+
 def test_graphify_triggers_only_on_command_or_existing_graph():
-    front = read_text(".claude/skills/graphify/SKILL.md").split("---")[1]
-    description = yaml.safe_load(front)["description"]
+    description = frontmatter(".claude/skills/graphify/SKILL.md")["description"]
     assert "any question" not in description
     assert "/graphify" in description and "graphify-out/" in description
 
@@ -442,8 +451,7 @@ def test_graphify_warns_against_claude_install():
     ],
 )
 def test_agents_have_only_the_tools_they_need(name, tools):
-    front = read_text(f".claude/agents/{name}.md").split("---")[1]
-    assert yaml.safe_load(front)["tools"] == tools
+    assert frontmatter(f".claude/agents/{name}.md")["tools"] == tools
 
 
 def test_contract_checker_fails_on_http_errors():
@@ -455,7 +463,7 @@ def test_contract_checker_fails_on_http_errors():
 def test_review_external_pr_never_runs_pr_code():
     # A checked-out fork runs its own hooks, conftest.py and scripts here.
     text = read_text(".claude/skills/review-external-pr/SKILL.md")
-    blocks = "\n".join(re.findall(r"```bash\n(.*?)```", text, re.S))
+    blocks = "\n".join(re.findall(BASH_BLOCK, text, re.S))
     assert "git fetch origin" in blocks and "git archive" in blocks
     assert ":(exclude).claude" in blocks and ":(exclude).github" in blocks
     pattern = r"\b(checkout|switch|worktree|pytest|pip|python|run\.py)\b"

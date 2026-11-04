@@ -2,6 +2,8 @@
 
 Load this when the user asks a question against an existing graph, or runs `/graphify path` or `/graphify explain`. The core's query stub points here for the full traversal flow. These flows use the `graphify query` CLI when it is available and fall back to an inline NetworkX traversal otherwise.
 
+Before the first fallback block that uses `.graphify_python`, run the interpreter guard (`SKILL.md` § Interpreter guard for subcommands) once.
+
 Two traversal modes - choose based on the question:
 
 | Mode | Flag | Best for |
