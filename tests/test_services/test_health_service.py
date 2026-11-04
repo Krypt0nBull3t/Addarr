@@ -7,7 +7,9 @@ import asyncio
 import aiohttp
 import pytest
 from aioresponses import CallbackResult, aioresponses
+from multidict import CIMultiDict, CIMultiDictProxy
 from unittest.mock import AsyncMock, MagicMock, patch
+from yarl import URL
 
 from src.services.health import HealthService, display_health_status
 from tests.fixtures.sample_data import RADARR_DISK_SPACE
@@ -346,24 +348,26 @@ class TestCheckSabnzbdHealth:
         assert "HTTP 500" in status
 
     @pytest.mark.asyncio
-    async def test_check_sabnzbd_health_exception(self):
+    async def test_check_sabnzbd_health_error_hides_api_key(self):
+        """aiohttp errors carry the request URL, so /status shows only the error type (#197)."""
         service = HealthService()
         url = "http://localhost:8090/"
 
-        with patch(
-            "src.services.health.aiohttp.ClientSession"
-        ) as mock_session_cls:
-            mock_session_cls.return_value.__aenter__ = AsyncMock(
-                side_effect=Exception("Connection refused")
-            )
-            mock_session_cls.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+        import re
+        pattern = re.compile(r"^http://localhost:8090/api\b.*$")
+        keyed_url = URL("http://localhost:8090/api?apikey=secret&mode=queue")
+        error = aiohttp.TooManyRedirects(
+            aiohttp.RequestInfo(keyed_url, "GET", CIMultiDictProxy(CIMultiDict())), ()
+        )
+        assert "apikey=secret" in str(error)
 
-            healthy, status = await service.check_sabnzbd_health(url, "key")
+        with aioresponses() as m:
+            m.get(pattern, exception=error)
+            healthy, status = await service.check_sabnzbd_health(url, "secret")
 
         assert healthy is False
-        assert status == "Error: Exception"
+        assert status == "Error: TooManyRedirects"
+        assert "secret" not in status
 
 
 # ---------------------------------------------------------------------------
