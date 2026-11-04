@@ -77,7 +77,7 @@ python scripts/test_runner.py all --coverage        # Full suite
 Tests live in `tests/` mirroring `src/` structure. Key patterns:
 
 - **Config mock**: `tests/conftest.py` injects a `MockConfig` into `sys.modules["src.config.settings"]` before any `src` imports, bypassing the real `Config()` which reads from disk at import time.
-- **Singleton reset**: An `autouse=True` fixture resets `_instance = None` on all singleton services between tests.
+- **Singleton reset**: An `autouse=True` fixture (`reset_singletons` in `tests/conftest.py`) resets `_instance = None` on all singleton services between tests.
 - **Telegram factories**: Factory fixtures (`make_user`, `make_message`, `make_update`, `make_context`) return callables for per-test customization.
 - **API mocking**: `aioresponses` for all async HTTP clients (Radarr, Sonarr, Lidarr, Bazarr, SABnzbd, Transmission). Transmission also uses `aiohttp`, so mock it with `aioresponses` too.
 - **Translation mock**: `autouse=True` fixture patches `TranslationService._load_translations` so tests don't need YAML files.
@@ -85,12 +85,19 @@ Tests live in `tests/` mirroring `src/` structure. Key patterns:
 
 ### Architecture Tests
 
-Automated architecture tests in `tests/test_architecture/` enforce conventions at CI time:
+Automated architecture tests in `tests/test_architecture/` enforce conventions at CI time (the Architecture Tests job):
 
 - **Layer boundaries** (`test_layer_boundaries.py`): PyTestArch import-direction rules. Services must not import handlers, API clients must not import handlers or services, utils/config must not import handlers or services, handlers must not import API clients directly.
-- **Structural conventions** (`test_conventions.py`): AST-based checks. All `*Handler` classes must have `get_handler()`, all service singletons must have `__new__()`, all `BaseApiClient` subclasses must have `search()`, no `config["key"]` bracket access in business logic (use `config.get()` instead).
+- **Structural conventions** (`test_conventions.py`): AST-based checks. All `*Handler` classes must have `get_handler()`, all service singletons must have `__new__()`, all `BaseApiClient` subclasses must have `search()`, no `config["key"]` bracket access in business logic (use `config.get()` instead). Also:
+  - `test_handler_entry_points_have_require_auth`: every command and conversation entry point has `@require_auth`, unless it is listed in `AUTH_ALLOWLIST`.
+  - `test_singleton_reset_coverage`: `SINGLETON_CLASSES` and the `reset_singletons` fixture list the same classes.
+  - `test_media_config_dispatch_integrity`: every `MEDIA_CONFIG` method name in `src/bot/handlers/media/dispatch.py` exists on `MediaService`.
+  - `test_media_state_constants_in_sync`: the media states in `src/bot/handlers/media/dispatch.py` equal those in `src/bot/states.py`.
+  - `test_config_calls_exist_on_real_config`: `src/` calls only methods the real `Config` defines, not `MockConfig` test helpers.
+- **Agent tooling** (`test_agent_tooling.py`): Claude Code safety rules. It checks the `.claude/settings.json` deny rules, the guarded graphify skill and its version pin, the untrusted-text rule in this file, and the requirement pins.
+- **Docs drift** (`test_repo_docs.py`): every repo path, CI job and test name this file names exists.
 
-**When adding new services:** Update `SINGLETON_CLASSES` set in `tests/test_architecture/test_conventions.py`.
+**When adding new services:** Add the class to `SINGLETON_CLASSES` in `tests/test_architecture/test_conventions.py` and reset its `_instance` in `reset_singletons` in `tests/conftest.py`.
 
 **When adding new API clients inheriting `BaseApiClient`:** They must implement `search()` or the convention test will fail.
 
@@ -129,8 +136,8 @@ The codebase follows a three-layer architecture with strict separation:
 
 - **Async throughout**: All I/O uses `async/await` via `aiohttp` and `python-telegram-bot` v20+.
 - **Authentication decorator**: `@require_auth` from `src/bot/handlers/auth.py` guards handler methods. Authenticated user IDs are persisted to `config.yaml`.
-- **Conversation state machine**: Media flow progresses through `SEARCHING → SELECTING → QUALITY_SELECT → SEASON_SELECT → END` (states in `src/bot/states.py`).
-- **Centralized keyboards**: All inline keyboard layouts live in `src/bot/keyboards.py`.
+- **Conversation state machine**: Media flow progresses through `SEARCHING → SELECTING → QUALITY_SELECT`, then `SEASON_SELECT` (TV) or `ALBUM_SELECT` (music artist), then `END` (states in `src/bot/states.py`, mirrored in `src/bot/handlers/media/dispatch.py`).
+- **Keyboards**: Shared inline keyboard builders live in `src/bot/keyboards.py`; use one when it fits. Flow-specific keyboards are built in the handler, e.g. `src/bot/handlers/media/formatters.py` (result navigation), `src/bot/handlers/media/season_picker.py` (seasons) and `src/bot/handlers/delete.py`.
 - **Global config singleton**: `src/config/settings.py` exports a module-level `config` instance loaded from `config.yaml` and validated against `config_example.yaml`.
 
 ### Configuration
@@ -143,7 +150,7 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 ### Entry Point Flow
 
-`run.py` → pre-run checks (`src/utils/prerun_checker.py`) → init utilities → `src/main.py:run_bot()` → `AddarrBot.initialize()` (config validation, health checks, handler registration) → `AddarrBot.start()` (polling loop + health check task).
+`run.py` → pre-run checks (`src/utils/prerun.py`: `PreRunChecker`, exported as the instance `prerun_checker` from `src/utils/__init__.py`) → init utilities → `src/main.py:run_bot()` → `AddarrBot.initialize()` (config validation, health checks, handler registration) → `AddarrBot.start()` (polling loop + health check task).
 
 ### Handler Registration Order
 
@@ -155,12 +162,13 @@ Handlers are registered in `AddarrBot._add_handlers()` in this order: Auth, Medi
 - **`development`** is the integration branch. All feature and fix PRs target `development`.
 - The only PRs that target `main` are merge PRs from `development` → `main` (releases).
 - **Merge strategy**: Use `--merge` (regular merge commit, same as GitHub's "Merge pull request" button). Do not squash or rebase.
+- **Branch names**: `<prefix>/<N>-<slug>`, where `<prefix>` is `feature`, `fix` or `refactor` and `<N>` is the issue number, so a new session can find `docs/issues/issue-<N>/`.
 
 ## CI/CD
 
 GitHub Actions workflows in `.github/workflows/`:
 
-- **`ci.yml`** — Runs on PRs to `main`/`development`. Jobs: flake8 lint, mypy type check, pytest with coverage, translation validation (`--validate-i18n`), Docker build test.
+- **`ci.yml`**: Runs on PRs to `main`/`development`. Jobs, by their `name:`: Lint (`flake8 .`), Type Check (`mypy src/`), Validate Translations (`--validate-i18n`), Unit Tests (`tests/` without `tests/integration` and `tests/test_architecture`, with `--cov-fail-under=100`), Integration Tests (`tests/integration`), Architecture Tests (`tests/test_architecture`), Compatibility (the whole suite on Python 3.10, 3.12, 3.13 and 3.14), Dependency Audit (`pip-audit`, `continue-on-error`) and Docker Build (after the four test jobs). Branch protection on `development` requires every job except Dependency Audit by these names, so renaming a job blocks merges until the rule is updated.
 - **`auto-approve.yml`** — Triggered after CI succeeds. Performs AI-powered PR review via Groq (GPT-OSS-120B) plus rule-based checks (TODOs, print statements, large files, hardcoded secrets, bare excepts). Posts review comment and auto-approves. Requires `GROQ_API_KEY` and `REVIEWER_BOT_TOKEN` secrets.
 - **`codeql-analysis.yml`** — CodeQL security scanning on push/PR.
 - **`docker-hub-push.yml`** — Publishes Docker image to Docker Hub.
