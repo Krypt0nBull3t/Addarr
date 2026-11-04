@@ -3,13 +3,14 @@ Repository docs drift tests.
 
 CLAUDE.md is the agents' map of the repo. These checks fail when it names a
 path, CI job or test that does not exist, or leaves out a CI job or an
-architecture test file.
+architecture test file. They also check the GitHub issue forms.
 """
 
 import glob
 import os
 import re
 
+import pytest
 import yaml
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -69,3 +70,26 @@ def test_claude_md_test_names_exist():
         with open(path, encoding="utf-8") as f:
             defined.update(re.findall(r"^\s*(?:async )?def (test_\w+)", f.read(), re.M))
     assert sorted(named - defined) == []
+
+
+# Field labels per issue form, in order: the sections the audit issues use.
+ISSUE_FORMS = {
+    "bug_report.yml": [
+        "Bug", "Steps to reproduce", "Expected behavior",
+        "Fix", "Acceptance criteria", "Notes",
+    ],
+    "feature_request.yml": ["Problem", "Fix", "Acceptance criteria", "Notes"],
+}
+FIELD_TYPES = {"textarea", "input", "dropdown", "checkboxes"}
+
+
+@pytest.mark.parametrize("name", sorted(ISSUE_FORMS))
+def test_issue_form_is_valid(name):
+    form = yaml.safe_load(read_text(f".github/ISSUE_TEMPLATE/{name}"))
+    assert form["name"] and form["description"]
+    fields = [item for item in form["body"] if item["type"] != "markdown"]
+    assert {item["type"] for item in fields} <= FIELD_TYPES
+    ids = [item["id"] for item in fields]
+    assert len(set(ids)) == len(ids)
+    assert all(re.fullmatch(r"[A-Za-z0-9_-]+", i) for i in ids)
+    assert [item["attributes"]["label"] for item in fields] == ISSUE_FORMS[name]

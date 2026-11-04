@@ -48,7 +48,7 @@ Run checks with the worktree venv: `.venv/bin/python -m pytest`, `.venv/bin/pyth
         - `CLAUDE.md` links each ADR next to its rule and adds an "Architecture decisions" note under Planning & Task Conventions.
     - **Notes:** The links went in first, and `test_claude_md_paths_exist` failed on the 4 ADR paths and on `docs/adr/` until the files existed. ADR 0004 names `.github/PULL_REQUEST_TEMPLATE.md`, which task 1.3 creates.
 
-- [ ] **1.3** PR template, issue forms, CODEOWNERS (D6)
+- [x] **1.3** PR template, issue forms, CODEOWNERS (D6)
     - **Context:** See plan.md Task 3. Key refs: issue #200 (bug layout), #236/#238 (problem layout).
     - **Watch out:** No `TODO`/`FIXME` in added lines (`auto-approve.yml` flags them). Check `bug` and `enhancement` labels exist (`gh label list`) before using them.
     - **Scope:** 4 new `.github/` files, issue-form test, Docs drift bullet path
@@ -58,6 +58,15 @@ Run checks with the worktree venv: `.venv/bin/python -m pytest`, `.venv/bin/pyth
         - [GREEN] Write the two forms, the PR template and CODEOWNERS
         - [GREEN] Name `.github/ISSUE_TEMPLATE/` in the Docs drift bullet
     - **Success:** `pytest tests/test_architecture/` passes; full suite, flake8, mypy, `--validate-i18n` pass
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - GitHub has no offline issue-form validator. The test checks the parts GitHub rejects most often: unknown field types, duplicate or malformed `id`s, missing labels. It also pins the section order.
+        - The `bug` and `enhancement` labels exist, so the forms set them.
+        - The worktree guard refuses a Bash heredoc that appends to a file; use the Edit tool.
+    - **Key Changes:**
+        - New `.github/ISSUE_TEMPLATE/bug_report.yml`, `.github/ISSUE_TEMPLATE/feature_request.yml`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/CODEOWNERS` (`* @Krypt0nBull3t`).
+        - `test_issue_form_is_valid` (parametrized per form) in `tests/test_architecture/test_repo_docs.py`.
+    - **Notes:** Only Bug, Steps to reproduce, Expected behavior and Problem are required fields. `require_code_owner_reviews` is off on `development`, so CODEOWNERS only requests reviews. After the push, check `gh api "repos/Krypt0nBull3t/Addarr/codeowners/errors?ref=fix/238-claude-md-drift"`. Preflight: 2179 passed, flake8, mypy and `--validate-i18n` clean.
 
 ### Phase 2: After #236 and #237 merge (1 task)
 

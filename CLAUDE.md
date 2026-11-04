@@ -95,7 +95,7 @@ Automated architecture tests in `tests/test_architecture/` enforce conventions a
   - `test_media_state_constants_in_sync`: the media states in `src/bot/handlers/media/dispatch.py` equal those in `src/bot/states.py`.
   - `test_config_calls_exist_on_real_config`: `src/` calls only methods the real `Config` defines, not `MockConfig` test helpers.
 - **Agent tooling** (`test_agent_tooling.py`): Claude Code safety rules. It checks the `.claude/settings.json` deny rules, the guarded graphify skill and its version pin, the untrusted-text rule in this file, and the requirement pins.
-- **Docs drift** (`test_repo_docs.py`): every repo path, CI job and test name this file names exists.
+- **Docs drift** (`test_repo_docs.py`): every repo path, CI job and test name this file names exists, and the issue forms in `.github/ISSUE_TEMPLATE/` are valid.
 
 **When adding new services:** Add the class to `SINGLETON_CLASSES` in `tests/test_architecture/test_conventions.py` and reset its `_instance` in `reset_singletons` in `tests/conftest.py`.
 
