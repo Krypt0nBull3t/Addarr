@@ -1441,7 +1441,7 @@ class TestGetArtistAlbums:
             },
         ]
 
-        albums = await service.get_artist_albums("some-mbid-123")
+        albums = await service.get_artist_albums("some-mbid-123", "Radiohead")
 
         assert len(albums) == 2
         assert albums[0]["album_id"] == "album-id-abc"
@@ -1451,13 +1451,41 @@ class TestGetArtistAlbums:
         assert albums[1]["title"] == "Kid A"
 
     @pytest.mark.asyncio
+    async def test_searches_by_artist_name_and_keeps_only_picked_artist(
+        self, mock_lidarr_client
+    ):
+        """album/lookup gets the name, not the MBID; other artists' albums are dropped."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        other_album = {
+            "foreignAlbumId": "album-id-other",
+            "title": "Radio Head",
+            "artist": {
+                "foreignArtistId": "other-mbid-456",
+                "artistName": "Radio Head Tribute",
+            },
+            "releaseDate": "2010-01-01T00:00:00Z",
+        }
+        no_artist_album = {"foreignAlbumId": "album-id-orphan", "title": "Orphan"}
+        mock_lidarr_client.search_albums.return_value = [
+            other_album,
+            SAMPLE_ALBUM,
+            no_artist_album,
+        ]
+
+        albums = await service.get_artist_albums("some-mbid-123", "Radiohead")
+
+        mock_lidarr_client.search_albums.assert_awaited_once_with("Radiohead")
+        assert [a["album_id"] for a in albums] == ["album-id-abc"]
+
+    @pytest.mark.asyncio
     async def test_returns_empty_on_exception(self, mock_lidarr_client):
         """get_artist_albums returns [] on exception."""
         service = MediaService()
         MediaService._lidarr = mock_lidarr_client
         mock_lidarr_client.search_albums.side_effect = Exception("API error")
 
-        albums = await service.get_artist_albums("some-mbid-123")
+        albums = await service.get_artist_albums("some-mbid-123", "Radiohead")
 
         assert albums == []
 
@@ -1467,7 +1495,7 @@ class TestGetArtistAlbums:
         service = MediaService()
         MediaService._lidarr = None
 
-        albums = await service.get_artist_albums("some-mbid-123")
+        albums = await service.get_artist_albums("some-mbid-123", "Radiohead")
 
         assert albums == []
 

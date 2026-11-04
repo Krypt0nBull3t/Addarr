@@ -476,9 +476,11 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_music: {str(e)}")
             return False, str(e)
 
-    async def get_artist_albums(self, artist_id: str) -> List[Dict]:
+    async def get_artist_albums(self, artist_id: str, artist_name: str) -> List[Dict]:
         """Get albums for an artist from Lidarr.
 
+        album/lookup treats a bare MBID as free text, so search by artist name
+        and keep only albums whose artist MBID is artist_id.
         Returns normalized list of {album_id, title, release_date} dicts.
         Returns [] if Lidarr disabled or on error.
         """
@@ -486,7 +488,7 @@ class MediaService:
             return []
 
         try:
-            results = await self.lidarr.search_albums(artist_id)
+            results = await self.lidarr.search_albums(artist_name)
             return [
                 {
                     "album_id": album["foreignAlbumId"],
@@ -495,6 +497,7 @@ class MediaService:
                 }
                 for album in results
                 if album.get("foreignAlbumId")
+                and album.get("artist", {}).get("foreignArtistId") == artist_id
             ]
         except Exception as e:
             logger.error(f"Error getting artist albums: {e}")

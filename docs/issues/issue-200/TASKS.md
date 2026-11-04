@@ -55,7 +55,7 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
     - **Key Changes:** src/api/lidarr.py get_artist and add_artist: removed both results[0] fallbacks. Tests flipped to expect not found, plus a no-POST assertion via aio_mock.requests.
     - **Notes:** add_artist matches foreignArtistId on both lookups.
 
-- [ ] **1.3** F050: album picker lists the picked artist's albums
+- [x] **1.3** F050: album picker lists the picked artist's albums
     - **Context:**
         - **Why:** `album/lookup` treats the MBID as free text, returns nothing, and Done adds the artist with nothing monitored. Only the `lidarr:` and `mbid:` prefixes are id lookups.
         - **Architecture:** `MediaService.get_artist_albums` calls `LidarrClient.search_albums`. Search by artist name, keep albums whose `artist.foreignArtistId` equals the picked MBID.
@@ -68,6 +68,11 @@ Source: `docs/issues/issue-200/plan.md`. Issue: https://github.com/Krypt0nBull3t
         - [RED] Update the other `TestGetArtistAlbums` tests to two arguments; assert the handler pick test awaits `get_artist_albums("artist-1", "Test Artist")`
         - [GREEN] Change `get_artist_albums`; pass `selected["id"], selected["title"]` in `album_picker.py`
     - **Success:** `scripts/test_runner.py services` and `handlers` pass with coverage
+
+    - **Completed:** 2026-11-04
+    - **Learnings:** album/lookup treats a bare MBID as free text. The scoped services run shows rate_limit.py below 100% because its tests live elsewhere; the full-suite gate covers it.
+    - **Key Changes:** MediaService.get_artist_albums(artist_id, artist_name) searches by name and filters on album.artist.foreignArtistId. album_picker.py passes selected id and title.
+    - **Notes:** Albums without an artist object are dropped by the filter.
 
 - [ ] **1.4** F053: delete the dead song search
     - **Context:**
