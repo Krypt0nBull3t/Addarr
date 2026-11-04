@@ -16,7 +16,7 @@ import questionary
 from typing import Dict, Any, List
 from colorama import Fore
 
-from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH
+from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH, CHAT_MODES
 from ..utils.backup import create_backup
 
 
@@ -196,6 +196,12 @@ class Config:
             value = questionary.password(
                 f"Enter {parts[0].title()} token:"
             ).ask()
+        elif key == 'security.chatMode':
+            value = questionary.select(
+                "Which chats may use the bot?",
+                choices=list(CHAT_MODES),
+                default=CHAT_MODES[0],
+            ).ask()
         else:
             # Default to text input
             value = questionary.text(
@@ -215,6 +221,13 @@ class Config:
         if self._config.get("language") not in valid_languages:
             raise ConfigurationError(
                 f"Invalid language. Must be one of: {', '.join(valid_languages)}"
+            )
+
+        chat_mode = (self._config.get("security") or {}).get("chatMode")
+        if chat_mode not in CHAT_MODES:
+            raise ConfigurationError(
+                f"Invalid security.chatMode: {chat_mode!r}. "
+                f"Must be one of: {', '.join(CHAT_MODES)}"
             )
 
         validate_telegram_token(self._config.get("telegram") or {})

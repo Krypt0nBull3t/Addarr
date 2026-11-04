@@ -674,3 +674,45 @@ class TestRealSettingsStartupValidation:
                 _enable(d, service)
 
         assert self._load(load_settings, valid_config_text, change).error is None
+
+
+class TestRealSettingsChatMode:
+    """F023: chatMode is validated and prompted with a select (#198)."""
+
+    @pytest.mark.parametrize("mode", ["private", "", "Private_Only", None])
+    def test_invalid_chat_mode_raises(self, load_settings, valid_config_text, mode):
+        text = _mutate(
+            valid_config_text, lambda d: d["security"].update(chatMode=mode)
+        )
+        result = load_settings(text)
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "chatMode" in str(result.error)
+        assert "private_only" in str(result.error)
+
+    @pytest.mark.parametrize("mode", ["private_only", "allow_all"])
+    def test_valid_chat_modes_load(self, load_settings, valid_config_text, mode):
+        text = _mutate(
+            valid_config_text, lambda d: d["security"].update(chatMode=mode)
+        )
+        result = load_settings(text)
+        assert result.error is None
+        assert result.config["security"]["chatMode"] == mode
+
+    def test_missing_chat_mode_uses_select(self, load_settings, valid_config_text):
+        from src.definitions import CHAT_MODES
+        text = _mutate(valid_config_text, lambda d: d["security"].pop("chatMode"))
+        result = load_settings(text, interactive=True, select_answer="allow_all")
+        assert result.error is None
+        select = result.q["select"]
+        select.assert_called_once()
+        assert select.call_args.kwargs["choices"] == list(CHAT_MODES)
+        result.q["text"].assert_not_called()
+        assert result.config["security"]["chatMode"] == "allow_all"
+
+    def test_missing_chat_mode_non_interactive_gets_default(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d["security"].pop("chatMode"))
+        result = load_settings(text, interactive=False)
+        assert result.error is None
+        assert result.config["security"]["chatMode"] == "private_only"

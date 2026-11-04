@@ -35,6 +35,9 @@ PREFERENCES_PATH = os.path.join(DATA_PATH, "user_preferences.json")
 # Location before DATA_PATH, still read when PREFERENCES_PATH does not exist
 LEGACY_PREFERENCES_PATH = os.path.join(ROOT_DIR, "user_preferences.json")
 
+# Valid values of security.chatMode (kept here: src/setup/ must not import settings)
+CHAT_MODES = ("private_only", "allow_all")
+
 
 def load_config():
     config_path = Path("config.yaml")

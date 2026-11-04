@@ -129,7 +129,7 @@ services, and the tests exercise the real module.
         - Added class `TestRealSettingsStartupValidation` (41 cases).
     - **Notes:** A quoted port such as "7878" now stops startup. Put this upgrade note in the PR body.
 
-- [ ] **1.5** F023: chatMode value validation and prompt (plan task 5)
+- [x] **1.5** F023: chatMode value validation and prompt (plan task 5)
     - **Context:**
         - **Why:** Only the exact value `private_only` blocks groups, and nothing validates chatMode, so
           `""` or `"private"` lets groups in.
@@ -147,6 +147,15 @@ services, and the tests exercise the real module.
           `test_missing_chat_mode_non_interactive_gets_default`
         - [GREEN] Add `CHAT_MODES`, validate in `_validate_values`, add the select branch
     - **Success:** Tests pass; `questionary.select` gets `choices == list(CHAT_MODES)`.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - A `chatMode:` set to None is not missing (the key exists), so the value check is the one that rejects it.
+        - `CHAT_MODES` lives in `src/definitions.py` so `src/setup/` can use it without loading config.yaml.
+    - **Key Changes:**
+        - `src/definitions.py`: added `CHAT_MODES`.
+        - `src/config/settings.py`: `_validate_values` rejects other values; `_configure_missing_key` asks `security.chatMode` with `questionary.select`.
+        - Added class `TestRealSettingsChatMode` (8 cases).
+    - **Notes:** Task 2.1 makes auth.py fail closed and task 2.2 makes the wizard use CHAT_MODES.
 
 ## Phase 2: Bot and setup wizard (4 tasks)
 
