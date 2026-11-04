@@ -119,13 +119,22 @@ Plan: `docs/issues/issue-199/plan.md`. Spec: `docs/issues/audit-2026-10-28/issue
         - New test `test_graphify_hooks_pass_on_a_machine_without_graphify` runs each hook in `sh -c` with a `PATH` that holds no graphify.
     - **Notes:** The test skips where no `sh` exists (Windows without Git Bash).
 
-- [ ] **2.2** [should-fix] Deny the force-push and `rm` variants (audit 2)
+- [x] **2.2** [should-fix] Deny the force-push and `rm` variants (audit 2)
     - **Context:** `git -C . push --force`, `git push origin main --force`, `rm -fr`, `rm -r -f` and `rm -Rf` pass the 5 prefix rules. Claude Code docs (code.claude.com/docs/en/permissions, read 2026-11-04): `*` may stand anywhere and matches spaces; `:*` is a trailing ` *`; a trailing ` *` also matches the bare command; deny rules apply to each subcommand of `&&`, `;`, `|`; matching is case-sensitive; argument patterns are not a security boundary.
     - **Scope:** Keep the 5 issue patterns; add wildcard rules for git options before `push`, `--force`/`-f` after other arguments, `+refspec`, and the `rm` flag orders and cases.
     - **Touches:** `.claude/settings.json`, test file
     - **Action items:**
-        - [RED] Test: a small matcher with the documented semantics; every bypass variant is denied; safe commands (`git push origin feature`, `rm -f file.txt`, `rm -r-notes.txt`) are not
+        - [RED] Test: a small matcher with the documented semantics; every bypass variant is denied; safe commands (`git push origin feature`, `rm -f report.txt`) are not
         - [GREEN] Add the rules
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - Red first: 13 of the 19 variants passed the 5 prefix rules (all 5 audit bypasses plus `-f` after the remote, `--force-with-lease`, `+main` and the other `rm` flag orders).
+        - Three wildcard rules (`git *push* --force*`, `git *push* -f*`, `git *push* +*`) cover git options before `push` and force flags after other arguments. A space before `-f` keeps `git push origin feature-fix` allowed.
+        - The `rm` rules stay prefix rules, one per flag order and case. A wildcard such as `rm -*f*r*` would also deny `rm -f readme.txt`.
+    - **Key Changes:**
+        - `.claude/settings.json` `permissions.deny`: 10 new rules next to the 5 from the issue.
+        - Test file: `is_denied()` matcher, `test_deny_rules_block_force_push_and_recursive_force_rm` (19 commands), `test_deny_rules_allow_ordinary_push_and_rm` (6 commands).
+    - **Notes:** Known limits (docs: a deny rule "isn't a security boundary"): `rm` with an option before the flags (`rm -v -rf`), long options (`--recursive --force`), `/bin/rm`, `bash -c '...'`, `env git push --force`, and wrapper scripts such as `with-suite-lock.sh ... -- git push --force` are not matched. The rules can also deny a harmless command that contains `push` and ` -f`, such as a `git commit -m` message; write such messages with `-F <file>`.
 
 - [ ] **2.3** [should-fix] Make the heredoc and quoting tests strict (audit 3)
     - **Context:** Three planted violations passed: an unquoted `<<GRAPHIFY_PY` heredoc with `QUESTION`, a `<<'EOF'` script with `QUESTION`, and unquoted `graphify query <question>` / `SKILL_ARG_QUESTION=QUESTION`.

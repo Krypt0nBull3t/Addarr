@@ -11,9 +11,19 @@
     "deny": [
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
+      "Bash(git *push* --force*)",
+      "Bash(git *push* -f*)",
+      "Bash(git *push* +*)",
       "Bash(gh auth token:*)",
       "Bash(gh repo delete:*)",
-      "Bash(rm -rf:*)"
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -Rf:*)",
+      "Bash(rm -fR:*)",
+      "Bash(rm -r -f:*)",
+      "Bash(rm -f -r:*)",
+      "Bash(rm -R -f:*)",
+      "Bash(rm -f -R:*)"
     ]
   },
   "hooks": {

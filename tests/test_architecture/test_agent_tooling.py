@@ -81,10 +81,73 @@ def skill_hits(pattern, flags=0):
     return [(p, m) for p, t in skill_files() for m in re.findall(pattern, t, flags)]
 
 
+def is_denied(command):
+    """Match a Bash command the way Claude Code matches deny rules.
+
+    Semantics from https://code.claude.com/docs/en/permissions: `*` matches
+    any text (spaces too) anywhere; a trailing `:*` is the same as ` *`; a
+    trailing ` *` that is the only wildcard also matches the bare command.
+    """
+    for rule in load_settings()["permissions"]["deny"]:
+        match = re.fullmatch(r"Bash\((.*)\)", rule)
+        if not match:
+            continue
+        pattern = re.sub(r":\*$", " *", match.group(1))
+        if re.fullmatch(".*".join(map(re.escape, pattern.split("*"))), command):
+            return True
+        if pattern.endswith(" *") and pattern.count("*") == 1:
+            if command == pattern[:-2]:
+                return True
+    return False
+
+
 def test_settings_deny_dangerous_commands():
     deny = load_settings()["permissions"].get("deny", [])
     for pattern in DENY_PATTERNS:
         assert pattern in deny
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git push --force",
+        "git push -f origin main",
+        "git -C . push --force",
+        "git -C . push -f",
+        "git push origin main --force",
+        "git push origin main --force-with-lease",
+        "git push origin main -f",
+        "git push origin +main",
+        "gh auth token",
+        "gh repo delete Krypt0nBull3t/Addarr --yes",
+        "rm -rf",
+        "rm -rf build",
+        "rm -fr build",
+        "rm -Rf build",
+        "rm -fR build",
+        "rm -r -f build",
+        "rm -f -r build",
+        "rm -R -f build",
+        "rm -f -R build",
+    ],
+)
+def test_deny_rules_block_force_push_and_recursive_force_rm(command):
+    assert is_denied(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git push origin fix/agent-tooling",
+        "git push -u origin feature-fix",
+        "git -C . push origin my-feature",
+        "git push --follow-tags origin development",
+        "rm -f report.txt",
+        "rm build/old.log",
+    ],
+)
+def test_deny_rules_allow_ordinary_push_and_rm(command):
+    assert not is_denied(command)
 
 
 @pytest.mark.skipif(shutil.which("sh") is None, reason="needs a POSIX shell")
