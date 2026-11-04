@@ -220,6 +220,14 @@ def test_project_enables_superpowers():
         "rm -f -r build",
         "rm -R -f build",
         "rm -f -R build",
+        # A push wrapped in the suite lock (addarr-workflow) must be denied too.
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/issue-245 -- git push --force",
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/issue-245 -- git push -f origin x",
+        "/home/u/.local/share/agent-suite/with-suite-lock.sh addarr/issue-1 -- git -C . push --force-with-lease",
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/issue-245 -- git push origin +main",
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/issue-245 -- git push --mirror",
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/issue-245 -- git push origin --delete x",
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/issue-245 -- git push origin -d x",
     ],
 )
 def test_deny_rules_block_destructive_and_token_commands(command):
@@ -251,6 +259,9 @@ def test_deny_rules_block_destructive_and_token_commands(command):
         "rm -f report.txt",
         "rm -f .coverage",
         "rm build/old.log",
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/issue-245 -- git push -u origin feature/245-x",
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/fix-x -- git push -u origin fix/245-dead-code",
+        "~/.local/share/agent-suite/with-suite-lock.sh addarr/development -- .venv/bin/python -m pytest tests/ --tb=short",
     ],
 )
 def test_deny_rules_allow_ordinary_workflow_commands(command):

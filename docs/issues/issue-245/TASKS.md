@@ -11,7 +11,7 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
 
 **Goal:** A force, delete, mirror or `+ref` push wrapped in `with-suite-lock.sh` is denied like a bare one.
 
-- [ ] **1.1** Lock-wrapped push deny rules and tests
+- [x] **1.1** Lock-wrapped push deny rules and tests
     - **Context:**
         - **Why:** The skill will write every push as `<lock> git push ...`. Every push deny rule in `.claude/settings.json` starts with `git`, so a wrapped force push no longer matches (user decision, design round).
         - **Architecture:** Glob deny rules, matched by `is_denied()` in `tests/test_architecture/test_agent_tooling.py` (`*` matches any text, full match).
@@ -24,6 +24,14 @@ Skill text tasks have no unit under test. Their [RED] step shows the gap in toda
         - [RED] Add the 3 wrapped allowed commands from plan Task 1 Step 2.
         - [GREEN] Add `Bash(*with-suite-lock.sh *git *push* --force*)`, `... -f*`, `... +*`, `... --mirror*`, `... --delete*`, `... -d *` after the existing push rules.
     - **Success:** deny tests pass (blocked and allowed); `tests/test_architecture` passes.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The 7 wrapped blocked cases failed before the rules (RED), so the bare `git ...` rules never matched a wrapped push.
+        - `is_denied()` full-matches, so a leading `*` is needed to cover both `~/...` and absolute script paths.
+    - **Key Changes:**
+        - `.claude/settings.json`: 6 `Bash(*with-suite-lock.sh *git *push* ...)` deny rules after the push rules.
+        - `tests/test_architecture/test_agent_tooling.py`: 7 blocked and 3 allowed wrapped commands.
+    - **Notes:** #242's guard hook should unwrap the lock (comment posted on #242); these globs are the stopgap.
 
 ### Phase 2: addarr-workflow skill text (7 tasks)
 
