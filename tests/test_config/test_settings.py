@@ -579,3 +579,98 @@ class TestRealSettingsMissingSection:
         )
         saved = yaml.safe_load(result.written[CONFIG_PATH])
         assert saved["bazarr"] == self._example()["bazarr"]
+
+
+_VALIDATED_SERVICES = ("radarr", "sonarr", "lidarr", "sabnzbd", "bazarr")
+
+
+def _enable(data, service, *, apikey="key", port=1234, addr="localhost"):
+    """Enable a service with explicit server and auth values."""
+    data[service]["enable"] = True
+    data[service]["server"]["addr"] = addr
+    data[service]["server"]["port"] = port
+    data[service]["auth"]["apikey"] = apikey
+
+
+class TestRealSettingsStartupValidation:
+    """F025: startup runs the token, API key, port and address checks (#198)."""
+
+    @staticmethod
+    def _load(load_settings, valid_config_text, change):
+        return load_settings(_mutate(valid_config_text, change))
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    @pytest.mark.parametrize("apikey", ["", None, "   "])
+    def test_enabled_service_without_apikey_raises(
+        self, load_settings, valid_config_text, service, apikey
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, service, apikey=apikey),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert service in str(result.error)
+        assert "API key" in str(result.error)
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    @pytest.mark.parametrize("port", [0, 65536, None])
+    def test_enabled_service_with_bad_port_raises(
+        self, load_settings, valid_config_text, service, port
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, service, port=port),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert f"Invalid port for {service}" in str(result.error)
+
+    def test_string_port_is_rejected(self, load_settings, valid_config_text):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, "radarr", port="7878"),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+
+    @pytest.mark.parametrize("token", ["", None])
+    def test_empty_token_raises(self, load_settings, valid_config_text, token):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: d["telegram"].update(token=token),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "token" in str(result.error)
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    def test_disabled_service_is_not_checked(
+        self, load_settings, valid_config_text, service
+    ):
+        def change(d):
+            _enable(d, service, apikey="", port=0)
+            d[service]["enable"] = False
+
+        result = self._load(load_settings, valid_config_text, change)
+        assert result.error is None
+
+    def test_transmission_needs_no_apikey(self, load_settings, valid_config_text):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: d["transmission"].update(enable=True),
+        )
+        assert result.error is None
+
+    def test_enabled_bazarr_with_empty_addr_raises(
+        self, load_settings, valid_config_text
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, "bazarr", addr=""),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "bazarr" in str(result.error)
+
+    def test_valid_enabled_services_load(self, load_settings, valid_config_text):
+        def change(d):
+            for service in _VALIDATED_SERVICES:
+                _enable(d, service)
+
+        assert self._load(load_settings, valid_config_text, change).error is None

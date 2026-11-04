@@ -102,7 +102,7 @@ services, and the tests exercise the real module.
         - Added class `TestRealSettingsMissingSection` (3 tests).
     - **Notes:** The saved config.yaml holds the full example section.
 
-- [ ] **1.4** F025: startup runs the validators (plan task 4)
+- [x] **1.4** F025: startup runs the validators (plan task 4)
     - **Context:**
         - **Why:** `validate_port`, `validate_service_apikey` and `validate_telegram_token` exist but are
           never called, so an enabled service with an empty key starts.
@@ -120,6 +120,14 @@ services, and the tests exercise the real module.
           transmission without apikey passes, bazarr empty addr raises, `test_string_port_is_rejected`
         - [GREEN] Call the validators in `_validate_values`
     - **Success:** Tests pass; each error names the service.
+    - **Completed:** 2026-11-04
+    - **Learnings:**
+        - The existing address loop and the new checks share one loop over five services; bazarr now gets the address check too.
+        - The empty-section check from 1.2 runs first, so `auth: None` cannot reach `validate_service_apikey`.
+    - **Key Changes:**
+        - `src/config/settings.py`: `_validate_values` calls `validate_telegram_token`, `validate_server_addr`, `validate_service_apikey`, `validate_port`.
+        - Added class `TestRealSettingsStartupValidation` (41 cases).
+    - **Notes:** A quoted port such as "7878" now stops startup. Put this upgrade note in the PR body.
 
 - [ ] **1.5** F023: chatMode value validation and prompt (plan task 5)
     - **Context:**

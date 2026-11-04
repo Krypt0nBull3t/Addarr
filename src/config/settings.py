@@ -217,12 +217,16 @@ class Config:
                 f"Invalid language. Must be one of: {', '.join(valid_languages)}"
             )
 
-        # Validate server addresses for enabled services
-        for service_name in ("radarr", "sonarr", "lidarr", "sabnzbd"):
-            service = self._config.get(service_name, {})
+        validate_telegram_token(self._config.get("telegram") or {})
+
+        # Validate enabled services: address, API key and port
+        for service_name in ("radarr", "sonarr", "lidarr", "sabnzbd", "bazarr"):
+            service = self._config.get(service_name) or {}
             if service.get("enable"):
-                addr = service.get("server", {}).get("addr")
-                validate_server_addr(addr, service_name)
+                server = service.get("server") or {}
+                validate_server_addr(server.get("addr"), service_name)
+                validate_service_apikey(service, service_name)
+                validate_port(server.get("port"), service_name)
 
     def _get_missing_keys(self, example: Dict, config: Dict, prefix="") -> List[str]:
         """Recursively find missing configuration keys"""
