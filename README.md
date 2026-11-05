@@ -53,8 +53,6 @@ Addarr Refresh is a modern Telegram bot that helps you manage your media collect
   <br>
   🎨 Modern UI with inline keyboards and rich media
   <br>
-  📁 Helm chart for easy deployment
-  <br>
   🐳 Docker image for easy containerization
   <br>
   🔍 Validations and error handling
@@ -145,7 +143,6 @@ For more options, see [🛠️ Installation](#️-installation)
     - [Linux Systemd Service](#linux-systemd-service)
   - [☁️ Deployment Options](#️-deployment-options)
     - [Docker Deployment](#docker-deployment)
-    - [Kubernetes Deployment](#kubernetes-deployment)
   - [👨‍💻 Development](#-development)
     - [Project Structure](#project-structure)
     - [Development Setup](#development-setup)
@@ -638,7 +635,7 @@ Addarr Refresh can be run as a Windows service or a Linux Systemd service:
 
 ## ☁️ Deployment Options
 
-Addarr Refresh can be deployed using Docker or Kubernetes:
+Addarr Refresh can be deployed using Docker:
 
 ### Docker Deployment
 1. **Clone the repository**
@@ -656,17 +653,6 @@ Addarr Refresh can be deployed using Docker or Kubernetes:
 3. **Start with Docker Compose**
    ```bash
    docker-compose up -d
-   ```
-
-### Kubernetes Deployment
-1. **Create a Kubernetes deployment**
-   ```bash
-   kubectl apply -f kubernetes/deployment.yaml
-   ```
-
-2. **Create a Kubernetes service**
-   ```bash
-   kubectl apply -f kubernetes/service.yaml
    ```
 
 ## 👨‍💻 Development

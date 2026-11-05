@@ -14,7 +14,7 @@ architecture tests (`test_repo_docs.py`, `test_skills.py`) are the guard: run th
 - Why NOT delete `.gitignore`, `.claude/settings.json` deny rules, `test_agent_tooling.py` or `.claude/agents/*.md` entries: they guard old secret files on users' disks (orchestrator ruling, step 3c).
 - Why `CHATID_PATH` stays in tasks 1-3: `src/utils/helpers.py` still imports it until #226 merges.
 
-- [ ] **1.1** Delete the Helm chart and its references (F190)
+- [x] **1.1** Delete the Helm chart and its references (F190)
     - **Context:**
         - **Why:** The chart runs another project's image, mounts `config.yaml` read-only and puts secrets in a ConfigMap.
         - **Architecture:** Pure deletion plus doc edits. No code path uses `helm/`.
@@ -29,6 +29,16 @@ architecture tests (`test_repo_docs.py`, `test_skills.py`) are the guard: run th
         - [GREEN] `new-task.md:78`: "Docker/Helm impact" becomes "Docker impact"
         - [GREEN] Run `<lock> .venv/bin/python -m pytest tests/test_architecture --tb=short -v`
     - **Success:** `grep -rniI helm . --exclude-dir=.git --exclude-dir=graphify-out --exclude-dir=.venv --exclude-dir=issues` finds only the two `.github/` lines (task 1.3) and `transcribe.md`; architecture tests pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The README Kubernetes Deployment section pointed at `kubernetes/deployment.yaml` and `kubernetes/service.yaml`, which do not exist in the repo.
+        - The issue's line numbers had moved (`CLAUDE.md` Helm section was 191-201, not 164-172).
+    - **Key Changes:**
+        - Deleted `helm/` (Chart.yaml, README.md, values.yaml, 3 templates).
+        - Removed the `## Helm / Kubernetes` section from `CLAUDE.md`.
+        - `README.md`: removed the Helm bullet, the TOC entry, the Kubernetes Deployment section and "or Kubernetes" in the intro.
+        - `new-task.md`: "Docker/Helm impact" became "Docker impact".
+    - **Notes:** Architecture suite: 155 passed. The grep still finds the two `.github/` lines (task 1.3) and `transcribe.md` (generic example label, left as is).
 
 - [ ] **1.2** Remove the legacy .txt mounts, constants and doc lines (F191)
     - **Context:**

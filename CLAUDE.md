@@ -190,16 +190,6 @@ GitHub Actions workflows in `.github/workflows/`:
 
 **Requirement pins:** `requirements.txt` and `requirements-test.txt` use exact `==` pins. A line may carry an `[extra]` (`python-telegram-bot[job-queue]==22.8`); the pin stays exact. Each pin must install on the lowest Python in the `ci.yml` Compatibility matrix (3.10), not only on the 3.11 that CI and Docker use. Check with `pip install --dry-run --quiet --python-version 3.10 --only-binary=:all: --target <scratch-dir> -r requirements.txt -r requirements-test.txt`. `.github/dependabot.yml` ignores bumps that need a newer Python (pytestarch 5).
 
-## Helm / Kubernetes
-
-Helm chart in `helm/` for Kubernetes deployment:
-
-```bash
-helm install addarr ./helm -f helm/values.yaml
-```
-
-Templates include ConfigMap, Deployment, and PersistentVolumeClaim. See `helm/README.md` for configuration details.
-
 ## Known Future Work
 
 Imports were cleaned up during a lint pass. If implementing the following, re-add the corresponding imports:

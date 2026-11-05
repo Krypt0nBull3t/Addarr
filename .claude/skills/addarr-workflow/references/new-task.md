@@ -75,7 +75,7 @@ Analyze what's needed (do NOT explore codebase yet):
 - Which layer(s) affected: Handlers, Services, API Clients
 - Configuration changes needed
 - Translation keys to add/modify
-- Docker/Helm impact
+- Docker impact
 
 **Bug issue (a `fix/` branch):** `INVOKE` @superpowers:systematic-debugging for its root-cause investigation only. Do not fix anything yet. Put the root cause and its evidence in the plan's context (step 4), so the plan fixes the cause, not the symptom.
 
