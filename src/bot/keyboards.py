@@ -1355,6 +1355,17 @@ def get_webhook_service_keyboard(service: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_webhook_port_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard of the webhook port prompt: a single Cancel button."""
+    translation = TranslationService()
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"\u274c {translation.get_text('Cancel')}",
+            callback_data="menu_cancel",
+        ),
+    ]])
+
+
 def get_webhook_events_keyboard(events: dict) -> InlineKeyboardMarkup:
     """Keyboard showing event type toggles."""
     translation = TranslationService()

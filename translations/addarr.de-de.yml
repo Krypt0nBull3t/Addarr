@@ -355,6 +355,7 @@ de-de:
   WebhookServiceConfigured: "✅ %{service}: configured"
   WebhookServiceNotConfigured: "⚙️ %{service}: not configured"
   WebhookSecretGenerated: "🔑 Secret generated for %{service}.\n\nAdd this webhook URL to %{service}:\n%{url}\n\nSecret (X-Api-Secret header): %{secret}"
+  WebhookSecretExisting: "🔑 Geheimnis für %{service} (bereits eingerichtet).\n\nWebhook-URL in %{service}:\n%{url}\n\nGeheimnis (X-Api-Secret-Header): %{secret}\n\nMit der Schaltfläche zum Neuerzeugen erstellst du ein neues Geheimnis. Das alte funktioniert dann nicht mehr."
   WebhookSecretRegenerated: "🔑 Secret regenerated for %{service}.\n\nUpdate your webhook URL in %{service}:\n%{url}\n\nNew secret (X-Api-Secret header): %{secret}"
   WebhookPortPrompt: "🔢 Enter the webhook server port (1024-65535):"
   WebhookPortInvalid: "❌ Invalid port. Please enter a number between 1024 and 65535."

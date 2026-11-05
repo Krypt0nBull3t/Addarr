@@ -22,6 +22,7 @@ from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
     get_webhook_events_keyboard,
     get_webhook_menu_keyboard,
+    get_webhook_port_keyboard,
     get_webhook_service_keyboard,
 )
 from src.bot.states import States
@@ -64,6 +65,9 @@ class WebhooksHandler:
                             self.prompt_port, pattern="^wh_port$"
                         ),
                         CallbackQueryHandler(
+                            self._back_to_menu, pattern="^wh_back$"
+                        ),
+                        CallbackQueryHandler(
                             self.handle_close, pattern="^wh_close$"
                         ),
                     ],
@@ -85,7 +89,7 @@ class WebhooksHandler:
                 fallbacks=[
                     CommandHandler("cancel", self.handle_close),
                     CallbackQueryHandler(
-                        self.handle_close, pattern="^wh_close$"
+                        self.handle_close, pattern="^(wh_close|menu_cancel)$"
                     ),
                 ],
                 name="webhooks_conversation",
@@ -102,6 +106,13 @@ class WebhooksHandler:
         """Show the webhook settings menu."""
         # @require_auth already guards against missing user/message
         log_user_interaction(logger, update.effective_user, "/webhooks")
+
+        # The menu shows secrets: private chats only, whatever security.chatMode says
+        if update.effective_chat and update.effective_chat.type != "private":
+            await update.effective_message.reply_text(
+                self.translation.get_text("PrivateChatOnly")
+            )
+            return ConversationHandler.END
 
         # Admin gate
         if not is_admin(update.effective_user.id):
@@ -143,7 +154,7 @@ class WebhooksHandler:
     async def setup_service(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
-        """Generate a secret for a service and show instructions."""
+        """Show a service's webhook secret, generating one only if none is stored."""
         if not update.callback_query:
             return ConversationHandler.END
 
@@ -154,19 +165,24 @@ class WebhooksHandler:
         if service not in _ALLOWED_SERVICES:
             return ConversationHandler.END
 
-        secret = secrets.token_hex(32)
-
-        # Save secret to config
         webhook_config = config.get("webhooks", {})
-        webhook_config[f"{service}_secret"] = secret
-        config.update_nested("webhooks", webhook_config)
-        config.save()
+        existing = webhook_config.get(f"{service}_secret")
+        if existing:
+            # A tap must not reset a secret the *arr app already uses
+            secret = str(existing)
+            text_key = "WebhookSecretExisting"
+        else:
+            secret = secrets.token_hex(32)
+            webhook_config[f"{service}_secret"] = secret
+            config.update_nested("webhooks", webhook_config)
+            config.save()
+            text_key = "WebhookSecretGenerated"
 
         port = webhook_config.get("port", 8080)
         url = f"http://<your-host>:{port}/webhooks/{service}"
 
         text = self.translation.get_text(
-            "WebhookSecretGenerated",
+            text_key,
             service=service.capitalize(),
             url=url,
             secret=secret,
@@ -268,7 +284,9 @@ class WebhooksHandler:
         await query.answer()
 
         text = self.translation.get_text("WebhookPortPrompt")
-        await query.message.edit_text(text=text)
+        await query.message.edit_text(
+            text=text, reply_markup=get_webhook_port_keyboard()
+        )
         return States.WEBHOOK_CHANGE_PORT
 
     async def save_port(
@@ -344,8 +362,6 @@ class WebhooksHandler:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Close the webhook settings wizard."""
-        context.user_data.clear()
-
         if update.callback_query:
             await update.callback_query.answer()
             await update.callback_query.message.edit_text(

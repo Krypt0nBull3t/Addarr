@@ -2510,3 +2510,16 @@ class TestBackKeyboard:
         assert len(rows) == 1 and len(rows[0]) == 1
         assert rows[0][0].callback_data == "bazarr_menu"
         assert "Back" in rows[0][0].text
+
+
+class TestWebhookPortKeyboard:
+    """Cancel keyboard of the webhook port prompt."""
+
+    def test_single_cancel_button(self):
+        from src.bot.keyboards import get_webhook_port_keyboard
+
+        keyboard = get_webhook_port_keyboard()
+
+        assert isinstance(keyboard, InlineKeyboardMarkup)
+        buttons = [b for row in keyboard.inline_keyboard for b in row]
+        assert [b.callback_data for b in buttons] == ["menu_cancel"]
