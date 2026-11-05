@@ -7,7 +7,7 @@ Run every test and gate through the suite lock (`<lock>` in the addarr-workflow 
 
 **Goal:** /help matches the registered commands, a correct password opens the main menu, status texts parse as Markdown, and History labels match the other screens.
 
-- [ ] **1.1** F093: open the main menu after a correct password
+- [x] **1.1** F093: open the main menu after a correct password
     - **Context:**
         - **Why:** `check_password` sends the text `/start` with `context.bot.send_message`. A bot does not receive its own messages, so no menu opens.
         - **Architecture:** Send the menu the way `StartHandler.show_menu` does: `get_text("mainMenu")` with `reply_markup=get_main_menu_keyboard()`. `src/bot/keyboards.py` imports only `TranslationService`, so there is no import cycle.
@@ -19,6 +19,14 @@ Run every test and gate through the suite lock (`<lock>` in the addarr-workflow 
         - [RED] Write `test_check_password_correct_sends_main_menu`: `chat.send_message` is called with `"mainMenu"` and `reply_markup` equal to the patched keyboard, and no send has the text `/start`
         - [GREEN] Replace the `context.bot.send_message(chat.id, "/start")` block with `chat.send_message(self.translation.get_text("mainMenu"), reply_markup=get_main_menu_keyboard())`
     - **Success:** The new test fails before and passes after; `scripts/test_runner.py handlers --coverage` passes; flake8 and mypy clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The RED run failed on `patch("src.bot.handlers.auth.get_main_menu_keyboard")` (attribute missing), not on the send assertion. The patch target needs the import, so both fail for the same cause.
+        - `chat.send_message` is a separate mock from `context.bot.send_message`, so the no-`/start` check reads both.
+    - **Key Changes:**
+        - `src/bot/handlers/auth.py`: `check_password` sends `mainMenu` text with `get_main_menu_keyboard()` through `chat.send_message`; imports `get_main_menu_keyboard`
+        - `tests/test_handlers/test_auth_handler.py`: `test_check_password_correct_sends_main_menu`
+    - **Notes:** The post-edit flake8 hook can report F821 between the call edit and the import edit; it clears once both are in.
 
 - [ ] **1.2** F121: send status and details texts with Markdown and escape dynamic text
     - **Context:**
