@@ -98,7 +98,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - Deleted the `get_metadata_profiles` mock in `tests/test_services/conftest.py` and the `LIDARR_METADATA_PROFILES` fixture
     - **Notes:** No request changed, so `arr-api-contract-checker` did not run
 
-- [ ] **1.5** Delete `log_exception` in `src/utils/logger.py`
+- [x] **1.5** Delete `log_exception` in `src/utils/logger.py`
     - **Context:**
         - **Why:** F260: no caller
         - **Architecture:** none
@@ -110,6 +110,12 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [RED] Grep `log_exception` in `src/`, `tests/`, `scripts/`
         - [GREEN] Delete the function, the test class and the import
     - **Success:** `scripts/test_runner.py utils --coverage` passes, flake8 clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `Optional` and `MagicMock` imports stay: `log_user_interaction` and its tests still use them
+    - **Key Changes:**
+        - Deleted `log_exception` from `src/utils/logger.py`, `TestLogException` (2 tests) and its import
+    - **Notes:** none
 
 - [ ] **1.6** Delete `show_token_help` in `src/utils/splash.py`
     - **Context:**
