@@ -72,7 +72,7 @@ pytest -x                                   # Stop on first failure
 
 ### Sample Data (`tests/fixtures/`)
 
-`sample_data.py` constants include: `RADARR_SEARCH_RESULTS`, `RADARR_MOVIE_DETAIL`, `RADARR_ROOT_FOLDERS`, `RADARR_QUALITY_PROFILES`, `SONARR_SEARCH_RESULTS`, `SONARR_SERIES_DETAIL`, `LIDARR_SEARCH_RESULTS`, `LIDARR_METADATA_PROFILES`, `TRANSMISSION_SESSION`, `SABNZBD_QUEUE`. `bazarr_data.py` has `BAZARR_SYSTEM_STATUS`, `BAZARR_MOVIES`, `BAZARR_MOVIES_WANTED`, `BAZARR_EPISODES_WANTED`. Full list in [references/fixtures.md](references/fixtures.md#sample-data).
+`sample_data.py` constants include: `RADARR_SEARCH_RESULTS`, `RADARR_MOVIE_DETAIL`, `RADARR_ROOT_FOLDERS`, `RADARR_QUALITY_PROFILES`, `SONARR_SEARCH_RESULTS`, `SONARR_SERIES_DETAIL`, `LIDARR_SEARCH_RESULTS`, `TRANSMISSION_SESSION`, `SABNZBD_QUEUE`. `bazarr_data.py` has `BAZARR_SYSTEM_STATUS`, `BAZARR_MOVIES`, `BAZARR_MOVIES_WANTED`, `BAZARR_EPISODES_WANTED`. Full list in [references/fixtures.md](references/fixtures.md#sample-data).
 
 ## Layer Quick Reference
 

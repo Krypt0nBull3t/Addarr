@@ -77,7 +77,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - `models` text in `scripts/test_runner.py` and CLAUDE.md line 77: `Data models (webhook events)`
     - **Notes:** `src/models/webhook.py` is imported by its full path elsewhere, so the empty `__init__.py` is enough
 
-- [ ] **1.4** Delete `get_metadata_profiles` in `src/api/lidarr.py`
+- [x] **1.4** Delete `get_metadata_profiles` in `src/api/lidarr.py`
     - **Context:**
         - **Why:** F260: no service or handler calls it
         - **Architecture:** `LidarrClient` methods that the service uses stay
@@ -89,6 +89,14 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [RED] Grep for `get_metadata_profiles`: definition, tests, the mock and the fixtures doc only
         - [GREEN] Delete the method, its tests, the mock and the doc line
     - **Success:** `scripts/test_runner.py api --coverage` and `services --coverage` pass
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The fixture `LIDARR_METADATA_PROFILES` in `tests/fixtures/sample_data.py` fed only the deleted tests: removed with its names in `addarr-testing` `SKILL.md` and `fixtures.md`
+        - `services --coverage` shows 99% on `src/services/rate_limit.py` before and after: other test dirs cover it
+    - **Key Changes:**
+        - Deleted `LidarrClient.get_metadata_profiles` and `TestLidarrMetadataProfiles` (3 tests)
+        - Deleted the `get_metadata_profiles` mock in `tests/test_services/conftest.py` and the `LIDARR_METADATA_PROFILES` fixture
+    - **Notes:** No request changed, so `arr-api-contract-checker` did not run
 
 - [ ] **1.5** Delete `log_exception` in `src/utils/logger.py`
     - **Context:**
