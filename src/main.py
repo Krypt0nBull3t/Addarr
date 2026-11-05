@@ -228,6 +228,14 @@ class AddarrBot:
         for user_id in AuthHandler._authenticated_users:
             await register_commands_for_chat(bot, user_id)
 
+    def _polling_stopped(self) -> bool:
+        """True when the updater stopped or its polling task ended."""
+        updater = self.application.updater
+        # PTB 22.8 keeps updater.running True when polling dies (InvalidToken,
+        # Conflict); the ==22.8 pin and a test make a rename visible on a bump.
+        task = getattr(updater, "_Updater__polling_task", None)
+        return not updater.running or (task is not None and task.done())
+
     async def start(self):
         """Start the bot"""
         if self._stop_requested:
@@ -255,8 +263,10 @@ class AddarrBot:
                 allowed_updates=["message", "callback_query"]
             )
 
-            # Keep the bot running until stopped
+            # Keep the bot running until stopped or until polling dies
             while self._running and not self._stop_requested:
+                if self._polling_stopped():
+                    raise RuntimeError("Telegram polling stopped unexpectedly")
                 await asyncio.sleep(1)
 
         except Exception as e:

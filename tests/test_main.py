@@ -42,6 +42,9 @@ def _make_mock_application():
     app.updater.start_polling = AsyncMock()
     app.updater.stop = AsyncMock()
     app.updater.running = True
+    # PTB's private polling task; a bare MagicMock would report done() as truthy
+    app.updater._Updater__polling_task = MagicMock()
+    app.updater._Updater__polling_task.done.return_value = False
     return app
 
 
@@ -396,6 +399,76 @@ class TestStart:
 
         # _running was True when sleep was first called
         assert running_values[0] is True
+
+    @pytest.mark.asyncio
+    async def test_loop_exits_when_updater_stops(self, bot, mock_app):
+        """A stopped updater ends the keep-alive loop with an error."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+
+        sleeps = []
+
+        async def updater_stops(_):
+            sleeps.append(1)
+            if len(sleeps) > 1:
+                bot._running = False  # fail fast if the loop ignores the updater
+            mock_app.updater.running = False
+
+        with patch("src.main.asyncio.sleep", side_effect=updater_stops):
+            with patch("src.main.asyncio.create_task"):
+                with pytest.raises(RuntimeError, match="polling stopped"):
+                    await bot.start()
+
+    @pytest.mark.asyncio
+    async def test_loop_exits_when_polling_task_done(self, bot, mock_app):
+        """A dead polling task ends the loop although updater.running is True.
+
+        PTB keeps updater.running True when polling dies on InvalidToken.
+        """
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+
+        sleeps = []
+
+        async def polling_dies(_):
+            sleeps.append(1)
+            if len(sleeps) > 1:
+                bot._running = False  # fail fast if the loop ignores the task
+            mock_app.updater._Updater__polling_task.done.return_value = True
+
+        with patch("src.main.asyncio.sleep", side_effect=polling_dies):
+            with patch("src.main.asyncio.create_task"):
+                with pytest.raises(RuntimeError, match="polling stopped"):
+                    await bot.start()
+
+        assert mock_app.updater.running is True
+
+    @pytest.mark.asyncio
+    async def test_stop_requested_is_not_a_polling_failure(self, bot, mock_app):
+        """A requested stop ends the loop quietly, even with the updater down."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+
+        async def stop_requested(_):
+            bot._stop_requested = True
+            mock_app.updater.running = False
+
+        with patch("src.main.asyncio.sleep", side_effect=stop_requested):
+            with patch("src.main.asyncio.create_task"):
+                await bot.start()  # Should not raise
+
+    def test_updater_keeps_private_polling_task_attribute(self):
+        """A PTB bump that renames the polling task makes this test fail.
+
+        AddarrBot._polling_stopped reads it by its mangled name.
+        """
+        from telegram.ext import Application
+
+        updater = Application.builder().token("0:TEST").build().updater
+        assert hasattr(updater, "_Updater__polling_task")
 
     @pytest.mark.asyncio
     async def test_error_reraises(self, bot, mock_app):

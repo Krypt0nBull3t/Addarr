@@ -129,7 +129,7 @@ Run every test and every `git push` through the suite lock:
         - `tests/test_docker_compose.py`: `test_logging_is_capped`.
     - **Notes:** The README "Docker Deployment" section further down (line ~643) has no limit text; the note sits only in the Compose install section.
 
-- [ ] **1.6** F140: exit when Telegram polling stops
+- [x] **1.6** F140: exit when Telegram polling stops
     - **Context:**
         - **Why:** After InvalidToken the polling task dies but `start()` keeps looping, so the bot idles forever.
         - **Architecture:** `_polling_stopped()` is true when `not updater.running` or the private polling task is done. `start()` raises `RuntimeError("Telegram polling stopped unexpectedly")`; `start_bot` stops the bot and runs `sys.exit(1)`; Docker restarts it.
@@ -143,6 +143,14 @@ Run every test and every `git push` through the suite lock:
         - [RED] `test_updater_keeps_private_polling_task_attribute` (real `Application.builder().token("123:abc").build()`).
         - [GREEN] Implement `_polling_stopped` and the loop check.
     - **Success:** First two tests fail before, pass after; `tests/test_main.py` green.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - A RED test for a loop that never ends hangs the run; the two loop tests stop the loop themselves on the second sleep, so they fail fast ("DID NOT RAISE") before the fix.
+        - A `MagicMock` updater reports `_Updater__polling_task.done()` as truthy, so `_make_mock_application` sets the task with `done.return_value = False`.
+    - **Key Changes:**
+        - `src/main.py`: new `AddarrBot._polling_stopped()`; the keep-alive loop raises `RuntimeError("Telegram polling stopped unexpectedly")`.
+        - `tests/test_main.py`: mock app gets a polling task; four new `TestStart` tests (updater stopped, task done, requested stop, attribute guard).
+    - **Notes:** `start_bot` turns the error into `bot.stop()` and `sys.exit(1)`. Task 1.8 makes `stop()` survive the dead task's InvalidToken.
 
 - [ ] **1.7** F141: heartbeat file and healthcheck
     - **Context:**
