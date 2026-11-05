@@ -47,7 +47,7 @@ Plan: `docs/issues/issue-246/plan.md`. The developer approved the plan and the o
         - Added one sentence to `docs/adr/0004-prs-target-development.md` that points to ADR 0006.
     - **Notes:** ADR 0006 states that changing the two settings needs repo admin rights and a new ADR.
 
-- [ ] **1.3** `CLAUDE.md` CI/CD section
+- [x] **1.3** `CLAUDE.md` CI/CD section
     - **Context:**
         - **Why:** `CLAUDE.md` is the agents' map; its `auto-approve.yml` bullet says "auto-approves" without naming the commit.
         - **Architecture:** `test_claude_md_paths_exist` checks that every repo path in a code span exists, so the ADR file from 1.2 must exist first.
@@ -59,3 +59,9 @@ Plan: `docs/issues/issue-246/plan.md`. The developer approved the plan and the o
         - [GREEN] In the `auto-approve.yml` bullet, replace "Posts review comment and auto-approves." with "Posts review comment and approves the commit CI checked (`commit_id` is `workflow_run.head_sha`). It never approves a fork PR."
         - [GREEN] Append to the `ci.yml` bullet: "Branch protection on `development` and `main` also dismisses stale approvals and requires approval of the last push, so a push removes an earlier approval. See `docs/adr/0006-dismiss-stale-approvals.md`."
     - **Success:** `tests/test_architecture` passes, including `test_claude_md_paths_exist`.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `test_claude_md_paths_exist` checks the new ADR path, so 1.2 had to land before 1.3.
+    - **Key Changes:**
+        - `CLAUDE.md` CI/CD: the `auto-approve.yml` bullet names the commit CI checked and the fork rule; the `ci.yml` bullet states the stale-approval protection and links ADR 0006.
+    - **Notes:** None.
