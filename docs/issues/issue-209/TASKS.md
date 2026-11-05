@@ -86,7 +86,7 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
         - `tests/test_handlers/test_auth_handler.py`: 2 tests; `tests/integration/test_auth_flow.py`: `test_auth_save_failure_warns_user`
     - **Notes:** #210 also edits `_save_authenticated_users` (F091); the second PR to merge keeps both changes.
 
-- [ ] **1.4** Docs note
+- [x] **1.4** Docs note
     - **Context:**
         - **Why:** CLAUDE.md § Configuration should say how config saves behave now.
         - **Architecture:** One added sentence, no ADR (no rule in CLAUDE.md changes).
@@ -97,3 +97,7 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
     - **Action items:**
         - [GREEN] Add: `Config` loads `config.yaml` with ruamel, so comments survive a save, and `create_backup` keeps the newest 10 backups in `backup/`, mode `0o600`.
     - **Success:** `pytest tests/test_architecture --tb=short -v` passes
+    - **Completed:** 2026-11-05
+    - **Learnings:** The docs-drift tests pass with no new path named; the sentence uses only symbols and `backup/`.
+    - **Key Changes:** `CLAUDE.md` § Configuration: one sentence on ruamel load, single write and backup retention.
+    - **Notes:** No ADR: no rule in CLAUDE.md changes.
