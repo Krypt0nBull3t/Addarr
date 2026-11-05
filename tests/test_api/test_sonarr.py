@@ -60,23 +60,6 @@ class TestSonarrInit:
 
 
 # ---------------------------------------------------------------------------
-# _make_request
-# ---------------------------------------------------------------------------
-
-
-class TestSonarrMakeRequest:
-    @pytest.mark.asyncio
-    async def test_request_generic_exception(self, aio_mock, sonarr_client):
-        """RuntimeError via _request returns None."""
-        aio_mock.get(
-            f"{BASE}/system/status",
-            exception=RuntimeError("unexpected"),
-        )
-        result = await sonarr_client._request("system/status")
-        assert result is None
-
-
-# ---------------------------------------------------------------------------
 # search
 # ---------------------------------------------------------------------------
 

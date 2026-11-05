@@ -109,7 +109,7 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - Updated `.claude/skills/addarr-testing/SKILL.md`, `references/fixtures.md`, `references/patterns.md`, `references/anti-patterns.md` and `.claude/skills/task-writer/SKILL.md` (it named `bazarr_url`).
     - **Notes:** Full suite after this task: 2478 passed, coverage 100%.
 
-- [ ] **1.5** F252: delete duplicate tests
+- [x] **1.5** F252: delete duplicate tests
     - **Context:**
         - **Why:** Some tests copy others, so each fix to a behavior needs edits in two places.
         - **Architecture:** `tests/test_api/test_base.py`: `test_all_retries_exhausted_connection_error` and `test_no_retry_on_generic_exception` copy `test_make_request_connection_error` and `test_make_request_unexpected_exception`. `test_request_generic_exception` repeats in `test_radarr.py`, `test_sonarr.py`, `test_lidarr.py`. `tests/test_handlers/test_media_handler.py` copies `tests/test_handlers/test_media_formatters.py`: `test_send_response_with_photo`, `_without_photo`, `_fallback_on_error`; `test_build_result_caption_with_index_total`, `_album`, `_song`; also `_album_with_overview` and `_album_truncates_long_overview` when coverage of `formatters.py` allows.
@@ -122,3 +122,15 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - [GREEN] Delete the duplicates, move kept assertions
         - [GREEN] Run `pytest --cov=src.api.base --cov=src.bot.handlers.media.formatters --cov-report=term-missing` on the touched files; move the album overview tests only if a line is lost
     - **Success:** the listed duplicates are gone, `scripts/test_runner.py api --coverage` and `handlers --coverage` pass, then the full suite with the 100% gate (preflight) passes.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - Deleting `test_build_result_caption_album_truncates_long_overview` from `test_media_handler.py` dropped `src/bot/handlers/media/formatters.py` line 92 (album overview over 300 characters). No other test reached it. The test moved to `test_media_formatters.py` as `test_build_result_caption_album_long_overview_truncated`.
+        - `test_build_result_caption_album_with_overview` was deleted: another test covers that branch.
+        - `_request` returning `None` on a generic exception had a test only in the three client files. It now lives once in `test_base.py` as `test_request_returns_none_on_unexpected_exception`.
+        - A small AST script (delete a top-level test by name, with decorators) avoided line-number errors when deleting 8 tests from one 2700-line file.
+    - **Key Changes:**
+        - `tests/test_api/test_base.py`: deleted `test_all_retries_exhausted_connection_error` and `test_no_retry_on_generic_exception`; added `test_request_returns_none_on_unexpected_exception`.
+        - `tests/test_api/test_radarr.py`, `test_sonarr.py`: deleted the one-test `Test*MakeRequest` class and its header. `test_lidarr.py`: deleted `test_request_generic_exception`.
+        - `tests/test_handlers/test_media_handler.py`: deleted `test_send_response_*` (3), `test_build_result_caption_with_index_total`, `_album`, `_song`, `_album_with_overview`, `_album_truncates_long_overview`, the `_send_response` section header and the unused `send_response` import.
+        - `tests/test_handlers/test_media_formatters.py`: added `test_build_result_caption_album_long_overview_truncated`.
+    - **Notes:** Net change in the API suite: 323 to 319 tests. The full suite with the gate runs in the preflight.
