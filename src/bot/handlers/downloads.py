@@ -197,11 +197,9 @@ class DownloadsHandler:
         query = update.callback_query
         await query.answer()
 
-        new_client = query.data.replace("dl_client_", "")
-        if new_client == "sab":
-            context.user_data["dl_client"] = "sabnzbd"
-        elif new_client == "tx":
-            context.user_data["dl_client"] = "transmission"
+        new_client = CODE_TO_CLIENT.get(query.data.replace("dl_client_", ""))
+        if new_client:
+            context.user_data["dl_client"] = new_client
 
         context.user_data["dl_tab"] = "queue"
         context.user_data["dl_page"] = 0
