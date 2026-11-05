@@ -95,7 +95,7 @@ The PR body must say that remote *arr apps need `webhooks.host: 0.0.0.0`.
 
 **Goal:** The wizard works end to end through the real handler chain, and the full CI gate passes.
 
-- [ ] **3.1** Webhook wizard integration test
+- [x] **3.1** Webhook wizard integration test
     - **Context:**
         - **Why:** The handler flow changed (Back, Cancel, group refusal, show-secret). The skill requires an end-to-end check for a changed user-facing flow, and `tests/integration/` has none for webhooks.
         - **Architecture:** `BotHarness` (`tests/integration/conftest.py`) already registers `WebhooksHandler` in `_register_handlers`. It exposes `send_command`, `tap_button`, `send_text` and `get_conversation_state("webhooks_conversation")`. `find_response` is in `tests/integration/fixtures.py`.
@@ -110,3 +110,11 @@ The PR body must say that remote *arr apps need `webhooks.host: 0.0.0.0`.
         - [GREEN] Fix any wiring gap the tests expose
         - [GREEN] Run the flow preflight (`references/preflight.md`): flake8, mypy, i18n, unit tests with the 100% gate, integration, architecture, all through `<lock>`
     - **Success:** `pytest tests/integration` passes; the preflight is green; requirement pins unchanged.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The harness captures `reply_markup` as a JSON string, not a dict; the test helper `json.loads` it.
+        - A fresh `.venv` that was installed before `requirements.txt` carried `python-telegram-bot[job-queue]` fails every harness test with a `JobQueue` warning-as-error. Reinstall the pinned requirements after a merge of `development`.
+        - The 3 new tests fail against the original handler (`git show cf51f57:src/bot/handlers/webhooks.py`) and pass with the fix. They also prove the Cancel case end to end: after `menu_cancel`, `get_conversation_state` is None and `send_text("9090")` leaves the port at 8080.
+    - **Key Changes:**
+        - `tests/integration/test_webhooks_flow.py` (new): menu, stored secret, Back, port Cancel, group refusal.
+    - **Notes:** The full preflight (flake8, mypy, i18n, unit with the 100% gate, integration, architecture) runs once in the create-pr flow, after the merge of `origin/development`.
