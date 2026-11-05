@@ -29,6 +29,11 @@ async def test_auth_correct_password(harness):
         assert len(harness.responses) >= 1
         # User should now be authenticated
         assert AuthHandler.is_authenticated(12345)
+        # The last message is the main menu, not the text "/start" (F093)
+        menu = harness.responses[-1]
+        assert menu.method == "sendMessage"
+        assert menu.text != "/start"
+        assert menu.reply_markup is not None
 
 
 @pytest.mark.asyncio

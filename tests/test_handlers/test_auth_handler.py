@@ -679,6 +679,37 @@ async def test_check_password_correct(mock_ts_class, make_update, make_context):
 
 
 @pytest.mark.asyncio
+@patch("src.bot.handlers.auth.get_main_menu_keyboard")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_correct_sends_main_menu(
+    mock_ts_class, mock_menu_kbd, make_update, make_context
+):
+    """After a correct password the bot sends the main menu, not the text /start (F093)."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.auth import AuthHandler
+
+    handler = AuthHandler()
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(text="test-pass")
+    context = make_context()
+    chat = update.effective_message.chat
+
+    with patch.object(handler, "_save_authenticated_users"):
+        await handler.check_password(update, context)
+
+    chat.send_message.assert_any_call(
+        "mainMenu", reply_markup=mock_menu_kbd.return_value
+    )
+    sent_texts = [c.args[0] for c in chat.send_message.call_args_list]
+    sent_texts += [c.args[1] for c in context.bot.send_message.call_args_list]
+    assert "/start" not in sent_texts
+
+
+@pytest.mark.asyncio
 @patch("src.bot.handlers.auth.TranslationService")
 async def test_check_password_wrong(mock_ts_class, make_update, make_context):
     """Wrong password replies with 'Wrong password' and returns END."""

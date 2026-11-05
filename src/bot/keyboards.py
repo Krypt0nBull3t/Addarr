@@ -1170,7 +1170,7 @@ def get_history_items_keyboard(
     ]
     filter_row = []
     for label_key, filter_val in filters:
-        prefix = "\u2022 " if event_filter == filter_val else ""
+        prefix = "\u2713 " if event_filter == filter_val else ""
         cb = f"hist_filter_{filter_val}" if filter_val else "hist_filter_all"
         filter_row.append(
             InlineKeyboardButton(
@@ -1217,8 +1217,7 @@ def get_history_items_keyboard(
     # Action row
     keyboard.append([
         InlineKeyboardButton(
-            "\U0001f504 " + translation.get_text("Search"),
-            callback_data="hist_refresh",
+            "\U0001f504 Refresh", callback_data="hist_refresh",
         ),
         InlineKeyboardButton(
             "\u25c0\ufe0f " + translation.get_text("Back"),
@@ -1234,8 +1233,7 @@ def get_history_empty_keyboard() -> InlineKeyboardMarkup:
     translation = TranslationService()
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(
-            "\U0001f504 " + translation.get_text("Search"),
-            callback_data="hist_refresh",
+            "\U0001f504 Refresh", callback_data="hist_refresh",
         ),
         InlineKeyboardButton(
             "\u25c0\ufe0f " + translation.get_text("Back"),

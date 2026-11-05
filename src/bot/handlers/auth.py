@@ -26,6 +26,7 @@ from src.utils.logger import get_logger, log_user_interaction
 from src.config.settings import config
 from src.utils.helpers import admin_only, is_admin, is_allowed
 from src.bot.commands import register_commands_for_chat
+from src.bot.keyboards import get_main_menu_keyboard
 from src.services.translation import TranslationService
 from src.services.rate_limit import rate_limit
 
@@ -223,10 +224,10 @@ class AuthHandler:
                 self.translation.get_text("Chatid added" if saved else "AuthSaveFailed")
             )
 
-            # Trigger the start command to show the menu
-            await context.bot.send_message(
-                chat.id,
-                "/start"
+            # A bot never receives its own messages, so send the menu itself
+            await chat.send_message(
+                self.translation.get_text("mainMenu"),
+                reply_markup=get_main_menu_keyboard(),
             )
 
             return ConversationHandler.END
