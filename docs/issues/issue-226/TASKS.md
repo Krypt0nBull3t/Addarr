@@ -9,7 +9,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
 
 **Goal:** `src/` has no function, module, key or constant without a live reader.
 
-- [ ] **1.1** Delete the dead helpers in `src/utils/helpers.py`
+- [x] **1.1** Delete the dead helpers in `src/utils/helpers.py`
     - **Context:**
         - **Why:** F260: `check_auth`, `get_authorized_chats`, `save_chat_id` and `is_authenticated` have no caller
         - **Architecture:** `is_admin`, `is_allowed`, `admin_only` and `format_bytes` in the same file are live: keep them
@@ -22,6 +22,14 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [GREEN] Delete the 4 functions and the 4 test classes with their imports
         - [GREEN] Remove unused imports
     - **Success:** `scripts/test_runner.py utils --coverage` passes, flake8 clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `AsyncMock` in `test_helpers.py` became unused with the deleted tests: flake8 F401
+        - The module docstring named chat ID management: reworded
+    - **Key Changes:**
+        - Deleted `check_auth`, `get_authorized_chats`, `save_chat_id`, `is_authenticated` from `src/utils/helpers.py`, with imports `os`, `List`, `CHATID_PATH`
+        - Deleted `TestSaveChatId`, `TestCheckAuth`, `TestGetAuthorizedChats`, `TestIsAuthenticated`
+    - **Notes:** `CHATID_PATH` stays in `src/definitions.py` (#218 removes it)
 
 - [ ] **1.2** Delete the dead functions in `src/definitions.py`
     - **Context:**

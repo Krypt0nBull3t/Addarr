@@ -1,17 +1,13 @@
 """Tests for src/utils/helpers.py"""
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock
 
 from src.utils.helpers import (
     admin_only,
-    check_auth,
-    get_authorized_chats,
     format_bytes,
     is_admin,
     is_allowed,
-    is_authenticated,
-    save_chat_id,
 )
 
 
@@ -113,127 +109,3 @@ class TestAdminOnly:
         mock_config._set("sabnzbd", {"onlyAdmin": only_admin})
         with patch("src.utils.helpers.config", mock_config):
             assert admin_only(service) is expected
-
-
-# ---- save_chat_id ----
-
-
-class TestSaveChatId:
-    """Tests for save_chat_id -- patches CHATID_PATH to tmp_path."""
-
-    def test_save_chat_id_with_name(self, tmp_path):
-        """Writes 'id - name\\n' when chat_name is provided."""
-        chatid_file = tmp_path / "chatid.txt"
-        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
-            save_chat_id(123, "TestUser")
-
-        assert chatid_file.read_text() == "123 - TestUser\n"
-
-    def test_save_chat_id_without_name(self, tmp_path):
-        """Writes 'id\\n' when chat_name is not provided."""
-        chatid_file = tmp_path / "chatid.txt"
-        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
-            save_chat_id(123)
-
-        assert chatid_file.read_text() == "123\n"
-
-
-# ---- check_auth ----
-
-
-class TestCheckAuth:
-    """Tests for the check_auth decorator."""
-
-    @pytest.mark.asyncio
-    async def test_authenticated_user_proceeds(self):
-        """Authenticated user proceeds to the wrapped function."""
-        class FakeHandler:
-            @check_auth
-            async def my_method(self, update, context):
-                return "success"
-
-        handler = FakeHandler()
-        update = MagicMock()
-        update.effective_chat.id = 42
-        context = MagicMock()
-
-        with patch("src.utils.helpers.is_authenticated", new_callable=AsyncMock, return_value=True):
-            result = await handler.my_method(update, context)
-        assert result == "success"
-
-    @pytest.mark.asyncio
-    async def test_unauthenticated_user_blocked(self):
-        """Unauthenticated user gets auth prompt and returns None."""
-        class FakeHandler:
-            @check_auth
-            async def my_method(self, update, context):
-                return "success"
-
-        handler = FakeHandler()
-        update = MagicMock()
-        update.effective_chat.id = 42
-        update.message.reply_text = AsyncMock()
-        context = MagicMock()
-
-        with patch("src.utils.helpers.is_authenticated", new_callable=AsyncMock, return_value=False):
-            result = await handler.my_method(update, context)
-        assert result is None
-        update.message.reply_text.assert_awaited_once()
-
-
-# ---- get_authorized_chats ----
-
-
-class TestGetAuthorizedChats:
-    """Tests for get_authorized_chats."""
-
-    @pytest.mark.asyncio
-    async def test_file_exists(self, tmp_path):
-        """Returns list of chat IDs from file."""
-        chatid_file = tmp_path / "chatid.txt"
-        chatid_file.write_text("100 - Alice\n200 - Bob\n300\n")
-        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
-            result = await get_authorized_chats()
-        assert result == [100, 200, 300]
-
-    @pytest.mark.asyncio
-    async def test_file_missing(self, tmp_path):
-        """Returns empty list when file does not exist."""
-        missing = str(tmp_path / "nonexistent_chatid.txt")
-        with patch("src.utils.helpers.CHATID_PATH", missing):
-            result = await get_authorized_chats()
-        assert result == []
-
-    @pytest.mark.asyncio
-    async def test_file_with_empty_lines(self, tmp_path):
-        """Skips empty lines in the file."""
-        chatid_file = tmp_path / "chatid.txt"
-        chatid_file.write_text("100 - Alice\n\n200 - Bob\n\n")
-        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
-            result = await get_authorized_chats()
-        assert result == [100, 200]
-
-
-# ---- is_authenticated ----
-
-
-class TestIsAuthenticated:
-    """Tests for is_authenticated."""
-
-    @pytest.mark.asyncio
-    async def test_authenticated(self, tmp_path):
-        """Returns True when chat_id is in authorized chats."""
-        chatid_file = tmp_path / "chatid.txt"
-        chatid_file.write_text("42 - Alice\n")
-        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
-            result = await is_authenticated(42)
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_not_authenticated(self, tmp_path):
-        """Returns False when chat_id is not in authorized chats."""
-        chatid_file = tmp_path / "chatid.txt"
-        chatid_file.write_text("100 - Bob\n")
-        with patch("src.utils.helpers.CHATID_PATH", str(chatid_file)):
-            result = await is_authenticated(42)
-        assert result is False
