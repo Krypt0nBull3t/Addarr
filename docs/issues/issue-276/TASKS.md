@@ -8,7 +8,7 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
 
 **Goal:** CLAUDE.md states the rate-limit convention that #203 added.
 
-- [ ] **1.1** Add the rate-limit bullet to Key Patterns
+- [x] **1.1** Add the rate-limit bullet to Key Patterns
     - **Context:**
         - **Why:** The release readiness check for 0.9.0 (PR #273) found that CLAUDE.md does not describe `@rate_limit("search")` on search handlers and `enforce_rate_limit(update, "modify")` before each add request.
         - **Architecture:** One bullet in `### Key Patterns` of `CLAUDE.md`, after `**Authentication decorator**`. Same style as its neighbours: bold lead term, then facts.
@@ -21,6 +21,13 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
         - [GREEN] Write the bullet naming `src/services/rate_limit.py`, `@rate_limit`, `enforce_rate_limit`, the three categories, `@rate_limit("search")` on search entry points, and `enforce_rate_limit(update, "modify")` just before each add request instead of a decorator on picker or toggle callbacks, with the pointer to `anti-patterns.md`
         - [GREEN] Compare each claim with the call sites
     - **Success:** `<lock> .venv/bin/python -m pytest tests/test_architecture --tb=short -v` passes; CLAUDE.md names `@rate_limit`, `enforce_rate_limit` and `src/services/rate_limit.py`
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The reason for the `modify` placement already lived in `.claude/skills/addarr-handlers/references/anti-patterns.md`, so the bullet points to it instead of repeating it
+        - `delete.py` and `calendar.py` guard with `@rate_limit("modify")` as a decorator; the bullet states the add-request rule only, as the issue asks
+    - **Key Changes:**
+        - Added the `**Rate limiting**` bullet to `CLAUDE.md` Key Patterns
+    - **Notes:** `tests/test_architecture` passes (158 tests)
 
 ### Phase 2: Fill completion metadata (3 tasks)
 
