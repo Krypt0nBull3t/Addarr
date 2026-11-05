@@ -67,8 +67,7 @@ def test_build_result_caption_series():
         "title": "Test Series",
         "overview": "A great series",
         "year": 2023,
-        "ratings": {"tmdb": "7.8", "votes": 1500},
-        "studio": "HBO",
+        "ratings": {"value": "7.8", "votes": 1500},
         "network": "HBO Max",
         "genres": ["Sci-Fi"],
     }
@@ -76,9 +75,24 @@ def test_build_result_caption_series():
     caption = build_result_caption(result)
 
     assert "<b>Test Series</b>" in caption
-    assert "7.8/10" in caption
-    assert "1,500 votes" in caption
-    assert "HBO Max" in caption
+    assert "Rating: 7.8/10 (1,500 votes)" in caption
+    assert "TMDB" not in caption
+    assert "📺 Network: HBO Max\n" in caption
+
+
+def test_build_result_caption_series_network_has_no_na_studio():
+    """A series card shows the network alone, never 'Network: AMC (N/A)'."""
+    result = {
+        "title": "Breaking Bad",
+        "overview": "Overview",
+        "ratings": {"value": 8.1, "votes": 120},
+        "network": "AMC",
+    }
+
+    caption = build_result_caption(result)
+
+    assert "📺 Network: AMC\n" in caption
+    assert "(N/A)" not in caption
 
 
 def test_build_result_caption_album():
@@ -160,14 +174,13 @@ def test_build_result_caption_escapes_network():
     result = {
         "title": "*NSYNC Live",
         "overview": "Overview",
-        "studio": "A&E",
         "network": "<Net>",
     }
 
     caption = build_result_caption(result)
 
     assert "<b>*NSYNC Live</b>" in caption
-    assert "📺 Network: &lt;Net&gt; (A&amp;E)" in caption
+    assert "📺 Network: &lt;Net&gt;\n" in caption
 
 
 def test_build_result_caption_album_escapes_api_text():
