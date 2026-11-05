@@ -39,7 +39,7 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
 - Why NOT edit `issue-123/TASKS.md`: both tasks already have all four fields. Say so in the PR body.
 - Out of scope: unticked boxes in `docs/issues/issue-120/plan.md` (a plan checklist, not tasks).
 
-- [ ] **2.1** issue-97 task 1.1, issue-105 tasks 1.1 and 1.2
+- [x] **2.1** issue-97 task 1.1, issue-105 tasks 1.1 and 1.2
     - **Context:**
         - **Why:** These three ticked tasks have none of the four fields.
         - **Architecture:** Add the fields as sub-bullets after the task's `**Success:**` line, in the order `Completed`, `Learnings`, `Key Changes`, `Notes`, in the style of issue-97 task 2.1.
@@ -52,6 +52,13 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
         - [GREEN] Read the three commits; write Completed (dates above) and Key Changes from the stat (files and functions)
         - [GREEN] Write Learnings and Notes: `None recorded`, or one quoted sentence when the commit message states a reason or gotcha
     - **Success:** The gap check no longer lists these three tasks; architecture tests pass
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - Only `c8d4d02` states a gotcha in its message (the recursive `_get_python_files()`); the 105 commits state none, so those Learnings read `None recorded`
+    - **Key Changes:**
+        - `docs/issues/issue-97/TASKS.md`: task 1.1 gets all four fields
+        - `docs/issues/issue-105/TASKS.md`: tasks 1.1 and 1.2 get all four fields
+    - **Notes:** The gap check dropped from 10 to 7. `3afa7de` also added the Sonarr sample data, so the 105 / 1.1 Notes say so
 
 - [ ] **2.2** issue-120 tasks 1.1 to 1.4 and 2.1, issue-127 task 3.1
     - **Context:**

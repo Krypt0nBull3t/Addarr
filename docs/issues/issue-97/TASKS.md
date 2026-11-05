@@ -44,6 +44,15 @@
         - Run full test suite: `python -m pytest --tb=short -q`
         - Run architecture tests: `python -m pytest tests/test_architecture/ -v`
     - **Success:** All 3034 existing media handler tests pass. Architecture test finds MediaHandler in `handler.py`. New package import test and dispatch config test pass.
+    - **Completed:** 2026-03-04
+    - **Learnings:**
+        - The architecture test's `_get_python_files()` had to become recursive to find handlers in subdirectories (commit `c8d4d02`)
+    - **Key Changes:**
+        - Moved `src/bot/handlers/media.py` to `src/bot/handlers/media/handler.py`
+        - Added `src/bot/handlers/media/dispatch.py` (state constants and `MEDIA_CONFIG`) and `src/bot/handlers/media/__init__.py` (re-exports)
+        - Updated test patch paths from `src.bot.handlers.media.X` to `src.bot.handlers.media.handler.X`
+        - Added `tests/test_handlers/test_media_package.py`
+    - **Notes:** None recorded
 
 ---
 
