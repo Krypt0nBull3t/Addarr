@@ -11,7 +11,7 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
 - Why NOT change `requirements.txt`: it already has exact `==` pins (`python-telegram-bot[job-queue]==22.8`, `aiohttp==3.14.5`). They are stricter than the issue's `~=22.8` and `<4`, and CLAUDE.md § Requirement pins requires them.
 - Why NOT a git-tag version source: the repo has no git tags. The version comes from `__version__` in `src/__init__.py`.
 
-- [ ] **1.1** Replace the deprecated help argument (F151)
+- [x] **1.1** Replace the deprecated help argument (F151)
     - **Context:**
         - **Why:** `src/bot/handlers/help.py` passes `disable_web_page_preview=True` at lines 92 (`edit_text`) and 99 (`reply_text`). PTB 22.8 deprecates it in favor of `link_preview_options`.
         - **Architecture:** Plain handler change. `LinkPreviewOptions` comes from `telegram`.
@@ -24,6 +24,14 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
         - [RED] Write `test_show_help_callback_disables_link_preview`: same for `edit_text` on the callback path
         - [GREEN] Replace the argument at both calls and import `LinkPreviewOptions`
     - **Success:** the two new tests fail first, then pass; `scripts/test_runner.py handlers --coverage` and `tests/integration` pass; flake8 and mypy clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - Both new tests failed first with `KeyError: 'link_preview_options'`, so they test the real kwargs.
+        - The post-edit flake8 hook runs after each single Edit: add the import before the code that uses it, or expect a transient F821.
+    - **Key Changes:**
+        - `src/bot/handlers/help.py`: `show_help` passes `link_preview_options=LinkPreviewOptions(is_disabled=True)` in `edit_text` and `reply_text`; imports `LinkPreviewOptions`.
+        - `tests/test_handlers/test_help_handler.py`: two new link-preview tests.
+    - **Notes:** Handlers run: 759 passed, 100% coverage. Integration: 105 passed. No integration test asserted the old argument.
 
 - [ ] **1.2** Install requirements without `--upgrade` and pin the pip upgrade (F151, F153)
     - **Context:**
