@@ -6,7 +6,7 @@ Plan: `docs/issues/issue-208/plan.md`. F160, F161 (repo settings) and the `v0.9.
 
 **Goal:** `__version__` is `0.9.0`, the CI matrix choice is recorded, and the PR body carries the release notes and the developer actions.
 
-- [ ] **1.1** Bump `__version__` to 0.9.0 (F163)
+- [x] **1.1** Bump `__version__` to 0.9.0 (F163)
     - **Context:**
         - **Why:** The bot reports `0.8` in `/help` and nothing marks the release. The developer tags `v0.9.0` after the release PR merges.
         - **Architecture:** `src/__init__.py` holds `__version__`. `tests/conftest.py` injects its own `__version__` into `src`, so a test that imports `src` passes on the fixture alone.
@@ -19,6 +19,10 @@ Plan: `docs/issues/issue-208/plan.md`. F160, F161 (repo settings) and the `v0.9.
         - [GREEN] Change `__version__ = "0.8"` to `"0.9.0"` in `src/__init__.py`.
         - [GREEN] Change both `"0.8"` values in `tests/conftest.py` (lines 221 and 226) to `"0.9.0"`.
     - **Success:** `tests/test_version.py` and `tests/test_handlers/test_help_handler.py` pass. `tests/test_architecture` passes. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** The new test failed first with `assert '0.8' == '0.9.0'`. `tests/conftest.py` sets `__version__` itself, so the test reads the source with `ast`.
+    - **Key Changes:** `src/__init__.py` and `tests/conftest.py` (2 lines) now say `0.9.0`. New `tests/test_version.py`.
+    - **Notes:** The tag `v0.9.0` and the GitHub Release are for the developer.
 
 - [ ] **1.2** Record why the CI matrix has four versions (F165)
     - **Context:**
