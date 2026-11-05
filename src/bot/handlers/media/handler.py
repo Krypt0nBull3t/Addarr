@@ -163,11 +163,11 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             return ConversationHandler.END
 
         query = update.callback_query
+        await query.answer()
         action = query.data.replace("menu_", "")
 
         # Handle cancel action (the keyboard may sit on a poster photo)
         if action == "cancel":
-            await query.answer()
             await send_response(
                 query.message, self.translation.get_text("Canceled")
             )

@@ -12,7 +12,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
 - Why NOT change `_handle_page` in queue, missing and history: a page button always changes the page, so a re-tap cannot raise "Message is not modified". Out of scope for #217.
 - Why NOT use `_build_pagination_row` (`src/bot/keyboards.py:886`): F115 adds no nav row. The other pagination copies belong to #223.
 
-- [ ] **1.1** F111: answer the menu callback first
+- [x] **1.1** F111: answer the menu callback first
     - **Context:**
         - **Why:** `handle_menu_callback` calls `query.answer()` only on the cancel path, so the Movie, Series and Music buttons keep their spinner.
         - **Architecture:** `MediaHandler` conversation entry point, already `@require_auth`.
@@ -24,6 +24,10 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
         - [RED] Write `test_handle_menu_callback_movie_answers_query`: `menu_movie` awaits `query.answer()` once and returns `SEARCHING`.
         - [GREEN] Call `await query.answer()` right after `query = update.callback_query`.
     - **Success:** Test fails before and passes after. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** The cancel branch already answered, so only the Movie, Series and Music path lacked `answer()`. `tests/integration/test_start_flow.py` already taps `menu_movie`.
+    - **Key Changes:** `handle_menu_callback` in `src/bot/handlers/media/handler.py` awaits `query.answer()` once at the top. Added `test_handle_menu_callback_movie_answers_query`.
+    - **Notes:** The handlers scoped run passes at 100% coverage (669 tests).
 
 - [ ] **1.2** F114: Cancel works on a photo message
     - **Context:**
