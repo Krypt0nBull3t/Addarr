@@ -32,6 +32,13 @@ class TestDockerCompose:
         limits = resources.get("limits", {})
         assert limits.get("memory") == "256M", "Service must define memory limit of 256M"
 
+    def test_logging_is_capped(self, compose_config):
+        """Console logs rotate so the log file cannot grow without limit."""
+        logging = compose_config["services"]["addarr"]["logging"]
+        assert logging["driver"] == "json-file"
+        assert logging["options"]["max-size"] == "10m"
+        assert logging["options"]["max-file"] == "3"
+
     def test_has_backup_volume(self, compose_config):
         """Service should mount backup directory for persistence."""
         service = compose_config["services"]["addarr"]

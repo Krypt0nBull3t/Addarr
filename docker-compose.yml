@@ -9,6 +9,12 @@ services:
     container_name: addarr-refresh
     build: .
     restart: unless-stopped
+    # Rotate the console log (docker logs) so it cannot fill the disk
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # Host networking is used because Addarr is a Telegram bot that makes
     # outbound connections only (no listening ports). It needs to reach
     # Radarr, Sonarr, Lidarr, Transmission, and SABnzbd which typically

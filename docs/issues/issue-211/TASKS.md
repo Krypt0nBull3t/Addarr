@@ -107,7 +107,7 @@ Run every test and every `git push` through the suite lock:
         - `tests/test_utils/test_prerun.py`: `TestGetInstalledPackages` rewritten for metadata; new tests for the empty `pip list` case, the absolute install path and the cwd-independent default.
     - **Notes:** The install step still runs `python -m pip install`; a venv without pip needs F153 (#214).
 
-- [ ] **1.5** F147 log cap and F148 README memory note
+- [x] **1.5** F147 log cap and F148 README memory note
     - **Context:**
         - **Why:** Docker console logs grow without limit. The 256M limit is reached at about 7000 movies because `GET /movie` loads the library (`src/api/radarr.py:287`).
         - **Architecture:** Compose `logging:` with `json-file`. The limit stays 256M; only the README changes for F148 (decided 2026-10-28).
@@ -120,6 +120,14 @@ Run every test and every `git push` through the suite lock:
         - [GREEN] Add the `logging:` block.
         - [GREEN] Add the README note: about 7000+ movies need a memory limit above 256M.
     - **Success:** Test fails before, passes after; compose and architecture tests green.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `tests/test_architecture/test_repo_docs.py` does not pin README memory text, so the note needs no test (F148 is docs only).
+    - **Key Changes:**
+        - `docker-compose.yml`: `logging:` with `json-file`, `max-size: "10m"`, `max-file: "3"`; `memory: 256M` unchanged.
+        - `README.md`: memory-limit note after the file-permissions note in the Docker Compose section.
+        - `tests/test_docker_compose.py`: `test_logging_is_capped`.
+    - **Notes:** The README "Docker Deployment" section further down (line ~643) has no limit text; the note sits only in the Compose install section.
 
 - [ ] **1.6** F140: exit when Telegram polling stops
     - **Context:**
