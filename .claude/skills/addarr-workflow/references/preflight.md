@@ -8,6 +8,8 @@ The commands are the ones the CI jobs `lint`, `type-check`, `validate-translatio
 
 **Lock (`<lock>`):** see SKILL.md "The Suite Lock". Empty when the lock script does not exist.
 
+**After merging `development`:** when `requirements.txt` or `requirements-test.txt` changed, re-run `.venv/bin/python -m pip install -r requirements.txt -r requirements-test.txt`. A stale venv misses a new extra: without `python-telegram-bot[job-queue]` every integration test errors with `No JobQueue set up`.
+
 Run the steps in order. Stop on the first failure. After any code fix, re-run from step 1 (a type fix can break a test). At most 3 fix rounds; then report the failing output and `ASK`.
 
 ## Step 1: Lint

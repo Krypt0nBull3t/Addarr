@@ -28,6 +28,7 @@ from src.utils.logger import get_logger, log_user_interaction
 from src.config.settings import config
 from src.utils.helpers import admin_only, is_admin, is_allowed
 from src.bot.commands import register_commands_for_chat
+from src.bot.keyboards import get_main_menu_keyboard
 from src.services.translation import TranslationService
 from src.services.rate_limit import rate_limit
 
@@ -150,8 +151,8 @@ class AuthHandler:
         """Check if a user is authenticated"""
         return user_id in cls._authenticated_users
 
-    def _save_authenticated_users(self):
-        """Save authenticated users to config file"""
+    def _save_authenticated_users(self) -> bool:
+        """Save authenticated users to config file. Return False on failure."""
         try:
             # Update the in-memory config too, so a later config.save() keeps them
             config.update_nested(
@@ -161,8 +162,10 @@ class AuthHandler:
                 "authenticated_users_hash", _password_hash(self.password)
             )
             config.save()
+            return True
         except Exception as e:
             logger.error(f"Error saving authenticated users to config: {e}")
+            return False
 
     def get_handler(self):
         """Get the conversation handler for authentication"""
@@ -233,7 +236,7 @@ class AuthHandler:
         ):
             # Add user to authenticated users and save
             AuthHandler._authenticated_users.add(user.id)
-            self._save_authenticated_users()
+            saved = self._save_authenticated_users()
             await register_commands_for_chat(context.bot, chat.id)
 
             log_user_interaction(logger, user, "auth_success")
@@ -241,15 +244,16 @@ class AuthHandler:
             # Log successful authentication
             logger.info(Fore.GREEN + f"✅ User {user.username} ({user.id}) authenticated successfully")
 
-            # Show success message
+            # The user stays authorized for this run. A failed save means they
+            # must authenticate again after a restart, so do not show success.
             await chat.send_message(
-                self.translation.get_text("Chatid added")
+                self.translation.get_text("Chatid added" if saved else "AuthSaveFailed")
             )
 
-            # Trigger the start command to show the menu
-            await context.bot.send_message(
-                chat.id,
-                "/start"
+            # A bot never receives its own messages, so send the menu itself
+            await chat.send_message(
+                self.translation.get_text("mainMenu"),
+                reply_markup=get_main_menu_keyboard(),
             )
 
             return ConversationHandler.END

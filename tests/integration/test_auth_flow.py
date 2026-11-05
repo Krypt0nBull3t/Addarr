@@ -29,6 +29,11 @@ async def test_auth_correct_password(harness):
         assert len(harness.responses) >= 1
         # User should now be authenticated
         assert AuthHandler.is_authenticated(12345)
+        # The last message is the main menu, not the text "/start" (F093)
+        menu = harness.responses[-1]
+        assert menu.method == "sendMessage"
+        assert menu.text != "/start"
+        assert menu.reply_markup is not None
 
 
 @pytest.mark.asyncio
@@ -60,3 +65,18 @@ async def test_auth_then_movie(harness):
     assert "Title" in resp.text
     state = harness.get_conversation_state("media_conversation", 12345, 12345)
     assert state == SEARCHING
+
+
+@pytest.mark.asyncio
+async def test_auth_save_failure_warns_user(harness):
+    """A failed config save still authenticates, but the user gets the warning."""
+    AuthHandler._authenticated_users.discard(12345)
+
+    with patch.object(AuthHandler, "_save_authenticated_users", return_value=False):
+        await harness.send_command("/auth")
+        await harness.send_text("test-pass")
+
+    assert AuthHandler.is_authenticated(12345)
+    texts = [r.text for r in harness.responses]
+    assert "AuthSaveFailed" in texts
+    assert "Chatid added" not in texts
