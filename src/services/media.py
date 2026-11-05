@@ -279,8 +279,12 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_movie: {str(e)}")
             return False, str(e)
 
-    async def add_movie_with_profile(self, tmdb_id: str, profile_id: int, root_folder: str) -> tuple[bool, str]:
-        """Add a movie to Radarr with selected quality profile"""
+    async def add_movie_with_profile(self, tmdb_id: str, profile_id: int, root_folder: str,
+                                     lookup: Optional[Dict] = None) -> tuple[bool, str]:
+        """Add a movie to Radarr with selected quality profile.
+
+        lookup: the movie lookup result the add flow already holds, or None.
+        """
         if not self.radarr:
             raise ValueError("Radarr is not enabled or configured")
 
@@ -289,7 +293,8 @@ class MediaService:
             success, message = await self.radarr.add_movie(
                 int(tmdb_id),
                 root_folder,
-                profile_id
+                profile_id,
+                lookup=lookup,
             )
 
             if success:
@@ -323,11 +328,10 @@ class MediaService:
             if not lookup_results:
                 return False, "Series not found"
 
-            seasons = await self.sonarr.get_seasons(tvdb_id)
+            series = lookup_results
+            seasons = series.get("seasons")
             if not seasons:
                 return False, "No seasons found for series"
-
-            series = lookup_results
 
             # Format quality profiles for selection
             profile_text = "Select quality profile:\n\n"
@@ -348,11 +352,12 @@ class MediaService:
             logger.error(f"❌ Error in MediaService.add_series: {str(e)}")
             return False, str(e)
 
-    async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, seasons: Optional[List[Dict]] = None, monitor: Optional[str] = None) -> tuple[bool, str]:
+    async def add_series_with_profile(self, tvdb_id: str, profile_id: int, root_folder: str, seasons: Optional[List[Dict]] = None, monitor: Optional[str] = None, lookup: Optional[Dict] = None) -> tuple[bool, str]:
         """Add a series to Sonarr with selected quality profile and seasons.
 
         seasons: [{"seasonNumber": n, "monitored": bool}], or None for Sonarr's default.
         monitor: Sonarr addOptions.monitor value (e.g. "future"), or None.
+        lookup: the series lookup result the add flow already holds, or None.
         """
         if not self.sonarr:
             raise ValueError("Sonarr is not enabled or configured")
@@ -364,6 +369,7 @@ class MediaService:
                 profile_id,
                 seasons,
                 monitor=monitor,
+                lookup=lookup,
             )
 
             if success:

@@ -414,6 +414,7 @@ MOVIE_PROFILES = {
     "type": "quality_selection",
     "profiles": [{"id": 1, "name": "HD"}, {"id": 2, "name": "4K"}],
     "root_folder": "/movies",
+    "movie": {"tmdbId": 123, "title": "Test"},
 }
 
 
@@ -433,7 +434,7 @@ async def test_handle_selection_default_profile_skips_picker(
 
     assert result == ConversationHandler.END
     media_handler._mock_service.add_movie_with_profile.assert_awaited_once_with(
-        "123", 2, "/movies"
+        "123", 2, "/movies", lookup=MOVIE_PROFILES["movie"]
     )
     update.callback_query.message.edit_text.assert_called_once()
     sent = update.callback_query.message.edit_text.call_args.kwargs
@@ -1313,7 +1314,10 @@ async def test_handle_season_confirm_future_episodes(
         "selected_seasons": set(),
         "future_mode": "future_episodes",
         "monitor_all": False,
-        "quality_data": {"seasons": [{"seasonNumber": 1}]},
+        "quality_data": {
+            "seasons": [{"seasonNumber": 1}],
+            "series": {"tvdbId": 123, "title": "Test"},
+        },
     })
 
     result = await media_handler.handle_season_confirm(update, context)
@@ -1321,7 +1325,11 @@ async def test_handle_season_confirm_future_episodes(
     assert result == ConversationHandler.END
     call_args = media_handler._mock_service.add_series_with_profile.call_args
     assert call_args[0][3] == [{"seasonNumber": 1, "monitored": False}]
-    assert call_args[1] == {"monitor": "future"}
+    # The lookup result the add flow already holds goes on: no second lookup.
+    assert call_args[1] == {
+        "monitor": "future",
+        "lookup": {"tvdbId": 123, "title": "Test"},
+    }
 
 
 @pytest.mark.asyncio
@@ -1383,7 +1391,7 @@ async def test_handle_season_confirm_selected_with_future(
         {"seasonNumber": 1, "monitored": True},
         {"seasonNumber": 2, "monitored": False},
     ]
-    assert call_args[1] == {"monitor": None}
+    assert call_args[1] == {"monitor": None, "lookup": None}
 
 
 @pytest.mark.asyncio

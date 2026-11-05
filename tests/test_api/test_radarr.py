@@ -137,8 +137,8 @@ class TestRadarrGetMovie:
     @pytest.mark.asyncio
     async def test_get_movie_success(self, aio_mock, radarr_client):
         aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/550",
-            payload=RADARR_MOVIE_DETAIL,
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
         result = await radarr_client.get_movie("550")
@@ -147,30 +147,20 @@ class TestRadarrGetMovie:
         assert result["tmdbId"] == 550
 
     @pytest.mark.asyncio
-    async def test_get_movie_fallback_search(self, aio_mock, radarr_client):
-        # Direct lookup returns 404 -> None
-        aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/550",
-            status=404,
-            body="Not found",
-        )
-        # Fallback search returns result in a list
+    async def test_get_movie_makes_one_request_to_lookup_term(self, aio_mock, radarr_client):
+        """No request goes to the movie/lookup/tmdb/ path, which Radarr does not have."""
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:550",
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        result = await radarr_client.get_movie("550")
-        assert result is not None
-        assert result["title"] == "Fight Club"
+        await radarr_client.get_movie("550")
+        assert [str(url) for _, url in aio_mock.requests] == [
+            f"{BASE}/movie/lookup?term=tmdb:550"
+        ]
 
     @pytest.mark.asyncio
     async def test_get_movie_not_found(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/999999",
-            status=404,
-            body="Not found",
-        )
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:999999",
             payload=[],
@@ -389,6 +379,24 @@ class TestRadarrAddMovie:
         assert "Fight Club" in message
 
     @pytest.mark.asyncio
+    async def test_add_movie_with_lookup_makes_no_lookup_request(self, aio_mock, radarr_client):
+        """A caller that holds the lookup result passes it on: only the POST goes out."""
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs.get("json", {}))
+            return CallbackResult(payload={"id": 1, "title": "Fight Club"}, status=200)
+
+        aio_mock.post(f"{BASE}/movie", callback=capture)
+        success, message = await radarr_client.add_movie(
+            550, "/movies", 1, lookup=RADARR_MOVIE_DETAIL
+        )
+        assert success is True
+        assert "Fight Club" in message
+        assert posted["tmdbId"] == 550
+        assert [method for method, _ in aio_mock.requests] == ["POST"]
+
+    @pytest.mark.asyncio
     async def test_add_movie_already_exists(self, aio_mock, radarr_client):
         # 1. Lookup
         aio_mock.get(
@@ -504,7 +512,9 @@ class TestRadarrAddMovie:
     async def test_add_movie_outer_exception(self, radarr_client):
         """Lines 223-225: outer Exception in add_movie."""
         with patch.object(radarr_client, "_make_request", side_effect=Exception("outer boom")):
-            success, message = await radarr_client.add_movie(550, "/movies", 1)
+            success, message = await radarr_client.add_movie(
+                550, "/movies", 1, lookup=RADARR_MOVIE_DETAIL
+            )
         assert success is False
         assert "outer boom" in message
 

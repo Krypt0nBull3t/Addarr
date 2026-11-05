@@ -57,7 +57,7 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
 
 **Goal:** Each add makes one lookup and no failing call.
 
-- [ ] **2.1** F042 single lookup, pass the result on
+- [x] **2.1** F042 single lookup, pass the result on
     - **Context:**
         - **Why:** `movie/lookup/tmdb/{id}` and `series/lookup/tvdb/{id}` do not exist (404 and an ERROR log). One series add makes 1 failing and 3 identical lookups.
         - **Architecture:** `get_movie` and `get_series` do one `lookup?term=` call. `MediaService.add_series` reads seasons from `series["seasons"]`. `add_movie` and `add_series` take an optional `lookup` dict. Layer rule: handlers call `MediaService`, never an API client.
@@ -71,6 +71,18 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
         - [RED] Handler tests: the quality-select and season-confirm paths pass `quality_data["movie"]` and `quality_data["series"]` as `lookup`.
         - [GREEN] Implement the single lookup, the optional `lookup` parameters and the handler changes. Remove `SonarrClient.get_seasons` and its three tests (`test_get_seasons`, `_empty`, `_exception`).
     - **Success:** api, services and handlers scoped runs pass, integration tests pass, flake8 and mypy clean, no request to `lookup/tmdb/` or `lookup/tvdb/` remains in `src/` or `tests/`.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `get_movie` and `get_series` swallow errors and return None, so `add_movie` and `add_series` now report "not found" for a failed lookup. Their outer `except` is reached only by the POST path, so the two `*_outer_exception` tests pass `lookup=` to reach it.
+        - `aioresponses` records a request in `.requests` before it matches a mock. Asserting on `.requests` proves that no request went to the old path.
+        - `.venv` needs `python-telegram-bot[job-queue]` (APScheduler): without it every integration test errors in `app.job_queue`. Reinstall requirements after merging `origin/development`.
+        - In the `services` scoped run `src/services/rate_limit.py` shows 80%: handler tests cover it.
+    - **Key Changes:**
+        - `src/api/radarr.py`, `src/api/sonarr.py`: `get_movie` and `get_series` do one `lookup?term=` call. `add_movie` and `add_series` take `lookup`. `SonarrClient.get_seasons` is removed.
+        - `src/services/media.py`: `add_series` reads seasons from `series["seasons"]`. `add_movie_with_profile` and `add_series_with_profile` take `lookup` and pass it on.
+        - `src/bot/handlers/media/handler.py`, `season_picker.py`: pass `quality_data[...]` as `lookup`.
+        - Tests: API, service, handler and two integration assertions. `.claude/skills/addarr-testing/references/fixtures.md` no longer lists `get_seasons`.
+    - **Notes:** `MediaService.add_series` is the one lookup of a series add. The confirm step passes that result, so a confirmed add makes no lookup. The movie and series dicts in `quality_data` are the lookup results.
 
 ### Phase 3: Cards and docs (2 tasks)
 

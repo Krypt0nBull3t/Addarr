@@ -38,7 +38,6 @@ def mock_sonarr_client():
     client.get_quality_profiles = AsyncMock(
         return_value=[{"id": 1, "name": "HD-1080p"}]
     )
-    client.get_seasons = AsyncMock(return_value=[])
     client.get_calendar = AsyncMock(return_value=[])
     client.get_all_series = AsyncMock(return_value=[])
     client.get_series_by_id = AsyncMock(return_value=None)
