@@ -46,6 +46,97 @@ class TestRepoUrls:
         assert offenders == []
 
 
+class TestWindowsInstaller:
+    """Verify install.ps1 runs the bot as a logon task for the normal user, never as SYSTEM."""
+
+    @staticmethod
+    def text():
+        """Return the text of install.ps1."""
+        return read(INSTALL_PS1)
+
+    def test_downloads_no_service_manager(self):
+        """No NSSM, and no download or unpack step beyond git clone and pip."""
+        text = self.text()
+        assert "nssm" not in text.lower()
+        for command in ("Invoke-WebRequest", "DownloadString", "Expand-Archive"):
+            assert command not in text
+
+    def test_registers_no_system_service(self):
+        """No Windows service and no wrapper script that a user process could edit."""
+        text = self.text()
+        for word in ("LocalSystem", "New-Service", "Start-Service", "service-wrapper"):
+            assert word not in text
+
+    def test_requires_no_administrator(self):
+        """A user-level task needs no elevation, so the installer does not exit for a normal user."""
+        text = self.text()
+        assert "IsInRole" not in text
+        assert "as Administrator" not in text
+
+    def test_warns_about_older_service(self):
+        """An older Addarr service is reported with the commands an admin runs to remove it."""
+        text = self.text()
+        assert "Get-Service -Name Addarr" in text
+        assert "sc.exe stop Addarr" in text
+        assert "sc.exe delete Addarr" in text
+
+    def test_task_runs_as_current_user_with_limited_rights(self):
+        """The task starts at logon for the installing user, with no elevation."""
+        text = self.text()
+        for part in (
+            "Register-ScheduledTask",
+            "-RunLevel Limited",
+            "-LogonType Interactive",
+            "-AtLogOn",
+            "[Security.Principal.WindowsIdentity]::GetCurrent().Name",
+        ):
+            assert part in text
+        assert "-RunLevel Highest" not in text
+
+    def test_task_restarts_after_failure(self):
+        """The task restarts the bot 3 times at 1 minute and has no time limit."""
+        text = self.text()
+        assert "-RestartCount 3" in text
+        assert "-RestartInterval (New-TimeSpan -Minutes 1)" in text
+        assert "-ExecutionTimeLimit ([TimeSpan]::Zero)" in text
+
+    def test_task_is_replaced_on_reinstall(self):
+        """An existing Addarr task is removed before the new one is registered."""
+        text = self.text()
+        assert text.index("Unregister-ScheduledTask -TaskName Addarr") < text.index("Register-ScheduledTask")
+
+    def test_setup_runs_before_config_check_task_and_start(self):
+        """The bot starts only after setup wrote config.yaml, and the task needs that file too."""
+        text = self.text()
+        order = [
+            text.index("--setup"),
+            text.index('Test-Path "$INSTALL_DIR\\config.yaml"'),
+            text.index("Register-ScheduledTask"),
+            text.index("Start-ScheduledTask"),
+        ]
+        assert order == sorted(order)
+
+
+class TestWindowsReadme:
+    """Verify the README and scripts/ point to no Windows service that cannot start."""
+
+    def test_service_script_is_gone(self):
+        """addarr.service.ps1 registered powershell.exe as a service (error 1053)."""
+        assert not os.path.exists(os.path.join(ROOT, "scripts", "addarr.service.ps1"))
+
+    def test_readme_points_to_no_windows_service(self):
+        """No deleted script, no service name, no elevation step for the Windows install."""
+        readme = read(README)
+        for word in ("addarr.service.ps1", "AddarrBot", "Windows Service", "Start-Service", "as Administrator"):
+            assert word not in readme
+
+    def test_readme_documents_the_scheduled_task(self):
+        """Windows users learn how to manage the logon task the installer creates."""
+        readme = read(README)
+        for command in ("Start-ScheduledTask", "Stop-ScheduledTask", "Get-ScheduledTask"):
+            assert f"{command} -TaskName Addarr" in readme
+
+
 class TestPythonVersion:
     """Verify the installer and README agree on Python 3.10 as the minimum."""
 
