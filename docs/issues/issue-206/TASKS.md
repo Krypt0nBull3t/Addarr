@@ -65,7 +65,7 @@ The PR body must say that remote *arr apps need `webhooks.host: 0.0.0.0`.
         - Tests in `tests/test_handlers/test_webhooks_handler.py` and `tests/test_bot/test_keyboards.py`.
     - **Notes:** `scripts/test_runner.py bot --coverage` prints a failing 100% gate (it also lists `src/bot/handlers/`, which `tests/test_bot/` does not cover). Ignore it; the preflight runs the real gate.
 
-- [ ] **2.2** Private-chat gate and stable secrets (F012, F100)
+- [x] **2.2** Private-chat gate and stable secrets (F012, F100)
     - **Context:**
         - **Why:** In a group with `chatMode: allow_all`, `/webhooks` posts a secret into the group (F012). Tapping an already set-up service saves a new secret at once, so the *arr app gets 401 (F100). The audit decision: show the stored secret, only Regenerate makes a new one.
         - **Architecture:** `show_menu` is the `/webhooks` entry point with `@require_auth`. `auth.py` `_enforce_private_chat` skips the check under `allow_all`, so the handler needs its own check. The service keyboard (`get_webhook_service_keyboard`) already has Regenerate and Back.
@@ -80,6 +80,16 @@ The PR body must say that remote *arr apps need `webhooks.host: 0.0.0.0`.
         - [GREEN] Make `setup_service` show the stored secret with `WebhookSecretExisting`, and generate only when none is stored
         - [GREEN] Add `WebhookSecretExisting` to the template and the 9 locale files (`@i18n-key`)
     - **Success:** `scripts/test_runner.py handlers --coverage` passes; `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` passes; flake8 and mypy clean; each new test failed before the fix.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `@require_auth` runs `_enforce_private_chat` first and, under `private_only`, already refuses a group. The new gate only matters under `allow_all`, so its test sets `security.chatMode: allow_all` and patches `src.bot.handlers.auth.config` too.
+        - The 3 new tests failed first (`token_hex` called on a stored secret; no refusal in a group), then passed.
+        - The existing webhook strings are English in every locale; the new key is translated in each one anyway (`nl-be` in Netherlands Dutch).
+    - **Key Changes:**
+        - `src/bot/handlers/webhooks.py`: `show_menu` refuses a non-private chat before the admin gate (key `PrivateChatOnly`); `setup_service` shows the stored secret (`WebhookSecretExisting`, `str()` for an int secret) and generates only when none is stored.
+        - `translations/addarr.template.yml` and 9 locale files: new key `WebhookSecretExisting`.
+        - `tests/test_handlers/test_webhooks_handler.py`: `TestPrivateChatOnly`, existing-secret test (str and int secret).
+    - **Notes:** `regenerate_secret` is unchanged and is the only path that replaces a stored secret.
 
 ### Phase 3: Integration and gate (1 task)
 

@@ -170,6 +170,41 @@ class TestShowMenu:
         assert result == ConversationHandler.END
 
 
+class TestPrivateChatOnly:
+    """/webhooks hands out secrets, so it works in private chats only."""
+
+    @pytest.mark.asyncio
+    async def test_group_chat_is_refused_even_with_allow_all(
+        self, handler, context, webhook_handler_config, make_update, make_user
+    ):
+        webhook_handler_config._set("security", {
+            "enableAdmin": True, "enableAllowlist": False, "chatMode": "allow_all",
+        })
+        update = make_update(
+            text="/webhooks", user=make_user(user_id=12345), chat_type="group"
+        )
+
+        with patch("src.bot.handlers.auth.config", webhook_handler_config):
+            with patch("src.bot.handlers.webhooks.is_admin", return_value=True):
+                handler.translation = MagicMock()
+                handler.translation.get_text.side_effect = lambda key, **kw: key
+                result = await handler.show_menu(update, context)
+
+        assert result == ConversationHandler.END
+        update.effective_message.reply_text.assert_awaited_once_with("PrivateChatOnly")
+
+    @pytest.mark.asyncio
+    async def test_private_chat_still_shows_the_menu(
+        self, handler, context, webhook_handler_config, admin_update
+    ):
+        from src.bot.states import States
+
+        with patch("src.bot.handlers.webhooks.is_admin", return_value=True):
+            result = await handler.show_menu(admin_update, context)
+
+        assert result == States.WEBHOOK_MENU
+
+
 # ---------------------------------------------------------------------------
 # Service setup tests
 # ---------------------------------------------------------------------------
@@ -195,6 +230,35 @@ class TestSetupService:
         assert webhook_handler_config.get("webhooks", {}).get("sonarr_secret") == "abc123"
         from src.bot.states import States
         assert result == States.WEBHOOK_MENU
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("stored", ["existing-radarr-secret", 12345678])
+    async def test_setup_service_shows_existing_secret_and_saves_nothing(
+        self, handler, context, webhook_handler_config, make_update, make_user,
+        stored,
+    ):
+        """Tapping a set-up service shows its secret; only Regenerate makes a new one."""
+        webhook_handler_config.get("webhooks")["radarr_secret"] = stored
+        update = make_update(callback_data="wh_setup_radarr", user=make_user(user_id=12345))
+        handler.translation = MagicMock()
+        handler.translation.get_text.return_value = "text"
+
+        with patch("src.bot.handlers.webhooks.secrets.token_hex", return_value="new") as token:
+            with patch.object(webhook_handler_config, "save") as save:
+                result = await handler.setup_service(update, context)
+
+        from src.bot.states import States
+        assert result == States.WEBHOOK_MENU
+        token.assert_not_called()
+        save.assert_not_called()
+        assert webhook_handler_config.get("webhooks")["radarr_secret"] == stored
+        args, kwargs = handler.translation.get_text.call_args
+        assert args == ("WebhookSecretExisting",)
+        assert kwargs["secret"] == str(stored)
+        assert kwargs["service"] == "Radarr"
+        markup = update.callback_query.message.edit_text.call_args.kwargs["reply_markup"]
+        callbacks = [b.callback_data for row in markup.inline_keyboard for b in row]
+        assert "wh_regen_radarr" in callbacks
 
 
 # ---------------------------------------------------------------------------
