@@ -108,7 +108,7 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
 
 **Goal:** The docs name the hash key and the wizard rule.
 
-- [ ] **4.1** Update docs
+- [x] **4.1** Update docs
     - **Context:**
         - **Why:** CLAUDE.md lists the auth pattern; a new config key and a password rule are user-visible.
         - **Architecture:** Docs only.
@@ -120,3 +120,7 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
         - [GREEN] Edit the docs
         - [GREEN] Run `tests/test_architecture`
     - **Success:** architecture tests pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:** `README.md` had one Authentication section; the 12-character rule and the sign-out on password change fit there.
+    - **Key Changes:** `README.md` (Authentication), `CLAUDE.md` (Authentication decorator bullet).
+    - **Notes:** `tests/test_architecture` passes (155).

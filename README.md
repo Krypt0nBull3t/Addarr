@@ -412,6 +412,9 @@ After installation:
 2. Use `/auth` to authenticate
 3. Enter the password configured in `config.yaml`
 
+`python run.py --setup` proposes a random password. A password you type needs at least 12 characters.
+The bot saves a hash of the password next to the list of authenticated users. When you change `telegram.password`, the bot signs every user out at the next start, and each user sends `/auth` again.
+
 ### Adding Media
 1. Use the appropriate command (`/movie`, `/series`, `/music`)
 2. Enter search term
