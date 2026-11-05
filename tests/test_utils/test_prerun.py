@@ -1,7 +1,8 @@
 """Tests for src/utils/prerun.py"""
 
-import json
+import os
 import subprocess
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from src.utils.prerun import ColorHandler, PreRunChecker, prerun_checker
@@ -172,6 +173,12 @@ class TestParseRequirements:
         assert "flask" in result
         assert "django" in result
 
+    def test_default_file_is_independent_of_cwd(self, tmp_path, monkeypatch):
+        """The default requirements.txt is the one in the project root."""
+        monkeypatch.chdir(tmp_path)
+        result = PreRunChecker().parse_requirements()
+        assert "aiohttp" in result  # in requirements.txt, not in core_deps
+
     def test_file_not_found_returns_core_deps(self, capsys):
         """FileNotFoundError returns core_deps list."""
         checker = PreRunChecker()
@@ -211,45 +218,51 @@ class TestParseRequirements:
 class TestGetInstalledPackages:
     """Tests for get_installed_packages."""
 
-    @patch("src.utils.prerun.subprocess.run")
-    def test_parses_json_output(self, mock_run):
-        """Parses pip list JSON and returns package names."""
-        mock_run.return_value.stdout = json.dumps([
-            {"name": "requests", "version": "2.28.0"},
-            {"name": "aiohttp", "version": "3.9.0"},
-        ])
-        checker = PreRunChecker()
-        result = checker.get_installed_packages()
+    @staticmethod
+    def _dists(*names):
+        return [SimpleNamespace(metadata={"Name": n}) for n in names]
+
+    @patch("src.utils.prerun.metadata.distributions")
+    def test_returns_distribution_names(self, mock_dists):
+        """Returns the names of the installed distributions."""
+        mock_dists.return_value = self._dists("requests", "aiohttp")
+        result = PreRunChecker().get_installed_packages()
         assert "requests" in result
         assert "aiohttp" in result
 
-    @patch("src.utils.prerun.subprocess.run")
-    def test_normalizes_hyphen_underscore(self, mock_run):
+    @patch("src.utils.prerun.metadata.distributions")
+    def test_normalizes_hyphen_underscore(self, mock_dists):
         """Adds both hyphen and underscore variants."""
-        mock_run.return_value.stdout = json.dumps([
-            {"name": "python-telegram-bot", "version": "20.0"},
-        ])
-        checker = PreRunChecker()
-        result = checker.get_installed_packages()
+        mock_dists.return_value = self._dists("python-telegram-bot")
+        result = PreRunChecker().get_installed_packages()
         assert "python-telegram-bot" in result
         assert "python_telegram_bot" in result
 
-    @patch("src.utils.prerun.subprocess.run")
-    def test_lowercases_names(self, mock_run):
+    @patch("src.utils.prerun.metadata.distributions")
+    def test_lowercases_names(self, mock_dists):
         """Package names are lowercased."""
-        mock_run.return_value.stdout = json.dumps([
-            {"name": "Flask", "version": "2.3.0"},
-        ])
-        checker = PreRunChecker()
-        result = checker.get_installed_packages()
-        assert "flask" in result
+        mock_dists.return_value = self._dists("Flask")
+        assert "flask" in PreRunChecker().get_installed_packages()
+
+    @patch("src.utils.prerun.metadata.distributions")
+    def test_skips_distribution_without_name(self, mock_dists):
+        """A distribution with broken metadata is skipped."""
+        mock_dists.return_value = self._dists(None, "Flask")
+        result = PreRunChecker().get_installed_packages()
+        assert result == {"flask"}
 
     @patch("src.utils.prerun.subprocess.run")
-    def test_subprocess_error_returns_empty_set(self, mock_run, capsys):
-        """Returns empty set on subprocess failure."""
-        mock_run.side_effect = Exception("pip failed")
-        checker = PreRunChecker()
-        result = checker.get_installed_packages()
+    def test_finds_packages_when_pip_list_is_empty(self, mock_run):
+        """Packages are found without pip (uv venv: pip list prints nothing)."""
+        mock_run.return_value.stdout = ""
+        result = PreRunChecker().get_installed_packages()
+        assert "pytest" in result
+
+    @patch("src.utils.prerun.metadata.distributions")
+    def test_metadata_error_returns_empty_set(self, mock_dists, capsys):
+        """Returns empty set when the metadata cannot be read."""
+        mock_dists.side_effect = Exception("metadata failed")
+        result = PreRunChecker().get_installed_packages()
         assert result == set()
         captured = capsys.readouterr()
         assert "Error getting installed packages" in captured.out
@@ -289,6 +302,20 @@ class TestCheckDependencies:
         result = checker.check_dependencies()
         assert result is True
         mock_install.assert_called_once()
+
+    @patch("builtins.input", return_value="y")
+    @patch("src.utils.prerun.subprocess.check_call")
+    def test_install_uses_absolute_requirements_path(
+        self, mock_install, mock_input
+    ):
+        """The install command reads requirements.txt from the project root."""
+        checker = PreRunChecker()
+        checker.parse_requirements = MagicMock(return_value=["missing-pkg"])
+        checker.get_installed_packages = MagicMock(return_value=set())
+        checker.check_dependencies()
+        requirements = mock_install.call_args.args[0][-1]
+        assert os.path.isabs(requirements)
+        assert requirements == os.path.join(checker.root_dir, "requirements.txt")
 
     @patch("builtins.input", return_value="n")
     def test_missing_packages_decline(self, mock_input, capsys):

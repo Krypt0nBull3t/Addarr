@@ -3,7 +3,7 @@ Tests for src/services/media.py -- MediaService singleton.
 """
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from src.services.media import MediaService
 
@@ -151,6 +151,18 @@ class TestSearchMovies:
         mock_radarr_client.search.assert_awaited_once_with("fight club")
 
     @pytest.mark.asyncio
+    async def test_search_movies_remote_poster_is_used_as_is(self, mock_radarr_client):
+        """remotePoster is a full URL: no second prefix when images has no poster."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        url = "https://image.tmdb.org/t/p/original/abc123.jpg"
+        mock_radarr_client.search.return_value = [{**SAMPLE_MOVIE, "remotePoster": url}]
+
+        results = await service.search_movies("fight club")
+
+        assert results[0]["poster"] == url
+
+    @pytest.mark.asyncio
     async def test_search_movies_external_ids(self, mock_radarr_client):
         """Normalized movie results include external_ids with imdb and tmdb."""
         service = MediaService()
@@ -214,6 +226,43 @@ class TestSearchSeries:
         assert results[0]["title"] == "Breaking Bad (2008)"
         assert results[0]["id"] == "81189"
         mock_sonarr_client.search.assert_awaited_once_with("breaking bad")
+
+    @pytest.mark.asyncio
+    async def test_search_series_reads_rating_value_and_has_no_studio(self, mock_sonarr_client):
+        """Sonarr sends ratings.value and ratings.votes, and no studio."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        series = {**SAMPLE_SERIES, "ratings": {"votes": 120, "value": 8.1}}
+        series.pop("studio")
+        mock_sonarr_client.search.return_value = [series]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["ratings"] == {"value": 8.1, "votes": 120}
+        assert "studio" not in results[0]
+        assert results[0]["network"] == "AMC"
+
+    @pytest.mark.asyncio
+    async def test_search_series_rating_missing_is_na(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search.return_value = [SAMPLE_SERIES]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["ratings"] == {"value": "N/A", "votes": 0}
+
+    @pytest.mark.asyncio
+    async def test_search_series_remote_poster_is_used_as_is(self, mock_sonarr_client):
+        """remotePoster is a full URL: no second prefix when images has no poster."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        url = "https://artworks.thetvdb.com/banners/posters/81189-1.jpg"
+        mock_sonarr_client.search.return_value = [{**SAMPLE_SERIES, "remotePoster": url}]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["poster"] == url
 
     @pytest.mark.asyncio
     async def test_search_series_external_ids(self, mock_sonarr_client):
@@ -433,7 +482,22 @@ class TestAddMovieWithProfile:
 
         assert success is True
         assert message == "Added successfully"
-        mock_radarr_client.add_movie.assert_awaited_once_with(550, "/movies", 1)
+        mock_radarr_client.add_movie.assert_awaited_once_with(
+            550, "/movies", 1, lookup=None
+        )
+
+    @pytest.mark.asyncio
+    async def test_add_movie_with_profile_passes_lookup_on(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+
+        await service.add_movie_with_profile(
+            "550", 1, "/movies", lookup=SAMPLE_MOVIE
+        )
+
+        mock_radarr_client.add_movie.assert_awaited_once_with(
+            550, "/movies", 1, lookup=SAMPLE_MOVIE
+        )
 
     @pytest.mark.asyncio
     async def test_add_movie_with_profile_failure(self, mock_radarr_client):
@@ -487,9 +551,6 @@ class TestAddSeries:
             {"id": 1, "name": "HD-1080p"}
         ]
         mock_sonarr_client.get_series.return_value = SAMPLE_SERIES
-        mock_sonarr_client.get_seasons.return_value = [
-            {"seasonNumber": 1}, {"seasonNumber": 2}
-        ]
 
         result = await service.add_series("81189")
 
@@ -497,6 +558,29 @@ class TestAddSeries:
         assert result["type"] == "quality_selection"
         assert result["series"] == SAMPLE_SERIES
         assert len(result["seasons"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_add_series_makes_one_lookup_request(self):
+        """One series add: one lookup, none to the missing series/lookup/tvdb/ path."""
+        from aioresponses import aioresponses
+        from src.api.sonarr import SonarrClient
+
+        base = "http://localhost:8989/api/v3"
+        client = SonarrClient()
+        service = MediaService()
+        MediaService._sonarr = client
+        try:
+            with aioresponses() as mocked:
+                mocked.get(f"{base}/rootFolder", payload=[{"path": "/tv"}])
+                mocked.get(f"{base}/qualityProfile", payload=[{"id": 1, "name": "HD"}])
+                mocked.get(f"{base}/series/lookup?term=tvdb:81189", payload=[SAMPLE_SERIES])
+                result = await service.add_series("81189")
+                lookups = [str(url) for _, url in mocked.requests if "lookup" in str(url)]
+        finally:
+            await client.close()
+
+        assert result["series"] == SAMPLE_SERIES
+        assert lookups == [f"{base}/series/lookup?term=tvdb:81189"]
 
     @pytest.mark.asyncio
     async def test_add_series_no_root_folders(self, mock_sonarr_client):
@@ -541,8 +625,7 @@ class TestAddSeries:
         mock_sonarr_client.get_quality_profiles.return_value = [
             {"id": 1, "name": "HD-1080p"}
         ]
-        mock_sonarr_client.get_series.return_value = SAMPLE_SERIES
-        mock_sonarr_client.get_seasons.return_value = []
+        mock_sonarr_client.get_series.return_value = {**SAMPLE_SERIES, "seasons": []}
 
         result = await service.add_series("81189")
 
@@ -577,9 +660,6 @@ class TestAddSeriesWithProfile:
     async def test_add_series_with_profile_success(self, mock_sonarr_client):
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.return_value = [
-            {"seasonNumber": 1}, {"seasonNumber": 2}
-        ]
         mock_sonarr_client.add_series.return_value = (True, "Added successfully")
 
         success, message = await service.add_series_with_profile(
@@ -606,7 +686,6 @@ class TestAddSeriesWithProfile:
 
         assert success is True
         assert mock_sonarr_client.add_series.call_args[0] == (81189, "/tv", 1, seasons)
-        mock_sonarr_client.get_seasons.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_add_series_with_profile_forwards_monitor(self, mock_sonarr_client):
@@ -617,14 +696,26 @@ class TestAddSeriesWithProfile:
         await service.add_series_with_profile("81189", 1, "/tv", [], monitor="future")
 
         mock_sonarr_client.add_series.assert_awaited_once_with(
-            81189, "/tv", 1, [], monitor="future"
+            81189, "/tv", 1, [], monitor="future", lookup=None
+        )
+
+    @pytest.mark.asyncio
+    async def test_add_series_with_profile_passes_lookup_on(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+
+        await service.add_series_with_profile(
+            "81189", 1, "/tv", [], lookup=SAMPLE_SERIES
+        )
+
+        mock_sonarr_client.add_series.assert_awaited_once_with(
+            81189, "/tv", 1, [], monitor=None, lookup=SAMPLE_SERIES
         )
 
     @pytest.mark.asyncio
     async def test_add_series_with_profile_failure(self, mock_sonarr_client):
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.return_value = [{"seasonNumber": 1}]
         mock_sonarr_client.add_series.return_value = (False, "Already exists")
 
         success, message = await service.add_series_with_profile(
@@ -2422,3 +2513,25 @@ class TestGetHistory:
         assert result["quality"] == "HDTV-720p"
         assert result["source_title"] == "Breaking.Bad.S01E01.720p"
         assert result["service"] == "sonarr"
+
+
+# ---------------------------------------------------------------------------
+# close
+# ---------------------------------------------------------------------------
+
+
+class TestClose:
+    @pytest.mark.asyncio
+    async def test_close_closes_configured_clients_and_skips_none(self):
+        service = MediaService()  # also creates the sonarr and lidarr clients
+        radarr, lidarr = AsyncMock(), AsyncMock()
+
+        with (
+            patch.object(MediaService, "_radarr", radarr),
+            patch.object(MediaService, "_sonarr", None),
+            patch.object(MediaService, "_lidarr", lidarr),
+        ):
+            await service.close()
+
+        radarr.close.assert_awaited_once()
+        lidarr.close.assert_awaited_once()
