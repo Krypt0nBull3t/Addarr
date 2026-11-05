@@ -1114,6 +1114,17 @@ def get_downloads_history_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_back_keyboard(callback_data: str) -> InlineKeyboardMarkup:
+    """Get a keyboard with one Back button that sends callback_data."""
+    translation = TranslationService()
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data=callback_data,
+        )
+    ]])
+
+
 def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: str = "No") -> InlineKeyboardMarkup:
     """Create a Yes/No inline keyboard
 

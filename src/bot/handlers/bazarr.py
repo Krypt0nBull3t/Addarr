@@ -19,6 +19,7 @@ from typing import Dict, List
 from src.services.bazarr import BazarrService
 from src.services.translation import TranslationService
 from src.bot.handlers.auth import require_auth
+from src.bot.keyboards import get_back_keyboard
 from src.bot.states import States
 from src.utils.logger import get_logger
 
@@ -116,13 +117,6 @@ class BazarrHandler:
         ]
         return InlineKeyboardMarkup(keyboard)
 
-    def _get_back_keyboard(self) -> InlineKeyboardMarkup:
-        """Build a keyboard with a Back button to the subtitles menu."""
-        return InlineKeyboardMarkup([[InlineKeyboardButton(
-            f"\u25c0\ufe0f {self.translation.get_text('Back')}",
-            callback_data="bazarr_menu",
-        )]])
-
     async def _reply(
         self, update: Update, text: str, **kwargs
     ) -> None:
@@ -191,13 +185,13 @@ class BazarrHandler:
         if not movies:
             await update.callback_query.edit_message_text(
                 self.translation.get_text("BazarrWantedEmpty"),
-                reply_markup=self._get_back_keyboard(),
+                reply_markup=get_back_keyboard("bazarr_menu"),
             )
             return
 
         await update.callback_query.edit_message_text(
             _format_movie_list(movies),
-            reply_markup=self._get_back_keyboard(),
+            reply_markup=get_back_keyboard("bazarr_menu"),
         )
 
     @require_auth
@@ -212,7 +206,7 @@ class BazarrHandler:
         if not episodes:
             await update.callback_query.edit_message_text(
                 self.translation.get_text("BazarrWantedEmpty"),
-                reply_markup=self._get_back_keyboard(),
+                reply_markup=get_back_keyboard("bazarr_menu"),
             )
             return
 
@@ -228,7 +222,7 @@ class BazarrHandler:
             )
 
         await update.callback_query.edit_message_text(
-            "\n".join(lines), reply_markup=self._get_back_keyboard()
+            "\n".join(lines), reply_markup=get_back_keyboard("bazarr_menu")
         )
 
     @require_auth

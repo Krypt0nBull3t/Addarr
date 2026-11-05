@@ -12,6 +12,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
 from src.services.media import MediaService
+from src.bot.keyboards import get_back_keyboard
 from src.services.translation import TranslationService
 from src.bot.handlers.auth import require_auth
 from src.services.rate_limit import rate_limit
@@ -212,12 +213,7 @@ class LibraryHandler:
             )
 
         rows = [buttons] if buttons else []
-        rows.append([
-            InlineKeyboardButton(
-                f"\u25c0\ufe0f {TranslationService().get_text('Back')}",
-                callback_data="menu_library",
-            )
-        ])
+        rows.extend(get_back_keyboard("menu_library").inline_keyboard)
         return text, InlineKeyboardMarkup(rows)
 
     @require_auth

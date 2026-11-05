@@ -2350,3 +2350,18 @@ class TestEmptyFilteredKeyboards:
 
         assert rows[0][0].callback_data == "hist_filter_all"
         assert rows[-1][-1].callback_data == "hist_back"
+
+
+class TestBackKeyboard:
+    """Tests for get_back_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_single_back_button_with_callback(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_back_keyboard
+
+        rows = get_back_keyboard("bazarr_menu").inline_keyboard
+
+        assert len(rows) == 1 and len(rows[0]) == 1
+        assert rows[0][0].callback_data == "bazarr_menu"
+        assert "Back" in rows[0][0].text

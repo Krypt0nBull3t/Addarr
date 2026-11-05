@@ -7,11 +7,11 @@ Description: Help handler module.
 This module provides help and command information to users.
 """
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
-from src.bot.keyboards import get_main_menu_keyboard
+from src.bot.keyboards import get_back_keyboard, get_main_menu_keyboard
 from src.config.settings import config
 from src.services.translation import TranslationService
 from src import __version__
@@ -70,15 +70,11 @@ class HelpHandler:
         help_text = self._build_help_text()
 
         if update.callback_query:
-            back = InlineKeyboardMarkup([[InlineKeyboardButton(
-                f"\u25c0\ufe0f {self.translation.get_text('Back')}",
-                callback_data="menu_back",
-            )]])
             await update.callback_query.message.edit_text(
                 help_text,
                 parse_mode='Markdown',
                 disable_web_page_preview=True,
-                reply_markup=back,
+                reply_markup=get_back_keyboard("menu_back"),
             )
         else:
             await update.message.reply_text(
