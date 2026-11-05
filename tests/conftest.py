@@ -8,9 +8,12 @@ module into sys.modules so all `from src.config.settings import config`
 statements get our mock instead.
 """
 
+import atexit
 import inspect
 import os
+import shutil
 import sys
+import tempfile
 import types
 from copy import deepcopy
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -223,6 +226,15 @@ if "src.config" not in sys.modules:
     _config_mod.__path__ = [os.path.join(_src_dir, "config")]
     _config_mod.settings = _settings_mod
     sys.modules["src.config"] = _config_mod
+
+# Redirect log files before src.utils.logger is imported: it binds LOG_PATH
+# and ERROR_LOG_PATH at import, so tests never write the repo's logs/ dir.
+_log_dir = tempfile.mkdtemp(prefix="addarr-test-logs-")
+atexit.register(shutil.rmtree, _log_dir, ignore_errors=True)
+import src.definitions as _definitions  # noqa: E402
+
+_definitions.LOG_PATH = os.path.join(_log_dir, "addarr.log")
+_definitions.ERROR_LOG_PATH = os.path.join(_log_dir, "error.log")
 
 # ---------------------------------------------------------------------------
 # 2. Singleton reset fixture

@@ -40,7 +40,7 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - `tests/test_config/test_mock_config_parity.py` (new): `test_mock_transmission_keys_match_config_example`.
     - **Notes:** The parity test covers only the `transmission` block, as the issue asks.
 
-- [ ] **1.2** F250: redirect test log files to a temporary directory
+- [x] **1.2** F250: redirect test log files to a temporary directory
     - **Context:**
         - **Why:** Tests write the real `logs/addarr.log` and `logs/error.log`. `LOG_PATH` and `ERROR_LOG_PATH` are not redirected.
         - **Architecture:** `src/utils/logger.py:18` does `from ..definitions import CONFIG_PATH, LOG_PATH, ERROR_LOG_PATH` and binds the values at import. Setting the attributes on `src.definitions` before `src.utils.logger` is first imported redirects every later logger. `tests/conftest.py` already injects fake `src` modules before any `src` import: add the redirect right after that block (after the `sys.modules["src.config"]` lines).
@@ -53,6 +53,14 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - [GREEN] In `tests/conftest.py` create the tmp dir with `tempfile.mkdtemp`, register `atexit.register(shutil.rmtree, ...)`, set `src.definitions.LOG_PATH` and `ERROR_LOG_PATH` to files in it
         - Verify the acceptance criterion: delete `logs/addarr.log` and `logs/error.log` if they exist, run the unit suite, confirm neither file exists
     - **Success:** the regression test passes, `scripts/test_runner.py utils --coverage` and `setup --coverage` pass, no `logs/addarr.log` or `logs/error.log` after a run.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `logs/interactions.log` is built from `os.path.dirname(LOG_PATH)` in `src/utils/logger.py`, so one redirect covers all three log files.
+        - Acceptance check: after deleting `logs/addarr.log` and `logs/error.log`, a full `pytest` run (2481 passed) recreated neither, and `logs/interactions.log` kept its old size and mtime.
+    - **Key Changes:**
+        - `tests/conftest.py`: `tempfile.mkdtemp` log dir, `atexit` cleanup, `src.definitions.LOG_PATH` and `ERROR_LOG_PATH` set right after the `sys.modules` injection (needs `# noqa: E402` on the import).
+        - `tests/test_utils/test_logger.py`: `test_log_paths_are_outside_repo_logs_dir`.
+    - **Notes:** `tests/test_utils/test_logger.py` still patches `src.utils.logger.LOG_PATH` per test; that is unchanged.
 
 - [ ] **1.3** F251: delete the dead files
     - **Context:**

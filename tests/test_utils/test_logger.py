@@ -7,6 +7,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+import src.definitions as definitions
+import src.utils.logger as logger_module
 from src.utils.logger import (
     ColoredFormatter,
     ColoredLogger,
@@ -15,6 +17,16 @@ from src.utils.logger import (
     log_user_interaction,
     SUCCESS_LEVEL,
 )
+
+
+def test_log_paths_are_outside_repo_logs_dir():
+    """The test run never writes the real logs/ directory of the repo."""
+    real_logs = os.path.join(definitions.ROOT_DIR, "logs")
+
+    assert logger_module.LOG_PATH == definitions.LOG_PATH
+    assert logger_module.ERROR_LOG_PATH == definitions.ERROR_LOG_PATH
+    for path in (definitions.LOG_PATH, definitions.ERROR_LOG_PATH):
+        assert not path.startswith(real_logs + os.sep)
 
 
 class TestColoredFormatter:
