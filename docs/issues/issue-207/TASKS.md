@@ -102,7 +102,7 @@ Branch: `fix/207-download-failures-look-like-success`.
     - **Key Changes:** `src/bot/handlers/sabnzbd.py` returns the `Sabnzbd.Error` text on `False`. `src/bot/handlers/settings.py` has a `SAB_ACTION_ERROR` constant used by the speed, pause, resume and `except` paths. Added 4 tests.
     - **Notes:** The Settings texts are still hardcoded English (not in scope).
 
-- [ ] **1.6** F085: shared `clamp_page` and a clamped Refresh
+- [x] **1.6** F085: shared `clamp_page` and a clamped Refresh
     - **Context:**
         - **Why:** Refresh keeps `dl_page` without clamping. After downloads finish, the page is empty and has no nav row.
         - **Architecture:** `clamp_page(page: int, total_pages: int) -> int` in `src/bot/keyboards.py`, so the logic exists once. `_build_pagination_row` (the #223 helper) uses it. `DL_PAGE_SIZE = 5` replaces the repeated `5`.
@@ -116,6 +116,10 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] Handler: Refresh with `dl_page` 9 and 6 items shows the last page with its nav row and sets `dl_page` to 1. A History tab variant also checks the text.
         - [GREEN] Implement `clamp_page`, use it in the three places above.
     - **Success:** Tests fail before, pass after. Existing keyboard tests still pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:** Before the fix a stale page showed `10/2` with no Prev button, which is the "no nav row" bug. `test_pagination_updates_page` set page 2 on a 2-item queue, the state the fix clamps, so it now uses 11 items.
+    - **Key Changes:** `src/bot/keyboards.py`: `clamp_page`, `DL_PAGE_SIZE`; `_build_pagination_row` and both downloads keyboards clamp. `src/bot/handlers/downloads.py`: `_clamp_dl_page` is used in `_refresh_current_view` and stores the page in `user_data`. Added 6 tests.
+    - **Notes:** `_build_dl_pagination_row` is unchanged (#223). Tasks 1.7 and 1.8 edit `_refresh_current_view` again.
 
 - [ ] **1.7** F081 handler: show an error, not "empty"
     - **Context:**

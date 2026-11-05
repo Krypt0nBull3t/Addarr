@@ -522,9 +522,14 @@ class TestDownloadsNavigation:
         self, mock_sab_class, mock_tx_class, mock_ts_class,
         make_update, make_context
     ):
-        handler, _, _, _ = _make_handler(
+        handler, mock_sab, _, _ = _make_handler(
             mock_sab_class, mock_ts_class, mock_tx_class
         )
+        # 11 items = 3 pages, so page 2 exists
+        mock_sab.get_queue_details = AsyncMock(return_value={
+            **QUEUE_DATA, "items_count": 11,
+            "items": QUEUE_DATA["items"] * 5 + QUEUE_DATA["items"][:1],
+        })
 
         update = make_update(callback_data="dl_page_2")
         context = make_context(user_data={"dl_client": "sabnzbd", "dl_tab": "queue"})
@@ -552,6 +557,79 @@ class TestDownloadsNavigation:
 
         update.callback_query.answer.assert_called_once()
         mock_sab.get_queue_details.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_refresh_clamps_dl_page_past_last_page(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context
+    ):
+        handler, mock_sab, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        items = [
+            {"nzo_id": f"nzo_{i}", "title": f"T{i}", "status": "Queued",
+             "progress": 0, "size": "1 GB", "timeleft": ""}
+            for i in range(6)
+        ]
+        mock_sab.get_queue_details = AsyncMock(
+            return_value={**QUEUE_DATA, "items_count": 6, "items": items}
+        )
+
+        update = make_update(callback_data="dl_refresh")
+        context = make_context(user_data={
+            "dl_client": "sabnzbd", "dl_tab": "queue", "dl_page": 9,
+        })
+
+        await handler.handle_downloads_refresh(update, context)
+
+        markup = update.callback_query.message.edit_text.call_args.kwargs[
+            "reply_markup"
+        ]
+        buttons = [b for row in markup.inline_keyboard for b in row]
+        assert "2/2" in [b.text for b in buttons]
+        assert "dl_page_0" in [b.callback_data for b in buttons]
+        assert "dl_pause_nzo_5" in [b.callback_data for b in buttons]
+        assert context.user_data["dl_page"] == 1
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_refresh_history_clamps_page_in_text_and_keyboard(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context
+    ):
+        handler, mock_sab, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        items = [
+            {"name": f"Movie{i}", "status": "Completed", "size": "1 GB",
+             "download_time": 0}
+            for i in range(6)
+        ]
+        mock_sab.get_history = AsyncMock(
+            return_value={"total": 6, "items": items}
+        )
+
+        update = make_update(callback_data="dl_refresh")
+        context = make_context(user_data={
+            "dl_client": "sabnzbd", "dl_tab": "history", "dl_page": 9,
+        })
+
+        await handler.handle_downloads_refresh(update, context)
+
+        call = update.callback_query.message.edit_text.call_args
+        assert "Movie5" in call.args[0]
+        assert "Movie0" not in call.args[0]
+        buttons = [
+            b for row in call.kwargs["reply_markup"].inline_keyboard
+            for b in row
+        ]
+        assert "2/2" in [b.text for b in buttons]
+        assert context.user_data["dl_page"] == 1
 
     @pytest.mark.asyncio
     @patch(PATCH_TS)

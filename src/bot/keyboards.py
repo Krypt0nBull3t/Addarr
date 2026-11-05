@@ -858,6 +858,14 @@ def _build_queue_filter_row(active_filter, translation):
     return row
 
 
+DL_PAGE_SIZE = 5
+
+
+def clamp_page(page: int, total_pages: int) -> int:
+    """Clamp a 0-indexed page into 0..total_pages-1 (0 when there are no pages)."""
+    return min(max(page, 0), max(total_pages, 1) - 1)
+
+
 def _build_dl_pagination_row(page: int, total_pages: int) -> list:
     """Build pagination nav row for downloads keyboards."""
     if total_pages <= 1:
@@ -890,7 +898,7 @@ def _build_pagination_row(prefix: str, page: int, total_pages: int) -> list:
     """
     if total_pages <= 1:
         return []
-    page = min(max(page, 0), total_pages - 1)
+    page = clamp_page(page, total_pages)
     nav_row = []
     if page > 0:
         nav_row.append(
@@ -959,7 +967,8 @@ def _build_dl_client_tab_row(client: str) -> list:
 
 
 def get_downloads_queue_keyboard(
-    items: list, page: int, paused: bool = False, page_size: int = 5,
+    items: list, page: int, paused: bool = False,
+    page_size: int = DL_PAGE_SIZE,
     client: Optional[str] = None, show_history_tab: bool = True,
 ) -> InlineKeyboardMarkup:
     """Get keyboard for downloads queue view.
@@ -975,6 +984,7 @@ def get_downloads_queue_keyboard(
     keyboard = []
 
     total_pages = max(1, -(-len(items) // page_size))
+    page = clamp_page(page, total_pages)
     start = page * page_size
     end = start + page_size
     page_items = items[start:end]
@@ -1056,7 +1066,7 @@ def get_downloads_queue_keyboard(
 
 
 def get_downloads_history_keyboard(
-    items: list, page: int, page_size: int = 5,
+    items: list, page: int, page_size: int = DL_PAGE_SIZE,
     client: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     """Get keyboard for downloads history view.
@@ -1070,6 +1080,7 @@ def get_downloads_history_keyboard(
     keyboard = []
 
     total_pages = max(1, -(-len(items) // page_size))
+    page = clamp_page(page, total_pages)
     start = page * page_size
     end = start + page_size
     page_items = items[start:end]

@@ -12,6 +12,8 @@ from src.services.sabnzbd import SABnzbdService
 from src.services.transmission import TransmissionService
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
+    DL_PAGE_SIZE,
+    clamp_page,
     get_downloads_queue_keyboard,
     get_downloads_history_keyboard,
 )
@@ -296,6 +298,14 @@ class DownloadsHandler:
                 show_alert=True,
             )
 
+    @staticmethod
+    def _clamp_dl_page(context, page, items):
+        """Clamp the page to the item count and remember it."""
+        total_pages = -(-len(items) // DL_PAGE_SIZE)
+        page = clamp_page(page, total_pages)
+        context.user_data["dl_page"] = page
+        return page
+
     async def _refresh_current_view(self, query, context):
         """Re-fetch data and edit the message for the current tab/page."""
         tab = context.user_data.get("dl_tab", "queue")
@@ -305,12 +315,14 @@ class DownloadsHandler:
 
         if tab == "history" and self._show_history_tab(context):
             history = await service.get_history()
+            page = self._clamp_dl_page(context, page, history["items"])
             text = self._format_history_text(history, page=page)
             keyboard = get_downloads_history_keyboard(
                 history["items"], page=page, client=client_param,
             )
         else:
             queue = await service.get_queue_details()
+            page = self._clamp_dl_page(context, page, queue["items"])
             text = self._format_queue_text(queue)
             keyboard = get_downloads_queue_keyboard(
                 queue["items"],
@@ -345,7 +357,7 @@ class DownloadsHandler:
 
         return "\n".join(lines)
 
-    def _format_history_text(self, history, page=0, page_size=5):
+    def _format_history_text(self, history, page=0, page_size=DL_PAGE_SIZE):
         """Format history data into display text for the given page."""
         t = self.translation.get_text
         title = t("DownloadsHistoryTitle")

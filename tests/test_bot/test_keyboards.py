@@ -7,6 +7,7 @@ from telegram import InlineKeyboardMarkup
 from src.bot.keyboards import (
     DELETE_PAGE_SIZE,
     _build_pagination_row,
+    clamp_page,
     get_delete_items_keyboard,
     get_downloads_history_keyboard,
     get_downloads_queue_keyboard,
@@ -2232,6 +2233,51 @@ class TestHistoryEmptyKeyboard:
 
 def _row_callbacks(row):
     return [btn.callback_data for btn in row]
+
+
+class TestClampPage:
+    """Tests for clamp_page"""
+
+    def test_in_range_is_unchanged(self):
+        assert clamp_page(1, 3) == 1
+
+    def test_past_end_gives_last_page(self):
+        assert clamp_page(9, 3) == 2
+
+    def test_negative_gives_first_page(self):
+        assert clamp_page(-4, 3) == 0
+
+    def test_no_pages_gives_zero(self):
+        assert clamp_page(5, 0) == 0
+
+
+class TestDownloadsKeyboardsClampPage:
+    """A page past the last page shows the last page with its nav row"""
+
+    ITEMS = [
+        {"nzo_id": f"nzo_{i}", "title": f"T{i}", "status": "Queued",
+         "progress": 0, "name": f"N{i}", "size": "1 GB"}
+        for i in range(6)
+    ]
+
+    @staticmethod
+    def _buttons(result):
+        return [btn for row in result.inline_keyboard for btn in row]
+
+    def test_queue_keyboard_past_end_shows_last_page(self):
+        buttons = self._buttons(
+            get_downloads_queue_keyboard(self.ITEMS, page=9)
+        )
+        assert "2/2" in [b.text for b in buttons]
+        assert "dl_page_0" in [b.callback_data for b in buttons]
+        assert "dl_pause_nzo_5" in [b.callback_data for b in buttons]
+
+    def test_history_keyboard_past_end_shows_last_page(self):
+        buttons = self._buttons(
+            get_downloads_history_keyboard(self.ITEMS, page=9)
+        )
+        assert "2/2" in [b.text for b in buttons]
+        assert any("N5" in b.text for b in buttons)
 
 
 class TestPaginationRow:
