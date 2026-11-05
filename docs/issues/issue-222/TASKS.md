@@ -73,7 +73,7 @@ Run every test and gate through the suite lock (`<lock>` in the addarr-workflow 
         - `tests/test_bot/test_keyboards.py`: `test_filter_active_highlight` now expects the check mark; added 2 refresh-label tests
     - **Notes:** `get_history_items_keyboard` still calls `TranslationService()` for the filter labels, Previous, Next and Back.
 
-- [ ] **1.4** F120: /help lists the registered commands
+- [x] **1.4** F120: /help lists the registered commands
     - **Context:**
         - **Why:** /help omits `/preferences`, `/webhooks`, `/upcoming`, `/missing`, `/queue`, `/history`, `/downloads` and lists `/library`, which has no handler.
         - **Architecture:** Gate each section as `build_authenticated_commands()` (`src/bot/commands.py:31-83`) gates it. New keys, in all 10 files after `HelpMediaMusic`: `HelpCalendar` (two lines; radarr or sonarr), `HelpQueue` (radarr, sonarr or lidarr), `HelpHistory` (radarr or sonarr), `HelpDownloads` (sabnzbd or transmission). `/preferences` and `/webhooks` go into `HelpBasicCommands` ungated; its `/library` line goes.
@@ -88,6 +88,16 @@ Run every test and gate through the suite lock (`<lock>` in the addarr-workflow 
         - [GREEN] Add the four gated sections to `_build_help_text` (calendar, queue, history after the media sections; downloads after the transmission and sabnzbd lines)
         - [GREEN] Edit the 10 translation files (`@i18n-key`)
     - **Success:** The new tests fail before and pass after; `PYTHONIOENCODING=utf-8 <lock> .venv/bin/python run.py --validate-i18n` prints `All translations are valid!`; handlers scoped run passes
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The parity test compares `re.findall(r"/(\w+) -", help_text)` to `{c.command for c in build_authenticated_commands()}`. It caught `/library` as an extra and 5 gated commands as missing, so help and registration cannot drift again without a red test.
+        - `build_authenticated_commands()` and `_build_help_text` read `config` in separate modules, so the parity test patches both.
+        - A venv built before the `[job-queue]` pin made every integration test error with `No JobQueue set up`. Re-run `pip install -r requirements.txt -r requirements-test.txt` after merging `development`.
+    - **Key Changes:**
+        - `src/bot/handlers/help.py`: `_build_help_text` reads the service flags once and adds `HelpCalendar`, `HelpQueue`, `HelpHistory` and `HelpDownloads` with the `build_authenticated_commands()` gates
+        - `translations/addarr.*.yml` (10 files): `/library` line replaced by `/preferences` and `/webhooks`; 4 new keys after `HelpMediaMusic`
+        - `tests/test_handlers/test_help_handler.py`: 10 tests (2 real en-us, 8 parity); `tests/integration/test_auth_flow.py`: asserts the menu message after a correct password
+    - **Notes:** Values of the new keys and the two new `HelpBasicCommands` lines are English in the 8 locales, as the rest of the Help block is. #224 (F210) must translate `HelpCalendar`, `HelpQueue`, `HelpHistory`, `HelpDownloads` and the `/preferences` and `/webhooks` lines of `HelpBasicCommands`.
 
 ### Phase 2: Verify (1 task)
 
