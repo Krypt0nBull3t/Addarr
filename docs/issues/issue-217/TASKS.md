@@ -167,7 +167,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Key Changes:** `handle_library_selection` (not enabled, error, empty) and `handle_page_navigation` (expired) pass `get_back_keyboard("menu_library")`. Added the parametrized `test_library_callback_dead_ends_have_back_button`.
     - **Notes:** Handlers scoped run: 701 tests, 100% coverage. Integration tests pass.
 
-- [ ] **2.2** [should-fix] Answer first in system details and disk space, drop the failure toasts and their keys (from Krypt0nBull3t, `system.py:150`)
+- [x] **2.2** [should-fix] Answer first in system details and disk space, drop the failure toasts and their keys (from Krypt0nBull3t, `system.py:150`)
     - **Context:**
         - **Why:** `_handle_details` and `_handle_diskspace` answer after the slow health call, so Telegram can keep the spinner or expire the callback.
         - **Architecture:** `await query.answer()` first in each handler. A second `answer(text)` in the `except` branch would answer the same query twice, so the two failure toasts go. The edited message already shows the error text. The keys `StatusDetailsFailed` and `DiskSpaceFailed` then have no use: delete them from the template and the 9 locales (`i18n-key` skill).
@@ -180,3 +180,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
         - [RED] Write error-path tests: details and disk space still edit the error text, and answer exactly once.
         - [GREEN] Move `answer()` first; remove the failure `answer(text)` calls; delete the two keys in all 10 files.
     - **Success:** New tests fail before and pass after. `--validate-i18n`, the handlers run, flake8 and mypy pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:** Task 1.3 moved `answer()` before the edit but still after the slow service call, so the spinner could still expire. A failure toast after an earlier `answer()` would be a second answer to one query, so the toasts went; the edited message already carries the error text. Old issue notes (`issue-98`, `issue-108`) still name the two keys; they are history and stay.
+    - **Key Changes:** `_handle_details` and `_handle_diskspace` in `src/bot/handlers/system.py` call `await query.answer()` before the `try`; the failure `answer(text)` calls are gone. `StatusDetailsFailed` and `DiskSpaceFailed` are deleted from the template and the 9 locales. Added two answer-order tests and tightened two error-path tests.
+    - **Notes:** Handlers scoped run: 703 tests, 100% coverage. `--validate-i18n`, mypy, integration and architecture tests pass.

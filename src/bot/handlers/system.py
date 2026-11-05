@@ -144,10 +144,10 @@ class SystemHandler:
 
     async def _handle_details(self, query):
         """Show detailed per-service health information."""
+        await query.answer()
         try:
             results = await health_service.run_health_checks()
             details_text = self._build_details_text(results)
-            await query.answer()
             await edit_text_ignoring_unmodified(
                 query.message,
                 details_text,
@@ -159,16 +159,13 @@ class SystemHandler:
                 self.translation.get_text("StatusDetailsError"),
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer(
-                self.translation.get_text("StatusDetailsFailed")
-            )
 
     async def _handle_diskspace(self, query):
         """Show disk space information from the first available *arr service."""
+        await query.answer()
         try:
             drives = await health_service.get_disk_space()
             text = _build_disk_space_text(drives, self.translation)
-            await query.answer()
             await edit_text_ignoring_unmodified(
                 query.message,
                 text,
@@ -180,9 +177,6 @@ class SystemHandler:
             await query.message.edit_text(
                 self.translation.get_text("DiskSpaceError", default="Error retrieving disk space."),
                 reply_markup=get_system_keyboard(),
-            )
-            await query.answer(
-                self.translation.get_text("DiskSpaceFailed", default="Failed to get disk space.")
             )
 
     async def _handle_back(self, query):

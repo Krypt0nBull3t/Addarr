@@ -241,6 +241,7 @@ async def test_handle_details_error(system_handler, make_update, make_context):
     await system_handler.handle_system_action(update, context)
 
     system_handler._mock_ts.get_text.assert_any_call("StatusDetailsError")
+    update.callback_query.answer.assert_awaited_once_with()
 
 
 # ---------------------------------------------------------------------------
@@ -431,7 +432,8 @@ async def test_handle_diskspace_error(system_handler, make_update, make_context)
 
     # get_text is called with default= kwarg
     calls = [c[0][0] for c in system_handler._mock_ts.get_text.call_args_list]
-    assert "DiskSpaceFailed" in calls
+    assert "DiskSpaceError" in calls
+    update.callback_query.answer.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio
@@ -497,3 +499,47 @@ async def test_handle_diskspace_unchanged_message(
         c.args != ("DiskSpaceError",)
         for c in system_handler._mock_ts.get_text.call_args_list
     )
+
+
+@pytest.mark.asyncio
+async def test_details_answers_before_health_check(
+    system_handler, make_update, make_context
+):
+    """system_details stops the spinner before the slow health call."""
+    order = []
+
+    async def slow_health():
+        order.append("service")
+        return {"media_services": [], "download_clients": []}
+
+    system_handler._mock_health.run_health_checks = slow_health
+    update = make_update(callback_data="system_details")
+    update.callback_query.answer.side_effect = (
+        lambda *a, **k: order.append("answer")
+    )
+
+    await system_handler.handle_system_action(update, make_context())
+
+    assert order == ["answer", "service"]
+
+
+@pytest.mark.asyncio
+async def test_diskspace_answers_before_service_call(
+    system_handler, make_update, make_context
+):
+    """system_diskspace stops the spinner before the slow service call."""
+    order = []
+
+    async def slow_disk_space():
+        order.append("service")
+        return RADARR_DISK_SPACE
+
+    system_handler._mock_health.get_disk_space = slow_disk_space
+    update = make_update(callback_data="system_diskspace")
+    update.callback_query.answer.side_effect = (
+        lambda *a, **k: order.append("answer")
+    )
+
+    await system_handler.handle_system_action(update, make_context())
+
+    assert order == ["answer", "service"]
