@@ -163,6 +163,32 @@ async def test_show_help_callback_has_back_button(make_update, make_context):
 
 
 @pytest.mark.asyncio
+async def test_show_help_command_disables_link_preview(make_update, make_context):
+    """The /help reply turns the link preview off with link_preview_options."""
+    with _help_patches():
+        handler = _make_handler()
+        update = make_update(text="/help")
+        await handler.show_help(update, make_context())
+
+        kwargs = update.message.reply_text.call_args.kwargs
+        assert kwargs["link_preview_options"].is_disabled is True
+        assert "disable_web_page_preview" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_show_help_callback_disables_link_preview(make_update, make_context):
+    """The Help callback edit turns the link preview off with link_preview_options."""
+    with _help_patches():
+        handler = _make_handler()
+        update = make_update(callback_data="menu_help")
+        await handler.show_help(update, make_context())
+
+        kwargs = update.callback_query.message.edit_text.call_args.kwargs
+        assert kwargs["link_preview_options"].is_disabled is True
+        assert "disable_web_page_preview" not in kwargs
+
+
+@pytest.mark.asyncio
 async def test_show_help_no_user(make_update, make_context):
     """show_help returns when no effective_user."""
     with _help_patches():

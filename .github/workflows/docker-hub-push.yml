@@ -33,6 +33,12 @@ jobs:
         run: |
           echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
 
+      - name: Read version
+        run: |
+          VERSION=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/__init__.py)
+          test -n "$VERSION"
+          echo "VERSION=${VERSION}" >>"${GITHUB_ENV}"
+
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v7
@@ -41,7 +47,9 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm
           file: ./Dockerfile
           push: true
-          tags: ${{env.REPO}}:latest
+          tags: |
+            ${{ env.REPO }}:latest
+            ${{ env.REPO }}:${{ env.VERSION }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

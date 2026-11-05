@@ -12,6 +12,11 @@ DOCKERFILE_PATH = os.path.join(
 )
 
 
+def _joined(dockerfile_lines):
+    """Dockerfile text with continuation lines joined."""
+    return "".join(dockerfile_lines).replace("\\\n", " ")
+
+
 @pytest.fixture
 def dockerfile_lines():
     """Read Dockerfile lines for inspection."""
@@ -40,7 +45,7 @@ class TestDockerfileSecurity:
     @staticmethod
     def _healthcheck_command(dockerfile_lines):
         """The command of the HEALTHCHECK instruction (continuation lines joined)."""
-        text = "".join(dockerfile_lines).replace("\\\n", " ")
+        text = _joined(dockerfile_lines)
         match = re.search(r"^HEALTHCHECK\s.*?\bCMD\s+(.*)$", text, re.MULTILINE)
         assert match, "HEALTHCHECK must have a CMD"
         return match.group(1).strip()
@@ -99,3 +104,56 @@ class TestDockerfileSecurity:
         """
         full_text = "".join(dockerfile_lines)
         assert "/app/data" in full_text
+
+
+class TestDockerfileReproducibleBuild:
+    """The image installs the pinned requirements and nothing newer."""
+
+    def test_requirements_install_has_no_upgrade(self, dockerfile_lines):
+        """--upgrade on the requirements install lifts a pinned package."""
+        install = [
+            part
+            for part in _joined(dockerfile_lines).split("&&")
+            if "-r requirements.txt" in part
+        ]
+        assert len(install) == 1
+        assert "--upgrade" not in install[0]
+
+    def test_pip_is_upgraded_before_requirements(self, dockerfile_lines):
+        """The base image's pip has advisories; 26.2 fixes them."""
+        text = _joined(dockerfile_lines)
+        assert '"pip>=26.2"' in text
+        assert text.index('"pip>=26.2"') < text.index("-r requirements.txt")
+
+
+DOCKERIGNORE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), ".dockerignore"
+)
+
+
+@pytest.fixture
+def dockerignore_entries():
+    """Non-blank, non-comment lines of .dockerignore."""
+    with open(DOCKERIGNORE_PATH, "r") as f:
+        lines = [line.strip() for line in f]
+    return [line for line in lines if line and not line.startswith("#")]
+
+
+class TestDockerignore:
+    """The image holds what the bot needs and no development files."""
+
+    @pytest.mark.parametrize(
+        "folder", ["graphify-out/", "tests/", "docs/", ".claude/"]
+    )
+    def test_dockerignore_excludes_dev_folders(self, dockerignore_entries, folder):
+        assert folder in dockerignore_entries
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "src", "src/", "translations", "translations/", "run.py",
+            "config_example.yaml", "requirements.txt",
+        ],
+    )
+    def test_dockerignore_keeps_runtime_files(self, dockerignore_entries, path):
+        assert path not in dockerignore_entries

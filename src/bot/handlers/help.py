@@ -7,7 +7,7 @@ Description: Help handler module.
 This module provides help and command information to users.
 """
 
-from telegram import Update
+from telegram import LinkPreviewOptions, Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
@@ -89,14 +89,14 @@ class HelpHandler:
             await update.callback_query.message.edit_text(
                 help_text,
                 parse_mode='Markdown',
-                disable_web_page_preview=True,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 reply_markup=get_back_keyboard("menu_back"),
             )
         else:
             await update.message.reply_text(
                 help_text,
                 parse_mode='Markdown',
-                disable_web_page_preview=True,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
 
     @require_auth
