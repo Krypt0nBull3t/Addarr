@@ -117,7 +117,9 @@ async def test_movie_default_profile_skips_quality_picker(harness):
 
         assert resp is not None
         assert "added" in resp.text.lower()
-        add_with_profile.assert_awaited_once_with("550", 2, "/movies")
+        add_with_profile.assert_awaited_once_with(
+            "550", 2, "/movies", lookup=MOVIE_QUALITY_RESULT["movie"]
+        )
 
 
 @pytest.mark.asyncio

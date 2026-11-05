@@ -41,7 +41,9 @@ async def validate_service_connection(
     path = SERVICE_PATHS[service]
     full_url = f"{protocol}://{url}:{port}{path}"
     headers = _build_headers(service, apikey)
-    params = {"mode": "version"} if service == "sabnzbd" else {}
+    # SABnzbd answers mode=version without a key, so check a mode that needs it.
+    params = {"mode": "queue", "apikey": apikey or ""} if service == "sabnzbd" else {}
+    expected_key = "queue" if service == "sabnzbd" else "version"
 
     try:
         print(f"{Fore.YELLOW}Testing connection to {full_url}...")
@@ -68,7 +70,7 @@ async def validate_service_connection(
                 if response.status == 200:
                     try:
                         data = await response.json()
-                        if "version" in data:
+                        if expected_key in data:
                             print(
                                 f"{Fore.GREEN}✅ Service API "
                                 f"responded successfully"

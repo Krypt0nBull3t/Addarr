@@ -51,7 +51,7 @@ class WebhookService:
     _running: bool = False
     _runner: Optional[web.AppRunner] = None
     _port: int = 8080
-    _host: str = "0.0.0.0"
+    _host: str = "127.0.0.1"
     _warned_no_secret: set[str] = set()
 
     def __new__(cls):
@@ -67,7 +67,7 @@ class WebhookService:
         cls._running = False
         cls._runner = None
         cls._port = 8080
-        cls._host = "0.0.0.0"
+        cls._host = "127.0.0.1"
         cls._warned_no_secret = set()
 
         webhook_config = config.get("webhooks", {})
@@ -75,7 +75,7 @@ class WebhookService:
             return
 
         cls._port = webhook_config.get("port", 8080)
-        cls._host = webhook_config.get("host", "0.0.0.0")
+        cls._host = webhook_config.get("host", "127.0.0.1")
         cls._enabled = True
         logger.info("WebhookService initialized")
 
@@ -104,8 +104,13 @@ class WebhookService:
         if provided_secret is None:
             return False
 
-        # str(): YAML loads an all-digit secret as int
-        return hmac.compare_digest(str(provided_secret), str(configured_secret))
+        # str(): YAML loads an all-digit secret as int. Compare bytes:
+        # compare_digest raises TypeError on a non-ASCII str, and aiohttp
+        # decodes headers with surrogateescape.
+        return hmac.compare_digest(
+            str(provided_secret).encode("utf-8", "surrogateescape"),
+            str(configured_secret).encode("utf-8", "surrogateescape"),
+        )
 
     def _is_event_enabled(self, event_type: WebhookEventType) -> bool:
         """Check if the given event type is enabled in config."""
@@ -179,10 +184,22 @@ class WebhookService:
 
         return web.Response(status=200, text="OK")
 
+    @staticmethod
+    def _warn_if_admin_notify_missing() -> None:
+        """Warn once: without adminNotifyId every event is dropped silently."""
+        notify_id = (config.get("logging") or {}).get("adminNotifyId")
+        if not notify_id or str(notify_id).strip() == "0":
+            logger.warning(
+                "Webhook events will be dropped: logging.adminNotifyId is "
+                "empty or 0. Set it to a Telegram chat ID in config.yaml."
+            )
+
     async def start(self):
         """Start the webhook HTTP server."""
         if not self._enabled:
             return
+
+        self._warn_if_admin_notify_missing()
 
         try:
             app = self._create_app()

@@ -9,7 +9,8 @@ from typing import Optional, List, Dict
 from colorama import Fore
 
 from src.api.base import (
-    APIError, BaseApiClient, filter_quality_profiles, filter_root_folders
+    APIError, BaseApiClient, HISTORY_EVENT_TYPES, filter_quality_profiles,
+    filter_root_folders
 )
 from src.config.settings import config
 from src.utils.logger import get_logger
@@ -60,13 +61,6 @@ class RadarrClient(BaseApiClient):
         """Get movie details by TMDB ID"""
         try:
             logger.info(f"🔍 Looking up movie with TMDB ID: {tmdb_id}")
-            results = await self._request(f"movie/lookup/tmdb/{tmdb_id}")
-
-            if results:
-                logger.info(f"✅ Found movie: {results.get('title')}")
-                return results
-
-            # Fallback to search with tmdb: prefix if direct lookup fails
             results = await self._request(f"movie/lookup?term=tmdb:{tmdb_id}")
             if results and len(results) > 0:
                 logger.info(f"✅ Found movie: {results[0].get('title')}")
@@ -118,16 +112,14 @@ class RadarrClient(BaseApiClient):
             logger.error(f"❌ Failed to get quality profiles: {str(e)}")
             return []
 
-    async def add_movie(self, tmdb_id: int, root_folder: str, quality_profile_id: int) -> tuple[bool, str]:
-        """Add a movie to Radarr"""
+    async def add_movie(self, tmdb_id: int, root_folder: str, quality_profile_id: int,
+                        lookup: Optional[Dict] = None) -> tuple[bool, str]:
+        """Add a movie to Radarr. `lookup` is the lookup result, when the caller has it."""
         try:
-            # Get movie details from search results
-            lookup_response = await self._request(f"movie/lookup?term=tmdb:{tmdb_id}")
-            if not lookup_response or not isinstance(lookup_response, list) or not lookup_response[0]:
+            movie = lookup or await self.get_movie(str(tmdb_id))
+            if not movie:
                 logger.error(f"❌ No movie found with TMDB ID: {tmdb_id}")
                 return False, "Movie not found"
-
-            movie = lookup_response[0]  # Use first result
 
             features = config.get("radarr", {}).get("features", {})
             data = {
@@ -182,6 +174,7 @@ class RadarrClient(BaseApiClient):
             logger.info(Fore.BLUE + "📥 Getting download queue from Radarr")
             result = await self._request(
                 "queue?sortKey=title&sortDirection=ascending&pageSize=1000"
+                "&includeMovie=true"
             )
 
             if not result or not isinstance(result, dict):
@@ -262,9 +255,10 @@ class RadarrClient(BaseApiClient):
             endpoint = (
                 f"history?sortKey=date&sortDirection=descending"
                 f"&page={page}&pageSize={page_size}"
+                "&includeMovie=true"
             )
             if event_type:
-                endpoint += f"&eventType={event_type}"
+                endpoint += f"&eventType={HISTORY_EVENT_TYPES[event_type]}"
 
             result = await self._request(endpoint)
 

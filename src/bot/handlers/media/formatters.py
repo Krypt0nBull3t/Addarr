@@ -141,23 +141,18 @@ def build_result_caption(result, index=None, total=None):
             if rt_rating and rt_rating != "N/A":
                 rt_rating = f"{rt_rating}%"
                 caption += f"🍅 Rotten Tomatoes: {rt_rating}\n"
-        elif "tmdb" in ratings:
-            tmdb_rating = ratings["tmdb"]
-            if tmdb_rating != "N/A":
-                rating_value = f"{float(tmdb_rating):.1f}/10"
+        elif "value" in ratings:
+            rating = ratings["value"]
+            if rating != "N/A":
+                rating_value = f"{float(rating):.1f}/10"
                 votes = ratings.get("votes", 0)
-                caption += f"📊 TMDB: {rating_value} ({votes:,} votes)\n"
+                caption += f"📊 Rating: {rating_value} ({votes:,} votes)\n"
 
-    if "studio" in result:
-        studio = result.get("studio", "N/A")
-        if "network" in result:
-            network = result.get("network", "N/A")
-            if studio and studio != network:
-                caption += f"📺 Network: {escape(str(network))} ({escape(str(studio))})\n"
-            else:
-                caption += f"📺 Network: {escape(str(network))}\n"
-        else:
-            caption += f"🎬 Studio: {escape(str(studio))}\n"
+    # A series has a network and no studio; a movie has a studio.
+    if "network" in result:
+        caption += f"📺 Network: {escape(str(result['network']))}\n"
+    elif "studio" in result:
+        caption += f"🎬 Studio: {escape(str(result['studio']))}\n"
 
     if "runtime" in result and result["runtime"] != "N/A":
         caption += f"⏱️ Runtime: {result['runtime']} minutes\n"
