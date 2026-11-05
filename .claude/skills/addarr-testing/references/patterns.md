@@ -257,6 +257,8 @@ def test_get_handler_returns_list():
     assert len(handlers) > 0
 ```
 
+To check that a callback is registered, match the handler's `pattern`: `[h for h in conv.states[STATE] if h.pattern.match("wh_back")]`. `check_update` needs a real `Update`, and `make_update` returns a `MagicMock`, so it always gives False. A `fallbacks` list can hold a `CommandHandler`, which has no `pattern`: filter with `getattr(f, "pattern", None)`.
+
 ---
 
 ## Integration Tests
@@ -339,6 +341,7 @@ async def test_movie_happy_path(harness):
 - **Use `new_callable=AsyncMock`** for async service methods.
 - **Check `harness.responses`** (plural) when a step produces multiple bot messages (e.g., photo + text).
 - **Verify conversation state** with `harness.get_conversation_state("media_conversation", 12345, 12345)` to confirm state transitions or conversation end (`None`).
+- **`reply_markup` of a captured response is a JSON string**, not a dict: `json.loads` it before reading `inline_keyboard` (see `_buttons` in `tests/integration/test_webhooks_flow.py`).
 - **Test data** goes in `tests/integration/fixtures.py` — reuse existing constants where possible.
 - **A `conversation_timeout` needs a running job queue.** The harness setup in `tests/integration/conftest.py` awaits `app.job_queue.start()` (a coroutine in PTB 22.8) and `stop(wait=False)`, because the harness never calls `Application.start()`. Without it PTB only warns, and the suite turns the warning into an error.
 - **Tap from another message** with `harness.tap_button("quality_1", message_id=999)` to test a stale keyboard. The default is message 100. In a unit test, reuse one update across calls when the handler compares `query.message.message_id`: a new update has a new message id.
