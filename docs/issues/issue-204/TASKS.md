@@ -112,7 +112,7 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
         - Tests and fixtures: `tests/fixtures/sample_data.py` and `tests/integration/fixtures.py` use the Sonarr spec shape (`ratings.value`, no studio) for series.
     - **Notes:** The `ratings` key `"tmdb"` is now `"value"` in the series result dict. Nothing else in `src/` reads it.
 
-- [ ] **3.2** F043 document "Sonarr v4 required"
+- [x] **3.2** F043 document "Sonarr v4 required"
     - **Context:**
         - **Why:** Sonarr v3 needs `languageProfileId`. Decided 2026-10-28: document v4, no code change (`src/api/sonarr.py` `add_series` stays).
         - **Architecture:** Docs only.
@@ -123,3 +123,9 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
     - **Action items:**
         - [GREEN] Add "Sonarr v4 (v3 is not supported)" to the README prerequisites and a "Sonarr v4 is required" comment to `config_example.yaml`.
     - **Success:** architecture tests pass, `run.py --validate-i18n` unaffected, `config_example.yaml` still loads.
+    - **Completed:** 2026-11-05
+    - **Learnings:** Docs only, so no test can fail first (the issue says "Docs only, no test"). The config tests and architecture tests still pass with the comment in `config_example.yaml`.
+    - **Key Changes:**
+        - `README.md`: prerequisite line "Sonarr v4 is required (Sonarr v3 is not supported)".
+        - `config_example.yaml`: same comment above the `sonarr:` section.
+    - **Notes:** `src/api/sonarr.py` `add_series` is unchanged: no `languageProfileId` for v3.
