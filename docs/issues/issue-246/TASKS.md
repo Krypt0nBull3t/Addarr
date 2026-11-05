@@ -27,7 +27,7 @@ Plan: `docs/issues/issue-246/plan.md`. The developer approved the plan and the o
         - Added `commit_id: context.payload.workflow_run.head_sha,` to the `Approve PR` step in `.github/workflows/auto-approve.yml`.
     - **Notes:** Seen RED first (assertion on the missing line), then GREEN. 158 architecture tests pass.
 
-- [ ] **1.2** ADR 0006 and the ADR 0004 note
+- [x] **1.2** ADR 0006 and the ADR 0004 note
     - **Context:**
         - **Why:** The decision must be on record (issue item 4). ADR 0004 says protection needs "1 approving review" only; it is now out of date.
         - **Architecture:** ADRs are `docs/adr/NNNN-<slug>.md` with Status, Context, Decision and Consequences (see `docs/adr/0004-prs-target-development.md`).
@@ -39,6 +39,13 @@ Plan: `docs/issues/issue-246/plan.md`. The developer approved the plan and the o
         - [GREEN] Write ADR 0006: title `# 0006. A push dismisses earlier approvals`, `**Status:** Accepted. Recorded 2026-11-05.`, then Context, Decision, Consequences as in the plan.
         - [GREEN] Add to ADR 0004 after the sentence ending "and Docker Build.": `Since 2026-11-05 a push also dismisses earlier approvals and the last pusher cannot approve (see ADR 0006).`
     - **Success:** `tests/test_architecture` passes; both files read correctly.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - No test pins ADR files, so a docs-only task has no RED step; the architecture suite guards only paths named in `CLAUDE.md`.
+    - **Key Changes:**
+        - Created `docs/adr/0006-dismiss-stale-approvals.md` (settings read 2026-11-05, the `commit_id` rule, fork PR behaviour).
+        - Added one sentence to `docs/adr/0004-prs-target-development.md` that points to ADR 0006.
+    - **Notes:** ADR 0006 states that changing the two settings needs repo admin rights and a new ADR.
 
 - [ ] **1.3** `CLAUDE.md` CI/CD section
     - **Context:**

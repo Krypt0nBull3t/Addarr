@@ -12,7 +12,7 @@
 - Only release PRs from `development` to `main` target `main`.
 - PRs merge with a regular merge commit (`gh pr merge --merge`, the "Merge pull request" button). Never squash or rebase.
 
-Branch protection on `development` (as of 2026-11-04) requires 1 approving review and these status checks from `.github/workflows/ci.yml`: Lint, Type Check, Validate Translations, Unit Tests, Integration Tests, Architecture Tests, Compatibility (3.10, 3.12, 3.13, 3.14) and Docker Build.
+Branch protection on `development` (as of 2026-11-04) requires 1 approving review and these status checks from `.github/workflows/ci.yml`: Lint, Type Check, Validate Translations, Unit Tests, Integration Tests, Architecture Tests, Compatibility (3.10, 3.12, 3.13, 3.14) and Docker Build. Since 2026-11-05 a push also dismisses earlier approvals and the last pusher cannot approve (see ADR 0006).
 
 ## Consequences
 
