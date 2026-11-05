@@ -21,6 +21,7 @@ from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
+    get_main_menu_keyboard,
     get_settings_keyboard,
     get_language_keyboard,
     get_quality_profile_keyboard,
@@ -111,6 +112,10 @@ class SettingsHandler:
                         CallbackQueryHandler(
                             self.handle_quality_select,
                             pattern="^setquality_"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_service_menu,
+                            pattern="^settings_(radarr|sonarr|lidarr)$"
                         ),
                         CallbackQueryHandler(
                             self.handle_settings_from_callback,
@@ -601,7 +606,7 @@ class SettingsHandler:
                 [
                     InlineKeyboardButton(
                         f"◀️ {self.translation.get_text('Back')}",
-                        callback_data="dl_back"
+                        callback_data="dl_sabnzbd"
                     ),
                 ],
             ]
@@ -716,7 +721,8 @@ class SettingsHandler:
         query = update.callback_query
         await query.answer()
         await query.message.edit_text(
-            self.translation.get_text("End", default="Done.")
+            "\U0001f3e0 Main Menu",
+            reply_markup=get_main_menu_keyboard(),
         )
         return ConversationHandler.END
 

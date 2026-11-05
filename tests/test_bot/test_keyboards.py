@@ -562,7 +562,8 @@ class TestQualityProfileKeyboard:
             for row in result.inline_keyboard
             for button in row
         ]
-        assert "settings_back" in callback_data_values
+        assert callback_data_values[-1] == "settings_radarr"
+        assert "settings_back" not in callback_data_values
 
     @patch("src.bot.keyboards.TranslationService")
     def test_current_profile_has_checkmark(self, mock_ts):

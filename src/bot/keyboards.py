@@ -323,7 +323,7 @@ def get_quality_profile_keyboard(
     keyboard.append([
         InlineKeyboardButton(
             f"◀️ {translation.get_text('Back')}",
-            callback_data="settings_back"
+            callback_data=f"settings_{service}"
         )
     ])
     return InlineKeyboardMarkup(keyboard)

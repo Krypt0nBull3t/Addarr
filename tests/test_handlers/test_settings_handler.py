@@ -954,6 +954,50 @@ class TestMisc:
         assert result == ConversationHandler.END
 
     @pytest.mark.asyncio
+    async def test_back_from_settings_shows_main_menu_before_end(
+        self, settings_handler, make_update, make_context
+    ):
+        """Back from settings leaves the main menu keyboard on the message"""
+        from src.bot.keyboards import get_main_menu_keyboard
+
+        update = make_update(callback_data="settings_back")
+
+        await settings_handler.handle_back(update, make_context())
+
+        call = update.callback_query.message.edit_text.call_args
+        assert "Main Menu" in call.args[0]
+        assert (
+            call.kwargs["reply_markup"].to_dict()
+            == get_main_menu_keyboard().to_dict()
+        )
+
+    @pytest.mark.asyncio
+    async def test_sab_speed_back_callback_is_sab_menu(
+        self, settings_handler, make_update, make_context
+    ):
+        """Back from the SAB speed screen goes to the SABnzbd settings"""
+        update = make_update(callback_data="dl_sab_speed")
+
+        await settings_handler.handle_sabnzbd_speed(update, make_context())
+
+        markup = update.callback_query.message.edit_text.call_args.kwargs[
+            "reply_markup"
+        ]
+        assert markup.inline_keyboard[-1][0].callback_data == "dl_sabnzbd"
+
+    def test_quality_state_routes_service_menu_back(self, settings_handler):
+        """The quality state routes settings_<service> to the service menu"""
+        conversation = settings_handler.get_handler()[0]
+        handlers = conversation.states[States.SETTINGS_QUALITY]
+
+        routed = [
+            h for h in handlers
+            if h.callback == settings_handler.handle_service_menu
+            and h.pattern.match("settings_radarr")
+        ]
+        assert len(routed) == 1
+
+    @pytest.mark.asyncio
     async def test_handle_cancel_callback(
         self, settings_handler, make_update, make_context
     ):

@@ -103,7 +103,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Key Changes:** `HelpHandler.show_help` adds a `menu_back` button on the callback path. `LibraryHandler._build_page_message` always returns a markup with a `menu_library` Back row. `BazarrHandler._get_back_keyboard()` gives all four wanted replies a `bazarr_menu` Back button. Added 9 test cases (one parametrized Bazarr test) and updated `test_pagination_single_page`.
     - **Notes:** Handlers scoped run: 694 tests, 100% coverage. mypy, integration and architecture tests pass. Task 1.7 covers the Help Back flow end to end.
 
-- [ ] **1.6** F112: Back goes to the parent screen
+- [x] **1.6** F112: Back goes to the parent screen
     - **Context:**
         - **Why:** Back from SAB speed (`dl_back`) and from quality (`settings_back`) both land on the settings root. Back from Settings ends with the "End" text and no keyboard.
         - **Architecture:** `SettingsHandler` conversation. SAB speed Back becomes `dl_sabnzbd` (state `SETTINGS_DOWNLOADS` already routes it). Quality Back becomes `settings_<service>`; add a `handle_service_menu` handler for `^settings_(radarr|sonarr|lidarr)$` to state `SETTINGS_QUALITY`. `handle_back` edits to the main menu before END.
@@ -118,6 +118,10 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
         - [RED] Write `test_back_from_settings_shows_main_menu_before_end` (main menu keyboard, returns `END`).
         - [GREEN] Make the four changes.
     - **Success:** New tests fail before and pass after. `test_settings_handler.py` and keyboard tests pass. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** `test_get_quality_profile_keyboard_has_back_button` and the integration test `test_settings_back_ends_conversation` pinned the old behavior ("settings_back" and the "Done." text). Both changed on purpose. The harness gives `reply_markup` as a serialized value, so check it with `in`, not by indexing. `handle_cancel` keeps the "Done." text; only Back changed.
+    - **Key Changes:** `get_quality_profile_keyboard` Back is `settings_<service>`. `SETTINGS_QUALITY` routes `^settings_(radarr|sonarr|lidarr)$` to `handle_service_menu`. SAB speed Back is `dl_sabnzbd`. `handle_back` edits to the main menu text and keyboard, then returns END. New tests in `test_settings_handler.py`, updated keyboard and integration tests.
+    - **Notes:** Handlers scoped run: 697 tests, 100% coverage. Keyboard, integration and architecture tests pass.
 
 - [ ] **1.7** Integration flows for the Back paths
     - **Context:**

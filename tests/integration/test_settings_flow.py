@@ -66,14 +66,15 @@ async def test_settings_language_flow(harness):
 
 @pytest.mark.asyncio
 async def test_settings_back_ends_conversation(harness):
-    """settings -> back ends the conversation."""
+    """settings -> back ends the conversation on the main menu."""
     with patch("src.bot.handlers.settings.is_admin", return_value=True):
         await harness.send_command("/settings")
 
         await harness.tap_button("settings_back")
         edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
-        assert edit_resp.text == "Done."
+        assert "Main Menu" in edit_resp.text
+        assert "menu_movie" in edit_resp.reply_markup
 
 
 @pytest.mark.asyncio
