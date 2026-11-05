@@ -26,7 +26,7 @@ Do not simplify away:
 - The singleton `__new__` + `_initialize` pattern (intentional, not redundant)
 - `is_enabled()` guard checks (safety-critical, must stay explicit)
 - `await query.answer()` calls (Telegram requirement)
-- `context.user_data.clear()` in cancel handlers (prevents state leaks)
+- `context.user_data.clear()` in a cancel handler of a flow that owns all of `user_data` (prevents state leaks). A handler that keeps only its own few keys, like `/webhooks`, must not clear: it wipes the state of other open flows (#206)
 - State return values from handler methods (ConversationHandler requires them)
 
 A change to a workflow rule: search `.claude/skills/` for the old wording. Another skill may restate it (task-writer restated the per-task full gate).

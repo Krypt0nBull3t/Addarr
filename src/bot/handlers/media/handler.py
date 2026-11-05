@@ -163,11 +163,11 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             return ConversationHandler.END
 
         query = update.callback_query
+        await query.answer()
         action = query.data.replace("menu_", "")
 
         # Handle cancel action (the keyboard may sit on a poster photo)
         if action == "cancel":
-            await query.answer()
             await send_response(
                 query.message, self.translation.get_text("Canceled")
             )
@@ -650,7 +650,8 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             if not await enforce_rate_limit(update, "modify"):
                 return None
             success, message = await self._add_media_with_profile(
-                search_type, selected, profile_id, quality_data["root_folder"]
+                search_type, selected, profile_id, quality_data["root_folder"],
+                lookup=quality_data.get(search_type),
             )
 
             await send_response(
@@ -667,13 +668,13 @@ class MediaHandler(SeasonPickerMixin, AlbumPickerMixin):
             )
             return ConversationHandler.END
 
-    async def _add_media_with_profile(self, media_type: str, selected: dict, profile_id: int, root_folder: str) -> tuple[bool, str]:
-        """Add media with selected profile"""
+    async def _add_media_with_profile(self, media_type: str, selected: dict, profile_id: int, root_folder: str, lookup: Optional[dict] = None) -> tuple[bool, str]:
+        """Add media with selected profile; lookup is the result the add flow already holds"""
         media_cfg = MEDIA_CONFIG.get(media_type)
         if not media_cfg:
             return False, self.translation.get_text("InvalidMediaType")
         return await getattr(self.media_service, media_cfg["add_with_profile"])(
-            selected["id"], profile_id, root_folder
+            selected["id"], profile_id, root_folder, lookup=lookup
         )
 
     async def cancel_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

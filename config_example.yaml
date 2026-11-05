@@ -33,6 +33,7 @@ radarr:
   adminRestrictions: false  # Only admins can search and add movies (works without enableAdmin)
 
 # Sonarr Configuration (TV Shows)
+# Sonarr v4 is required (Sonarr v3 is not supported)
 sonarr:
   enable: false  # Set to true to enable Sonarr
   server:
@@ -92,8 +93,13 @@ bazarr:
 # Receives events from *arr services for download lifecycle notifications
 webhooks:
   enable: false  # Set to true to enable webhook receiver
-  port: 8080  # Port for the webhook HTTP server
-  host: 0.0.0.0  # Host to bind the webhook server to
+  # The server speaks plain HTTP (no TLS) on this TCP port. The *arr apps must
+  # reach it: open the port in your firewall, or publish it if Addarr runs in Docker.
+  port: 8080
+  # Address the server binds to. 127.0.0.1 accepts connections from this machine
+  # only. If your *arr apps run on another host, set host: 0.0.0.0 (all
+  # interfaces) and keep the port off the public internet.
+  host: 127.0.0.1
   # Per-service webhook secrets (each *arr app must send it in the X-Api-Secret header).
   # A service without a secret has its webhooks rejected (401).
   radarr_secret:

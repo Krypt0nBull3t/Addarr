@@ -201,3 +201,25 @@ class TestBazarrServiceDelegationWithClient:
         result = await service.get_wanted_episodes()
         mock_client.get_wanted_episodes.assert_called_once()
         assert result == [{"title": "Ep1"}]
+
+
+# ---------------------------------------------------------------------------
+# close
+# ---------------------------------------------------------------------------
+
+
+class TestBazarrServiceClose:
+    @pytest.mark.asyncio
+    async def test_close_closes_client(self, bazarr_service):
+        client = AsyncMock()
+        bazarr_service._client = client
+
+        await bazarr_service.close()
+
+        client.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_close_without_client_does_nothing(self, bazarr_service):
+        bazarr_service._client = None
+
+        await bazarr_service.close()  # Should not raise

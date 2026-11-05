@@ -97,7 +97,7 @@ See [references/anti-patterns.md](references/anti-patterns.md) for detailed exam
 2. Using `reply_text` on callback queries — Use `edit_text` or `edit_caption` instead.
 3. Forgetting photo-aware editing — `edit_text` crashes on photo messages, use `edit_caption`.
 4. Missing state return — Every handler method must return a state or `ConversationHandler.END`.
-5. Not clearing `context.user_data` on cancel — Stale data leaks into next conversation.
+5. Not clearing `context.user_data` on cancel — Stale data leaks into next conversation. Clear it only in a flow that owns all of `user_data`; a flow with a few own keys (`/webhooks`) deletes just those, because `clear()` wipes other open flows.
 6. Wrong pattern anchor — `^prefix_$` won't match `prefix_42`; `^exact` matches `exact_extra`.
 7. Registering handlers in wrong order — PTB matches first match. Specific patterns before general.
 8. Forgetting `@require_auth` on entry points. All entry points need the auth decorator, including standalone callback handlers.

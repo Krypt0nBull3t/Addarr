@@ -9,7 +9,8 @@ from typing import Optional, List, Dict
 from colorama import Fore
 
 from src.api.base import (
-    APIError, BaseApiClient, filter_quality_profiles, filter_root_folders
+    APIError, BaseApiClient, HISTORY_EVENT_TYPES, filter_quality_profiles,
+    filter_root_folders
 )
 from src.config.settings import config
 from src.utils.logger import get_logger
@@ -80,35 +81,16 @@ class SonarrClient(BaseApiClient):
             logger.error(f"Failed to get quality profiles: {str(e)}")
             return []
 
-    async def get_seasons(self, tvdb_id: str) -> List[Dict]:
-        """Get available seasons for a series"""
+    async def add_series(self, tvdb_id: int, root_folder: str, quality_profile_id: int, seasons: Optional[List[Dict]] = None, monitor: Optional[str] = None, lookup: Optional[Dict] = None) -> tuple[bool, str]:
+        """Add a TV series to Sonarr with optional season selection.
+
+        `lookup` is the lookup result, when the caller has it.
+        """
         try:
-            logger.info(f"🔍 Getting seasons for series with TVDB ID: {tvdb_id}")
-            results = await self._request(f"series/lookup?term=tvdb:{tvdb_id}")
-
-            if results and isinstance(results, list) and results[0]:
-                series = results[0]
-                seasons = series.get("seasons", [])
-                logger.info(f"✅ Found {len(seasons)} seasons")
-                return seasons
-
-            logger.warning(f"⚠️ No seasons found for TVDB ID: {tvdb_id}")
-            return []
-
-        except Exception as e:
-            logger.error(f"❌ Failed to get seasons: {str(e)}")
-            return []
-
-    async def add_series(self, tvdb_id: int, root_folder: str, quality_profile_id: int, seasons: Optional[List[Dict]] = None, monitor: Optional[str] = None) -> tuple[bool, str]:
-        """Add a TV series to Sonarr with optional season selection"""
-        try:
-            # Get series details from search results
-            lookup_response = await self._request(f"series/lookup?term=tvdb:{tvdb_id}")
-            if not lookup_response or not isinstance(lookup_response, list) or not lookup_response[0]:
+            series = lookup or await self.get_series(str(tvdb_id))
+            if not series:
                 logger.error(f"❌ No series found with TVDB ID: {tvdb_id}")
                 return False, "Series not found"
-
-            series = lookup_response[0]  # Use first result
 
             features = config.get("sonarr", {}).get("features", {})
             season_folder = features.get("seasonFolder", True)
@@ -148,13 +130,6 @@ class SonarrClient(BaseApiClient):
         """Get series details by TVDB ID"""
         try:
             logger.info(f"🔍 Looking up series with TVDB ID: {tvdb_id}")
-            results = await self._request(f"series/lookup/tvdb/{tvdb_id}")
-
-            if results:
-                logger.info(f"✅ Found series: {results.get('title')}")
-                return results
-
-            # Fallback to search with tvdb: prefix if direct lookup fails
             results = await self._request(f"series/lookup?term=tvdb:{tvdb_id}")
             if results and len(results) > 0:
                 logger.info(f"✅ Found series: {results[0].get('title')}")
@@ -173,6 +148,7 @@ class SonarrClient(BaseApiClient):
             logger.info(Fore.BLUE + "📭 Getting missing episodes from Sonarr")
             result = await self._request(
                 "wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+                "&includeSeries=true"
             )
 
             if not result or not isinstance(result, dict):
@@ -193,6 +169,7 @@ class SonarrClient(BaseApiClient):
             logger.info(Fore.BLUE + "📥 Getting download queue from Sonarr")
             result = await self._request(
                 "queue?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+                "&includeSeries=true&includeEpisode=true"
             )
 
             if not result or not isinstance(result, dict):
@@ -213,6 +190,7 @@ class SonarrClient(BaseApiClient):
             logger.info(Fore.BLUE + "⚠️ Getting cutoff unmet episodes from Sonarr")
             result = await self._request(
                 "wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+                "&includeSeries=true"
             )
 
             if not result or not isinstance(result, dict):
@@ -252,7 +230,7 @@ class SonarrClient(BaseApiClient):
         """Get upcoming episode airings within a date range"""
         try:
             logger.info(Fore.BLUE + f"🔍 Getting Sonarr calendar: {start} to {end}")
-            results = await self._request(f"calendar?start={start}&end={end}")
+            results = await self._request(f"calendar?start={start}&end={end}&includeSeries=true")
 
             if not results:
                 logger.warning(Fore.YELLOW + "⚠️ No upcoming episodes found")
@@ -273,9 +251,10 @@ class SonarrClient(BaseApiClient):
             endpoint = (
                 f"history?sortKey=date&sortDirection=descending"
                 f"&page={page}&pageSize={page_size}"
+                "&includeSeries=true&includeEpisode=true"
             )
             if event_type:
-                endpoint += f"&eventType={event_type}"
+                endpoint += f"&eventType={HISTORY_EVENT_TYPES[event_type]}"
 
             result = await self._request(endpoint)
 

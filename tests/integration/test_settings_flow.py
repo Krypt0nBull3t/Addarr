@@ -9,6 +9,8 @@ Patches:
 - config.update_nested and config.save as no-ops to prevent disk writes
 """
 
+import json
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -66,14 +68,15 @@ async def test_settings_language_flow(harness):
 
 @pytest.mark.asyncio
 async def test_settings_back_ends_conversation(harness):
-    """settings -> back ends the conversation."""
+    """settings -> back ends the conversation on the main menu."""
     with patch("src.bot.handlers.settings.is_admin", return_value=True):
         await harness.send_command("/settings")
 
         await harness.tap_button("settings_back")
         edit_resp = find_response(harness, "editMessageText")
         assert edit_resp is not None
-        assert edit_resp.text == "Done."
+        assert "Main Menu" in edit_resp.text
+        assert "menu_movie" in edit_resp.reply_markup
 
 
 @pytest.mark.asyncio
@@ -108,3 +111,31 @@ async def test_settings_service_toggle_says_restart_needed(harness):
             "✅ disabled radarr\nRestart the bot for this to take effect."
         )
         mock_cfg.update_nested.assert_called_with("radarr.enable", False)
+
+
+def _back_callback(resp):
+    """Return the callback_data of the last button of a response keyboard."""
+    markup = resp.reply_markup
+    if isinstance(markup, str):
+        markup = json.loads(markup)
+    return markup["inline_keyboard"][-1][-1]["callback_data"]
+
+
+@pytest.mark.asyncio
+async def test_settings_sab_speed_back_returns_to_sab_menu(harness):
+    """settings -> downloads -> SABnzbd -> speed -> Back shows SABnzbd settings."""
+    with (
+        patch("src.bot.handlers.settings.is_admin", return_value=True),
+        patch("src.bot.handlers.settings.config") as mock_cfg,
+    ):
+        mock_cfg.get = MagicMock(return_value={"enable": True})
+
+        await harness.send_command("/settings")
+        await harness.tap_button("settings_downloads")
+        await harness.tap_button("dl_sabnzbd")
+        speed = await harness.tap_button("dl_sab_speed")
+        assert speed.text == "⚡ Select speed limit:"
+
+        back = await harness.tap_button(_back_callback(speed))
+
+        assert back.text == "📥 SABnzbd Settings"

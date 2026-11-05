@@ -149,6 +149,33 @@ async def test_handle_speed_selection_success(
 @pytest.mark.asyncio
 @patch("src.bot.handlers.sabnzbd.TranslationService")
 @patch("src.bot.handlers.sabnzbd.SABnzbdService")
+async def test_handle_speed_selection_false_shows_error(
+    mock_sab_class, mock_ts_class, make_update, make_context
+):
+    """A False result from the service shows the error text, not success."""
+    mock_sab = MagicMock()
+    mock_sab.set_speed_limit = AsyncMock(return_value=False)
+    mock_sab_class.return_value = mock_sab
+
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.sabnzbd import SabnzbdHandler
+
+    handler = SabnzbdHandler()
+
+    update = make_update(callback_data="sabnzbd_speed_25")
+    await handler.handle_speed_selection(update, make_context())
+
+    update.callback_query.message.edit_text.assert_called_once_with(
+        "Sabnzbd.Error"
+    )
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.sabnzbd.TranslationService")
+@patch("src.bot.handlers.sabnzbd.SABnzbdService")
 async def test_handle_speed_selection_exception(
     mock_sab_class, mock_ts_class, make_update, make_context
 ):

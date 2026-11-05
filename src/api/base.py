@@ -19,6 +19,9 @@ from typing import List, Tuple, Optional, Any
 from ..utils.logger import get_logger
 from ..config.settings import config
 
+# Radarr and Sonarr history filters: the spec wants the int event type, not the name.
+HISTORY_EVENT_TYPES = {"grabbed": 1, "downloadFolderImported": 3, "downloadFailed": 4}
+
 
 def filter_root_folders(paths: List[str], service_config: dict) -> List[str]:
     """Filter root folder paths based on service exclusion config.

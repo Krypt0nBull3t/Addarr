@@ -46,6 +46,11 @@ class BazarrService:
                 return None
         return self._client
 
+    async def close(self) -> None:
+        """Close the aiohttp session of the API client."""
+        if self._client is not None:
+            await self._client.close()
+
     def is_enabled(self) -> bool:
         """Check if Bazarr is enabled in config."""
         return bool(self._config.get("enable"))

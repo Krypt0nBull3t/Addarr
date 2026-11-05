@@ -385,3 +385,99 @@ def test_get_handler_returns_list(missing_handler):
     handlers = missing_handler.get_handler()
     assert isinstance(handlers, list)
     assert len(handlers) >= 2
+
+
+@pytest.mark.asyncio
+async def test_filter_unchanged_message(
+    missing_handler, make_update, make_context, unchanged_edit
+):
+    """missing_filter_movie answers first and ignores an unchanged message."""
+    update = make_update(callback_data="missing_filter_movie")
+    calls = unchanged_edit(update.callback_query)
+    context = make_context(user_data={
+        "missing_items": [SAMPLE_MISSING_MOVIE], "missing_filter": "movie"
+    })
+
+    await missing_handler.handle_missing_action(update, context)
+
+    assert calls == ["answer", "edit"]
+
+
+@pytest.mark.asyncio
+async def test_show_missing_resets_stored_filter(
+    missing_handler, make_update, make_context
+):
+    """/missing starts at the all filter, not the one left from last time."""
+    missing_handler._mock_service.get_missing_media = AsyncMock(
+        return_value=[SAMPLE_MISSING_MOVIE, SAMPLE_MISSING_EPISODE]
+    )
+    update = make_update(text="/missing")
+    context = make_context(user_data={"missing_filter": "movie"})
+
+    await missing_handler.show_missing(update, context)
+
+    assert context.user_data["missing_filter"] == "all"
+    kbd_call = missing_handler._mock_items_kbd.call_args
+    assert kbd_call[0][2] == "all"
+    assert len(kbd_call[0][0]) == 2
+
+
+@pytest.mark.asyncio
+async def test_empty_filtered_view_keeps_filter_row(
+    missing_handler, make_update, make_context
+):
+    """A filter without items still shows the items keyboard (filter row)."""
+    missing_handler._mock_service.get_missing_media = AsyncMock(
+        return_value=[SAMPLE_MISSING_MOVIE]
+    )
+    update = make_update(callback_data="missing_filter_series")
+    context = make_context(user_data={"missing_filter": "all"})
+
+    await missing_handler.handle_missing_action(update, context)
+
+    missing_handler._mock_items_kbd.assert_called_once()
+    assert missing_handler._mock_items_kbd.call_args[0][2] == "episode"
+    missing_handler._mock_empty_kbd.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_cutoff_then_movie_refetches_missing(
+    missing_handler, make_update, make_context
+):
+    """Movies after Cutoff shows missing movies, not the cached cutoff list."""
+    missing_handler._mock_service.get_missing_media = AsyncMock(
+        return_value=[SAMPLE_MISSING_MOVIE, SAMPLE_MISSING_EPISODE]
+    )
+    update = make_update(callback_data="missing_filter_movie")
+    context = make_context(user_data={
+        "missing_items": [SAMPLE_CUTOFF_MOVIE], "missing_filter": "cutoff"
+    })
+
+    await missing_handler.handle_missing_action(update, context)
+
+    missing_handler._mock_service.get_missing_media.assert_awaited_once()
+    assert context.user_data["missing_items"] == [
+        SAMPLE_MISSING_MOVIE, SAMPLE_MISSING_EPISODE
+    ]
+    shown = missing_handler._mock_items_kbd.call_args[0][0]
+    assert shown == [SAMPLE_MISSING_MOVIE]
+
+
+@pytest.mark.asyncio
+async def test_cutoff_then_series_refetches_missing(
+    missing_handler, make_update, make_context
+):
+    """Series after Cutoff shows missing episodes, not the cached cutoff list."""
+    missing_handler._mock_service.get_missing_media = AsyncMock(
+        return_value=[SAMPLE_MISSING_MOVIE, SAMPLE_MISSING_EPISODE]
+    )
+    update = make_update(callback_data="missing_filter_series")
+    context = make_context(user_data={
+        "missing_items": [SAMPLE_CUTOFF_MOVIE], "missing_filter": "cutoff"
+    })
+
+    await missing_handler.handle_missing_action(update, context)
+
+    missing_handler._mock_service.get_missing_media.assert_awaited_once()
+    shown = missing_handler._mock_items_kbd.call_args[0][0]
+    assert shown == [SAMPLE_MISSING_EPISODE]

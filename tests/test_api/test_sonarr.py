@@ -239,8 +239,8 @@ class TestSonarrGetSeries:
     @pytest.mark.asyncio
     async def test_get_series_success(self, aio_mock, sonarr_client):
         aio_mock.get(
-            f"{BASE}/series/lookup/tvdb/81189",
-            payload=SONARR_SERIES_DETAIL,
+            f"{BASE}/series/lookup?term=tvdb:81189",
+            payload=[SONARR_SERIES_DETAIL],
             status=200,
         )
         result = await sonarr_client.get_series("81189")
@@ -249,31 +249,20 @@ class TestSonarrGetSeries:
         assert result["tvdbId"] == 81189
 
     @pytest.mark.asyncio
-    async def test_get_series_fallback_search(self, aio_mock, sonarr_client):
-        # Direct lookup fails
-        aio_mock.get(
-            f"{BASE}/series/lookup/tvdb/81189",
-            status=404,
-            body="Not found",
-        )
-        # Fallback search succeeds
+    async def test_get_series_makes_one_request_to_lookup_term(self, aio_mock, sonarr_client):
+        """No request goes to the series/lookup/tvdb/ path, which Sonarr does not have."""
         aio_mock.get(
             f"{BASE}/series/lookup?term=tvdb:81189",
             payload=[SONARR_SERIES_DETAIL],
             status=200,
         )
-        result = await sonarr_client.get_series("81189")
-        assert result is not None
-        assert result["title"] == "Breaking Bad"
+        await sonarr_client.get_series("81189")
+        assert [str(url) for _, url in aio_mock.requests] == [
+            f"{BASE}/series/lookup?term=tvdb:81189"
+        ]
 
     @pytest.mark.asyncio
     async def test_get_series_not_found(self, aio_mock, sonarr_client):
-        """Lines 222-223: both lookups return nothing."""
-        aio_mock.get(
-            f"{BASE}/series/lookup/tvdb/999999",
-            status=404,
-            body="Not found",
-        )
         aio_mock.get(
             f"{BASE}/series/lookup?term=tvdb:999999",
             payload=[],
@@ -288,43 +277,6 @@ class TestSonarrGetSeries:
         with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
             result = await sonarr_client.get_series("81189")
         assert result is None
-
-
-# ---------------------------------------------------------------------------
-# get_seasons
-# ---------------------------------------------------------------------------
-
-
-class TestSonarrGetSeasons:
-    @pytest.mark.asyncio
-    async def test_get_seasons(self, aio_mock, sonarr_client):
-        aio_mock.get(
-            f"{BASE}/series/lookup?term=tvdb:81189",
-            payload=SONARR_SEARCH_RESULTS[:1],  # First result has 3 seasons
-            status=200,
-        )
-        seasons = await sonarr_client.get_seasons("81189")
-        assert len(seasons) == 3
-        assert seasons[0]["seasonNumber"] == 0
-        assert seasons[1]["seasonNumber"] == 1
-        assert seasons[2]["seasonNumber"] == 2
-
-    @pytest.mark.asyncio
-    async def test_get_seasons_empty(self, aio_mock, sonarr_client):
-        aio_mock.get(
-            f"{BASE}/series/lookup?term=tvdb:999999",
-            payload=[],
-            status=200,
-        )
-        seasons = await sonarr_client.get_seasons("999999")
-        assert seasons == []
-
-    @pytest.mark.asyncio
-    async def test_get_seasons_exception(self, sonarr_client):
-        """Lines 129-131: Exception in get_seasons."""
-        with patch.object(sonarr_client, "_make_request", side_effect=Exception("boom")):
-            seasons = await sonarr_client.get_seasons("81189")
-        assert seasons == []
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +303,24 @@ class TestSonarrAddSeries:
         assert success is True
         assert "Successfully added" in message
         assert "Breaking Bad" in message
+
+    @pytest.mark.asyncio
+    async def test_add_series_with_lookup_makes_no_lookup_request(self, aio_mock, sonarr_client):
+        """A caller that holds the lookup result passes it on: only the POST goes out."""
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs.get("json", {}))
+            return CallbackResult(payload={"id": 1, "title": "Breaking Bad"}, status=200)
+
+        aio_mock.post(f"{BASE}/series", callback=capture)
+        success, message = await sonarr_client.add_series(
+            81189, "/tv", 1, lookup=SONARR_SERIES_DETAIL
+        )
+        assert success is True
+        assert "Breaking Bad" in message
+        assert posted["tvdbId"] == 81189
+        assert [method for method, _ in aio_mock.requests] == ["POST"]
 
     @pytest.mark.asyncio
     async def test_add_series_with_seasons(self, aio_mock, sonarr_client):
@@ -509,7 +479,9 @@ class TestSonarrAddSeries:
     async def test_add_series_outer_exception(self, sonarr_client):
         """Lines 202-204: outer Exception in add_series."""
         with patch.object(sonarr_client, "_make_request", side_effect=Exception("outer boom")):
-            success, message = await sonarr_client.add_series(81189, "/tv", 1)
+            success, message = await sonarr_client.add_series(
+                81189, "/tv", 1, lookup=SONARR_SERIES_DETAIL
+            )
         assert success is False
         assert "outer boom" in message
 
@@ -697,7 +669,7 @@ class TestSonarrGetCalendar:
             },
         ]
         aio_mock.get(
-            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08&includeSeries=true",
             payload=calendar_data,
             status=200,
         )
@@ -710,7 +682,7 @@ class TestSonarrGetCalendar:
     async def test_get_calendar_empty(self, aio_mock, sonarr_client):
         """No upcoming episodes returns empty list."""
         aio_mock.get(
-            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08&includeSeries=true",
             payload=[],
             status=200,
         )
@@ -735,7 +707,7 @@ class TestSonarrGetMissing:
     async def test_get_missing_success(self, aio_mock, sonarr_client):
         """Happy path: returns list of missing episode records."""
         aio_mock.get(
-            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
             payload=SONARR_WANTED_MISSING,
             status=200,
         )
@@ -748,7 +720,7 @@ class TestSonarrGetMissing:
     async def test_get_missing_empty(self, aio_mock, sonarr_client):
         """No missing episodes returns empty list."""
         aio_mock.get(
-            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
             payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -760,7 +732,7 @@ class TestSonarrGetMissing:
         """Connection error exhausts retries, returns empty list."""
         for _ in range(3):
             aio_mock.get(
-                f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -785,7 +757,7 @@ class TestSonarrGetCutoffUnmet:
     async def test_get_cutoff_unmet_success(self, aio_mock, sonarr_client):
         """Happy path: returns list of cutoff unmet episode records."""
         aio_mock.get(
-            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
             payload=SONARR_WANTED_CUTOFF,
             status=200,
         )
@@ -797,7 +769,7 @@ class TestSonarrGetCutoffUnmet:
     async def test_get_cutoff_unmet_empty(self, aio_mock, sonarr_client):
         """No cutoff unmet episodes returns empty list."""
         aio_mock.get(
-            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
             payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -809,7 +781,7 @@ class TestSonarrGetCutoffUnmet:
         """Connection error exhausts retries, returns empty list."""
         for _ in range(3):
             aio_mock.get(
-                f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -872,7 +844,7 @@ class TestSonarrGetQueue:
     async def test_get_queue_success(self, aio_mock, sonarr_client):
         """Happy path: returns list of queue records."""
         aio_mock.get(
-            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true&includeEpisode=true",
             payload=SONARR_QUEUE,
             status=200,
         )
@@ -885,7 +857,7 @@ class TestSonarrGetQueue:
     async def test_get_queue_empty(self, aio_mock, sonarr_client):
         """No queue items returns empty list."""
         aio_mock.get(
-            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true&includeEpisode=true",
             payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -897,7 +869,7 @@ class TestSonarrGetQueue:
         """Connection error exhausts retries, returns empty list."""
         for _ in range(3):
             aio_mock.get(
-                f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true&includeEpisode=true",
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -923,7 +895,7 @@ class TestSonarrGetHistory:
         """Happy path: returns list of history records."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true",
             payload=SONARR_HISTORY,
             status=200,
         )
@@ -933,28 +905,47 @@ class TestSonarrGetHistory:
         assert results[0]["eventType"] == "grabbed"
 
     @pytest.mark.asyncio
-    async def test_get_history_with_event_type(self, aio_mock, sonarr_client):
-        """Event type filter appended to URL."""
+    @pytest.mark.parametrize(
+        "name, wire", [
+            ("grabbed", 1),
+            ("downloadFolderImported", 3),
+            ("downloadFailed", 4),
+        ],
+    )
+    async def test_get_history_with_event_type(self, aio_mock, sonarr_client, name, wire):
+        """Filter tabs send the spec's int event type."""
         filtered = {
             "page": 1, "pageSize": 20, "totalRecords": 1,
             "records": [SONARR_HISTORY["records"][0]],
         }
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20&eventType=grabbed",
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true&eventType={wire}",
             payload=filtered,
             status=200,
         )
-        results = await sonarr_client.get_history(event_type="grabbed")
+        results = await sonarr_client.get_history(event_type=name)
         assert len(results) == 1
         assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    async def test_get_history_unknown_event_type(self, aio_mock, sonarr_client):
+        """An unknown event name is not sent: the call returns an empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true&eventType=bogus",
+            payload={"records": [SONARR_HISTORY["records"][0]]},
+            status=200,
+        )
+        results = await sonarr_client.get_history(event_type="bogus")
+        assert results == []
 
     @pytest.mark.asyncio
     async def test_get_history_empty(self, aio_mock, sonarr_client):
         """Empty records returns empty list."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true",
             payload={"page": 1, "pageSize": 20, "totalRecords": 0, "records": []},
             status=200,
         )

@@ -132,7 +132,6 @@ For more options, see [🛠️ Installation](#️-installation)
   - [🏥 Health Monitoring](#-health-monitoring)
     - [Features](#features)
     - [Health Check Details](#health-check-details)
-    - [Configuration](#configuration)
     - [Status Command](#status-command)
     - [Automatic Recovery](#automatic-recovery)
   - [🌐 Internationalization](#-internationalization)
@@ -201,6 +200,7 @@ For more options, see [🛠️ Installation](#️-installation)
 - Python 3.10 or higher
 - pip (Python package installer)
 - At least one of: Radarr, Sonarr, or Lidarr instance(s)
+- Sonarr v4 is required (Sonarr v3 is not supported)
 - Telegram Bot Token (from @BotFather)
 
 ### Python Installation
@@ -375,6 +375,10 @@ After installation:
 > User preferences (`user_preferences.json`) are kept in the named volume `addarr-data`,
 > so they survive when the container is recreated.
 
+> **Memory limit:** `docker-compose.yml` limits the container to 256M. A full library load
+> (`GET /movie`) reads the whole Radarr library into memory. A library of about 7000 movies or
+> more needs a higher limit: raise `deploy.resources.limits.memory` in `docker-compose.yml`.
+
 #### Using Docker standalone
 1. **Build the image**
    ```bash
@@ -408,6 +412,9 @@ After installation:
 1. Start the bot with `/start`
 2. Use `/auth` to authenticate
 3. Enter the password configured in `config.yaml`
+
+`python run.py --setup` proposes a random password. A password you type needs at least 12 characters.
+The bot saves a hash of the password next to the list of authenticated users. When you change `telegram.password`, the bot signs every user out at the next start, and each user sends `/auth` again.
 
 ### Adding Media
 1. Use the appropriate command (`/movie`, `/series`, `/music`)
@@ -467,6 +474,7 @@ This ensures you never lose your configuration and can easily revert to previous
 ```yaml
 telegram:
   token: "your-bot-token"
+  password: "your-password"  # Password for /auth
   
 language: "en-us"  # Available: en-us, de-de, etc.
 
@@ -476,7 +484,6 @@ logging:
   
 security:
   enableAdmin: false
-  password: "your-password"
 ```
 
 ### Service Configuration
@@ -507,10 +514,10 @@ lidarr:
 ```
 
 ### Resetting Configuration
-If you want to reset your configuration and start from scratch, you can use the `--reset` argument when running the setup script:
+If you want to reset your configuration and start from scratch, you can use the `--reset` argument when running `run.py`:
 
 ```bash
-python setup.py --reset
+python run.py --reset
 ```
 
 This will delete the existing `config.yaml` file and prompt you to create a new one.
@@ -536,14 +543,6 @@ The health monitoring system checks:
 - **Download Clients**
   - SABnzbd connectivity and version
   - Transmission connectivity and status
-
-### Configuration
-Health checks can be configured in `config.yaml`:
-```yaml
-monitoring:
-  interval: 15  # Check interval in minutes
-  enabled: true # Enable/disable health monitoring
-```
 
 ### Status Command
 Use the `/status` command in Telegram to get a detailed health report:
@@ -722,18 +721,13 @@ addarr/
    venv\Scripts\activate     # Windows
    ```
 
-2. **Install development dependencies**
+2. **Install dependencies**
    ```bash
    pip install -r requirements.txt
-   pip install -r requirements-dev.txt  # Development dependencies
+   pip install -r requirements-test.txt  # Test dependencies
    ```
 
-3. **Set up pre-commit hooks**
-   ```bash
-   pre-commit install
-   ```
-
-4. **Run tests**
+3. **Run tests**
    ```bash
    pytest tests/
    ```

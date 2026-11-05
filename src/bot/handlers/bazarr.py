@@ -19,6 +19,7 @@ from typing import Dict, List
 from src.services.bazarr import BazarrService
 from src.services.translation import TranslationService
 from src.bot.handlers.auth import require_auth
+from src.bot.keyboards import get_back_keyboard
 from src.bot.states import States
 from src.utils.logger import get_logger
 
@@ -183,12 +184,14 @@ class BazarrHandler:
 
         if not movies:
             await update.callback_query.edit_message_text(
-                self.translation.get_text("BazarrWantedEmpty")
+                self.translation.get_text("BazarrWantedEmpty"),
+                reply_markup=get_back_keyboard("bazarr_menu"),
             )
             return
 
         await update.callback_query.edit_message_text(
-            _format_movie_list(movies)
+            _format_movie_list(movies),
+            reply_markup=get_back_keyboard("bazarr_menu"),
         )
 
     @require_auth
@@ -202,7 +205,8 @@ class BazarrHandler:
 
         if not episodes:
             await update.callback_query.edit_message_text(
-                self.translation.get_text("BazarrWantedEmpty")
+                self.translation.get_text("BazarrWantedEmpty"),
+                reply_markup=get_back_keyboard("bazarr_menu"),
             )
             return
 
@@ -217,7 +221,9 @@ class BazarrHandler:
                 f"  Missing: {missing_names}"
             )
 
-        await update.callback_query.edit_message_text("\n".join(lines))
+        await update.callback_query.edit_message_text(
+            "\n".join(lines), reply_markup=get_back_keyboard("bazarr_menu")
+        )
 
     @require_auth
     async def cancel(

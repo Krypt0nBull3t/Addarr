@@ -9,6 +9,7 @@ statements get our mock instead.
 """
 
 import atexit
+import hashlib
 import inspect
 import os
 import shutil
@@ -90,6 +91,8 @@ MOCK_CONFIG_DATA = {
     "logging": {"toConsole": False, "debug": False, "adminNotifyId": None},
     "admins": [], "allow_list": [], "chat_id": [],
     "authenticated_users": [12345],
+    # sha256 of the default password "test-pass", so the list survives AuthHandler()
+    "authenticated_users_hash": hashlib.sha256(b"test-pass").hexdigest(),
     "rateLimit": {
         "enable": False,
         "limits": {

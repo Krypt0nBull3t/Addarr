@@ -8,6 +8,7 @@ handle_menu_selection dispatches the menu buttons StartHandler owns.
 """
 
 import pytest
+from unittest.mock import MagicMock
 from telegram.ext import CallbackQueryHandler
 
 
@@ -43,6 +44,21 @@ async def test_handle_menu_selection_cancel(
     await start_handler.handle_menu_selection(update, context)
 
     assert len(context.user_data) == 0
+
+
+@pytest.mark.asyncio
+async def test_cancel_on_photo_message_edits_caption(
+    start_handler, make_update, make_context
+):
+    """menu_cancel on a poster photo edits the caption, not the text."""
+    update = make_update(callback_data="menu_cancel")
+    update.callback_query.message.photo = [MagicMock()]
+    context = make_context()
+
+    await start_handler.handle_menu_selection(update, context)
+
+    update.callback_query.message.edit_caption.assert_awaited_once()
+    update.callback_query.message.edit_text.assert_not_called()
 
 
 @pytest.mark.asyncio

@@ -826,6 +826,21 @@ class TestSabnzbdPauseResumeErrorHandling:
     """Error handling in SABnzbd pause/resume"""
 
     @pytest.mark.asyncio
+    async def test_handle_sabnzbd_pause_unchanged_message(
+        self, settings_handler, make_update, make_context, unchanged_edit
+    ):
+        """A second Pause leaves the message unchanged and does not raise"""
+        update = make_update(callback_data="dl_sab_pause")
+        unchanged_edit(update.callback_query)
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        update.callback_query.answer.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_handle_sabnzbd_pause_service_error(
         self, settings_handler, make_update, make_context
     ):
@@ -862,6 +877,61 @@ class TestSabnzbdPauseResumeErrorHandling:
         assert result == States.SETTINGS_DOWNLOADS
         call_args = update.callback_query.message.edit_text.call_args
         assert "❌" in call_args.args[0]
+
+
+class TestSabnzbdActionReturnsFalse:
+    """A False result from the SABnzbd service shows an error, not success"""
+
+    @pytest.mark.asyncio
+    async def test_speed_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.set_speed_limit = AsyncMock(
+            return_value=False
+        )
+        update = make_update(callback_data="dl_sab_speed_25")
+
+        result = await settings_handler.handle_sabnzbd_speed(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Speed limit set" not in call_args.args[0]
+        assert call_args.kwargs.get("reply_markup") is not None
+
+    @pytest.mark.asyncio
+    async def test_pause_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.pause_queue = AsyncMock(return_value=False)
+        update = make_update(callback_data="dl_sab_pause")
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Queue paused" not in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_resume_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.resume_queue = AsyncMock(return_value=False)
+        update = make_update(callback_data="dl_sab_resume")
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Queue resumed" not in call_args.args[0]
 
 
 class TestDownloadsEdgeCases:
@@ -937,6 +1007,50 @@ class TestMisc:
         result = await settings_handler.handle_back(update, context)
 
         assert result == ConversationHandler.END
+
+    @pytest.mark.asyncio
+    async def test_back_from_settings_shows_main_menu_before_end(
+        self, settings_handler, make_update, make_context
+    ):
+        """Back from settings leaves the main menu keyboard on the message"""
+        from src.bot.keyboards import get_main_menu_keyboard
+
+        update = make_update(callback_data="settings_back")
+
+        await settings_handler.handle_back(update, make_context())
+
+        call = update.callback_query.message.edit_text.call_args
+        assert "Main Menu" in call.args[0]
+        assert (
+            call.kwargs["reply_markup"].to_dict()
+            == get_main_menu_keyboard().to_dict()
+        )
+
+    @pytest.mark.asyncio
+    async def test_sab_speed_back_callback_is_sab_menu(
+        self, settings_handler, make_update, make_context
+    ):
+        """Back from the SAB speed screen goes to the SABnzbd settings"""
+        update = make_update(callback_data="dl_sab_speed")
+
+        await settings_handler.handle_sabnzbd_speed(update, make_context())
+
+        markup = update.callback_query.message.edit_text.call_args.kwargs[
+            "reply_markup"
+        ]
+        assert markup.inline_keyboard[-1][0].callback_data == "dl_sabnzbd"
+
+    def test_quality_state_routes_service_menu_back(self, settings_handler):
+        """The quality state routes settings_<service> to the service menu"""
+        conversation = settings_handler.get_handler()[0]
+        handlers = conversation.states[States.SETTINGS_QUALITY]
+
+        routed = [
+            h for h in handlers
+            if h.callback == settings_handler.handle_service_menu
+            and h.pattern.match("settings_radarr")
+        ]
+        assert len(routed) == 1
 
     @pytest.mark.asyncio
     async def test_handle_cancel_callback(

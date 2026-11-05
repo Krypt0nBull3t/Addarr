@@ -194,6 +194,7 @@ class SeasonPickerMixin:
                 root_folder,
                 seasons_data,
                 monitor=monitor,
+                lookup=context.user_data.get("quality_data", {}).get("series"),
             )
 
             await send_response(

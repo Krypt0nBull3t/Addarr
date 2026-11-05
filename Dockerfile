@@ -25,8 +25,9 @@ USER addarr
 # Graceful shutdown signal
 STOPSIGNAL SIGTERM
 
-# Health check - verify the process is running
+# Health check - the bot touches its heartbeat file while its loop runs. Fail when
+# the file is missing or older than 60 s (ADDARR_HEARTBEAT_FILE overrides the path).
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD pgrep -f "python.*run.py" || exit 1
+    CMD F="${ADDARR_HEARTBEAT_FILE:-/tmp/addarr-heartbeat}"; [ -f "$F" ] && [ $(( $(date +%s) - $(stat -c %Y "$F") )) -lt 60 ] || exit 1
 
 ENTRYPOINT ["python", "/app/run.py"]

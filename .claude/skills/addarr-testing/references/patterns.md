@@ -6,6 +6,7 @@
 - [Services](#services)
 - [Handlers](#handlers)
 - [Integration Tests](#integration-tests)
+- [Bot Lifecycle](#bot-lifecycle)
 - [Config](#config)
 - [Keyboards](#keyboards)
 - [Translations](#translations)
@@ -52,6 +53,23 @@ async def test_search_connection_error(radarr_client, aio_mock):
     )
     results = await radarr_client.search("test")
     assert results == []
+```
+
+### Server That Answers Differently per Query
+
+A fixed reply cannot show a bug that depends on the request. SABnzbd answers `mode=version` without a key and checks the key for other modes. Use an `aioresponses` callback that behaves like the server:
+
+```python
+from aioresponses import CallbackResult
+
+def fake_sabnzbd(url, **kwargs):
+    if url.query.get("mode") == "version":
+        return CallbackResult(payload={"version": "4.3.0"})
+    if url.query.get("apikey") == "good-key":
+        return CallbackResult(payload={"queue": {}})
+    return CallbackResult(payload={"status": False, "error": "API Key Incorrect"})
+
+aio_mock.get(re.compile(r"^http://localhost:8090/api.*"), callback=fake_sabnzbd)
 ```
 
 ### POST Requests (add_movie, add_series, add_artist)
@@ -257,6 +275,8 @@ def test_get_handler_returns_list():
     assert len(handlers) > 0
 ```
 
+To check that a callback is registered, match the handler's `pattern`: `[h for h in conv.states[STATE] if h.pattern.match("wh_back")]`. `check_update` needs a real `Update`, and `make_update` returns a `MagicMock`, so it always gives False. A `fallbacks` list can hold a `CommandHandler`, which has no `pattern`: filter with `getattr(f, "pattern", None)`.
+
 ---
 
 ## Integration Tests
@@ -338,6 +358,7 @@ async def test_movie_happy_path(harness):
 - **Use `new_callable=AsyncMock`** for async service methods.
 - **Check `harness.responses`** (plural) when a step produces multiple bot messages (e.g., photo + text).
 - **Verify conversation state** with `harness.get_conversation_state("media_conversation", 12345, 12345)` to confirm state transitions or conversation end (`None`).
+- **`reply_markup` of a captured response is a JSON string**, not a dict: `json.loads` it before reading `inline_keyboard` (see `_buttons` in `tests/integration/test_webhooks_flow.py`).
 - **Test data** goes in `tests/integration/fixtures.py` — reuse existing constants where possible.
 - **A `conversation_timeout` needs a running job queue.** The harness setup in `tests/integration/conftest.py` awaits `app.job_queue.start()` (a coroutine in PTB 22.8) and `stop(wait=False)`, because the harness never calls `Application.start()`. Without it PTB only warns, and the suite turns the warning into an error.
 - **Tap from another message** with `harness.tap_button("quality_1", message_id=999)` to test a stale keyboard. The default is message 100. In a unit test, reuse one update across calls when the handler compares `query.message.message_id`: a new update has a new message id.
@@ -354,6 +375,25 @@ Skip integration tests for:
 - API client changes (covered by unit tests with `aioresponses`)
 - Service logic changes (covered by unit tests with mock clients)
 - Config, utils, translations, CI, docs changes
+
+---
+
+## Bot Lifecycle
+
+### Shutdown that `asyncio.run` must not cancel
+
+A signal handler runs `AddarrBot.stop()` as a side task, and `asyncio.run` cancels pending tasks when `main()` returns. A test with a mocked `asyncio.run` passes without the fix. Use a sync test around the real one:
+
+```python
+def test_sigterm_runs_shutdown_before_exit(self, mock_app, tmp_path):
+    real_sleep = asyncio.sleep           # keep it before the patch below
+    ...
+    with patch("src.main.asyncio.sleep", side_effect=short_tick):
+        asyncio.run(main())              # real run: cancels pending tasks on exit
+    mock_app.shutdown.assert_awaited_once()
+```
+
+Make one shutdown step take real time (`await real_sleep(0.05)`), or the side task finishes before the cancel and the test cannot fail. The full test is `TestMain::test_sigterm_runs_shutdown_before_exit` in `tests/test_main.py`.
 
 ---
 
