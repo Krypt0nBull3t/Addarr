@@ -55,7 +55,7 @@ Audit Telegram-specific security concerns.
 Audit the *arr webhook receiver in `src/services/webhook.py` (on when `webhooks.enable` is true).
 
 * [ ] **Required secret**: `_validate_secret()` answers 401 unless `webhooks.<service>_secret` is set and the `X-Api-Secret` header matches it with `hmac.compare_digest`. A service without a secret must stay rejected.
-* [ ] **Bind host**: The server binds `webhooks.host` and `webhooks.port` (default `0.0.0.0:8080` in `config_example.yaml`), so it listens on every interface. Flag exposure the deployment does not need.
+* [ ] **Bind host**: The server binds `webhooks.host` and `webhooks.port` (default `127.0.0.1:8080` in `config_example.yaml`, this machine only). Flag a `host: 0.0.0.0` that the deployment does not need.
 * [ ] **Payload validation**: The parsers in `src/models/webhook.py` read fields with `.get()` defaults and no schema. `_handle_webhook()` answers 200 on malformed JSON or a parse error. Check a hostile payload (wrong types, huge strings) cannot crash the server.
 * [ ] **Fields that reach Telegram**: `format_webhook_event()` in `src/services/webhook_formatter.py` puts the title, quality and message the parsers take from the payload into a plain-text message to `logging.adminNotifyId`. Check nothing secret rides along and that long values cannot break the send.
 
