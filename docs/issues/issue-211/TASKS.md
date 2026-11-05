@@ -14,7 +14,7 @@ Run every test and every `git push` through the suite lock:
 - Why NOT `close()` on `TransmissionService`: `TransmissionClient` opens a session per call.
 - Task order puts F140 (6) before F142 (8): both change `stop()`/`start()` in `src/main.py`.
 
-- [ ] **1.1** F143: add the missing `f` to the shutdown log lines
+- [x] **1.1** F143: add the missing `f` to the shutdown log lines
     - **Context:**
         - **Why:** `logger.info("\n{Fore.YELLOW}Shutting down...")` prints the text `{Fore.YELLOW}` literally.
         - **Architecture:** `src/main.py` imports only `init` from colorama today; add `Fore`.
@@ -27,6 +27,14 @@ Run every test and every `git push` through the suite lock:
         - [RED] Write the same test for the `KeyboardInterrupt` branch of `main()`.
         - [GREEN] Make both lines f-strings and import `Fore`.
     - **Success:** Both tests fail before and pass after; `tests/test_main.py` green; flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The post-edit hook runs flake8 after each edit, so a half-done change (import added, use not yet) shows F401 once; it clears after the next edit.
+        - `patch("src.main.logger")` is needed: the tests read `logger.info` call arguments directly.
+    - **Key Changes:**
+        - `src/main.py`: import `Fore`; both `Shutting down...` log lines are f-strings.
+        - `tests/test_main.py`: `TestMain` and `TestRunBot` `test_keyboard_interrupt_log_has_no_literal_fore`.
+    - **Notes:** The f-string puts a real ANSI code in the log line, as the issue asks.
 
 - [ ] **1.2** F146: health status goes through the logger
     - **Context:**

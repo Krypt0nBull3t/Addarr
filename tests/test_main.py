@@ -708,6 +708,27 @@ class TestMain:
 
     @pytest.mark.asyncio
     @patch("src.main.AddarrBot")
+    async def test_keyboard_interrupt_log_has_no_literal_fore(self, mock_bot_cls):
+        """The shutdown log line holds no literal {Fore.YELLOW} text."""
+        mock_bot = MagicMock()
+        mock_bot.stop = AsyncMock()
+        mock_bot_cls.return_value = mock_bot
+
+        with (
+            patch(
+                "src.main.asyncio.get_running_loop",
+                side_effect=KeyboardInterrupt,
+            ),
+            patch("src.main.logger") as mock_logger,
+        ):
+            await main()
+
+        messages = [c.args[0] for c in mock_logger.info.call_args_list]
+        assert any("Shutting down..." in m for m in messages)
+        assert not any("{Fore.YELLOW}" in m for m in messages)
+
+    @pytest.mark.asyncio
+    @patch("src.main.AddarrBot")
     async def test_generic_exception_exits(self, mock_bot_cls):
         """Generic exception at top level triggers sys.exit(1)."""
         mock_bot = MagicMock()
@@ -744,6 +765,17 @@ class TestRunBot:
         """KeyboardInterrupt is caught gracefully."""
         run_bot()  # Should not raise
         mock_run.call_args[0][0].close()
+
+    @patch("src.main.asyncio.run", side_effect=KeyboardInterrupt)
+    def test_keyboard_interrupt_log_has_no_literal_fore(self, mock_run):
+        """The shutdown log line holds no literal {Fore.YELLOW} text."""
+        with patch("src.main.logger") as mock_logger:
+            run_bot()
+        mock_run.call_args[0][0].close()
+
+        messages = [c.args[0] for c in mock_logger.info.call_args_list]
+        assert any("Shutting down..." in m for m in messages)
+        assert not any("{Fore.YELLOW}" in m for m in messages)
 
     @patch("src.main.asyncio.run", side_effect=RuntimeError("fatal"))
     def test_generic_exception_exits(self, mock_run):

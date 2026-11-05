@@ -9,7 +9,7 @@ import asyncio
 import signal
 import sys
 import os
-from colorama import init
+from colorama import Fore, init
 from telegram.ext import Application
 from telegram.error import InvalidToken, NetworkError
 
@@ -319,7 +319,7 @@ async def main():
         # Run the bot
         await start_bot()
     except KeyboardInterrupt:
-        logger.info("\n{Fore.YELLOW}Shutting down...")
+        logger.info(f"\n{Fore.YELLOW}Shutting down...")
         await bot.stop()
     except Exception as e:
         logger.error(f"Fatal error: {e}")
@@ -331,7 +331,7 @@ def run_bot():
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("\n{Fore.YELLOW}Shutting down...")
+        logger.info(f"\n{Fore.YELLOW}Shutting down...")
     except Exception as e:
         logger.error(f"Fatal error: {e}")
         sys.exit(1)
