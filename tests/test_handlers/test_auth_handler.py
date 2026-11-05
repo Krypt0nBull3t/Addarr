@@ -5,6 +5,7 @@ AuthHandler manages user authentication via password. The require_auth decorator
 guards handler methods by checking AuthHandler.is_authenticated(user_id).
 """
 
+import hashlib
 from contextlib import contextmanager
 from copy import deepcopy
 
@@ -819,3 +820,120 @@ async def test_successful_auth_registers_commands(
     mock_register.assert_awaited_once_with(
         context.bot, update.effective_message.chat.id
     )
+
+
+# ---------------------------------------------------------------------------
+# password change revokes authenticated users (#210)
+# ---------------------------------------------------------------------------
+
+
+def _sha256(text):
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+@pytest.fixture
+def saved_configs(mock_config):
+    """Record a deep copy of the config on every config.save()."""
+    saved = []
+    mock_config.save = lambda: saved.append(deepcopy(mock_config._config))
+    return saved
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_clears_users_when_hash_differs(mock_ts, mock_config, saved_configs):
+    """A user list saved under another password is cleared and re-saved."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", _sha256("old-pass"))
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert saved_configs[-1]["authenticated_users"] == []
+    assert saved_configs[-1]["authenticated_users_hash"] == _sha256("test-pass")
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_clears_users_when_hash_missing(mock_ts, mock_config, saved_configs):
+    """A list with no stored hash counts as a mismatch (one re-auth after upgrade)."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._config.pop("authenticated_users_hash", None)
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert saved_configs[-1]["authenticated_users_hash"] == _sha256("test-pass")
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_keeps_users_when_hash_matches(mock_ts, mock_config, saved_configs):
+    """An unchanged password keeps the list and writes nothing."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", _sha256("test-pass"))
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == {12345}
+    assert saved_configs == []
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_empty_list_does_not_save(mock_ts, mock_config, saved_configs):
+    """With nobody to revoke, a changed password writes nothing."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [])
+    mock_config._set("authenticated_users_hash", _sha256("old-pass"))
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert saved_configs == []
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_hashes_an_int_password_as_text(mock_ts, mock_config, saved_configs):
+    """YAML loads `password: 123456` as an int; its hash is the hash of "123456"."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("telegram", {"token": "t", "password": 123456})
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", _sha256("123456"))
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == {12345}
+    assert saved_configs == []
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.register_commands_for_chat")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_save_writes_password_hash(
+    mock_ts_class, mock_register, make_user, make_update, make_context,
+    mock_config, saved_configs
+):
+    """A new login saves the user list together with the current password hash."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_config._set("authenticated_users", [])
+    mock_config._config.pop("authenticated_users_hash", None)
+
+    from src.bot.handlers.auth import AuthHandler
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        handler = AuthHandler()
+        update = make_update(text="test-pass", user=make_user(user_id=67890))
+        await handler.check_password(update, make_context())
+
+    assert saved_configs[-1]["authenticated_users"] == [67890]
+    assert saved_configs[-1]["authenticated_users_hash"] == _sha256("test-pass")

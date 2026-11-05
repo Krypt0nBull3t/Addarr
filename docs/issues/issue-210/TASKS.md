@@ -81,7 +81,7 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
 
 **Goal:** Changing `telegram.password` clears every authenticated user.
 
-- [ ] **3.1** Store a password hash and clear the list on mismatch
+- [x] **3.1** Store a password hash and clear the list on mismatch
     - **Context:**
         - **Why:** `authenticated_users` never expires and survives a password change.
         - **Architecture:** `_password_hash(password)` (sha256 hex) in `auth.py`; `authenticated_users_hash` saved with the list; `AuthHandler.__init__` compares at start-up. Missing hash counts as mismatch (decided: one re-auth after upgrade).
@@ -94,6 +94,15 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
         - [RED] `test_init_empty_list_does_not_save`, `test_save_writes_hash`, `test_int_password_hash_matches_string`
         - [GREEN] Implement; add the matching hash to the `MockConfig` default so existing tests keep user 12345
     - **Success:** new tests fail before and pass after; handlers scoped run and `tests/integration` pass at 100%.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - A save test that presets the hash passes before the fix; it must start with no hash to prove the save writes one.
+        - `tests/integration` showed 97 errors ("No `JobQueue` set up") until `.venv` was reinstalled from the new `requirements.txt` (`python-telegram-bot[job-queue]`).
+    - **Key Changes:**
+        - `src/bot/handlers/auth.py`: `_password_hash()`, start-up revoke in `AuthHandler.__init__`, `_save_authenticated_users` writes `authenticated_users_hash`.
+        - `tests/conftest.py`: default `authenticated_users_hash` (sha256 of `test-pass`) so existing tests keep user 12345.
+        - `tests/test_handlers/test_auth_handler.py`: 6 tests (differs, missing, matches, empty list, int password, save writes hash).
+    - **Notes:** Upgrade note for the PR body: every user sends `/auth` once, because a list without a hash counts as changed. Refusing an existing short password at start-up stays out of scope. #209 and #225 touch the same save method and `MockConfig`.
 
 ### Phase 4: Docs (1 task)
 

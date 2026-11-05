@@ -7,6 +7,7 @@ Description: Authentication handler module.
 This module handles user authentication through the bot.
 """
 
+import hashlib
 import hmac
 from typing import Optional
 
@@ -113,6 +114,11 @@ def require_admin(service: Optional[str] = None):
     return decorator
 
 
+def _password_hash(password: str) -> str:
+    """Return the sha256 hex digest of the password (stored beside the user list)."""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
 class AuthHandler:
     """Handler for user authentication"""
 
@@ -126,6 +132,18 @@ class AuthHandler:
         self.translation = TranslationService()
         # Load authenticated users from config
         AuthHandler._authenticated_users = set(config.get("authenticated_users", []))
+        # A password change revokes everyone. A list saved without a hash (before
+        # this check existed) counts as changed: its users send /auth once.
+        if (
+            AuthHandler._authenticated_users
+            and config.get("authenticated_users_hash") != _password_hash(self.password)
+        ):
+            logger.warning(
+                f"Password changed: revoking {len(AuthHandler._authenticated_users)} "
+                "authenticated user(s)"
+            )
+            AuthHandler._authenticated_users = set()
+            self._save_authenticated_users()
 
     @classmethod
     def is_authenticated(cls, user_id: int) -> bool:
@@ -138,6 +156,9 @@ class AuthHandler:
             # Update the in-memory config too, so a later config.save() keeps them
             config.update_nested(
                 "authenticated_users", sorted(AuthHandler._authenticated_users)
+            )
+            config.update_nested(
+                "authenticated_users_hash", _password_hash(self.password)
             )
             config.save()
         except Exception as e:
