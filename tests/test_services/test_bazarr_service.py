@@ -26,6 +26,14 @@ def disabled_bazarr_config():
     _mock_config._config["bazarr"]["enable"] = original
 
 
+@pytest.fixture
+def bazarr_service():
+    """Create a BazarrService with bazarr enabled (default mock config)."""
+    from src.services.bazarr import BazarrService
+
+    return BazarrService()
+
+
 # ---------------------------------------------------------------------------
 # Singleton
 # ---------------------------------------------------------------------------

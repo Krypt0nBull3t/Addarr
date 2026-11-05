@@ -22,7 +22,7 @@ code). This plan names tests by name, and the names were checked on this branch.
 Dead fixtures:
 - `tests/test_api/conftest.py`: `radarr_url`, `sonarr_url`, `lidarr_url`, `bazarr_url`, `transmission_url`
 - `tests/test_handlers/conftest.py`: `mock_notification_service`, `transmission_handler`, `auth_handler`, `help_handler`
-- `tests/test_services/test_bazarr_service.py`: `bazarr_service`
+- `tests/test_services/test_bazarr_service.py`: `bazarr_service` (used again after the merge, kept)
 - `tests/test_services/test_webhook_service.py`: `filtered_service`
 
 Unused `tests/fixtures/sample_data.py` constants: `RADARR_ROOT_FOLDERS`, `SONARR_SEASONS`, `SABNZBD_QUEUE`,
@@ -88,10 +88,10 @@ Files: `tests/conftest.py` (after the `sys.modules` injection, before any `src.u
 1. `tests/test_api/conftest.py`: delete the five `*_url` fixtures.
 2. `tests/test_handlers/conftest.py`: delete `mock_notification_service`, `transmission_handler`, `auth_handler`,
    `help_handler`, and any import or helper only they used (two of them import classes that do not exist).
-3. Delete `bazarr_service` (`test_bazarr_service.py`) and `filtered_service` (`test_webhook_service.py`), with unused imports.
+3. Delete `filtered_service` (`test_webhook_service.py`), with unused imports. `bazarr_service` was dead too, but the merge of `origin/development` brought two tests that use it, so it stays.
 4. Delete the unused `sample_data.py` constants. Re-run the scan script after Tasks 3 and 4; the scan must report no
    unused fixture (autouse fixtures are expected false positives) and no unused constant.
-5. Check: `grep -rn "def radarr_url\|def bazarr_service\|def filtered_service" tests` returns nothing. `flake8` clean (unused imports).
+5. Check: `grep -rn "def radarr_url\|def filtered_service" tests` returns nothing. `flake8` clean (unused imports).
 6. Run the full unit suite; coverage stays 100%.
 7. Commit: `test: delete dead fixtures and unused sample data (#225, task 4)`.
 
