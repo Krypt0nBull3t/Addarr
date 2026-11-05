@@ -40,6 +40,12 @@ README.md
 *.db
 local/
 
+# Development files the bot does not need
+graphify-out/
+tests/
+docs/
+.claude/
+
 .vscode/
 
 # Byte-compiled / optimized / DLL files

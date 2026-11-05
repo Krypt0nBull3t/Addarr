@@ -55,7 +55,7 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
         - `tests/test_dockerfile.py`: new class `TestDockerfileReproducibleBuild` with two tests.
     - **Notes:** `tests/test_dockerfile.py` 10 passed; `tests/test_architecture` 158 passed.
 
-- [ ] **1.3** Keep dev-only folders out of the image (F152)
+- [x] **1.3** Keep dev-only folders out of the image (F152)
     - **Context:**
         - **Why:** `.dockerignore` lacks `graphify-out/` (20 MB), `tests/`, `docs/` and `.claude/`, so the image carries them.
         - **Architecture:** Entries in `.dockerignore`, text tests in `tests/test_dockerfile.py` (`TestDockerignore`, fixture `dockerignore_entries`).
@@ -69,6 +69,15 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
         - [GREEN] Add the four entries
         - [GREEN] Manual: `docker build -t addarr-214 .`, then `ls /app` and `pip --version` in the image (pip 26.2 or newer)
     - **Success:** the first test fails first, then both pass; `tests/test_utils/test_backup.py` still passes; the manual result is reported
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The four dev-folder tests failed first; the runtime-file tests passed at once, as planned.
+        - Manual check on a local `docker build`: `/app` has no `graphify-out`, `tests`, `docs` or `.claude`; pip is 26.3; the image holds python-telegram-bot 22.8 and aiohttp 3.14.5.
+        - `/app` still holds `.github`, `AGENTS.md`, `CLAUDE.md`, `mypy.ini`, `pytest.ini`, `pyrightconfig.json`, `.coveragerc`, `scripts`, `requirements-test.txt`. The issue does not list them.
+    - **Key Changes:**
+        - `.dockerignore`: four entries under `# Development files the bot does not need`.
+        - `tests/test_dockerfile.py`: `dockerignore_entries` fixture and class `TestDockerignore` (11 parametrized cases).
+    - **Notes:** Follow-up for the PR body: the extra files above could join `.dockerignore` (issue #121 covers image improvements). I did not add them: out of scope.
 
 - [ ] **1.4** Push a version tag next to `:latest` (F150, developer approved)
     - **Context:**

@@ -124,3 +124,36 @@ class TestDockerfileReproducibleBuild:
         text = self._text(dockerfile_lines)
         assert '"pip>=26.2"' in text
         assert text.index('"pip>=26.2"') < text.index("-r requirements.txt")
+
+
+DOCKERIGNORE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), ".dockerignore"
+)
+
+
+@pytest.fixture
+def dockerignore_entries():
+    """Non-blank, non-comment lines of .dockerignore."""
+    with open(DOCKERIGNORE_PATH, "r") as f:
+        lines = [line.strip() for line in f]
+    return [line for line in lines if line and not line.startswith("#")]
+
+
+class TestDockerignore:
+    """The image holds what the bot needs and no development files."""
+
+    @pytest.mark.parametrize(
+        "folder", ["graphify-out/", "tests/", "docs/", ".claude/"]
+    )
+    def test_dockerignore_excludes_dev_folders(self, dockerignore_entries, folder):
+        assert folder in dockerignore_entries
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "src", "src/", "translations", "translations/", "run.py",
+            "config_example.yaml", "requirements.txt",
+        ],
+    )
+    def test_dockerignore_keeps_runtime_files(self, dockerignore_entries, path):
+        assert path not in dockerignore_entries
