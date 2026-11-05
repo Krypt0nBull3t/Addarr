@@ -36,6 +36,8 @@ For each changed file, check:
 * [ ] **Singleton issues**: State in `__init__` vs `_initialize`, missing `is_enabled()` checks
 * [ ] **Config safety**: Direct `config["key"]` indexing, missing `.get()` defaults
 * [ ] **Telegram API misuse**: Missing `query.answer()`, `reply_text` on callbacks, `edit_text` on photo messages
+* [ ] **Parse mode**: A text with `*bold*` or `_italic_` goes out with `parse_mode`, or the markers show. With `parse_mode="Markdown"`, every dynamic value (service names, error text) passes `escape_markdown(text, version=1)` from `telegram.helpers`, or a `_` or `*` breaks parsing
+* [ ] **Bot self-messages**: A bot never receives its own messages. `bot.send_message(chat_id, "/start")` opens nothing; send the menu or call the handler
 * [ ] **Repeated callback edits**: Paged, refresh or filter callbacks that can render the same text again use `edit_text_ignoring_unmodified` (`src/utils/chat.py`), or a double tap raises "Message is not modified"
 * [ ] **Error handling**: Swallowing exceptions silently, raising from `_initialize`
 
