@@ -179,7 +179,7 @@ Run every test and every `git push` through the suite lock:
         - Tests in `tests/test_main.py`, `test_definitions.py`, `test_dockerfile.py`, `test_docker_compose.py`.
     - **Notes:** The first touch happens when the loop starts, after polling has started; `start_period` is 30 s. A bot that fails before the loop never gets healthy, as intended.
 
-- [ ] **1.8** F142: clean shutdown on SIGTERM
+- [x] **1.8** F142: clean shutdown on SIGTERM
     - **Context:**
         - **Why:** The SIGTERM handler runs `stop()` as a side task; `asyncio.run` cancels it before `application.shutdown()`, and the aiohttp sessions stay open. `Updater.stop()` also re-raises the InvalidToken of a dead polling task, which skips `application.stop()` and `shutdown()` today.
         - **Architecture:** `stop()` is idempotent (`asyncio.Lock`, `_stopped` set only when `application` exists) and runs each step on its own guard. `start_bot` awaits `bot.stop()` after `bot.start()` returns. `MediaService.close()` and `BazarrService.close()` close the long-lived `BaseApiClient` sessions.
@@ -193,6 +193,16 @@ Run every test and every `git push` through the suite lock:
         - [RED] `MediaService().close()` closes configured clients and skips `None`; `BazarrService().close()` closes the client.
         - [GREEN] Implement the guards, the lock, `start_bot` change and both `close()` methods.
     - **Success:** New tests fail before, pass after; `tests/test_main.py` and both service test files green.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `test_sigterm_runs_shutdown_before_exit` runs the real `asyncio.run` with a shutdown step that takes time, so it reproduces the bug (`shutdown` awaited 0 times before the fix). With mocked `asyncio.run` it would pass without the fix.
+        - A singleton's first creation resets its clients (`BazarrService._initialize` sets `_client = None`); a test must create the singleton before it patches a client.
+        - `patch("src.main.asyncio.sleep")` patches `asyncio.sleep` globally; the test keeps the real function first and uses it for the slow step.
+    - **Key Changes:**
+        - `src/main.py`: `stop()` is idempotent (`_stop_lock`, `_stopped`, set only when `application` exists) and runs seven steps, each with its own guard; `start_bot` awaits `bot.stop()` after `start()`; new helpers `_stop_webhook`, `_stop_updater`, `_close_media_clients`, `_close_bazarr_client`.
+        - `src/services/media.py`, `src/services/bazarr.py`: `async close()`.
+        - Tests in `tests/test_main.py`, `test_media_service.py`, `test_bazarr_service.py`.
+    - **Notes:** `TransmissionService` and `SABnzbdService` need no close (per-call sessions). The services coverage run shows 100% for both changed service files.
 
 - [ ] **1.9** Whole-issue verification
     - **Context:**

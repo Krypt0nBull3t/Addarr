@@ -44,7 +44,9 @@ from src.utils.error_handler import (
     handle_initialization_error
 )
 from src.bot.commands import build_default_commands, register_commands_for_chat
+from src.services.bazarr import BazarrService
 from src.services.health import health_service, display_health_status
+from src.services.media import MediaService
 from src.services.notification import NotificationService
 from src.services.webhook import WebhookService
 
@@ -69,6 +71,8 @@ class AddarrBot:
         self.health_checker = health_service
         self._webhook_service = None
         self._heartbeat_warned = False
+        self._stopped = False
+        self._stop_lock = asyncio.Lock()
 
     async def initialize(self):
         """Initialize the bot application"""
@@ -294,28 +298,50 @@ class AddarrBot:
             logger.error(f"❌ Error starting bot: {str(e)}")
             raise
 
+    async def _stop_webhook(self):
+        if self._webhook_service:
+            await self._webhook_service.stop()
+
+    async def _stop_updater(self):
+        if hasattr(self.application, 'updater') and self.application.updater.running:
+            await self.application.updater.stop()
+
+    async def _close_media_clients(self):
+        await MediaService().close()
+
+    async def _close_bazarr_client(self):
+        await BazarrService().close()
+
     async def stop(self):
-        """Stop the bot gracefully"""
+        """Stop the bot gracefully. Safe to call twice (signal task plus start_bot)."""
         self._stop_requested = True
-        if self.application:
-            try:
-                logger.info("🛑 Stopping bot...")
-                self._running = False
+        async with self._stop_lock:
+            # No application yet: a start-up signal is remembered by start()
+            if self._stopped or not self.application:
+                return
+            self._stopped = True
+            logger.info("🛑 Stopping bot...")
+            self._running = False
 
-                # Stop webhook server
-                if self._webhook_service:
-                    await self._webhook_service.stop()
-
-                # Stop health check job
-                await self.health_checker.stop()
-
-                if hasattr(self.application, 'updater') and self.application.updater.running:
-                    await self.application.updater.stop()
-                await self.application.stop()
-                await self.application.shutdown()
-            except Exception as e:
-                logger.debug(f"Error during shutdown: {str(e)}", exc_info=True)
-                # Don't raise the error since we're shutting down anyway
+            # Each step has its own guard: updater.stop() re-raises the error of a
+            # dead polling task and must not skip application.shutdown()
+            steps = (
+                ("webhook", self._stop_webhook),
+                ("health check", self.health_checker.stop),
+                ("updater", self._stop_updater),
+                ("application stop", self.application.stop),
+                ("application shutdown", self.application.shutdown),
+                ("media clients", self._close_media_clients),
+                ("bazarr client", self._close_bazarr_client),
+            )
+            for name, step in steps:
+                try:
+                    await step()
+                except Exception as e:
+                    # Don't raise the error since we're shutting down anyway
+                    logger.debug(
+                        f"Error during shutdown ({name}): {str(e)}", exc_info=True
+                    )
 
 
 async def main():
@@ -326,6 +352,8 @@ async def main():
         try:
             await bot.initialize()
             await bot.start()
+            # asyncio.run cancels the signal task's stop() when main() returns
+            await bot.stop()
         except Exception as e:
             logger.error(f"❌ Bot error: {str(e)}", exc_info=True)
             await bot.stop()

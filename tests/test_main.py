@@ -1,5 +1,6 @@
 """Tests for src/main.py"""
 
+import asyncio
 import signal
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -7,6 +8,8 @@ import pytest
 from telegram.error import InvalidToken, NetworkError
 
 from src.main import AddarrBot, main, run_bot
+from src.services.bazarr import BazarrService
+from src.services.media import MediaService
 
 
 # ---------------------------------------------------------------------------
@@ -621,6 +624,60 @@ class TestStop:
         mock_app.stop.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_stop_twice_shuts_down_once(self, bot, mock_app):
+        """A second stop() (signal task plus start_bot) does nothing."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.stop = AsyncMock()
+
+        await bot.stop()
+        await bot.stop()
+
+        mock_app.shutdown.assert_awaited_once()
+        bot.health_checker.stop.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_shutdown_runs_when_updater_stop_raises(self, bot, mock_app):
+        """A dead polling task makes updater.stop() raise; shutdown still runs."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.stop = AsyncMock()
+        mock_app.updater.stop = AsyncMock(side_effect=InvalidToken("bad token"))
+
+        await bot.stop()
+
+        mock_app.stop.assert_awaited_once()
+        mock_app.shutdown.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_stop_before_application_does_not_set_stopped(self, bot):
+        """A signal during start-up must not block the real shutdown later."""
+        await bot.stop()
+
+        assert bot._stop_requested is True
+        assert bot._stopped is False
+
+    @pytest.mark.asyncio
+    async def test_stop_closes_client_sessions(self, bot, mock_app):
+        """stop() closes the long-lived API client sessions."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.stop = AsyncMock()
+        radarr, bazarr_client = AsyncMock(), AsyncMock()
+        # Create the singletons first: their first creation resets the clients
+        MediaService()
+        BazarrService()
+
+        with (
+            patch.object(MediaService, "_radarr", radarr),
+            patch.object(BazarrService, "_client", bazarr_client),
+        ):
+            await bot.stop()
+
+        radarr.close.assert_awaited_once()
+        bazarr_client.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_error_swallowed(self, bot, mock_app):
         """Exceptions during shutdown are swallowed."""
         bot.application = mock_app
@@ -859,6 +916,64 @@ class TestMain:
         messages = [c.args[0] for c in mock_logger.info.call_args_list]
         assert any("Shutting down..." in m for m in messages)
         assert not any("{Fore.YELLOW}" in m for m in messages)
+
+    @pytest.mark.asyncio
+    @patch("src.main.AddarrBot")
+    async def test_start_bot_awaits_stop_after_start_returns(self, mock_bot_cls):
+        """start_bot awaits bot.stop() itself when start() returns."""
+        mock_bot = MagicMock()
+        mock_bot.initialize = AsyncMock()
+        mock_bot.start = AsyncMock()
+        mock_bot.stop = AsyncMock()
+        mock_bot_cls.return_value = mock_bot
+
+        await main()
+
+        mock_bot.stop.assert_awaited_once()
+
+    def test_sigterm_runs_shutdown_before_exit(self, mock_app, tmp_path):
+        """With the real asyncio.run, SIGTERM still runs application.shutdown().
+
+        The signal handler runs stop() as a side task. asyncio.run cancels
+        pending tasks on exit, so start_bot must await the shutdown itself.
+        """
+        real_sleep = asyncio.sleep
+        handlers = {}
+        mock_loop = MagicMock()
+        mock_loop.add_signal_handler.side_effect = (
+            lambda sig, callback: handlers.__setitem__(sig, callback)
+        )
+
+        bot = AddarrBot()
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+        bot.health_checker.stop = AsyncMock()
+
+        async def fake_initialize():
+            bot.application = mock_app
+
+        async def sigterm_during_start():
+            handlers[signal.SIGTERM]()  # creates the stop() side task
+
+        async def slow_updater_stop():
+            await real_sleep(0.05)  # a real shutdown step takes time
+
+        async def short_tick(_):
+            await real_sleep(0)
+
+        bot.initialize = fake_initialize
+        mock_app.start = AsyncMock(side_effect=sigterm_during_start)
+        mock_app.updater.stop = AsyncMock(side_effect=slow_updater_stop)
+
+        with (
+            patch("src.main.AddarrBot", return_value=bot),
+            patch("src.main.asyncio.get_running_loop", return_value=mock_loop),
+            patch("src.main.asyncio.sleep", side_effect=short_tick),
+            patch("src.main.HEARTBEAT_FILE", str(tmp_path / "heartbeat")),
+        ):
+            asyncio.run(main())
+
+        mock_app.shutdown.assert_awaited_once()
 
     @pytest.mark.asyncio
     @patch("src.main.AddarrBot")
