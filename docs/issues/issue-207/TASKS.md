@@ -49,7 +49,7 @@ Branch: `fix/207-download-failures-look-like-success`.
     - **Key Changes:** `SABnzbdService.get_queue_details` and `TransmissionService.get_queue_details` return `Optional[Dict]` and `None` on failure. Removed the `empty` dicts. Updated the error-path tests and added `test_get_queue_details_none_on_wrong_api_key`.
     - **Notes:** Until task 1.7, `downloads.py` indexes the result and would crash on `None`. Do not ship tasks 1.2 and 1.7 apart.
 
-- [ ] **1.3** F083: the wizard SABnzbd check needs the key
+- [x] **1.3** F083: the wizard SABnzbd check needs the key
     - **Context:**
         - **Why:** `mode=version` needs no key, so a wrong key passes the wizard check.
         - **Architecture:** Setup layer only. No `src.config.settings` import (ADR 0005).
@@ -62,6 +62,10 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] `test_sabnzbd_wrong_key_fails` (200 with `{"status": false, "error": "API Key Incorrect"}`, expect `False`).
         - [GREEN] Implement. Update the existing SABnzbd tests that use `version`.
     - **Success:** Tests pass. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** `mode=version` answers without a key, so a test that mocks one fixed reply cannot show the bug. The test uses an `aioresponses` callback that behaves like SABnzbd (`CallbackResult`, `url.query`). A wrong-key reply is only red against the old code through that callback.
+    - **Key Changes:** `src/setup/validators.py` sends `mode=queue` with `apikey` as a query parameter and accepts a reply with the key `queue`. Added three SABnzbd tests in `tests/test_setup/test_validators.py`.
+    - **Notes:** The printed URL does not include the query, so the key is not logged.
 
 - [ ] **1.4** F082: the wizard writes `host` and `port` for Transmission
     - **Context:**
