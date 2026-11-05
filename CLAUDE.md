@@ -162,7 +162,7 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 ### Entry Point Flow
 
-`run.py` → pre-run checks (`src/utils/prerun.py`: `PreRunChecker`, exported as the instance `prerun_checker` from `src/utils/__init__.py`) → init utilities → `src/main.py:run_bot()` → `AddarrBot.initialize()` (config validation, health checks, handler registration) → `AddarrBot.start()` (polling loop + health check task).
+`run.py` → pre-run checks (`src/utils/prerun.py`: `PreRunChecker`, exported from `src/utils/__init__.py` as the shared instance) → init utilities → `src/main.py:run_bot()` → `AddarrBot.initialize()` (config validation, health checks, handler registration) → `AddarrBot.start()` (polling loop + health check task).
 
 ### Handler Registration Order
 
