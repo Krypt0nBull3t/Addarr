@@ -148,6 +148,21 @@ async def test_show_help_callback(make_update, make_context):
 
 
 @pytest.mark.asyncio
+async def test_show_help_callback_has_back_button(make_update, make_context):
+    """show_help via callback query offers a Back button to the main menu."""
+    with _help_patches():
+        handler = _make_handler()
+        update = make_update(callback_data="menu_help")
+        await handler.show_help(update, make_context())
+
+        markup = update.callback_query.message.edit_text.call_args.kwargs[
+            "reply_markup"
+        ]
+        callbacks = [b.callback_data for row in markup.inline_keyboard for b in row]
+        assert callbacks == ["menu_back"]
+
+
+@pytest.mark.asyncio
 async def test_show_help_no_user(make_update, make_context):
     """show_help returns when no effective_user."""
     with _help_patches():

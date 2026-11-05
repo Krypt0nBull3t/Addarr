@@ -161,13 +161,25 @@ async def test_handle_api_error(
 
 
 def test_pagination_single_page(library_handler):
-    """Single page (5 items) has no navigation buttons."""
+    """Single page (5 items) has no navigation buttons, only Back."""
     items = [{"id": str(i), "title": f"Item {i}"} for i in range(5)]
     text, reply_markup = library_handler._build_page_message(items, 0, "m")
 
     assert "Item 0" in text
     assert "Item 4" in text
-    assert reply_markup is None
+    callbacks = [
+        b.callback_data for row in reply_markup.inline_keyboard for b in row
+    ]
+    assert callbacks == ["menu_library"]
+
+
+@pytest.mark.parametrize("page", [0, 1, 2])
+def test_library_list_has_back_button_on_every_page(library_handler, page):
+    """Every page of the list ends with a Back button to the library menu."""
+    items = [{"id": str(i), "title": f"Item {i}"} for i in range(25)]
+    _, reply_markup = library_handler._build_page_message(items, page, "m")
+
+    assert reply_markup.inline_keyboard[-1][0].callback_data == "menu_library"
 
 
 def test_pagination_first_page_next_only(library_handler):

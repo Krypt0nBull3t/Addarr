@@ -116,6 +116,13 @@ class BazarrHandler:
         ]
         return InlineKeyboardMarkup(keyboard)
 
+    def _get_back_keyboard(self) -> InlineKeyboardMarkup:
+        """Build a keyboard with a Back button to the subtitles menu."""
+        return InlineKeyboardMarkup([[InlineKeyboardButton(
+            f"\u25c0\ufe0f {self.translation.get_text('Back')}",
+            callback_data="bazarr_menu",
+        )]])
+
     async def _reply(
         self, update: Update, text: str, **kwargs
     ) -> None:
@@ -183,12 +190,14 @@ class BazarrHandler:
 
         if not movies:
             await update.callback_query.edit_message_text(
-                self.translation.get_text("BazarrWantedEmpty")
+                self.translation.get_text("BazarrWantedEmpty"),
+                reply_markup=self._get_back_keyboard(),
             )
             return
 
         await update.callback_query.edit_message_text(
-            _format_movie_list(movies)
+            _format_movie_list(movies),
+            reply_markup=self._get_back_keyboard(),
         )
 
     @require_auth
@@ -202,7 +211,8 @@ class BazarrHandler:
 
         if not episodes:
             await update.callback_query.edit_message_text(
-                self.translation.get_text("BazarrWantedEmpty")
+                self.translation.get_text("BazarrWantedEmpty"),
+                reply_markup=self._get_back_keyboard(),
             )
             return
 
@@ -217,7 +227,9 @@ class BazarrHandler:
                 f"  Missing: {missing_names}"
             )
 
-        await update.callback_query.edit_message_text("\n".join(lines))
+        await update.callback_query.edit_message_text(
+            "\n".join(lines), reply_markup=self._get_back_keyboard()
+        )
 
     @require_auth
     async def cancel(

@@ -84,7 +84,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Key Changes:** `show_queue` and `show_missing` assign `"all"`. `_build_response` in queue, missing and history uses the items keyboard when items exist or a filter is active. `missing._handle_filter` refetches on movie and series. Seven handler tests and three keyboard tests added.
     - **Notes:** Handlers scoped run: 686 tests, 100% coverage. Keyboard, integration tests and mypy pass.
 
-- [ ] **1.5** F113: Back buttons and a `bazarr_menu` button
+- [x] **1.5** F113: Back buttons and a `bazarr_menu` button
     - **Context:**
         - **Why:** Help, the library list and both Bazarr wanted lists have no Back button. No keyboard has a `bazarr_menu` button, although its handler exists.
         - **Architecture:** Help Back is `menu_back` (handled by `HelpHandler.handle_back`). Library list Back is `menu_library` (handled by `StartHandler`). Bazarr Back is `bazarr_menu` (handled by `subtitles_menu`). Label from `TranslationService().get_text("Back")`, no new key.
@@ -98,6 +98,10 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
         - [RED] Write Bazarr tests for wanted movies and episodes, empty and non-empty (`bazarr_menu`).
         - [GREEN] Add the buttons; update existing tests that expect `None` markup.
     - **Success:** New tests fail before and pass after. The three files pass. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** Help gets Back only on the callback path (the issue names the Help callback reply). The `/help` command reply keeps no keyboard. `_build_page_message` is a `staticmethod`, so it builds the label with `TranslationService().get_text("Back")`. The library error and empty replies (no list) still have no Back button; the issue does not list them.
+    - **Key Changes:** `HelpHandler.show_help` adds a `menu_back` button on the callback path. `LibraryHandler._build_page_message` always returns a markup with a `menu_library` Back row. `BazarrHandler._get_back_keyboard()` gives all four wanted replies a `bazarr_menu` Back button. Added 9 test cases (one parametrized Bazarr test) and updated `test_pagination_single_page`.
+    - **Notes:** Handlers scoped run: 694 tests, 100% coverage. mypy, integration and architecture tests pass. Task 1.7 covers the Help Back flow end to end.
 
 - [ ] **1.6** F112: Back goes to the parent screen
     - **Context:**

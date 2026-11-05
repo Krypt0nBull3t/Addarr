@@ -211,8 +211,14 @@ class LibraryHandler:
                 )
             )
 
-        reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
-        return text, reply_markup
+        rows = [buttons] if buttons else []
+        rows.append([
+            InlineKeyboardButton(
+                f"\u25c0\ufe0f {TranslationService().get_text('Back')}",
+                callback_data="menu_library",
+            )
+        ])
+        return text, InlineKeyboardMarkup(rows)
 
     @require_auth
     async def handle_page_navigation(self, update, context):
