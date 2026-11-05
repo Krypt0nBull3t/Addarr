@@ -129,6 +129,11 @@ class TestSecretValidation:
         assert webhook_service._validate_secret("radarr", "12345") is True
         assert webhook_service._validate_secret("radarr", "54321") is False
 
+    @pytest.mark.parametrize("provided", ["é", "\udce9"])
+    def test_non_ascii_secret_is_rejected(self, webhook_service, provided):
+        """A non-ASCII header (or a lone surrogate) gives False, not TypeError."""
+        assert webhook_service._validate_secret("radarr", provided) is False
+
     def test_no_header_sent_fails_when_secret_configured(self, webhook_service):
         """When a secret IS configured but no header sent, should fail."""
         assert webhook_service._validate_secret("radarr", None) is False
@@ -230,6 +235,16 @@ class TestWebhookEndpoints:
             "/webhooks/lidarr",
             json={"eventType": "Test"},
             headers={"X-Api-Secret": "anything"},
+        )
+        assert resp.status == 401
+
+    @pytest.mark.asyncio
+    async def test_non_ascii_secret_header_returns_401(self, webhook_client):
+        """A non-ASCII X-Api-Secret gives 401, not a 500 traceback."""
+        resp = await webhook_client.post(
+            "/webhooks/radarr",
+            json={"eventType": "Test"},
+            headers={"X-Api-Secret": "é"},
         )
         assert resp.status == 401
 
@@ -462,3 +477,71 @@ class TestWebhookLifecycle:
                     # Should not raise
                     await webhook_service.start()
                     assert webhook_service._running is False
+
+
+# ---------------------------------------------------------------------------
+# Bind host default (F104)
+# ---------------------------------------------------------------------------
+
+
+class TestHostDefault:
+    """The server binds loopback unless webhooks.host says otherwise."""
+
+    def test_host_defaults_to_loopback(self, mock_config):
+        mock_config._set("webhooks", {"enable": True, "port": 9999})
+        with patch("src.services.webhook.config", mock_config):
+            from src.services.webhook import WebhookService
+            assert WebhookService()._host == "127.0.0.1"
+
+    def test_host_defaults_to_loopback_when_disabled(self, mock_config):
+        mock_config._set("webhooks", {"enable": False})
+        with patch("src.services.webhook.config", mock_config):
+            from src.services.webhook import WebhookService
+            assert WebhookService()._host == "127.0.0.1"
+
+    def test_configured_host_is_kept(self, webhook_service):
+        """An existing config that sets host keeps it (no migration)."""
+        assert webhook_service._host == "0.0.0.0"
+
+
+# ---------------------------------------------------------------------------
+# Missing admin notify id (F106)
+# ---------------------------------------------------------------------------
+
+
+class TestAdminNotifyWarning:
+    """start() warns once when no admin chat can receive events."""
+
+    async def _start(self, service):
+        with patch.object(service, "_create_app", return_value=web.Application()):
+            with patch("aiohttp.web.AppRunner", return_value=AsyncMock()):
+                with patch("aiohttp.web.TCPSite", return_value=AsyncMock()):
+                    with patch("src.services.webhook.logger") as mock_logger:
+                        await service.start()
+        return mock_logger
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("notify_id", [0, "", None, "0"])
+    async def test_missing_admin_notify_id_warns_once(
+        self, webhook_service, webhook_config, notify_id
+    ):
+        webhook_config._set("logging", {"adminNotifyId": notify_id})
+        mock_logger = await self._start(webhook_service)
+        mock_logger.warning.assert_called_once()
+        assert "adminNotifyId" in mock_logger.warning.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_admin_notify_id_set_does_not_warn(
+        self, webhook_service, webhook_config
+    ):
+        webhook_config._set("logging", {"adminNotifyId": 12345})
+        mock_logger = await self._start(webhook_service)
+        mock_logger.warning.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_logging_section_missing_warns_once(
+        self, webhook_service, webhook_config
+    ):
+        webhook_config._set("logging", {})
+        mock_logger = await self._start(webhook_service)
+        mock_logger.warning.assert_called_once()

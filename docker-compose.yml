@@ -9,11 +9,9 @@ services:
     container_name: addarr-refresh
     build: .
     restart: unless-stopped
-    # Host networking is used because Addarr is a Telegram bot that makes
-    # outbound connections only (no listening ports). It needs to reach
-    # Radarr, Sonarr, Lidarr, Transmission, and SABnzbd which typically
-    # run on the same host. Host mode avoids the need to configure bridge
-    # networking or explicit port mappings for each service.
+    # Host networking: Addarr reaches the *arr apps and download clients on the host.
+    # Its one listening port is the webhook receiver, webhooks.host:webhooks.port
+    # (default 127.0.0.1:8080). *arr apps on another host need host: 0.0.0.0.
     #
     # To use bridge networking instead (e.g. for Docker Swarm or stricter
     # network isolation), remove this line and ensure Addarr can reach
