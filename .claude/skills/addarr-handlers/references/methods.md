@@ -99,7 +99,7 @@ async def handle_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["search_results"] = results
     context.user_data["current_index"] = 0
     # ... show results
-    return States.SELECTING
+    return SELECTING  # from src.bot.handlers.media.dispatch
 ```
 
 ## Cancel Handler

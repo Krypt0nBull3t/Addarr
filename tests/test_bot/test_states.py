@@ -3,43 +3,6 @@
 from src.bot.states import States
 
 
-class TestMediaStates:
-    """Tests for media conversation states"""
-
-    def test_media_states_are_integers(self):
-        """SEARCHING, SELECTING, QUALITY_SELECT, SEASON_SELECT are all int"""
-        assert isinstance(States.SEARCHING, int)
-        assert isinstance(States.SELECTING, int)
-        assert isinstance(States.QUALITY_SELECT, int)
-        assert isinstance(States.SEASON_SELECT, int)
-
-    def test_media_states_unique(self):
-        """All 4 media state values are distinct"""
-        media_states = [
-            States.SEARCHING,
-            States.SELECTING,
-            States.QUALITY_SELECT,
-            States.SEASON_SELECT,
-        ]
-        assert len(media_states) == len(set(media_states))
-
-
-class TestAuthStates:
-    """Tests for authentication states"""
-
-    def test_password_state(self):
-        """PASSWORD == 0"""
-        assert States.PASSWORD == 0
-
-
-class TestGeneralStates:
-    """Tests for general states"""
-
-    def test_end_state(self):
-        """END == 'end'"""
-        assert States.END == "end"
-
-
 class TestRemovedStates:
     """Tests that dead states have been removed"""
 
