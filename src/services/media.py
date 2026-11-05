@@ -256,18 +256,12 @@ class MediaService:
 
             movie = lookup_results
 
-            # Format quality profiles for selection
-            profile_text = "Select quality profile:\n\n"
-            for i, profile in enumerate(quality_profiles, 1):
-                profile_text += f"{i}. {profile['name']}\n"
-
             # Store information for later use
             return {
                 "type": "quality_selection",
                 "profiles": quality_profiles,
                 "root_folder": root_folders[0],  # Use first root folder for now
                 "movie": movie,
-                "message": profile_text
             }
 
         except Exception as e:
@@ -327,11 +321,6 @@ class MediaService:
             if not seasons:
                 return False, "No seasons found for series"
 
-            # Format quality profiles for selection
-            profile_text = "Select quality profile:\n\n"
-            for i, profile in enumerate(quality_profiles, 1):
-                profile_text += f"{i}. {profile['name']}\n"
-
             # Store information for later use
             return {
                 "type": "quality_selection",
@@ -339,7 +328,6 @@ class MediaService:
                 "root_folder": root_folders[0],  # Use first root folder for now
                 "series": series,
                 "seasons": seasons,  # Add seasons to context
-                "message": profile_text
             }
 
         except Exception as e:
@@ -399,18 +387,12 @@ class MediaService:
 
             artist = lookup_results
 
-            # Format quality profiles for selection
-            profile_text = "Select quality profile:\n\n"
-            for i, profile in enumerate(quality_profiles, 1):
-                profile_text += f"{i}. {profile['name']}\n"
-
             # Store information for later use
             return {
                 "type": "quality_selection",
                 "profiles": quality_profiles,
                 "root_folder": root_folders[0],  # Use first root folder for now
                 "artist": artist,
-                "message": profile_text
             }
 
         except Exception as e:

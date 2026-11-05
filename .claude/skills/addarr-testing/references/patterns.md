@@ -214,7 +214,7 @@ update = make_update(callback_data="select_0")
 ### State Transitions
 
 ```python
-from src.bot.states import States
+from src.bot.handlers.media.dispatch import SELECTING
 
 async def test_search_returns_selecting(media_handler, make_update, make_context):
     media_handler._mock_service.search_movies.return_value = [{"title": "Movie"}]
@@ -222,7 +222,7 @@ async def test_search_returns_selecting(media_handler, make_update, make_context
     context = make_context(user_data={"search_type": "movie"})
     with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock) as mock_show:
         result = await media_handler.handle_search(update, context)
-    assert result == States.SELECTING
+    assert result == SELECTING
     mock_show.assert_awaited_once()
     assert context.user_data["current_index"] == 0
 ```

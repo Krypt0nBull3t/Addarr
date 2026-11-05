@@ -272,6 +272,8 @@ the skill stays in context for the rest of the session. Do not re-invoke.
            also lists src/bot/handlers/, which tests/test_bot/ does not
            cover: ignore those). The full suite with the 100% coverage gate
            runs once, in the preflight.
+           A task that deletes or renames a name in src/: grep .claude/skills/
+           and CLAUDE.md for it (test_skills.py misses names in code examples).
 4  RUN     Integration test check: if the task adds or modifies a user-facing
            flow (handler, command, conversation state, callback routing):
            a  Check tests/integration/ for an existing test covering this flow
