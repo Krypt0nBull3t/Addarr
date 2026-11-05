@@ -87,6 +87,12 @@ class MediaService:
     def lidarr(self):
         return self._lidarr
 
+    async def close(self) -> None:
+        """Close the aiohttp sessions of the API clients."""
+        for client in (self._radarr, self._sonarr, self._lidarr):
+            if client is not None:
+                await client.close()
+
     async def search_movies(self, query: str) -> List[Dict]:
         """Search for movies using Radarr"""
         if not self.radarr:

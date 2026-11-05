@@ -2174,18 +2174,29 @@ class TestHistoryItemsKeyboard:
 
     @patch("src.bot.keyboards.TranslationService")
     def test_filter_active_highlight(self, mock_ts):
-        """Active filter shows bullet prefix."""
+        """Active filter starts with the check mark used on other screens."""
         _mock_translation(mock_ts)
         result = get_history_items_keyboard(
             HISTORY_ITEMS, page=0, page_size=5, event_filter="grabbed"
         )
         filter_row = result.inline_keyboard[0]
-        # Find the "grabbed" filter button — should have bullet prefix
         grabbed_btn = [b for b in filter_row if "grabbed" in b.callback_data][0]
-        assert grabbed_btn.text.startswith("\u2022 ")
-        # "All" should NOT have bullet
+        assert grabbed_btn.text.startswith("\u2713 ")
+        # "All" should NOT have the check mark
         all_btn = [b for b in filter_row if b.callback_data == "hist_filter_all"][0]
-        assert not all_btn.text.startswith("\u2022 ")
+        assert not all_btn.text.startswith("\u2713 ")
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_refresh_button_is_labelled_refresh(self, mock_ts):
+        """The hist_refresh button says Refresh, not the Search key."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard(HISTORY_ITEMS, page=0, page_size=5)
+        refresh = [
+            btn for row in result.inline_keyboard for btn in row
+            if btn.callback_data == "hist_refresh"
+        ][0]
+        assert refresh.text == "\U0001f504 Refresh"
+        assert "Search" not in refresh.text
 
     @patch("src.bot.keyboards.TranslationService")
     def test_title_truncation(self, mock_ts):
@@ -2228,6 +2239,18 @@ class TestHistoryEmptyKeyboard:
         ]
         assert "hist_refresh" in callbacks
         assert "hist_back" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_refresh_button_is_labelled_refresh(self, mock_ts):
+        """The empty-state hist_refresh button says Refresh, not Search."""
+        _mock_translation(mock_ts)
+        result = get_history_empty_keyboard()
+        refresh = [
+            btn for row in result.inline_keyboard for btn in row
+            if btn.callback_data == "hist_refresh"
+        ][0]
+        assert refresh.text == "\U0001f504 Refresh"
+        assert "Search" not in refresh.text
 
 
 def _row_callbacks(row):

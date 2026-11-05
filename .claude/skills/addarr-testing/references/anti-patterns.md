@@ -334,3 +334,31 @@ assert [str(url) for _, url in aio_mock.requests] == [f"{BASE}/series/lookup?ter
 ```
 
 **Why**: In issue #204 the `*_empty` tests of the 7 history, queue and wanted requests passed before the include flags existed, because an unmatched URL also returns `[]`. Only the tests with a payload went red. Run each new test red first, and mock the "unknown name" case with records so a wrong request returns them (see `test_get_history_unknown_event_type`).
+
+---
+
+## RED Test of a Never-Ending Loop
+
+**Don't** write a RED test for a loop that only the fix ends. The suite hangs instead of failing:
+
+```python
+# BAD - before the fix the keep-alive loop never exits, pytest waits forever
+with patch("src.main.asyncio.sleep", side_effect=updater_stops):
+    with pytest.raises(RuntimeError, match="polling stopped"):
+        await bot.start()
+```
+
+**Instead**, let the sleep patch end the loop itself from the second tick on, so the unfixed code fails with "DID NOT RAISE":
+
+```python
+# GOOD - fails fast before the fix, passes after it
+sleeps = []
+
+async def updater_stops(_):
+    sleeps.append(1)
+    if len(sleeps) > 1:
+        bot._running = False  # fail fast if the loop ignores the updater
+    mock_app.updater.running = False
+```
+
+**Why**: In issue #211 the first RED run of `test_loop_exits_when_updater_stops` hit the 300 s tool timeout (see `TestStart` in `tests/test_main.py`). Run a RED test with `timeout` the first time.
