@@ -258,6 +258,7 @@ ru-ru:
   DownloadsItemResumed: "Элемент возобновлён."
   DownloadsPauseError: "Не удалось приостановить элемент."
   DownloadsResumeError: "Не удалось возобновить элемент."
+  DownloadsFetchError: "Не удалось связаться с клиентом загрузок. Проверьте, что он запущен и что ключ API указан верно."
   DownloadsNotEnabled: "Ни один клиент загрузок не включён."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

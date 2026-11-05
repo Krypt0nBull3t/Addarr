@@ -1,11 +1,12 @@
 """Tests for src.setup.validators module."""
 
 import asyncio
+import re
 from unittest.mock import AsyncMock, patch, MagicMock
 
 import aiohttp
 import pytest
-from aioresponses import aioresponses
+from aioresponses import CallbackResult, aioresponses
 
 from src.setup.validators import validate_service_connection, get_valid_port
 
@@ -167,6 +168,56 @@ class TestValidateServiceConnection:
             )
             result = await validate_service_connection(
                 "radarr", "localhost", 7878, False, "key"
+            )
+        assert result is False
+
+    @staticmethod
+    def _fake_sabnzbd(url, **kwargs):
+        """SABnzbd: `mode=version` needs no key; other modes check it."""
+        query = url.query
+        if query.get("mode") == "version":
+            return CallbackResult(payload={"version": "4.3.0"})
+        if query.get("apikey") == "good-key":
+            return CallbackResult(payload={"queue": {"slots": []}})
+        return CallbackResult(
+            payload={"status": False, "error": "API Key Incorrect"}
+        )
+
+    @pytest.mark.asyncio
+    async def test_sabnzbd_check_sends_mode_queue_with_key(self):
+        """The SABnzbd check calls mode=queue with the API key."""
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:8090/api?mode=queue&apikey=good-key",
+                payload={"queue": {"slots": []}},
+            )
+            result = await validate_service_connection(
+                "sabnzbd", "localhost", 8090, False, "good-key"
+            )
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_sabnzbd_right_key_passes(self):
+        with aioresponses() as m:
+            m.get(
+                re.compile(r"^http://localhost:8090/api.*"),
+                callback=self._fake_sabnzbd,
+            )
+            result = await validate_service_connection(
+                "sabnzbd", "localhost", 8090, False, "good-key"
+            )
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_sabnzbd_wrong_key_fails(self):
+        """A wrong key must not pass the wizard check."""
+        with aioresponses() as m:
+            m.get(
+                re.compile(r"^http://localhost:8090/api.*"),
+                callback=self._fake_sabnzbd,
+            )
+            result = await validate_service_connection(
+                "sabnzbd", "localhost", 8090, False, "wrong-key"
             )
         assert result is False
 
