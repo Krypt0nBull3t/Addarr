@@ -11,6 +11,7 @@ import hmac
 from typing import Optional
 
 from telegram import Update
+from telegram.error import TelegramError
 from telegram.ext import (
     CommandHandler,
     MessageHandler,
@@ -199,8 +200,12 @@ class AuthHandler:
         chat = update.effective_message.chat
         message = update.effective_message
 
-        # Delete password message for security
-        await message.delete()
+        # Delete password message for security. Without delete rights (a group)
+        # Telegram refuses; still check the password.
+        try:
+            await message.delete()
+        except TelegramError as e:
+            logger.warning(f"Could not delete the password message: {e}")
 
         if self.password and hmac.compare_digest(
             (message.text or "").encode(), self.password.encode()

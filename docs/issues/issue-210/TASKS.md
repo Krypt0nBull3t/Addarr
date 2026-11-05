@@ -29,7 +29,7 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
         - `tests/test_handlers/test_media_formatters.py`: 4 new tests (5 cases) for `show_result`, `show_list`, `show_list_detail` and the non-Telegram error path.
     - **Notes:** Only `TelegramError` is swallowed; other errors still propagate.
 
-- [ ] **1.2** Guard the password-message delete
+- [x] **1.2** Guard the password-message delete
     - **Context:**
         - **Why:** The unguarded delete in `check_password` skips the password check when it raises, so the password stays visible and unchecked.
         - **Architecture:** Inline `try/except TelegramError` in `auth.py`; a handler module must not import from `media`.
@@ -42,6 +42,13 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
         - [RED] `test_check_password_rejects_wrong_password_when_delete_fails`
         - [GREEN] Wrap the delete
     - **Success:** tests fail before and pass after; handlers scoped run keeps 100%.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `make_update` exposes the message as `update.effective_message`; setting `delete.side_effect` there reaches the handler.
+    - **Key Changes:**
+        - `src/bot/handlers/auth.py`: `check_password` catches `TelegramError` from the delete and logs a warning without the message text.
+        - `tests/test_handlers/test_auth_handler.py`: 2 tests (correct and wrong password with a failing delete).
+    - **Notes:** The guard stays inline; `auth.py` must not import from `media`.
 
 ### Phase 2: Password rules (F090) (1 task)
 

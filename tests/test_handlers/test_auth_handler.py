@@ -10,6 +10,7 @@ from copy import deepcopy
 
 import pytest
 from unittest.mock import patch, MagicMock
+from telegram.error import TelegramError
 from telegram.ext import ConversationHandler
 
 
@@ -633,6 +634,52 @@ async def test_check_password_correct(mock_ts_class, make_update, make_context):
     assert result == ConversationHandler.END
     assert 12345 in AuthHandler._authenticated_users
     update.effective_message.delete.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_authenticates_when_delete_fails(
+    mock_ts_class, make_update, make_context
+):
+    """A failed delete (no rights in a group) does not skip the password check (#210)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+
+    from src.bot.handlers.auth import AuthHandler
+
+    handler = AuthHandler()
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(text="test-pass")
+    update.effective_message.delete.side_effect = TelegramError("no rights")
+
+    with patch.object(handler, "_save_authenticated_users"):
+        result = await handler.check_password(update, make_context())
+
+    assert result == ConversationHandler.END
+    assert 12345 in AuthHandler._authenticated_users
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_rejects_wrong_password_when_delete_fails(
+    mock_ts_class, make_update, make_context
+):
+    """A failed delete still ends in the wrong-password reply (#210)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+
+    from src.bot.handlers.auth import AuthHandler
+
+    handler = AuthHandler()
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(text="wrong")
+    update.effective_message.delete.side_effect = TelegramError("no rights")
+
+    result = await handler.check_password(update, make_context())
+
+    assert result == ConversationHandler.END
+    assert 12345 not in AuthHandler._authenticated_users
+    update.effective_message.chat.send_message.assert_awaited_once_with("Wrong password")
 
 
 @pytest.mark.asyncio
