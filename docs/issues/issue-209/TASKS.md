@@ -62,7 +62,7 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
         - `tests/test_config/test_settings.py`: new `TestRealSettingsSave` (3 tests); removed the two `TestSave` tests that tested a copy of the code and the unused `mock_open` import
     - **Notes:** `Config._config` is now a ruamel `CommentedMap`. The preflight and integration runs must confirm no reader breaks on it.
 
-- [ ] **1.3** F032: tell the user when the auth save fails
+- [x] **1.3** F032: tell the user when the auth save fails
     - **Context:**
         - **Why:** `_save_authenticated_users` logs the error but `check_password` still sends "Chatid added", so the user thinks the login stays after a restart.
         - **Architecture:** `_save_authenticated_users(self) -> bool` returns `True` after `config.save()` and `False` after the ERROR log. `check_password` sends `get_text("Chatid added" if saved else "AuthSaveFailed")`. The user stays in `AuthHandler._authenticated_users`, and commands and `/start` follow as before.
@@ -76,6 +76,15 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
         - [GREEN] Implement the return value and the reply choice
         - [GREEN] Add `AuthSaveFailed` after `Chatid added` in all 10 translation files (`@i18n-key`)
     - **Success:** `scripts/test_runner.py handlers --coverage` passes, `PYTHONIOENCODING=utf-8 run.py --validate-i18n` passes, flake8 and mypy clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - Existing tests that patch `_save_authenticated_users` with a bare `MagicMock` return a truthy mock, so they still take the success path.
+        - After a branch switch, `requirements.txt` can change. A stale `.venv` made 97 integration tests error on `No JobQueue set up` until the pins were reinstalled.
+    - **Key Changes:**
+        - `src/bot/handlers/auth.py`: `_save_authenticated_users() -> bool`; `check_password` sends `AuthSaveFailed` when the save fails, and the user stays authorized
+        - `translations/`: `AuthSaveFailed` in the template and 9 locales (no emoji, nl-be in Netherlands Dutch)
+        - `tests/test_handlers/test_auth_handler.py`: 2 tests; `tests/integration/test_auth_flow.py`: `test_auth_save_failure_warns_user`
+    - **Notes:** #210 also edits `_save_authenticated_users` (F091); the second PR to merge keeps both changes.
 
 - [ ] **1.4** Docs note
     - **Context:**
