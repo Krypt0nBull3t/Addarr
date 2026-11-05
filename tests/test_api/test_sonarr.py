@@ -950,21 +950,40 @@ class TestSonarrGetHistory:
         assert results[0]["eventType"] == "grabbed"
 
     @pytest.mark.asyncio
-    async def test_get_history_with_event_type(self, aio_mock, sonarr_client):
-        """Event type filter appended to URL."""
+    @pytest.mark.parametrize(
+        "name, wire", [
+            ("grabbed", 1),
+            ("downloadFolderImported", 3),
+            ("downloadFailed", 4),
+        ],
+    )
+    async def test_get_history_with_event_type(self, aio_mock, sonarr_client, name, wire):
+        """Filter tabs send the spec's int event type."""
         filtered = {
             "page": 1, "pageSize": 20, "totalRecords": 1,
             "records": [SONARR_HISTORY["records"][0]],
         }
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true&eventType=grabbed",
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true&eventType={wire}",
             payload=filtered,
             status=200,
         )
-        results = await sonarr_client.get_history(event_type="grabbed")
+        results = await sonarr_client.get_history(event_type=name)
         assert len(results) == 1
         assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    async def test_get_history_unknown_event_type(self, aio_mock, sonarr_client):
+        """An unknown event name is not sent: the call returns an empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true&eventType=bogus",
+            payload={"records": [SONARR_HISTORY["records"][0]]},
+            status=200,
+        )
+        results = await sonarr_client.get_history(event_type="bogus")
+        assert results == []
 
     @pytest.mark.asyncio
     async def test_get_history_empty(self, aio_mock, sonarr_client):

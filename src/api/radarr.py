@@ -9,7 +9,8 @@ from typing import Optional, List, Dict
 from colorama import Fore
 
 from src.api.base import (
-    APIError, BaseApiClient, filter_quality_profiles, filter_root_folders
+    APIError, BaseApiClient, HISTORY_EVENT_TYPES, filter_quality_profiles,
+    filter_root_folders
 )
 from src.config.settings import config
 from src.utils.logger import get_logger
@@ -266,7 +267,7 @@ class RadarrClient(BaseApiClient):
                 "&includeMovie=true"
             )
             if event_type:
-                endpoint += f"&eventType={event_type}"
+                endpoint += f"&eventType={HISTORY_EVENT_TYPES[event_type]}"
 
             result = await self._request(endpoint)
 

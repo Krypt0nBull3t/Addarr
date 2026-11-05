@@ -30,7 +30,7 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
         - `tests/test_api/test_sonarr.py`, `tests/test_api/test_radarr.py`: mocked URLs carry the flags.
     - **Notes:** The flags sit before `eventType` in the history URL. Task 1.2 changes the `eventType` value only.
 
-- [ ] **1.2** F041 history event types as ints
+- [x] **1.2** F041 history event types as ints
     - **Context:**
         - **Why:** The spec wants `eventType` as an int array. The string names make the Grabbed, Imported and Failed tabs empty.
         - **Architecture:** The keyboard, callback data and `HistoryHandler` keep the string names. The API client owns the wire format (design.md).
@@ -43,6 +43,15 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
         - [RED] For each client, a test that an unknown name returns `[]`.
         - [GREEN] Add `HISTORY_EVENT_TYPES` and use it in both clients.
     - **Success:** API scoped run passes, flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The unknown-name test only fails before the fix when the bogus URL is mocked with records: an unmocked URL also returns `[]`.
+        - An unknown name raises `KeyError` inside `get_history`, and the existing `except Exception` logs it and returns `[]`.
+    - **Key Changes:**
+        - `src/api/base.py`: `HISTORY_EVENT_TYPES` (grabbed 1, downloadFolderImported 3, downloadFailed 4).
+        - `src/api/sonarr.py`, `src/api/radarr.py`: `get_history` sends `eventType=<int>`.
+        - Both API test files: parametrized `test_get_history_with_event_type` and `test_get_history_unknown_event_type`.
+    - **Notes:** Keyboard, callback data and `HistoryHandler` still use the string names. Sonarr `seriesFolderImported` (2) has no tab, so it is not mapped.
 
 ### Phase 2: One lookup per add (1 task)
 
