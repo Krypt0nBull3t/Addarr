@@ -156,7 +156,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - Deleted the three `"message": profile_text` keys and the three `profile_text` blocks in `src/services/media.py` (`add_movie`, `add_series`, `add_music`)
     - **Notes:** the handlers build their own text from `profiles`
 
-- [ ] **1.8** Delete the dead constants in `src/bot/states.py`
+- [x] **1.8** Delete the dead constants in `src/bot/states.py`
     - **Context:**
         - **Why:** F260: `SEARCHING`, `SELECTING`, `QUALITY_SELECT`, `SEASON_SELECT`, `ALBUM_SELECT`, `PASSWORD` and `END` are unread; the media states live in `src/bot/handlers/media/dispatch.py`
         - **Architecture:** `states.py` stays: `SETTINGS_*`, `WEBHOOK_*` and `BAZARR_SEARCH` are live. The issue's item "`states.py` is gone" is replaced (maintainer decision; state it in the PR body)
@@ -170,6 +170,16 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [GREEN] Delete `MEDIA_STATE_NAMES` and `test_media_state_constants_in_sync`
         - [GREEN] Edit CLAUDE.md: remove the sync-test bullet; state that media states live in `dispatch.py` and `states.py` holds the settings, webhook and Bazarr states
     - **Success:** `pytest tests/test_bot tests/test_architecture` passes (docs drift test included)
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `States.END` and `PASSWORD` had no reader either; the media flow ends with PTB's `ConversationHandler.END`, so CLAUDE.md line 151 now says "the conversation ends"
+        - My first cut of `test_conventions.py` also removed the next two tests: restored, then cut only `MEDIA_STATE_NAMES` and the sync test. Check `git diff --stat` after every slice
+        - The `bot --coverage` scoped run reports 25% because `src/bot/handlers/` has its own test dir (known, see the Execution Loop)
+    - **Key Changes:**
+        - `src/bot/states.py` keeps `SETTINGS_*`, `WEBHOOK_*`, `BAZARR_SEARCH`; deleted `SEARCHING`, `SELECTING`, `QUALITY_SELECT`, `SEASON_SELECT`, `ALBUM_SELECT`, `PASSWORD`, `END`
+        - Deleted `TestMediaStates`, `TestAuthStates`, `TestGeneralStates` and `test_media_state_constants_in_sync` (with `MEDIA_STATE_NAMES`)
+        - CLAUDE.md: removed the sync-test bullet; the handler and state-machine lines point to `dispatch.py` for media states
+    - **Notes:** the issue's item "`src/bot/states.py` is gone" is replaced (maintainer decision); say so in the PR body
 
 - [ ] **1.9** Verify the whole change
     - **Context:**
