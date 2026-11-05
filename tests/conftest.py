@@ -65,7 +65,6 @@ MOCK_CONFIG_DATA = {
     },
     "transmission": {
         "enable": False, "onlyAdmin": True, "host": "localhost",
-        "port": 9091, "ssl": False,
         "authentication": False, "username": None, "password": None,
     },
     "sabnzbd": {

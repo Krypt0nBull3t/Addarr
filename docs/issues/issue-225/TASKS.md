@@ -15,7 +15,7 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
 - Why NOT delete `tests/test_models/test_media.py` and `test_notification.py`: #226 deletes them together with `src/models/media.py` and `src/models/notification.py`. The PR body says the F251 item for those two files is met by the #226 PR.
 - Line numbers in the issue are stale for `test_media_handler.py`: tasks name the tests instead.
 
-- [ ] **1.1** F253: `MockConfig` transmission block matches `config_example.yaml`
+- [x] **1.1** F253: `MockConfig` transmission block matches `config_example.yaml`
     - **Context:**
         - **Why:** `MockConfig` has `transmission.port` and `ssl`, which `config_example.yaml` lacks, so the default-port path in `TransmissionClient` is never tested.
         - **Architecture:** `MOCK_CONFIG_DATA` in `tests/conftest.py` is the mock config data. `src/api/transmission.py` lines 21-28 read `port` (default 9091) and `ssl` (default False) with `config.get`.
@@ -29,6 +29,16 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - [GREEN] Remove `port` and `ssl` from `MOCK_CONFIG_DATA["transmission"]`
         - [GREEN] Rewrite `test_init_ssl_url` with `patch.dict(_mock_config._config["transmission"], {"ssl": True})`
     - **Success:** `tests/test_config/test_mock_config_parity.py` and `tests/test_api/test_transmission_api.py` pass, `scripts/test_runner.py api --coverage` and `config --coverage` pass, flake8 clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `patch.dict` on `_mock_config._config["transmission"]` adds and removes a key, so a test can set `ssl` without the key existing in `MOCK_CONFIG_DATA`.
+        - The default-port test passes before the `MockConfig` edit, because it builds the client from the `config_example.yaml` block, not from `MockConfig`. Only the parity test is red first.
+        - The venv must be reinstalled after switching to the branch: `requirements.txt` there pins `python-telegram-bot[job-queue]==22.8`. Without `apscheduler` every `tests/integration` test errors with `PTBUserWarning: No JobQueue set up`.
+    - **Key Changes:**
+        - `tests/conftest.py`: removed `port` and `ssl` from `MOCK_CONFIG_DATA["transmission"]`.
+        - `tests/test_api/test_transmission_api.py`: new `test_init_default_port_from_config_example`; `test_init_ssl_url` uses `patch.dict`.
+        - `tests/test_config/test_mock_config_parity.py` (new): `test_mock_transmission_keys_match_config_example`.
+    - **Notes:** The parity test covers only the `transmission` block, as the issue asks.
 
 - [ ] **1.2** F250: redirect test log files to a temporary directory
     - **Context:**
