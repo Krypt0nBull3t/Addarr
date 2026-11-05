@@ -163,7 +163,7 @@ class SystemHandler:
             )
 
     async def _handle_diskspace(self, query):
-        """Show disk space information from the first available *arr service."""
+        """Show disk space information from every enabled *arr service."""
         try:
             drives = await health_service.get_disk_space()
             text = _build_disk_space_text(drives, self.translation)

@@ -448,10 +448,11 @@ class HealthService:
         return cls()
 
     async def get_disk_space(self) -> List[Dict]:
-        """Get disk space from the first enabled *arr service."""
-        services = ["radarr", "sonarr", "lidarr"]
+        """Get disk space from every enabled *arr service, one entry per path."""
+        drives: List[Dict] = []
+        seen_paths: Set[str] = set()
 
-        for service_key in services:
+        for service_key in ["radarr", "sonarr", "lidarr"]:
             service_config = config.get(service_key, {})
             if not service_config.get("enable"):
                 continue
@@ -461,9 +462,13 @@ class HealthService:
                 continue
 
             try:
-                result = await client.get_disk_space()
-                if result:
-                    return result
+                for drive in await client.get_disk_space():
+                    path = drive.get("path")
+                    if path is not None:
+                        if path in seen_paths:
+                            continue
+                        seen_paths.add(path)
+                    drives.append(drive)
             except Exception as e:
                 logger.warning(
                     f"Failed to get disk space from {service_key}: {e}"
@@ -471,7 +476,7 @@ class HealthService:
             finally:
                 await client.close()
 
-        return []
+        return drives
 
     def get_status(self) -> Dict:
         """Get current monitoring status"""

@@ -58,7 +58,7 @@ Run every test and every `git push` through the suite lock:
         - `tests/test_services/test_health_service.py`: display tests patch `logger`; new stdout-is-empty test.
     - **Notes:** The box-drawing header lines are gone; log lines are plain text.
 
-- [ ] **1.3** F144: disk check covers every enabled app
+- [x] **1.3** F144: disk check covers every enabled app
     - **Context:**
         - **Why:** `get_disk_space()` returns the first app's drives, so Sonarr and Lidarr drives get no warning in one-container-per-app setups.
         - **Architecture:** Same loop over radarr, sonarr, lidarr; collect all answers; dedupe by `path`, first app wins; a drive without `path` is kept.
@@ -72,6 +72,15 @@ Run every test and every `git push` through the suite lock:
         - [RED] Update the three old tests.
         - [GREEN] Rewrite `get_disk_space`; update docstrings.
     - **Success:** New tests fail before, pass after; health and `tests/test_handlers/test_system_handler.py` green.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The old tests relied on the shared `MockConfig` having every *arr app enabled; the rewritten class builds a config mock that enables only the apps a test names.
+        - A drive with no `path` is kept, so two such drives both show up.
+    - **Key Changes:**
+        - `src/services/health.py`: `get_disk_space()` queries every enabled app and dedupes by `path`, first app wins.
+        - `src/bot/handlers/system.py`: `_handle_diskspace` docstring.
+        - `tests/test_services/test_health_service.py`: `TestGetDiskSpace` rewritten (three new tests, `..._skips_disabled_services` and the error test updated).
+    - **Notes:** `src/bot/handlers/system.py` formatting of the drive list is unchanged; it already loops over all drives.
 
 - [ ] **1.4** F145: prerun works without pip
     - **Context:**
