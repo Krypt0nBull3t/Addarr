@@ -123,7 +123,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Key Changes:** `get_quality_profile_keyboard` Back is `settings_<service>`. `SETTINGS_QUALITY` routes `^settings_(radarr|sonarr|lidarr)$` to `handle_service_menu`. SAB speed Back is `dl_sabnzbd`. `handle_back` edits to the main menu text and keyboard, then returns END. New tests in `test_settings_handler.py`, updated keyboard and integration tests.
     - **Notes:** Handlers scoped run: 697 tests, 100% coverage. Keyboard, integration and architecture tests pass.
 
-- [ ] **1.7** Integration flows for the Back paths
+- [x] **1.7** Integration flows for the Back paths
     - **Context:**
         - **Why:** CLAUDE.md and the `addarr-workflow` loop ask for an integration test when a user-facing flow changes.
         - **Architecture:** `BotHarness` in `tests/integration/conftest.py`.
@@ -136,3 +136,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
         - [RED] Write a flow test: help, Back shows the main menu.
         - [GREEN] Fix anything the flow test finds.
     - **Success:** `pytest tests/integration` passes. Then the preflight (`/addarr pr`) passes: flake8, mypy, translations, unit tests with the 100% coverage gate, integration and architecture tests.
+    - **Completed:** 2026-11-05
+    - **Learnings:** The "settings, Back shows the main menu" flow already existed as `test_settings_back_ends_conversation`; Task 1.6 changed it. The new SAB flow taps the Back button read from the speed screen, so it fails when that button points to the wrong place (checked by reverting the callback to `dl_back`).
+    - **Key Changes:** Added `test_settings_sab_speed_back_returns_to_sab_menu` in `tests/integration/test_settings_flow.py` and `test_help_from_menu_has_back_button` in `tests/integration/test_help_flow.py`.
+    - **Notes:** The full preflight runs in the create-pr flow.
