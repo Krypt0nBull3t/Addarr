@@ -79,7 +79,7 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
         - `tests/test_dockerfile.py`: `dockerignore_entries` fixture and class `TestDockerignore` (11 parametrized cases).
     - **Notes:** Follow-up for the PR body: the extra files above could join `.dockerignore` (issue #121 covers image improvements). I did not add them: out of scope.
 
-- [ ] **1.4** Push a version tag next to `:latest` (F150, developer approved)
+- [x] **1.4** Push a version tag next to `:latest` (F150, developer approved)
     - **Context:**
         - **Why:** `docker-hub-push.yml:44` pushes only `${{env.REPO}}:latest`. CLAUDE.md says images are published, and the owner decided a version tag goes next to `latest`.
         - **Architecture:** A `Read version` step sets `VERSION` from `__version__` in `src/__init__.py` via `sed`; `tags` becomes two lines. A new test parses the YAML and runs the step's script.
@@ -96,3 +96,13 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
         - [GREEN] Add the `Read version` step and the two-line `tags`
         - [GREEN] Name the two tags in the CLAUDE.md Docker section; keep the publish claim
     - **Success:** the tag, step and script tests fail first, then all pass; `tests/test_architecture` passes (docs drift)
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - Before the edit: the tag test failed and the three step tests errored (no `Read version` step); the login test passed.
+        - The runner runs `run:` scripts with `bash -e`; a plain `bash -c` ignores `test -n ""`. The script tests use `bash -e`.
+        - Compare the `tags` block with `splitlines()`, not `split()`: the YAML expressions hold spaces.
+    - **Key Changes:**
+        - `.github/workflows/docker-hub-push.yml`: step `Read version` and a two-line `tags` (`:latest` and `:${{ env.VERSION }}`), as the developer approved.
+        - `tests/test_docker_publish_workflow.py` (new): five tests.
+        - `CLAUDE.md`: Docker section names the two tags.
+    - **Notes:** The workflow stays red until the developer adds `DOCKER_HUB_USERNAME` and `DOCKER_HUB_ACCESS_TOKEN`. The version tag is mutable: each push to `main` re-tags the same `:<version>` until `__version__` changes. The workflow itself cannot run locally; the `Read version` script is tested with `bash -e`.
