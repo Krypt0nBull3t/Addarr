@@ -111,6 +111,7 @@ pt-pt:
   Authorize: "🔐 Primeiro tem de autorizar este chat. Indique a password"
   Wrong password: "❌ Introduziu a password errada. Tente novamente"
   Chatid added: "✅ Este chat foi adicionado à lista de chats autorizados. Pode agora utilizar este bot."
+  AuthSaveFailed: "Está autorizado por agora, mas o bot não conseguiu guardar isto. Terá de se autenticar novamente após um reinício. Peça ao administrador que verifique se o config.yaml tem permissão de escrita."
   NotAdmin: "⛔ Precisa de ser um admin para executar este comando"
   Chatid already allowed: "ℹ️ Este chat já foi autorizado."
   

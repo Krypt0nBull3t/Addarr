@@ -448,6 +448,49 @@ def test_save_authenticated_users_exception(mock_ts_class, mock_config):
     mock_logger.error.assert_called_once()
 
 
+@patch("src.bot.handlers.auth.TranslationService")
+def test_save_authenticated_users_returns_bool(mock_ts_class, mock_config):
+    """True when the config is saved, False when the save raises."""
+    from src.bot.handlers.auth import AuthHandler
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        handler = AuthHandler()
+        mock_config.save = MagicMock()
+        assert handler._save_authenticated_users() is True
+
+        mock_config.save = MagicMock(side_effect=OSError("Read-only file system"))
+        with patch("src.bot.handlers.auth.logger"):
+            assert handler._save_authenticated_users() is False
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.register_commands_for_chat")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_save_failure_warns_user(
+    mock_ts_class, mock_register, make_user, make_update, make_context, mock_config
+):
+    """A failed save shows the warning, not the success text (F032)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_config.save = MagicMock(side_effect=OSError("Read-only file system"))
+
+    from src.bot.handlers.auth import AuthHandler
+
+    with patch("src.bot.handlers.auth.config", mock_config), \
+         patch("src.bot.handlers.auth.logger") as mock_logger:
+        handler = AuthHandler()
+        update = make_update(text="test-pass", user=make_user(user_id=67890))
+        await handler.check_password(update, make_context())
+
+    sent = [
+        call.args[0]
+        for call in update.effective_message.chat.send_message.await_args_list
+    ]
+    assert "AuthSaveFailed" in sent
+    assert "Chatid added" not in sent
+    mock_logger.error.assert_called()
+    assert 67890 in AuthHandler._authenticated_users
+
+
 # ---------------------------------------------------------------------------
 # start_auth
 # ---------------------------------------------------------------------------

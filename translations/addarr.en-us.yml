@@ -98,6 +98,7 @@ en-us:
   Authorize: "🔐 You first need to authorize this chat. What is the password?"
   Wrong password: "❌ You entered the wrong password. Try again..."
   Chatid added: "✅ This chat is successfully added to the list of allowed chats. Now you can start using this bot."
+  AuthSaveFailed: "You are authorized for now, but the bot could not save this. You must authenticate again after a restart. Ask the admin to check that config.yaml is writable."
   NotAdmin: "⛔ You need to be an admin to execute this command."
   Chatid already allowed: "ℹ️ This chat is already authorized."
   

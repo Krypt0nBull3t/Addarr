@@ -154,7 +154,7 @@ The codebase follows a three-layer architecture with strict separation:
 
 ### Configuration
 
-All configuration lives in `config.yaml` (YAML). `config_example.yaml` serves as both template and validation reference. Path constants are defined in `src/definitions.py`. On startup, `Config.__init__` validates against the example and interactively prompts for missing keys.
+All configuration lives in `config.yaml` (YAML). `config_example.yaml` serves as both template and validation reference. Path constants are defined in `src/definitions.py`. On startup, `Config.__init__` validates against the example and interactively prompts for missing keys. `Config` loads `config.yaml` with ruamel, so comments survive a save, and `Config.save()` dumps to a string before it writes the file once. `create_backup` keeps the newest 10 backups in `backup/`, mode `0o600`.
 
 ### Internationalization
 

@@ -5,6 +5,7 @@ docker-compose.yml
 Dockerfile
 *.log
 config.yaml
+backup/
 user_preferences.json
 **/.flake8
 **/__pycache__
