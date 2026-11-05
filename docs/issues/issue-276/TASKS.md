@@ -80,7 +80,7 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
         - `docs/issues/issue-127/TASKS.md`: Notes on 3.1
     - **Notes:** The gap check dropped from 7 to 1
 
-- [ ] **2.3** Tick issue-222 task 2.1
+- [x] **2.3** Tick issue-222 task 2.1
     - **Context:**
         - **Why:** The preflight task is done in PR #257 (merged 2026-11-05) but still `- [ ]`.
         - **Architecture:** Change the box and add the four fields below the task.
@@ -92,6 +92,11 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
         - [RED] Run the gap check; it lists issue-222 task 2.1 as not ticked
         - [GREEN] Tick it; add `Completed: 2026-11-05`, `Learnings: None recorded`, `Key Changes: None (verification only; PR #257 carries tasks 1.1 to 1.4)`, `Notes: None recorded`
     - **Success:** The gap check prints `gaps: 0`; architecture tests pass
+    - **Completed:** 2026-11-05
+    - **Learnings:** None recorded
+    - **Key Changes:**
+        - `docs/issues/issue-222/TASKS.md`: task 2.1 ticked, four fields added
+    - **Notes:** The `gh pr view 257` check rollup showed every CI check green before the Notes line said so
 
 ### Phase 3: Verify (1 task)
 
