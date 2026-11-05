@@ -82,7 +82,7 @@ Run every test and every `git push` through the suite lock:
         - `tests/test_services/test_health_service.py`: `TestGetDiskSpace` rewritten (three new tests, `..._skips_disabled_services` and the error test updated).
     - **Notes:** `src/bot/handlers/system.py` formatting of the drive list is unchanged; it already loops over all drives.
 
-- [ ] **1.4** F145: prerun works without pip
+- [x] **1.4** F145: prerun works without pip
     - **Context:**
         - **Why:** In a uv venv `pip list` prints nothing, `json.loads` fails, every dependency counts as missing and startup stops. The install step opens `requirements.txt` relative to the cwd.
         - **Architecture:** `get_installed_packages()` reads `importlib.metadata.distributions()` and still returns a set of names with `-`/`_` variants, so `check_dependencies` is unchanged.
@@ -98,6 +98,14 @@ Run every test and every `git push` through the suite lock:
         - [RED] Rewrite the four old pip-JSON tests against `metadata.distributions`.
         - [GREEN] Implement; remove `import json`.
     - **Success:** New tests fail before, pass after; `scripts/test_runner.py utils --coverage` shows no missed line in `prerun.py`.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `core_deps` already holds `python-telegram-bot`, so the cwd test checks `aiohttp`, which only `requirements.txt` lists.
+        - `importlib.metadata.distributions()` replaces the `pip list` subprocess; no pip is needed and the check stays fast.
+    - **Key Changes:**
+        - `src/utils/prerun.py`: `get_installed_packages` reads `metadata.distributions()` and skips a missing `Name`; new `self.requirements_path` (project root) is the default of `parse_requirements` and the path of the install command; `import json` removed.
+        - `tests/test_utils/test_prerun.py`: `TestGetInstalledPackages` rewritten for metadata; new tests for the empty `pip list` case, the absolute install path and the cwd-independent default.
+    - **Notes:** The install step still runs `python -m pip install`; a venv without pip needs F153 (#214).
 
 - [ ] **1.5** F147 log cap and F148 README memory note
     - **Context:**
