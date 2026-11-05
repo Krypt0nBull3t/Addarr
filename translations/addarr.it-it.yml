@@ -111,6 +111,7 @@ it-it:
   Authorize: "🔐 Devi prima autenticare questa chat. Qual è la password?"
   Wrong password: "❌ Password errata. Riprova..."
   Chatid added: "✅ Questa chat è stata aggiunta alla lista delle chat autorizzate. Ora puoi utilizzare il bot."
+  AuthSaveFailed: "Per ora sei autorizzato, ma il bot non è riuscito a salvarlo. Dopo un riavvio dovrai autenticarti di nuovo. Chiedi all'amministratore di controllare che config.yaml sia scrivibile."
   NotAdmin: "⛔ Devi essere un amministratore per eseguire questo comando."
   Chatid already allowed: "ℹ️ Questa chat è già autorizzata."
   
@@ -157,7 +158,8 @@ it-it:
     📊 /status - Check system status
     ⚙️ /settings - Manage settings
     🗑️ /delete - Delete media
-    📚 /library - Browse your library
+    👤 /preferences - Manage preferences
+    🔔 /webhooks - Manage webhook notifications
   HelpMediaMovies: |
     🎬 /movie - Search and add movies
     🎬 /allmovies - Show all movies
@@ -167,6 +169,12 @@ it-it:
   HelpMediaMusic: |
     🎵 /music - Search and add music
     🎵 /allmusic - Show all music
+  HelpCalendar: |
+    📅 /upcoming - Browse upcoming releases
+    🔍 /missing - Browse missing media
+  HelpQueue: "⏳ /queue - Browse download queue"
+  HelpHistory: "📜 /history - Browse recent activity"
+  HelpDownloads: "📦 /downloads - Download queue"
   HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
   HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
   HelpSubtitlesBazarr: "🎭 /subtitles - Manage subtitles (Bazarr)"
@@ -250,6 +258,7 @@ it-it:
   DownloadsItemResumed: "Elemento ripreso."
   DownloadsPauseError: "Impossibile mettere in pausa l'elemento."
   DownloadsResumeError: "Impossibile riprendere l'elemento."
+  DownloadsFetchError: "Impossibile contattare il client di download. Controlla che sia in esecuzione e che la chiave API sia corretta."
   DownloadsNotEnabled: "Nessun client di download abilitato."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

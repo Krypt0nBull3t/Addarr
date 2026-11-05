@@ -111,6 +111,7 @@ nl-be:
   Authorize: "🔐 Je moet eerst deze chat toestemming geven. Wat is het wachtwoord?"
   Wrong password: "❌ Het wachtwoord is verkeerd. Probeer opnieuw..."
   Chatid added: "✅ Deze chat is succesvol toegevoegd aan de lijst met toegestane chats. Nu kan je deze bot gebruiken."
+  AuthSaveFailed: "Je bent voorlopig geautoriseerd, maar de bot kon dit niet opslaan. Na een herstart moet je je opnieuw aanmelden. Vraag de beheerder te controleren of config.yaml beschrijfbaar is."
   NotAdmin: "⛔ Je moet administrator zijn vooraleer je dit commando kunt uitvoeren."
   Chatid already allowed: "ℹ️ Deze chat heeft al toestemming."
   
@@ -157,7 +158,8 @@ nl-be:
     📊 /status - Check system status
     ⚙️ /settings - Manage settings
     🗑️ /delete - Delete media
-    📚 /library - Browse your library
+    👤 /preferences - Manage preferences
+    🔔 /webhooks - Manage webhook notifications
   HelpMediaMovies: |
     🎬 /movie - Search and add movies
     🎬 /allmovies - Show all movies
@@ -167,6 +169,12 @@ nl-be:
   HelpMediaMusic: |
     🎵 /music - Search and add music
     🎵 /allmusic - Show all music
+  HelpCalendar: |
+    📅 /upcoming - Browse upcoming releases
+    🔍 /missing - Browse missing media
+  HelpQueue: "⏳ /queue - Browse download queue"
+  HelpHistory: "📜 /history - Browse recent activity"
+  HelpDownloads: "📦 /downloads - Download queue"
   HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
   HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
   HelpSubtitlesBazarr: "🎭 /subtitles - Manage subtitles (Bazarr)"
@@ -250,6 +258,7 @@ nl-be:
   DownloadsItemResumed: "Item hervat."
   DownloadsPauseError: "Kan item niet pauzeren."
   DownloadsResumeError: "Kan item niet hervatten."
+  DownloadsFetchError: "De downloadclient is niet bereikbaar. Controleer of hij draait en of de API-sleutel klopt."
   DownloadsNotEnabled: "Geen downloadclients ingeschakeld."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

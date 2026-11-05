@@ -6,6 +6,7 @@
 - [Services](#services)
 - [Handlers](#handlers)
 - [Integration Tests](#integration-tests)
+- [Bot Lifecycle](#bot-lifecycle)
 - [Config](#config)
 - [Keyboards](#keyboards)
 - [Translations](#translations)
@@ -52,6 +53,23 @@ async def test_search_connection_error(radarr_client, aio_mock, radarr_url):
     )
     results = await radarr_client.search("test")
     assert results == []
+```
+
+### Server That Answers Differently per Query
+
+A fixed reply cannot show a bug that depends on the request. SABnzbd answers `mode=version` without a key and checks the key for other modes. Use an `aioresponses` callback that behaves like the server:
+
+```python
+from aioresponses import CallbackResult
+
+def fake_sabnzbd(url, **kwargs):
+    if url.query.get("mode") == "version":
+        return CallbackResult(payload={"version": "4.3.0"})
+    if url.query.get("apikey") == "good-key":
+        return CallbackResult(payload={"queue": {}})
+    return CallbackResult(payload={"status": False, "error": "API Key Incorrect"})
+
+aio_mock.get(re.compile(r"^http://localhost:8090/api.*"), callback=fake_sabnzbd)
 ```
 
 ### POST Requests (add_movie, add_series, add_artist)
@@ -358,6 +376,25 @@ Skip integration tests for:
 
 ---
 
+## Bot Lifecycle
+
+### Shutdown that `asyncio.run` must not cancel
+
+A signal handler runs `AddarrBot.stop()` as a side task, and `asyncio.run` cancels pending tasks when `main()` returns. A test with a mocked `asyncio.run` passes without the fix. Use a sync test around the real one:
+
+```python
+def test_sigterm_runs_shutdown_before_exit(self, mock_app, tmp_path):
+    real_sleep = asyncio.sleep           # keep it before the patch below
+    ...
+    with patch("src.main.asyncio.sleep", side_effect=short_tick):
+        asyncio.run(main())              # real run: cancels pending tasks on exit
+    mock_app.shutdown.assert_awaited_once()
+```
+
+Make one shutdown step take real time (`await real_sleep(0.05)`), or the side task finishes before the cancel and the test cannot fail. The full test is `TestMain::test_sigterm_runs_shutdown_before_exit` in `tests/test_main.py`.
+
+---
+
 ## Config
 
 ### Overriding Config Per-Test
@@ -391,6 +428,8 @@ def test_empty_file(load_settings):
 ```
 
 `valid_config_text` is the example config with a token filled in. `config_text=None` means no config.yaml. `interactive=True` makes questionary prompts run.
+
+The file reads are patched only while the module loads. To test `result.config.save()`, set `result.module.CONFIG_PATH = str(tmp_path / "config.yaml")` first, so the test never writes the real `config.yaml`. `create_backup` is already a mock on the loaded module.
 
 ---
 

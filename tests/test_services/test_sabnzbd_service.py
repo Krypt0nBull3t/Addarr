@@ -282,7 +282,8 @@ SABNZBD_QUEUE_DETAILED = {
         "status": "Downloading",
         "paused": False,
         "speed": "5.2 MB/s",
-        "size": "1.2 GB",
+        "size": "9.9 GB",
+        "sizeleft": "1.2 GB",
         "noofslots": 3,
         "slots": [
             {
@@ -344,6 +345,26 @@ class TestGetQueueDetails:
         assert paused_item["progress"] == 12
 
     @pytest.mark.asyncio
+    async def test_get_queue_details_size_remaining_uses_sizeleft(
+        self, sabnzbd_service
+    ):
+        queue = {
+            "queue": {
+                "paused": False,
+                "speed": "1 MB/s",
+                "size": "10 GB",
+                "sizeleft": "2.5 GB",
+                "noofslots": 0,
+                "slots": [],
+            }
+        }
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload=queue, status=200)
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result["size_remaining"] == "2.5 GB"
+
+    @pytest.mark.asyncio
     async def test_get_queue_details_empty(self, sabnzbd_service):
         empty_queue = {
             "queue": {
@@ -396,8 +417,21 @@ class TestGetQueueDetails:
             m.get(SABNZBD_API_PATTERN, status=500)
             result = await sabnzbd_service.get_queue_details()
 
-        assert result["items_count"] == 0
-        assert result["items"] == []
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_none_on_wrong_api_key(
+        self, sabnzbd_service
+    ):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                payload={"status": False, "error": "API Key Incorrect"},
+                status=200,
+            )
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_queue_details_connection_error(self, sabnzbd_service):
@@ -408,8 +442,7 @@ class TestGetQueueDetails:
             )
             result = await sabnzbd_service.get_queue_details()
 
-        assert result["items_count"] == 0
-        assert result["items"] == []
+        assert result is None
 
 
 # ---------------------------------------------------------------------------

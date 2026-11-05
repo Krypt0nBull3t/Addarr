@@ -864,6 +864,61 @@ class TestSabnzbdPauseResumeErrorHandling:
         assert "❌" in call_args.args[0]
 
 
+class TestSabnzbdActionReturnsFalse:
+    """A False result from the SABnzbd service shows an error, not success"""
+
+    @pytest.mark.asyncio
+    async def test_speed_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.set_speed_limit = AsyncMock(
+            return_value=False
+        )
+        update = make_update(callback_data="dl_sab_speed_25")
+
+        result = await settings_handler.handle_sabnzbd_speed(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Speed limit set" not in call_args.args[0]
+        assert call_args.kwargs.get("reply_markup") is not None
+
+    @pytest.mark.asyncio
+    async def test_pause_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.pause_queue = AsyncMock(return_value=False)
+        update = make_update(callback_data="dl_sab_pause")
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Queue paused" not in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_resume_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.resume_queue = AsyncMock(return_value=False)
+        update = make_update(callback_data="dl_sab_resume")
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Queue resumed" not in call_args.args[0]
+
+
 class TestDownloadsEdgeCases:
     """Edge cases for downloads sub-menu handlers"""
 

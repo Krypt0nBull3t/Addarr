@@ -111,6 +111,7 @@ de-de:
   Authorize: "🔐 Dieser Chat muss zuerst autorisiert werden. Bitte gib dein Password ein."
   Wrong password: "❌ Das Password ist nicht korrekt. Probiere es erneut..."
   Chatid added: "✅ Dieser Chat wurde zur autorisierten Liste hinzugefügt. Du kannst den Bot nun benutzen.\nBefehle müssen erneut ausgeführt werden."
+  AuthSaveFailed: "Du bist vorerst autorisiert, aber der Bot konnte das nicht speichern. Nach einem Neustart musst du dich erneut authentifizieren. Bitte den Admin zu prüfen, ob config.yaml beschreibbar ist."
   NotAdmin: "⛔ Du musst ein Administrator sein, um diesen Befehl zu benutzen."
   Chatid already allowed: "ℹ️ Dieser Chat ist bereits autorisiert."
   
@@ -157,7 +158,8 @@ de-de:
     📊 /status - Check system status
     ⚙️ /settings - Manage settings
     🗑️ /delete - Delete media
-    📚 /library - Browse your library
+    👤 /preferences - Manage preferences
+    🔔 /webhooks - Manage webhook notifications
   HelpMediaMovies: |
     🎬 /movie - Search and add movies
     🎬 /allmovies - Show all movies
@@ -167,6 +169,12 @@ de-de:
   HelpMediaMusic: |
     🎵 /music - Search and add music
     🎵 /allmusic - Show all music
+  HelpCalendar: |
+    📅 /upcoming - Browse upcoming releases
+    🔍 /missing - Browse missing media
+  HelpQueue: "⏳ /queue - Browse download queue"
+  HelpHistory: "📜 /history - Browse recent activity"
+  HelpDownloads: "📦 /downloads - Download queue"
   HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
   HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
   HelpSubtitlesBazarr: "🎭 /subtitles - Manage subtitles (Bazarr)"
@@ -250,6 +258,7 @@ de-de:
   DownloadsItemResumed: "Element fortgesetzt."
   DownloadsPauseError: "Fehler beim Pausieren des Elements."
   DownloadsResumeError: "Fehler beim Fortsetzen des Elements."
+  DownloadsFetchError: "Der Download-Client ist nicht erreichbar. Prüfe, ob er läuft und ob der API-Schlüssel stimmt."
   DownloadsNotEnabled: "Keine Download-Clients aktiviert."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

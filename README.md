@@ -200,6 +200,7 @@ For more options, see [🛠️ Installation](#️-installation)
 - Python 3.10 or higher
 - pip (Python package installer)
 - At least one of: Radarr, Sonarr, or Lidarr instance(s)
+- Sonarr v4 is required (Sonarr v3 is not supported)
 - Telegram Bot Token (from @BotFather)
 
 ### Python Installation
@@ -373,6 +374,10 @@ After installation:
 > If `logs/` is not writable, Addarr logs to the console only (`docker-compose logs`) and prints one warning.
 > User preferences (`user_preferences.json`) are kept in the named volume `addarr-data`,
 > so they survive when the container is recreated.
+
+> **Memory limit:** `docker-compose.yml` limits the container to 256M. A full library load
+> (`GET /movie`) reads the whole Radarr library into memory. A library of about 7000 movies or
+> more needs a higher limit: raise `deploy.resources.limits.memory` in `docker-compose.yml`.
 
 #### Using Docker standalone
 1. **Build the image**

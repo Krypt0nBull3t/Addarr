@@ -174,7 +174,6 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `add_series()` -> `(True, "Success")`
 - `get_root_folders()` -> `["/tv"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "HD-1080p"}]`
-- `get_seasons()` -> `[]`
 - `get_calendar()`, `get_all_series()`, `get_missing()`, `get_cutoff_unmet()`, `get_queue()`, `get_history()` -> `[]`
 - `get_series_by_id()` -> `None`; `delete_series()`, `search_command()` -> `True`
 

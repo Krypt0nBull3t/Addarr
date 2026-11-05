@@ -111,6 +111,7 @@ ru-ru:
   Authorize: "🔐 Сначала вам нужно авторизовать этот чат. Какой пароль?"
   Wrong password: "❌ Вы ввели неверный пароль. Попробуйте снова..."
   Chatid added: "✅ Этот чат успешно добавлен в список разрешенных чатов. Теперь вы можете начать пользоваться этим ботом."
+  AuthSaveFailed: "Сейчас вы авторизованы, но бот не смог сохранить это. После перезапуска нужно будет авторизоваться снова. Попросите администратора проверить, доступен ли config.yaml для записи."
   NotAdmin: "⛔ Вы должны быть администратором, чтобы выполнить эту команду."
   Chatid already allowed: "ℹ️ Этот чат уже авторизован"
   
@@ -157,7 +158,8 @@ ru-ru:
     📊 /status - Check system status
     ⚙️ /settings - Manage settings
     🗑️ /delete - Delete media
-    📚 /library - Browse your library
+    👤 /preferences - Manage preferences
+    🔔 /webhooks - Manage webhook notifications
   HelpMediaMovies: |
     🎬 /movie - Search and add movies
     🎬 /allmovies - Show all movies
@@ -167,6 +169,12 @@ ru-ru:
   HelpMediaMusic: |
     🎵 /music - Search and add music
     🎵 /allmusic - Show all music
+  HelpCalendar: |
+    📅 /upcoming - Browse upcoming releases
+    🔍 /missing - Browse missing media
+  HelpQueue: "⏳ /queue - Browse download queue"
+  HelpHistory: "📜 /history - Browse recent activity"
+  HelpDownloads: "📦 /downloads - Download queue"
   HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
   HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
   HelpSubtitlesBazarr: "🎭 /subtitles - Manage subtitles (Bazarr)"
@@ -250,6 +258,7 @@ ru-ru:
   DownloadsItemResumed: "Элемент возобновлён."
   DownloadsPauseError: "Не удалось приостановить элемент."
   DownloadsResumeError: "Не удалось возобновить элемент."
+  DownloadsFetchError: "Не удалось связаться с клиентом загрузок. Проверьте, что он запущен и что ключ API указан верно."
   DownloadsNotEnabled: "Ни один клиент загрузок не включён."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

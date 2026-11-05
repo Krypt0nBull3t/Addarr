@@ -98,6 +98,7 @@ en-us:
   Authorize: "🔐 You first need to authorize this chat. What is the password?"
   Wrong password: "❌ You entered the wrong password. Try again..."
   Chatid added: "✅ This chat is successfully added to the list of allowed chats. Now you can start using this bot."
+  AuthSaveFailed: "You are authorized for now, but the bot could not save this. You must authenticate again after a restart. Ask the admin to check that config.yaml is writable."
   NotAdmin: "⛔ You need to be an admin to execute this command."
   Chatid already allowed: "ℹ️ This chat is already authorized."
   
@@ -144,7 +145,8 @@ en-us:
     📊 /status - Check system status
     ⚙️ /settings - Manage settings
     🗑️ /delete - Delete media
-    📚 /library - Browse your library
+    👤 /preferences - Manage preferences
+    🔔 /webhooks - Manage webhook notifications
   HelpMediaMovies: |
     🎬 /movie - Search and add movies
     🎬 /allmovies - Show all movies
@@ -154,6 +156,12 @@ en-us:
   HelpMediaMusic: |
     🎵 /music - Search and add music
     🎵 /allmusic - Show all music
+  HelpCalendar: |
+    📅 /upcoming - Browse upcoming releases
+    🔍 /missing - Browse missing media
+  HelpQueue: "⏳ /queue - Browse download queue"
+  HelpHistory: "📜 /history - Browse recent activity"
+  HelpDownloads: "📦 /downloads - Download queue"
   HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
   HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
   HelpSubtitlesBazarr: "🎭 /subtitles - Manage subtitles (Bazarr)"
@@ -253,6 +261,7 @@ en-us:
   DownloadsItemResumed: "Item resumed."
   DownloadsPauseError: "Failed to pause item."
   DownloadsResumeError: "Failed to resume item."
+  DownloadsFetchError: "Could not reach the download client. Check that it runs and that the API key is right."
   DownloadsNotEnabled: "No download clients are enabled."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

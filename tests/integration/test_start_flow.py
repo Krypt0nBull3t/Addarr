@@ -36,7 +36,9 @@ async def test_start_then_movie_search_reaches_media_handler(harness):
         await harness.tap_button("select_550")
         resp = await harness.tap_button("quality_1")
 
-    add.assert_awaited_once_with("550", 1, "/movies")
+    add.assert_awaited_once_with(
+        "550", 1, "/movies", lookup=MOVIE_QUALITY_RESULT["movie"]
+    )
     assert "Fight Club added" in resp.text
     assert harness.get_conversation_state(MEDIA_CONVERSATION) is None
 

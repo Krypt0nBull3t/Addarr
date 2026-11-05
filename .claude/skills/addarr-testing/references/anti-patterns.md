@@ -312,3 +312,53 @@ with patch("src.bot.handlers.settings.config", mock_config), \
 ```
 
 **Why**: In issue #202, `/settings` and `/webhooks` imported a second `is_admin` from `src.definitions`. It compared ints, read `./config.yaml` and raised `TypeError` on an empty `admins:`. Every handler test passed, because the fixture replaced the helper. Watch the new test fail on the wrong import before you trust it.
+
+## Empty-Result Tests That Cannot Fail on a URL Change
+
+**Don't** rely on an `aio_mock` URL alone to prove a request carries a flag, or that a request never goes out:
+
+```python
+# BAD - if the client stops sending the flag, the URL no longer matches, the client
+# gets a connection error, logs it and returns [], and this test stays green
+aio_mock.get(f"{BASE}/wanted/missing?pageSize=1000&includeSeries=true", payload={"records": []})
+assert await client.get_missing() == []
+```
+
+**Instead**, give the mock a payload that the right URL must return, and assert on `aio_mock.requests` when a request must not happen:
+
+```python
+# GOOD - fails when the URL changes, and when a call goes to the old path
+aio_mock.get(f"{BASE}/series/lookup?term=tvdb:81189", payload=[SERIES])
+await client.get_series("81189")
+assert [str(url) for _, url in aio_mock.requests] == [f"{BASE}/series/lookup?term=tvdb:81189"]
+```
+
+**Why**: In issue #204 the `*_empty` tests of the 7 history, queue and wanted requests passed before the include flags existed, because an unmatched URL also returns `[]`. Only the tests with a payload went red. Run each new test red first, and mock the "unknown name" case with records so a wrong request returns them (see `test_get_history_unknown_event_type`).
+
+---
+
+## RED Test of a Never-Ending Loop
+
+**Don't** write a RED test for a loop that only the fix ends. The suite hangs instead of failing:
+
+```python
+# BAD - before the fix the keep-alive loop never exits, pytest waits forever
+with patch("src.main.asyncio.sleep", side_effect=updater_stops):
+    with pytest.raises(RuntimeError, match="polling stopped"):
+        await bot.start()
+```
+
+**Instead**, let the sleep patch end the loop itself from the second tick on, so the unfixed code fails with "DID NOT RAISE":
+
+```python
+# GOOD - fails fast before the fix, passes after it
+sleeps = []
+
+async def updater_stops(_):
+    sleeps.append(1)
+    if len(sleeps) > 1:
+        bot._running = False  # fail fast if the loop ignores the updater
+    mock_app.updater.running = False
+```
+
+**Why**: In issue #211 the first RED run of `test_loop_exits_when_updater_stops` hit the 300 s tool timeout (see `TestStart` in `tests/test_main.py`). Run a RED test with `timeout` the first time.

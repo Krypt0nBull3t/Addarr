@@ -137,8 +137,8 @@ class TestRadarrGetMovie:
     @pytest.mark.asyncio
     async def test_get_movie_success(self, aio_mock, radarr_client):
         aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/550",
-            payload=RADARR_MOVIE_DETAIL,
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
         result = await radarr_client.get_movie("550")
@@ -147,30 +147,20 @@ class TestRadarrGetMovie:
         assert result["tmdbId"] == 550
 
     @pytest.mark.asyncio
-    async def test_get_movie_fallback_search(self, aio_mock, radarr_client):
-        # Direct lookup returns 404 -> None
-        aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/550",
-            status=404,
-            body="Not found",
-        )
-        # Fallback search returns result in a list
+    async def test_get_movie_makes_one_request_to_lookup_term(self, aio_mock, radarr_client):
+        """No request goes to the movie/lookup/tmdb/ path, which Radarr does not have."""
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:550",
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        result = await radarr_client.get_movie("550")
-        assert result is not None
-        assert result["title"] == "Fight Club"
+        await radarr_client.get_movie("550")
+        assert [str(url) for _, url in aio_mock.requests] == [
+            f"{BASE}/movie/lookup?term=tmdb:550"
+        ]
 
     @pytest.mark.asyncio
     async def test_get_movie_not_found(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/999999",
-            status=404,
-            body="Not found",
-        )
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:999999",
             payload=[],
@@ -389,6 +379,24 @@ class TestRadarrAddMovie:
         assert "Fight Club" in message
 
     @pytest.mark.asyncio
+    async def test_add_movie_with_lookup_makes_no_lookup_request(self, aio_mock, radarr_client):
+        """A caller that holds the lookup result passes it on: only the POST goes out."""
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs.get("json", {}))
+            return CallbackResult(payload={"id": 1, "title": "Fight Club"}, status=200)
+
+        aio_mock.post(f"{BASE}/movie", callback=capture)
+        success, message = await radarr_client.add_movie(
+            550, "/movies", 1, lookup=RADARR_MOVIE_DETAIL
+        )
+        assert success is True
+        assert "Fight Club" in message
+        assert posted["tmdbId"] == 550
+        assert [method for method, _ in aio_mock.requests] == ["POST"]
+
+    @pytest.mark.asyncio
     async def test_add_movie_already_exists(self, aio_mock, radarr_client):
         # 1. Lookup
         aio_mock.get(
@@ -504,7 +512,9 @@ class TestRadarrAddMovie:
     async def test_add_movie_outer_exception(self, radarr_client):
         """Lines 223-225: outer Exception in add_movie."""
         with patch.object(radarr_client, "_make_request", side_effect=Exception("outer boom")):
-            success, message = await radarr_client.add_movie(550, "/movies", 1)
+            success, message = await radarr_client.add_movie(
+                550, "/movies", 1, lookup=RADARR_MOVIE_DETAIL
+            )
         assert success is False
         assert "outer boom" in message
 
@@ -824,7 +834,7 @@ class TestRadarrGetQueue:
     async def test_get_queue_success(self, aio_mock, radarr_client):
         """Happy path: returns list of queue records."""
         aio_mock.get(
-            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
             payload=RADARR_QUEUE,
             status=200,
         )
@@ -837,7 +847,7 @@ class TestRadarrGetQueue:
     async def test_get_queue_empty(self, aio_mock, radarr_client):
         """No queue items returns empty list."""
         aio_mock.get(
-            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
             payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -849,7 +859,7 @@ class TestRadarrGetQueue:
         """Connection error exhausts retries, returns empty list."""
         for _ in range(3):
             aio_mock.get(
-                f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+                f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -925,7 +935,7 @@ class TestRadarrGetHistory:
         """Happy path: returns list of history records."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeMovie=true",
             payload=RADARR_HISTORY,
             status=200,
         )
@@ -935,28 +945,47 @@ class TestRadarrGetHistory:
         assert results[0]["eventType"] == "grabbed"
 
     @pytest.mark.asyncio
-    async def test_get_history_with_event_type(self, aio_mock, radarr_client):
-        """Event type filter appended to URL."""
+    @pytest.mark.parametrize(
+        "name, wire", [
+            ("grabbed", 1),
+            ("downloadFolderImported", 3),
+            ("downloadFailed", 4),
+        ],
+    )
+    async def test_get_history_with_event_type(self, aio_mock, radarr_client, name, wire):
+        """Filter tabs send the spec's int event type."""
         filtered = {
             "page": 1, "pageSize": 20, "totalRecords": 1,
             "records": [RADARR_HISTORY["records"][0]],
         }
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20&eventType=grabbed",
+            f"&page=1&pageSize=20&includeMovie=true&eventType={wire}",
             payload=filtered,
             status=200,
         )
-        results = await radarr_client.get_history(event_type="grabbed")
+        results = await radarr_client.get_history(event_type=name)
         assert len(results) == 1
         assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    async def test_get_history_unknown_event_type(self, aio_mock, radarr_client):
+        """An unknown event name is not sent: the call returns an empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&includeMovie=true&eventType=bogus",
+            payload={"records": [RADARR_HISTORY["records"][0]]},
+            status=200,
+        )
+        results = await radarr_client.get_history(event_type="bogus")
+        assert results == []
 
     @pytest.mark.asyncio
     async def test_get_history_empty(self, aio_mock, radarr_client):
         """Empty records returns empty list."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeMovie=true",
             payload={"page": 1, "pageSize": 20, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -975,7 +1004,7 @@ class TestRadarrGetHistory:
         """Non-dict response (None) returns empty list."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeMovie=true",
             payload="",
             status=200,
         )

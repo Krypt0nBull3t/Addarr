@@ -130,6 +130,10 @@ async def get_valid_service_config(service: str) -> Dict[str, Any]:
         if await validate_service_connection(service, addr, port, ssl, apikey):
             print(f"{Fore.GREEN}✅ Successfully connected to {service}")
 
+            # TransmissionClient reads top-level host/port, not server.*
+            if service == "transmission":
+                return {"host": addr, "port": port}
+
             if service == "sabnzbd":
                 return {
                     "enable": True,
@@ -169,6 +173,8 @@ async def get_valid_service_config(service: str) -> Dict[str, Any]:
 
             if not retry:
                 print(f"{Fore.YELLOW}Skipping connection validation")
+                if service == "transmission":
+                    return {"host": addr, "port": port}
                 if service == "sabnzbd":
                     return {
                         "enable": False,
