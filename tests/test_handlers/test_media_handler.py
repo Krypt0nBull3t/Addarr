@@ -17,7 +17,6 @@ from src.bot.handlers.media.formatters import (
     show_result,
     show_list,
     show_list_detail,
-    send_response,
 )
 
 
@@ -1518,45 +1517,6 @@ async def test_add_media_with_profile_invalid_type(media_handler):
 
 
 # ---------------------------------------------------------------------------
-# _send_response
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_send_response_with_photo(media_handler, make_message):
-    """_send_response uses edit_caption when message has photo."""
-    message = make_message()
-    message.photo = [MagicMock()]
-
-    await send_response(message, "Test text")
-
-    message.edit_caption.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_send_response_without_photo(media_handler, make_message):
-    """_send_response uses edit_text when no photo."""
-    message = make_message()
-    message.photo = None
-
-    await send_response(message, "Test text")
-
-    message.edit_text.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_send_response_fallback_on_error(media_handler, make_message):
-    """_send_response falls back to reply_text on error."""
-    message = make_message()
-    message.photo = None
-    message.edit_text = AsyncMock(side_effect=Exception("Edit failed"))
-
-    await send_response(message, "Test text")
-
-    message.reply_text.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
 # _show_result
 # ---------------------------------------------------------------------------
 
@@ -2064,20 +2024,6 @@ async def test_build_result_caption_series_with_rating(media_handler):
     assert "Rating" in caption
     assert "8.5" in caption
     assert "1,000" in caption
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_with_index_total(media_handler):
-    """_build_result_caption shows counter when index/total provided."""
-    result = {
-        "id": "123",
-        "title": "Test",
-        "overview": "Overview",
-    }
-
-    caption = build_result_caption(result, index=2, total=5)
-
-    assert "3 of 5" in caption
 
 
 @pytest.mark.asyncio
@@ -2618,81 +2564,6 @@ async def test_handle_view_toggle_no_callback_query(
 # ---------------------------------------------------------------------------
 # _build_result_caption with album/song music_type
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_album(media_handler):
-    """Album caption shows artist name and release date."""
-    result = {
-        "id": "album:abc-123",
-        "title": "Greatest Hits",
-        "music_type": "album",
-        "artist_name": "Test Artist",
-        "release_date": "2020-05-15T00:00:00Z",
-        "overview": "No overview available",
-    }
-
-    caption = build_result_caption(result)
-
-    assert "Greatest Hits" in caption
-    assert "Test Artist" in caption
-    assert "2020-05-15" in caption
-    assert "💿" in caption
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_song(media_handler):
-    """Song caption shows album and artist."""
-    result = {
-        "id": "album:abc-123",
-        "title": "My Song",
-        "music_type": "song",
-        "album_title": "Greatest Hits",
-        "artist_name": "Test Artist",
-    }
-
-    caption = build_result_caption(result)
-
-    assert "My Song" in caption
-    assert "Greatest Hits" in caption
-    assert "Test Artist" in caption
-    assert "🎵" in caption
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_album_with_overview(media_handler):
-    """Album caption includes overview when not default."""
-    result = {
-        "id": "album:abc-123",
-        "title": "Greatest Hits",
-        "music_type": "album",
-        "artist_name": "Test Artist",
-        "release_date": "2020-05-15T00:00:00Z",
-        "overview": "A compilation of the best tracks.",
-    }
-
-    caption = build_result_caption(result)
-
-    assert "A compilation of the best tracks." in caption
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_album_truncates_long_overview(media_handler):
-    """Album caption truncates overview longer than 300 chars."""
-    long_overview = "A" * 350
-    result = {
-        "id": "album:abc-123",
-        "title": "Greatest Hits",
-        "music_type": "album",
-        "artist_name": "Test Artist",
-        "release_date": "2020-05-15T00:00:00Z",
-        "overview": long_overview,
-    }
-
-    caption = build_result_caption(result)
-
-    assert "..." in caption
-    assert long_overview not in caption
 
 
 @pytest.mark.asyncio

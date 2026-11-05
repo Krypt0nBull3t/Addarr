@@ -32,10 +32,10 @@ All HTTP clients use `aiohttp`, Transmission included. Test with `aioresponses`.
 ### aioresponses Pattern
 
 ```python
-async def test_search_success(radarr_client, aio_mock, radarr_url):
+async def test_search_success(radarr_client, aio_mock):
     from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
     aio_mock.get(
-        f"{radarr_url}/api/v3/movie/lookup?term=test",
+        "http://localhost:7878/api/v3/movie/lookup?term=test",
         payload=RADARR_SEARCH_RESULTS
     )
     results = await radarr_client.search("test")
@@ -45,10 +45,10 @@ async def test_search_success(radarr_client, aio_mock, radarr_url):
 ### Error Simulation
 
 ```python
-async def test_search_connection_error(radarr_client, aio_mock, radarr_url):
+async def test_search_connection_error(radarr_client, aio_mock):
     import aiohttp
     aio_mock.get(
-        f"{radarr_url}/api/v3/movie/lookup?term=test",
+        "http://localhost:7878/api/v3/movie/lookup?term=test",
         exception=aiohttp.ClientError("Connection refused")
     )
     results = await radarr_client.search("test")
@@ -75,15 +75,15 @@ aio_mock.get(re.compile(r"^http://localhost:8090/api.*"), callback=fake_sabnzbd)
 ### POST Requests (add_movie, add_series, add_artist)
 
 ```python
-async def test_add_movie_success(radarr_client, aio_mock, radarr_url):
+async def test_add_movie_success(radarr_client, aio_mock):
     # Mock the lookup first (add_movie uses the first result of the list)
     aio_mock.get(
-        f"{radarr_url}/api/v3/movie/lookup?term=tmdb:123",
+        "http://localhost:7878/api/v3/movie/lookup?term=tmdb:123",
         payload=[{"tmdbId": 123, "title": "Test Movie"}]
     )
     # Mock the POST (sent with max_retries=0, so one mock is enough)
     aio_mock.post(
-        f"{radarr_url}/api/v3/movie",
+        "http://localhost:7878/api/v3/movie",
         payload={"id": 1, "title": "Test Movie"}
     )
     success, message = await radarr_client.add_movie(123, "/movies", 1)
@@ -289,7 +289,6 @@ Integration tests live in `tests/integration/` and exercise full conversation fl
 |-|-|
 | `conftest.py` | `BotHarness` class, update factories, `harness`, `downloads_harness` and `bazarr_harness` fixtures |
 | `fixtures.py` | Shared test data (search results, quality profiles, queue data) |
-| `api_mocks.py` | Mock API helper for consistent service responses |
 
 ### BotHarness
 
@@ -434,6 +433,10 @@ def test_empty_file(load_settings):
 
 The file reads are patched only while the module loads. To test `result.config.save()`, set `result.module.CONFIG_PATH = str(tmp_path / "config.yaml")` first, so the test never writes the real `config.yaml`. `create_backup` is already a mock on the loaded module.
 
+### Log Files in Tests
+
+`tests/conftest.py` points `src.definitions.LOG_PATH` and `ERROR_LOG_PATH` at a temporary directory before `src.utils.logger` is imported (the logger binds them at import, and builds `interactions.log` next to `LOG_PATH`). A test run never writes the repo's `logs/` directory. A test that needs its own log files patches `src.utils.logger.LOG_PATH` and `ERROR_LOG_PATH` with a `tmp_path`, as `tests/test_utils/test_logger.py` does.
+
 ---
 
 ## Keyboards
@@ -496,8 +499,8 @@ API clients inherit retry logic from `BaseApiClient`. Testing retries requires s
 `aioresponses` mocks are consumed in FIFO order per URL. Register one mock per attempt:
 
 ```python
-async def test_retry_then_succeed(radarr_client, aio_mock, radarr_url):
-    url = f"{radarr_url}/api/v3/system/status"
+async def test_retry_then_succeed(radarr_client, aio_mock):
+    url = "http://localhost:7878/api/v3/system/status"
     # First attempt: failure (consumed first)
     aio_mock.get(url, exception=aiohttp.ClientError("fail"))
     # Second attempt: success (consumed second)
@@ -511,8 +514,8 @@ async def test_retry_then_succeed(radarr_client, aio_mock, radarr_url):
 For N retries, register N+1 mocks (1 initial + N retries). Example with 2 retries configured:
 
 ```python
-async def test_all_retries_exhausted(radarr_client, aio_mock, radarr_url):
-    url = f"{radarr_url}/api/v3/system/status"
+async def test_all_retries_exhausted(radarr_client, aio_mock):
+    url = "http://localhost:7878/api/v3/system/status"
     # Initial + 2 retries = 3 mocks
     for _ in range(3):
         aio_mock.get(url, exception=aiohttp.ClientError("fail"))
@@ -527,8 +530,8 @@ async def test_all_retries_exhausted(radarr_client, aio_mock, radarr_url):
 Retry logic uses `asyncio.sleep` for backoff delays. Patch at module level to avoid real delays and verify backoff values:
 
 ```python
-async def test_retry_backoff(radarr_client, aio_mock, radarr_url):
-    url = f"{radarr_url}/api/v3/system/status"
+async def test_retry_backoff(radarr_client, aio_mock):
+    url = "http://localhost:7878/api/v3/system/status"
     aio_mock.get(url, exception=aiohttp.ClientError("fail"))
     aio_mock.get(url, payload={"version": "5.0"})
 
@@ -542,8 +545,8 @@ async def test_retry_backoff(radarr_client, aio_mock, radarr_url):
 `asyncio.TimeoutError` does NOT inherit from `aiohttp.ClientError`; `_make_request` catches both, but never retries a timeout, because a timeout already waited the full timeout. One mock is enough, and `asyncio.sleep` is not awaited:
 
 ```python
-async def test_timeout_is_not_retried(radarr_client, aio_mock, radarr_url):
-    url = f"{radarr_url}/api/v3/system/status"
+async def test_timeout_is_not_retried(radarr_client, aio_mock):
+    url = "http://localhost:7878/api/v3/system/status"
     aio_mock.get(url, exception=asyncio.TimeoutError())
 
     with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:

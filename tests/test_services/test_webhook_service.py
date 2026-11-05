@@ -288,11 +288,6 @@ class TestEventFiltering:
             yield mock_config
 
     @pytest.fixture
-    def filtered_service(self, filtered_config):
-        from src.services.webhook import WebhookService
-        return WebhookService()
-
-    @pytest.fixture
     async def filtered_client(self, filtered_config):
         from src.services.webhook import WebhookService
         service = WebhookService()

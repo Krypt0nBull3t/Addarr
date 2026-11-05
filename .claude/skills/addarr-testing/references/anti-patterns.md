@@ -67,8 +67,8 @@ async def test_api():
 
 ```python
 # GOOD
-async def test_api(radarr_client, aio_mock, radarr_url):
-    aio_mock.get(f"{radarr_url}/api/v3/system/status", payload={"version": "5.0"})
+async def test_api(radarr_client, aio_mock):
+    aio_mock.get("http://localhost:7878/api/v3/system/status", payload={"version": "5.0"})
     # Client uses aiohttp internally, aioresponses intercepts it
     success, data, error = await radarr_client._make_request("system/status")
     assert (success, data, error) == (True, {"version": "5.0"}, None)
@@ -140,10 +140,10 @@ The `radarr_client`, `sonarr_client`, `lidarr_client` and `bazarr_client` fixtur
 
 ```python
 # BAD - not a fixture, so cleanup_sessions never closes it
-async def test_custom_client(aio_mock, radarr_url):
+async def test_custom_client(aio_mock):
     from src.api.radarr import RadarrClient
     client = RadarrClient()
-    aio_mock.get(f"{radarr_url}/api/v3/system/status", payload={"version": "5.0"})
+    aio_mock.get("http://localhost:7878/api/v3/system/status", payload={"version": "5.0"})
     await client._make_request("system/status")
     # Session stays open
 ```
@@ -152,10 +152,10 @@ async def test_custom_client(aio_mock, radarr_url):
 
 ```python
 # GOOD - explicit cleanup for ad-hoc clients
-async def test_custom_client(aio_mock, radarr_url):
+async def test_custom_client(aio_mock):
     from src.api.radarr import RadarrClient
     client = RadarrClient()
-    aio_mock.get(f"{radarr_url}/api/v3/system/status", payload={"version": "5.0"})
+    aio_mock.get("http://localhost:7878/api/v3/system/status", payload={"version": "5.0"})
     try:
         success, data, error = await client._make_request("system/status")
         assert success is True

@@ -79,16 +79,6 @@ class TestLidarrMakeRequest:
             result = await lidarr_client._request("system/status")
         assert result is None
 
-    @pytest.mark.asyncio
-    async def test_request_generic_exception(self, aio_mock, lidarr_client):
-        """RuntimeError via _request returns None."""
-        aio_mock.get(
-            f"{BASE}/system/status",
-            exception=RuntimeError("unexpected"),
-        )
-        result = await lidarr_client._request("system/status")
-        assert result is None
-
 
 # ---------------------------------------------------------------------------
 # search

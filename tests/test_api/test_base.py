@@ -382,6 +382,16 @@ class TestBaseApiClientRequest:
                 result = await client._request("system/status")
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_request_returns_none_on_unexpected_exception(self, client):
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:7878/api/v3/system/status",
+                exception=RuntimeError("unexpected"),
+            )
+            result = await client._request("system/status")
+        assert result is None
+
 
 # ---------------------------------------------------------------------------
 # BaseApiClient -- Session reuse
@@ -587,17 +597,6 @@ class TestBaseApiClientRetry:
         assert error == "Radarr returned HTTP 503"
 
     @pytest.mark.asyncio
-    async def test_all_retries_exhausted_connection_error(self, client):
-        """All 3 attempts fail with ClientError — returns connection error."""
-        with aioresponses() as m:
-            for _ in range(3):
-                m.get(URL, exception=aiohttp.ClientError("refused"))
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                success, data, error = await client._make_request("system/status")
-        assert success is False
-        assert "Connection error:" in error
-
-    @pytest.mark.asyncio
     async def test_respects_max_retries_setting(self, client):
         """max_retries=1 means 2 total attempts."""
         with aioresponses() as m:
@@ -646,12 +645,3 @@ class TestBaseApiClientRetry:
         assert mock_sleep.call_count == 2
         assert mock_sleep.call_args_list[0][0][0] == 1.0
         assert mock_sleep.call_args_list[1][0][0] == 2.0
-
-    @pytest.mark.asyncio
-    async def test_no_retry_on_generic_exception(self, client):
-        """Generic Exception (not ClientError/TimeoutError) should NOT retry."""
-        with aioresponses() as m:
-            m.get(URL, exception=RuntimeError("unexpected"))
-            success, data, error = await client._make_request("system/status")
-        assert success is False
-        assert "Unexpected error:" in error

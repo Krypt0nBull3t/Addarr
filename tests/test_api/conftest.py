@@ -22,21 +22,6 @@ def aio_mock():
 
 
 @pytest.fixture
-def radarr_url():
-    return "http://localhost:7878"
-
-
-@pytest.fixture
-def sonarr_url():
-    return "http://localhost:8989"
-
-
-@pytest.fixture
-def lidarr_url():
-    return "http://localhost:8686"
-
-
-@pytest.fixture
 def radarr_client():
     from src.api.radarr import RadarrClient
     return RadarrClient()
@@ -55,19 +40,9 @@ def lidarr_client():
 
 
 @pytest.fixture
-def bazarr_url():
-    return "http://localhost:6767"
-
-
-@pytest.fixture
 def bazarr_client():
     from src.api.bazarr import BazarrClient
     return BazarrClient()
-
-
-@pytest.fixture
-def transmission_url():
-    return "http://localhost:9091"
 
 
 @pytest.fixture
