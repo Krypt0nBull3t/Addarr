@@ -391,6 +391,10 @@ def test_empty_file(load_settings):
 
 `valid_config_text` is the example config with a token filled in. `config_text=None` means no config.yaml. `interactive=True` makes questionary prompts run.
 
+### Log Files in Tests
+
+`tests/conftest.py` points `src.definitions.LOG_PATH` and `ERROR_LOG_PATH` at a temporary directory before `src.utils.logger` is imported (the logger binds them at import, and builds `interactions.log` next to `LOG_PATH`). A test run never writes the repo's `logs/` directory. A test that needs its own log files patches `src.utils.logger.LOG_PATH` and `ERROR_LOG_PATH` with a `tmp_path`, as `tests/test_utils/test_logger.py` does.
+
 ---
 
 ## Keyboards
