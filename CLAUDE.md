@@ -163,7 +163,7 @@ Translation files in `translations/addarr.<locale>.yml` (9 languages). Access vi
 
 ### Entry Point Flow
 
-`run.py` → pre-run checks (`src/utils/prerun.py`: `PreRunChecker`, exported as the instance `prerun_checker` from `src/utils/__init__.py`) → init utilities → `src/main.py:run_bot()` → `AddarrBot.initialize()` (config validation, health checks, handler registration) → `AddarrBot.start()` (polling loop + health check task).
+`run.py` → pre-run checks (`src/utils/prerun.py`: `PreRunChecker`, exported from `src/utils/__init__.py` as the shared instance) → init utilities → `src/main.py:run_bot()` → `AddarrBot.initialize()` (config validation, health checks, handler registration) → `AddarrBot.start()` (polling loop + health check task).
 
 ### Handler Registration Order
 
@@ -237,7 +237,7 @@ docker-compose up -d
 docker build -t addarr . && docker run -d -v $(pwd)/config.yaml:/app/config.yaml addarr
 ```
 
-Base image: `python:3.11-alpine3.24`. Uses host networking. Runs as the non-root user `addarr`. Persistent files to mount: `config.yaml` (writable: `/auth` and settings save it), `logs/`, `backup/`, `chatid.txt`, `admin.txt`, `allowlist.txt`. `user_preferences.json` lives in `data/`, which compose keeps in the named volume `addarr-data`. If `logs/` is not writable, the logger falls back to console-only output with one warning. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.
+Base image: `python:3.11-alpine3.24`. Uses host networking. Runs as the non-root user `addarr`. Persistent files to mount: `config.yaml` (writable: `/auth` and settings save it), `logs/`, `backup/`. `user_preferences.json` lives in `data/`, which compose keeps in the named volume `addarr-data`. If `logs/` is not writable, the logger falls back to console-only output with one warning. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.
 
 ## graphify
 

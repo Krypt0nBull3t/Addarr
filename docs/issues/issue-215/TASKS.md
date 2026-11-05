@@ -30,7 +30,7 @@ Plan: `docs/issues/issue-215/plan.md`. Docs only: the "RED" step is the acceptan
     - **Key Changes:** `README.md`: `password` moved under `telegram:`; `python run.py --reset`; `monitoring:` subsection deleted; Development Setup lost the pre-commit step and `requirements-dev.txt`, steps renumbered to 3.
     - **Notes:** The Kubernetes section and its TOC entry stay; #218 (F190) removes them. The issue's `kubernetes/` grep therefore still matches README.md.
 
-- [ ] **1.2** Correct CLAUDE.md (F281)
+- [x] **1.2** Correct CLAUDE.md (F281)
     - **Context:**
         - **Why:** CLAUDE.md names a class-instance name as a file and lists mount files no live code reads (F191).
         - **Architecture:** Docs only. `tests/test_architecture/test_repo_docs.py` checks every repo path CLAUDE.md names.
@@ -43,3 +43,7 @@ Plan: `docs/issues/issue-215/plan.md`. Docs only: the "RED" step is the acceptan
         - [GREEN] Reword the entry-point flow so it cites `src/utils/prerun.py` (`PreRunChecker`) without `prerun_checker`.
         - [GREEN] Remove `chatid.txt`, `admin.txt` and `allowlist.txt` from "Persistent files to mount".
     - **Success:** The grep prints nothing. `grep -n "Docker Hub" CLAUDE.md` still finds both lines. `pytest tests/test_architecture` passes.
+    - **Completed:** 2026-11-05
+    - **Learnings:** `CLAUDE.md` already cited `src/utils/prerun.py`; only the instance name `prerun_checker` matched the acceptance grep, so the clause now says "the shared instance".
+    - **Key Changes:** `CLAUDE.md`: entry-point flow reworded; "Persistent files to mount" now lists `config.yaml`, `logs/`, `backup/`.
+    - **Notes:** Both Docker Hub lines kept. #218 edits the same mount text; the second PR to merge keeps both edits.
