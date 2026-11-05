@@ -824,7 +824,7 @@ class TestRadarrGetQueue:
     async def test_get_queue_success(self, aio_mock, radarr_client):
         """Happy path: returns list of queue records."""
         aio_mock.get(
-            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
             payload=RADARR_QUEUE,
             status=200,
         )
@@ -837,7 +837,7 @@ class TestRadarrGetQueue:
     async def test_get_queue_empty(self, aio_mock, radarr_client):
         """No queue items returns empty list."""
         aio_mock.get(
-            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
             payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -849,7 +849,7 @@ class TestRadarrGetQueue:
         """Connection error exhausts retries, returns empty list."""
         for _ in range(3):
             aio_mock.get(
-                f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000",
+                f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -925,7 +925,7 @@ class TestRadarrGetHistory:
         """Happy path: returns list of history records."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeMovie=true",
             payload=RADARR_HISTORY,
             status=200,
         )
@@ -943,7 +943,7 @@ class TestRadarrGetHistory:
         }
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20&eventType=grabbed",
+            f"&page=1&pageSize=20&includeMovie=true&eventType=grabbed",
             payload=filtered,
             status=200,
         )
@@ -956,7 +956,7 @@ class TestRadarrGetHistory:
         """Empty records returns empty list."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeMovie=true",
             payload={"page": 1, "pageSize": 20, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -975,7 +975,7 @@ class TestRadarrGetHistory:
         """Non-dict response (None) returns empty list."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeMovie=true",
             payload="",
             status=200,
         )

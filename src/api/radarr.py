@@ -182,6 +182,7 @@ class RadarrClient(BaseApiClient):
             logger.info(Fore.BLUE + "📥 Getting download queue from Radarr")
             result = await self._request(
                 "queue?sortKey=title&sortDirection=ascending&pageSize=1000"
+                "&includeMovie=true"
             )
 
             if not result or not isinstance(result, dict):
@@ -262,6 +263,7 @@ class RadarrClient(BaseApiClient):
             endpoint = (
                 f"history?sortKey=date&sortDirection=descending"
                 f"&page={page}&pageSize={page_size}"
+                "&includeMovie=true"
             )
             if event_type:
                 endpoint += f"&eventType={event_type}"

@@ -173,6 +173,7 @@ class SonarrClient(BaseApiClient):
             logger.info(Fore.BLUE + "📭 Getting missing episodes from Sonarr")
             result = await self._request(
                 "wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+                "&includeSeries=true"
             )
 
             if not result or not isinstance(result, dict):
@@ -193,6 +194,7 @@ class SonarrClient(BaseApiClient):
             logger.info(Fore.BLUE + "📥 Getting download queue from Sonarr")
             result = await self._request(
                 "queue?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+                "&includeSeries=true&includeEpisode=true"
             )
 
             if not result or not isinstance(result, dict):
@@ -213,6 +215,7 @@ class SonarrClient(BaseApiClient):
             logger.info(Fore.BLUE + "⚠️ Getting cutoff unmet episodes from Sonarr")
             result = await self._request(
                 "wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000"
+                "&includeSeries=true"
             )
 
             if not result or not isinstance(result, dict):
@@ -252,7 +255,7 @@ class SonarrClient(BaseApiClient):
         """Get upcoming episode airings within a date range"""
         try:
             logger.info(Fore.BLUE + f"🔍 Getting Sonarr calendar: {start} to {end}")
-            results = await self._request(f"calendar?start={start}&end={end}")
+            results = await self._request(f"calendar?start={start}&end={end}&includeSeries=true")
 
             if not results:
                 logger.warning(Fore.YELLOW + "⚠️ No upcoming episodes found")
@@ -273,6 +276,7 @@ class SonarrClient(BaseApiClient):
             endpoint = (
                 f"history?sortKey=date&sortDirection=descending"
                 f"&page={page}&pageSize={page_size}"
+                "&includeSeries=true&includeEpisode=true"
             )
             if event_type:
                 endpoint += f"&eventType={event_type}"

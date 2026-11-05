@@ -714,7 +714,7 @@ class TestSonarrGetCalendar:
             },
         ]
         aio_mock.get(
-            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08&includeSeries=true",
             payload=calendar_data,
             status=200,
         )
@@ -727,7 +727,7 @@ class TestSonarrGetCalendar:
     async def test_get_calendar_empty(self, aio_mock, sonarr_client):
         """No upcoming episodes returns empty list."""
         aio_mock.get(
-            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08&includeSeries=true",
             payload=[],
             status=200,
         )
@@ -752,7 +752,7 @@ class TestSonarrGetMissing:
     async def test_get_missing_success(self, aio_mock, sonarr_client):
         """Happy path: returns list of missing episode records."""
         aio_mock.get(
-            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
             payload=SONARR_WANTED_MISSING,
             status=200,
         )
@@ -765,7 +765,7 @@ class TestSonarrGetMissing:
     async def test_get_missing_empty(self, aio_mock, sonarr_client):
         """No missing episodes returns empty list."""
         aio_mock.get(
-            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
             payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -777,7 +777,7 @@ class TestSonarrGetMissing:
         """Connection error exhausts retries, returns empty list."""
         for _ in range(3):
             aio_mock.get(
-                f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                f"{BASE}/wanted/missing?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -802,7 +802,7 @@ class TestSonarrGetCutoffUnmet:
     async def test_get_cutoff_unmet_success(self, aio_mock, sonarr_client):
         """Happy path: returns list of cutoff unmet episode records."""
         aio_mock.get(
-            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
             payload=SONARR_WANTED_CUTOFF,
             status=200,
         )
@@ -814,7 +814,7 @@ class TestSonarrGetCutoffUnmet:
     async def test_get_cutoff_unmet_empty(self, aio_mock, sonarr_client):
         """No cutoff unmet episodes returns empty list."""
         aio_mock.get(
-            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
             payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -826,7 +826,7 @@ class TestSonarrGetCutoffUnmet:
         """Connection error exhausts retries, returns empty list."""
         for _ in range(3):
             aio_mock.get(
-                f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                f"{BASE}/wanted/cutoff?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true",
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -889,7 +889,7 @@ class TestSonarrGetQueue:
     async def test_get_queue_success(self, aio_mock, sonarr_client):
         """Happy path: returns list of queue records."""
         aio_mock.get(
-            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true&includeEpisode=true",
             payload=SONARR_QUEUE,
             status=200,
         )
@@ -902,7 +902,7 @@ class TestSonarrGetQueue:
     async def test_get_queue_empty(self, aio_mock, sonarr_client):
         """No queue items returns empty list."""
         aio_mock.get(
-            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+            f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true&includeEpisode=true",
             payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
             status=200,
         )
@@ -914,7 +914,7 @@ class TestSonarrGetQueue:
         """Connection error exhausts retries, returns empty list."""
         for _ in range(3):
             aio_mock.get(
-                f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000",
+                f"{BASE}/queue?sortKey=series.title&sortDirection=ascending&pageSize=1000&includeSeries=true&includeEpisode=true",
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -940,7 +940,7 @@ class TestSonarrGetHistory:
         """Happy path: returns list of history records."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true",
             payload=SONARR_HISTORY,
             status=200,
         )
@@ -958,7 +958,7 @@ class TestSonarrGetHistory:
         }
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20&eventType=grabbed",
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true&eventType=grabbed",
             payload=filtered,
             status=200,
         )
@@ -971,7 +971,7 @@ class TestSonarrGetHistory:
         """Empty records returns empty list."""
         aio_mock.get(
             f"{BASE}/history?sortKey=date&sortDirection=descending"
-            f"&page=1&pageSize=20",
+            f"&page=1&pageSize=20&includeSeries=true&includeEpisode=true",
             payload={"page": 1, "pageSize": 20, "totalRecords": 0, "records": []},
             status=200,
         )

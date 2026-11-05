@@ -7,7 +7,7 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
 
 **Goal:** The Radarr and Sonarr requests carry the spec's include flags and int event types.
 
-- [ ] **1.1** F040 include flags on 7 requests
+- [x] **1.1** F040 include flags on 7 requests
     - **Context:**
         - **Why:** The spec default for `includeSeries`, `includeEpisode` and `includeMovie` is false. History titles are "" and Sonarr rows have no series name.
         - **Architecture:** String endpoints built in each client method, sent through `self._request()`. No new helper.
@@ -20,6 +20,15 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
         - [RED] Radarr tests: `queue` and `history` URLs carry `includeMovie=true`.
         - [GREEN] Append the flags in the 7 endpoint strings.
     - **Success:** `scripts/test_runner.py api --coverage` passes, flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `aioresponses` matches the whole URL, so updating the mocked URL is the assertion. The 9 `*_success` and history tests failed before the fix. The `*_empty` tests passed before the fix too, because an unmatched URL also returns `[]`.
+        - Radarr `wanted/missing`, `wanted/cutoff` and `calendar` return movie objects, so they got no flag.
+    - **Key Changes:**
+        - `src/api/sonarr.py`: `includeSeries=true` on missing, cutoff, calendar. `includeSeries=true&includeEpisode=true` on queue and history.
+        - `src/api/radarr.py`: `includeMovie=true` on queue and history.
+        - `tests/test_api/test_sonarr.py`, `tests/test_api/test_radarr.py`: mocked URLs carry the flags.
+    - **Notes:** The flags sit before `eventType` in the history URL. Task 1.2 changes the `eventType` value only.
 
 - [ ] **1.2** F041 history event types as ints
     - **Context:**
