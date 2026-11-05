@@ -470,6 +470,66 @@ class TestStart:
         updater = Application.builder().token("0:TEST").build().updater
         assert hasattr(updater, "_Updater__polling_task")
 
+    @staticmethod
+    def _run_ticks(bot, mock_app, ticks):
+        """Run start() until the keep-alive loop has slept `ticks` times."""
+        bot.application = mock_app
+        bot.health_checker = MagicMock()
+        bot.health_checker.start = AsyncMock()
+        sleeps = []
+
+        async def stop_after_ticks(_):
+            sleeps.append(1)
+            if len(sleeps) >= ticks:
+                bot._running = False
+
+        return stop_after_ticks
+
+    @pytest.mark.asyncio
+    async def test_loop_touches_heartbeat_file(self, bot, mock_app, tmp_path):
+        """The keep-alive loop touches the heartbeat file."""
+        heartbeat = tmp_path / "heartbeat"
+        sleep = self._run_ticks(bot, mock_app, 1)
+
+        with patch("src.main.HEARTBEAT_FILE", str(heartbeat)):
+            with patch("src.main.asyncio.sleep", side_effect=sleep):
+                with patch("src.main.asyncio.create_task"):
+                    await bot.start()
+
+        assert heartbeat.exists()
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_refreshed_every_ten_ticks(self, bot, mock_app):
+        """21 one-second ticks touch the file at ticks 0, 10 and 20."""
+        sleep = self._run_ticks(bot, mock_app, 21)
+        bot._touch_heartbeat = MagicMock()
+
+        with patch("src.main.asyncio.sleep", side_effect=sleep):
+            with patch("src.main.asyncio.create_task"):
+                await bot.start()
+
+        assert bot._touch_heartbeat.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_write_failure_warns_once(
+        self, bot, mock_app, tmp_path
+    ):
+        """An unwritable heartbeat path logs one warning and the loop goes on."""
+        sleep = self._run_ticks(bot, mock_app, 21)
+        missing_dir_file = str(tmp_path / "no-such-dir" / "heartbeat")
+
+        with patch("src.main.HEARTBEAT_FILE", missing_dir_file):
+            with patch("src.main.logger") as mock_logger:
+                with patch("src.main.asyncio.sleep", side_effect=sleep):
+                    with patch("src.main.asyncio.create_task"):
+                        await bot.start()
+
+        heartbeat_warnings = [
+            c for c in mock_logger.warning.call_args_list
+            if "heartbeat" in c.args[0]
+        ]
+        assert len(heartbeat_warnings) == 1
+
     @pytest.mark.asyncio
     async def test_error_reraises(self, bot, mock_app):
         """Exception during start is re-raised."""

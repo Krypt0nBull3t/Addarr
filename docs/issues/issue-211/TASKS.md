@@ -152,7 +152,7 @@ Run every test and every `git push` through the suite lock:
         - `tests/test_main.py`: mock app gets a polling task; four new `TestStart` tests (updater stopped, task done, requested stop, attribute guard).
     - **Notes:** `start_bot` turns the error into `bot.stop()` and `sys.exit(1)`. Task 1.8 makes `stop()` survive the dead task's InvalidToken.
 
-- [ ] **1.7** F141: heartbeat file and healthcheck
+- [x] **1.7** F141: heartbeat file and healthcheck
     - **Context:**
         - **Why:** `pgrep -f "python.*run.py"` matches PID 1, so the healthcheck never fails when the loop stops.
         - **Architecture:** `HEARTBEAT_FILE` in `src/definitions.py` (env `ADDARR_HEARTBEAT_FILE`, default `<tempdir>/addarr-heartbeat`). The loop touches it from loop entry and every 10 ticks (`HEARTBEAT_EVERY = 10`). Healthcheck: `test $(( $(date +%s) - $(stat -c %Y "${ADDARR_HEARTBEAT_FILE:-/tmp/addarr-heartbeat}") )) -lt 60`.
@@ -167,6 +167,17 @@ Run every test and every `git push` through the suite lock:
         - [GREEN] Implement constant, method, loop call and both commands.
         - [GREEN] Smoke-run the shell command with `sh`: fresh file exits 0; file touched 2 minutes ago and missing file exit non-zero.
     - **Success:** New tests fail before, pass after; the smoke check behaves as listed.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The healthcheck command is tested by running it with `sh` against a missing, a fresh and a two-minute-old file (Dockerfile and compose both), so the smoke check is part of the suite. It ran with the host `sh`, not with Alpine busybox; busybox `stat -c %Y` and `date +%s` do the same.
+        - The `[ -f "$F" ] &&` guard makes a missing file exit 1, not the exit 2 of an arithmetic syntax error (Docker reserves 2).
+        - `src/definitions.py` reads the env var at import, so the env test starts a new Python process.
+    - **Key Changes:**
+        - `src/definitions.py`: `HEARTBEAT_FILE` (env `ADDARR_HEARTBEAT_FILE`, default `<tempdir>/addarr-heartbeat`).
+        - `src/main.py`: `HEARTBEAT_EVERY = 10`, `AddarrBot._touch_heartbeat()` (one warning on `OSError`), loop touches on entry and every 10 ticks.
+        - `Dockerfile`, `docker-compose.yml`: healthcheck checks the heartbeat file age (< 60 s); compose uses `CMD-SHELL` and `$$`.
+        - Tests in `tests/test_main.py`, `test_definitions.py`, `test_dockerfile.py`, `test_docker_compose.py`.
+    - **Notes:** The first touch happens when the loop starts, after polling has started; `start_period` is 30 s. A bot that fails before the loop never gets healthy, as intended.
 
 - [ ] **1.8** F142: clean shutdown on SIGTERM
     - **Context:**

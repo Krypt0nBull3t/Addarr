@@ -10,6 +10,7 @@ It also defines default settings for the application configuration.
 """
 
 import os
+import tempfile
 from pathlib import Path
 import yaml
 
@@ -34,6 +35,12 @@ DATA_PATH = os.path.join(ROOT_DIR, "data")
 PREFERENCES_PATH = os.path.join(DATA_PATH, "user_preferences.json")
 # Location before DATA_PATH, still read when PREFERENCES_PATH does not exist
 LEGACY_PREFERENCES_PATH = os.path.join(ROOT_DIR, "user_preferences.json")
+
+# Heartbeat file: the bot touches it while its keep-alive loop runs; the Docker
+# healthcheck fails when it is missing or older than 60 seconds
+HEARTBEAT_FILE = os.environ.get(
+    "ADDARR_HEARTBEAT_FILE", os.path.join(tempfile.gettempdir(), "addarr-heartbeat")
+)
 
 # Valid values of security.chatMode (kept here: src/setup/ must not import settings)
 CHAT_MODES = ("private_only", "allow_all")

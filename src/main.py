@@ -9,6 +9,7 @@ import asyncio
 import signal
 import sys
 import os
+from pathlib import Path
 from colorama import Fore, init
 from telegram.ext import Application
 from telegram.error import InvalidToken, NetworkError
@@ -32,6 +33,7 @@ from src.bot.handlers.start import StartHandler
 from src.bot.handlers.system import SystemHandler
 from src.bot.handlers.webhooks import WebhooksHandler
 from src.config.settings import config
+from src.definitions import HEARTBEAT_FILE
 from src.utils.logger import get_logger
 from src.utils.splash import show_welcome_screen
 from src.utils.validation import check_config
@@ -52,6 +54,9 @@ init(autoreset=True)
 # Get logger instance
 logger = get_logger("addarr.main")
 
+# Keep-alive ticks (1 s each) between two touches of the heartbeat file
+HEARTBEAT_EVERY = 10
+
 
 class AddarrBot:
     """Main bot application class"""
@@ -63,6 +68,7 @@ class AddarrBot:
         self._stop_requested = False
         self.health_checker = health_service
         self._webhook_service = None
+        self._heartbeat_warned = False
 
     async def initialize(self):
         """Initialize the bot application"""
@@ -228,6 +234,17 @@ class AddarrBot:
         for user_id in AuthHandler._authenticated_users:
             await register_commands_for_chat(bot, user_id)
 
+    def _touch_heartbeat(self) -> None:
+        """Touch the heartbeat file; a failure warns once and never stops the bot."""
+        try:
+            Path(HEARTBEAT_FILE).touch()
+        except OSError as e:
+            if not self._heartbeat_warned:
+                self._heartbeat_warned = True
+                logger.warning(
+                    f"⚠️ Cannot write heartbeat file {HEARTBEAT_FILE}: {e}"
+                )
+
     def _polling_stopped(self) -> bool:
         """True when the updater stopped or its polling task ended."""
         updater = self.application.updater
@@ -264,9 +281,13 @@ class AddarrBot:
             )
 
             # Keep the bot running until stopped or until polling dies
+            tick = 0
             while self._running and not self._stop_requested:
                 if self._polling_stopped():
                     raise RuntimeError("Telegram polling stopped unexpectedly")
+                if tick % HEARTBEAT_EVERY == 0:
+                    self._touch_heartbeat()
+                tick += 1
                 await asyncio.sleep(1)
 
         except Exception as e:

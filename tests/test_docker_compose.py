@@ -1,6 +1,9 @@
 """Tests for docker-compose.yml improvements."""
 
 import os
+import subprocess
+import time
+
 import pytest
 import yaml
 
@@ -23,6 +26,35 @@ class TestDockerCompose:
         """Service should define a healthcheck."""
         service = compose_config["services"]["addarr"]
         assert "healthcheck" in service, "Service must define a healthcheck"
+
+    @staticmethod
+    def _healthcheck_command(compose_config):
+        test = compose_config["services"]["addarr"]["healthcheck"]["test"]
+        assert test[0] == "CMD-SHELL"
+        return test[1].replace("$$", "$")  # compose turns $$ into $
+
+    def test_healthcheck_checks_heartbeat_age(self, compose_config):
+        """The healthcheck reads the heartbeat file age, not the process list."""
+        command = self._healthcheck_command(compose_config)
+        assert "stat -c %Y" in command
+        assert "-lt 60" in command
+        assert "pgrep" not in command
+
+    def test_healthcheck_command_behaviour(self, compose_config, tmp_path):
+        """Healthy for a fresh file; unhealthy for an old or a missing file."""
+        command = self._healthcheck_command(compose_config)
+        heartbeat = tmp_path / "heartbeat"
+        env = {**os.environ, "ADDARR_HEARTBEAT_FILE": str(heartbeat)}
+
+        def run():
+            return subprocess.run(["sh", "-c", command], env=env).returncode
+
+        assert run() == 1  # missing
+        heartbeat.touch()
+        assert run() == 0  # fresh
+        old = time.time() - 120
+        os.utime(heartbeat, (old, old))
+        assert run() == 1  # older than 60 s
 
     def test_has_resource_limits(self, compose_config):
         """Service should define resource limits."""
