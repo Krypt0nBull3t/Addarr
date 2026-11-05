@@ -392,6 +392,8 @@ def test_empty_file(load_settings):
 
 `valid_config_text` is the example config with a token filled in. `config_text=None` means no config.yaml. `interactive=True` makes questionary prompts run.
 
+The file reads are patched only while the module loads. To test `result.config.save()`, set `result.module.CONFIG_PATH = str(tmp_path / "config.yaml")` first, so the test never writes the real `config.yaml`. `create_backup` is already a mock on the loaded module.
+
 ---
 
 ## Keyboards

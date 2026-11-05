@@ -35,6 +35,7 @@ For each changed file, check:
 * [ ] **Async bugs**: Missing `await`, unclosed sessions, fire-and-forget coroutines
 * [ ] **Singleton issues**: State in `__init__` vs `_initialize`, missing `is_enabled()` checks
 * [ ] **Config safety**: Direct `config["key"]` indexing, missing `.get()` defaults
+* [ ] **YAML 1.1 vs 1.2**: ruamel reads YAML 1.2, so `enable: no` is the truthy string `"no"` (PyYAML gave `False`). A ruamel loader of `config.yaml` must set `version = (1, 1)`; `Config` does (`_loader` in `src/config/settings.py`)
 * [ ] **Telegram API misuse**: Missing `query.answer()`, `reply_text` on callbacks, `edit_text` on photo messages. `query.answer()` called after the edit, so an edit error skips it and the spinner hangs: answer first
 * [ ] **Parse mode**: A text with `*bold*` or `_italic_` goes out with `parse_mode`, or the markers show. With `parse_mode="Markdown"`, every dynamic value (service names, error text) passes `escape_markdown(text, version=1)` from `telegram.helpers`, or a `_` or `*` breaks parsing
 * [ ] **Bot self-messages**: A bot never receives its own messages. `bot.send_message(chat_id, "/start")` opens nothing; send the menu or call the handler
