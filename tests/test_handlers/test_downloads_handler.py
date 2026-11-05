@@ -557,6 +557,66 @@ class TestDownloadsNavigation:
     @patch(PATCH_TS)
     @patch(PATCH_TX)
     @patch(PATCH_SAB)
+    async def test_tab_unchanged_message(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context, unchanged_edit
+    ):
+        """A re-tapped tab ignores an unchanged message."""
+        handler, _, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        update = make_update(callback_data="dl_tab_queue")
+        calls = unchanged_edit(update.callback_query)
+        context = make_context(user_data={"dl_client": "sabnzbd"})
+
+        await handler.handle_downloads_tab(update, context)
+
+        assert calls == ["answer", "edit"]
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_refresh_unchanged_message(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context, unchanged_edit
+    ):
+        """Refresh ignores an unchanged message."""
+        handler, _, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        update = make_update(callback_data="dl_refresh")
+        calls = unchanged_edit(update.callback_query)
+        context = make_context(user_data={"dl_client": "sabnzbd"})
+
+        await handler.handle_downloads_refresh(update, context)
+
+        assert calls == ["answer", "edit"]
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_pause_all_twice_unchanged_message(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context, unchanged_edit
+    ):
+        """A second Pause all leaves the message unchanged and still answers."""
+        handler, _, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        update = make_update(callback_data="dl_pauseall")
+        calls = unchanged_edit(update.callback_query)
+        context = make_context(user_data={"dl_client": "sabnzbd"})
+
+        await handler.handle_downloads_pauseall(update, context)
+
+        assert calls == ["answer", "edit"]
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
     async def test_noop_answers_query(
         self, mock_sab_class, mock_tx_class, mock_ts_class,
         make_update, make_context

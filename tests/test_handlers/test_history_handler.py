@@ -278,3 +278,20 @@ async def test_noop(
 
     update.callback_query.answer.assert_called_once()
     update.callback_query.message.edit_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_filter_unchanged_message(
+    history_handler, make_update, make_context, unchanged_edit
+):
+    """hist_filter_all answers first and ignores an unchanged message."""
+    history_handler._mock_service.get_history = AsyncMock(
+        return_value=[SAMPLE_HISTORY_MOVIE]
+    )
+    update = make_update(callback_data="hist_filter_all")
+    calls = unchanged_edit(update.callback_query)
+    context = make_context(user_data={"hist_filter": None})
+
+    await history_handler.handle_history_action(update, context)
+
+    assert calls == ["answer", "edit"]

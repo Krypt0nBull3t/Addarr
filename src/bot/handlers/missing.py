@@ -107,8 +107,10 @@ class MissingHandler:
         filtered = self._apply_filter(items, active_filter)
 
         text, keyboard = self._build_response(filtered, active_filter=active_filter)
-        await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
 
     async def _handle_page(self, query, context):
         """Show a different page of cached missing items."""

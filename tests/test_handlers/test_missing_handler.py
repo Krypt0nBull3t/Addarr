@@ -385,3 +385,19 @@ def test_get_handler_returns_list(missing_handler):
     handlers = missing_handler.get_handler()
     assert isinstance(handlers, list)
     assert len(handlers) >= 2
+
+
+@pytest.mark.asyncio
+async def test_filter_unchanged_message(
+    missing_handler, make_update, make_context, unchanged_edit
+):
+    """missing_filter_movie answers first and ignores an unchanged message."""
+    update = make_update(callback_data="missing_filter_movie")
+    calls = unchanged_edit(update.callback_query)
+    context = make_context(user_data={
+        "missing_items": [SAMPLE_MISSING_MOVIE], "missing_filter": "movie"
+    })
+
+    await missing_handler.handle_missing_action(update, context)
+
+    assert calls == ["answer", "edit"]

@@ -34,6 +34,7 @@ from src.services.media import MediaService
 from src.services.transmission import TransmissionService
 from src.services.sabnzbd import SABnzbdService
 from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
 from src.utils.helpers import is_admin
 
 logger = get_logger("addarr.settings")
@@ -645,7 +646,9 @@ class SettingsHandler:
 
         enabled = config.get("sabnzbd", {}).get("enable", False)
         keyboard = get_sabnzbd_settings_keyboard(enabled)
-        await query.message.edit_text(text, reply_markup=keyboard)
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
         return States.SETTINGS_DOWNLOADS
 
     # -- Users flow --

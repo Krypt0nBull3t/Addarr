@@ -826,6 +826,21 @@ class TestSabnzbdPauseResumeErrorHandling:
     """Error handling in SABnzbd pause/resume"""
 
     @pytest.mark.asyncio
+    async def test_handle_sabnzbd_pause_unchanged_message(
+        self, settings_handler, make_update, make_context, unchanged_edit
+    ):
+        """A second Pause leaves the message unchanged and does not raise"""
+        update = make_update(callback_data="dl_sab_pause")
+        unchanged_edit(update.callback_query)
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        update.callback_query.answer.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_handle_sabnzbd_pause_service_error(
         self, settings_handler, make_update, make_context
     ):

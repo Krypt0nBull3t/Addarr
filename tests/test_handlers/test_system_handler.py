@@ -457,3 +457,43 @@ async def test_handle_diskspace_low_space(system_handler, make_update, make_cont
     text = call_args[0][0]
     # Should contain warning indicator for low space
     assert "⚠" in text
+
+
+@pytest.mark.asyncio
+async def test_handle_details_unchanged_message(
+    system_handler, make_update, make_context, unchanged_edit
+):
+    """system_details answers first and ignores an unchanged message."""
+    system_handler._mock_health.run_health_checks = AsyncMock(return_value={
+        "media_services": [], "download_clients": [],
+    })
+    update = make_update(callback_data="system_details")
+    calls = unchanged_edit(update.callback_query)
+
+    await system_handler.handle_system_action(update, make_context())
+
+    assert calls == ["answer", "edit"]
+    assert all(
+        c.args != ("StatusDetailsError",)
+        for c in system_handler._mock_ts.get_text.call_args_list
+    )
+
+
+@pytest.mark.asyncio
+async def test_handle_diskspace_unchanged_message(
+    system_handler, make_update, make_context, unchanged_edit
+):
+    """system_diskspace answers first and ignores an unchanged message."""
+    system_handler._mock_health.get_disk_space = AsyncMock(
+        return_value=RADARR_DISK_SPACE
+    )
+    update = make_update(callback_data="system_diskspace")
+    calls = unchanged_edit(update.callback_query)
+
+    await system_handler.handle_system_action(update, make_context())
+
+    assert calls == ["answer", "edit"]
+    assert all(
+        c.args != ("DiskSpaceError",)
+        for c in system_handler._mock_ts.get_text.call_args_list
+    )

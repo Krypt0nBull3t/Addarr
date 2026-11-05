@@ -147,11 +147,12 @@ class SystemHandler:
         try:
             results = await health_service.run_health_checks()
             details_text = self._build_details_text(results)
-            await query.message.edit_text(
+            await query.answer()
+            await edit_text_ignoring_unmodified(
+                query.message,
                 details_text,
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer()
         except Exception as e:
             logger.error(f"Error getting service details: {e}")
             await query.message.edit_text(
@@ -167,12 +168,13 @@ class SystemHandler:
         try:
             drives = await health_service.get_disk_space()
             text = _build_disk_space_text(drives, self.translation)
-            await query.message.edit_text(
+            await query.answer()
+            await edit_text_ignoring_unmodified(
+                query.message,
                 text,
                 reply_markup=get_system_keyboard(),
                 parse_mode="Markdown",
             )
-            await query.answer()
         except Exception as e:
             logger.error(f"Error getting disk space: {e}")
             await query.message.edit_text(

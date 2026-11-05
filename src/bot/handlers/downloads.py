@@ -16,6 +16,7 @@ from src.bot.keyboards import (
     get_downloads_history_keyboard,
 )
 from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
 from src.utils.helpers import admin_only, is_admin
 
 logger = get_logger("addarr.handlers.downloads")
@@ -320,7 +321,9 @@ class DownloadsHandler:
                 show_history_tab=self._show_history_tab(context),
             )
 
-        await query.message.edit_text(text, reply_markup=keyboard)
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
 
     def _format_queue_text(self, queue):
         """Format queue data into display text."""

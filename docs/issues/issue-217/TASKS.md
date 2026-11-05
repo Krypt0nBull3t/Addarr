@@ -46,7 +46,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Key Changes:** `handle_menu_selection` cancel branch in `src/bot/handlers/start.py` calls `send_response`. Added `test_cancel_on_photo_message_edits_caption` and a `MagicMock` import in `tests/test_handlers/test_start_handler.py`.
     - **Notes:** The handlers scoped run (670 tests, 100%), architecture and integration tests pass.
 
-- [ ] **1.3** F110: a re-tap never hangs the spinner
+- [x] **1.3** F110: a re-tap never hangs the spinner
     - **Context:**
         - **Why:** These paths call `edit_text` and Telegram raises "Message is not modified" on a re-tap. In queue, missing, history and system, `answer()` runs after the edit, so it never runs.
         - **Architecture:** Use `edit_text_ignoring_unmodified` (`src/utils/chat.py:31`), as `_handle_refresh` in queue already does. `answer()` first.
@@ -60,6 +60,10 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
         - [RED] Write the settings test `dl_sab_pause` and the system tests `system_details` and `system_diskspace` with `unchanged_edit`.
         - [GREEN] Swap in the helper at the seven sites; call `answer()` before the edit in the filter handlers and in system details and disk space.
     - **Success:** All new tests fail before and pass after. The six test files pass. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** In system details and disk space the old code also hit the `except` branch on a re-tap, which edited again and raised a second `BadRequest`. The helper ends both. The downloads fix sits in `_refresh_current_view`, so tab, page, refresh, client switch and the pause actions all share it.
+    - **Key Changes:** `edit_text_ignoring_unmodified` replaces `edit_text` in `_handle_filter` (queue, missing, history), `downloads._refresh_current_view`, `settings.handle_sabnzbd_pause_resume`, `system._handle_details` and `_handle_diskspace`. Those filter and system handlers now call `query.answer()` first. Added nine `*_unchanged_message` tests.
+    - **Notes:** Handlers scoped run: 679 tests, 100% coverage. mypy and integration tests pass.
 
 - [ ] **1.4** F115: filters reset and keep their row
     - **Context:**
