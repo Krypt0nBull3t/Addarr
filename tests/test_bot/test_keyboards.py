@@ -2314,3 +2314,38 @@ class TestDeleteItemsKeyboard:
         for row in rows:
             for btn in row:
                 assert len(btn.callback_data.encode()) <= 64
+
+
+class TestEmptyFilteredKeyboards:
+    """An empty item list still has its filter row and a Back button."""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_queue_keyboard_keeps_filter_row(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        rows = get_queue_items_keyboard([], 0, "album").inline_keyboard
+
+        assert rows[0][0].callback_data == "queue_filter_all"
+        assert rows[-1][-1].callback_data == "queue_back"
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_missing_keyboard_keeps_filter_row(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        rows = get_missing_items_keyboard([], 0, "episode").inline_keyboard
+
+        assert rows[0][0].callback_data == "missing_filter_all"
+        assert rows[-1][-1].callback_data == "missing_back"
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_history_keyboard_keeps_filter_row(self, mock_ts):
+        _mock_translation(mock_ts)
+
+        rows = get_history_items_keyboard(
+            [], 0, event_filter="grabbed"
+        ).inline_keyboard
+
+        assert rows[0][0].callback_data == "hist_filter_all"
+        assert rows[-1][-1].callback_data == "hist_back"

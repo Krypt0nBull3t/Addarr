@@ -65,7 +65,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Key Changes:** `edit_text_ignoring_unmodified` replaces `edit_text` in `_handle_filter` (queue, missing, history), `downloads._refresh_current_view`, `settings.handle_sabnzbd_pause_resume`, `system._handle_details` and `_handle_diskspace`. Those filter and system handlers now call `query.answer()` first. Added nine `*_unchanged_message` tests.
     - **Notes:** Handlers scoped run: 679 tests, 100% coverage. mypy and integration tests pass.
 
-- [ ] **1.4** F115: filters reset and keep their row
+- [x] **1.4** F115: filters reset and keep their row
     - **Context:**
         - **Why:** `setdefault` keeps an old filter; an empty filtered view uses the `*_empty_keyboard`, which has no filter row; Movies and Series filters in missing never refetch, so after Cutoff they filter the cutoff list.
         - **Architecture:** Handler `_build_response` picks the keyboard. Keep the empty text when `items` is empty. Pick the items keyboard when items exist or a filter other than all is active.
@@ -79,6 +79,10 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
         - [RED] Write `test_cutoff_then_movie_refetches_missing` and the series variant (`get_missing_media` awaited, `missing_items` replaced).
         - [GREEN] Assign `"all"` on entry; change the keyboard choice; refetch on movie and series.
     - **Success:** New tests fail before and pass after. The three files pass. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** The real keyboard builders already cope with an empty list (`max(1, ...)` pages, filter row first), so only the handler choice of keyboard changed. Handler tests mock the builders, so `tests/test_bot/test_keyboards.py` got three real-builder checks. A Movies or Series tap now always refetches `get_missing_media`, which is one extra API call per tap.
+    - **Key Changes:** `show_queue` and `show_missing` assign `"all"`. `_build_response` in queue, missing and history uses the items keyboard when items exist or a filter is active. `missing._handle_filter` refetches on movie and series. Seven handler tests and three keyboard tests added.
+    - **Notes:** Handlers scoped run: 686 tests, 100% coverage. Keyboard, integration tests and mypy pass.
 
 - [ ] **1.5** F113: Back buttons and a `bazarr_menu` button
     - **Context:**

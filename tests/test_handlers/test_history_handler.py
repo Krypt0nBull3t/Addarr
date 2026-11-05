@@ -295,3 +295,19 @@ async def test_filter_unchanged_message(
     await history_handler.handle_history_action(update, context)
 
     assert calls == ["answer", "edit"]
+
+
+@pytest.mark.asyncio
+async def test_empty_filtered_view_keeps_filter_row(
+    history_handler, make_update, make_context
+):
+    """A filter without items still shows the items keyboard (filter row)."""
+    history_handler._mock_service.get_history = AsyncMock(return_value=[])
+    update = make_update(callback_data="hist_filter_grabbed")
+    context = make_context(user_data={"hist_filter": None})
+
+    await history_handler.handle_history_action(update, context)
+
+    history_handler._mock_items_kbd.assert_called_once()
+    assert history_handler._mock_items_kbd.call_args[1]["event_filter"] == "grabbed"
+    history_handler._mock_empty_kbd.assert_not_called()

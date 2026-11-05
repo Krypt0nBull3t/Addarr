@@ -151,13 +151,16 @@ class HistoryHandler:
         if items:
             title = self.translation.get_text("HistoryTitle")
             text = f"\U0001f4dc {title}\n\n{len(items)} items"
-            keyboard = get_history_items_keyboard(
-                items, page, event_filter=event_filter
-            )
         else:
             text = (
                 f"\U0001f4dc {self.translation.get_text('HistoryTitle')}"
                 f"\n\n{self.translation.get_text('HistoryEmpty')}"
             )
+        # An empty filtered view keeps the filter row, so the user can leave
+        if items or event_filter is not None:
+            keyboard = get_history_items_keyboard(
+                items, page, event_filter=event_filter
+            )
+        else:
             keyboard = get_history_empty_keyboard()
         return text, keyboard
