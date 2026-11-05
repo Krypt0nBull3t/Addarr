@@ -24,7 +24,7 @@ Plan: `docs/issues/issue-208/plan.md`. F160, F161 (repo settings) and the `v0.9.
     - **Key Changes:** `src/__init__.py` and `tests/conftest.py` (2 lines) now say `0.9.0`. New `tests/test_version.py`.
     - **Notes:** The tag `v0.9.0` and the GitHub Release are for the developer.
 
-- [ ] **1.2** Record why the CI matrix has four versions (F165)
+- [x] **1.2** Record why the CI matrix has four versions (F165)
     - **Context:**
         - **Why:** The issue-160 plan decided on 3.10 and 3.14 only. `ci.yml` runs 3.10, 3.12, 3.13 and 3.14. The docs must say why.
         - **Architecture:** Docs only. `.github/workflows/ci.yml:133` stays as is.
@@ -35,6 +35,10 @@ Plan: `docs/issues/issue-208/plan.md`. F160, F161 (repo settings) and the `v0.9.
     - **Action items:**
         - [GREEN] Add item 5 to "Design Decisions": `5. **Later change (8364be6):** the compatibility matrix grew to 3.10, 3.12, 3.13 and 3.14 "to avoid gaps in version coverage". The boundary-only choice above was dropped on purpose; #208 (F165) keeps the four versions.`
     - **Success:** `pytest tests/test_architecture` passes (`test_repo_docs.py`, `test_skills.py`). `git diff` shows one added line in `docs/issues/issue-160/plan.md`.
+    - **Completed:** 2026-11-05
+    - **Learnings:** Item 5 names item 2 so the reader sees which decision changed.
+    - **Key Changes:** `docs/issues/issue-160/plan.md`: one added line (item 5).
+    - **Notes:** `.github/workflows/ci.yml` is unchanged.
 
 - [ ] **1.3** Prepare the PR body: release notes and developer actions
     - **Context:**

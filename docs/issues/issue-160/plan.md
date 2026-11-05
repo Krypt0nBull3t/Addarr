@@ -27,6 +27,7 @@ The CI pipeline runs 20 jobs (15 from a 5×3 Python version matrix + 5 standalon
 2. **Boundary versions only for compat**: 3.10 (oldest supported) and 3.14 (newest) catch version-specific issues. Middle versions (3.12, 3.13) rarely surface unique problems.
 3. **Combined compat job**: Runs unit + integration + architecture tests together. No coverage or artifact upload — just pass/fail compatibility check.
 4. **Coverage only on primary**: Upload coverage artifact only from 3.11 unit-test job. Avoids 5× redundant artifacts.
+5. **Later change (8364be6)**: the compatibility matrix grew to 3.10, 3.12, 3.13 and 3.14 "to avoid gaps in version coverage". The boundary-only choice in item 2 was dropped on purpose; #208 (F165) keeps the four versions.
 
 ## Single File Change
 
