@@ -37,17 +37,33 @@ class HelpHandler:
         t = self.translation
         sections = [t.get_text("HelpHeader"), "", t.get_text("HelpBasicCommands")]
 
-        if config.get("radarr", {}).get("enable"):
+        radarr = config.get("radarr", {}).get("enable")
+        sonarr = config.get("sonarr", {}).get("enable")
+        lidarr = config.get("lidarr", {}).get("enable")
+        transmission = config.get("transmission", {}).get("enable", False)
+        sabnzbd = config.get("sabnzbd", {}).get("enable", False)
+
+        if radarr:
             sections.append(t.get_text("HelpMediaMovies"))
-        if config.get("sonarr", {}).get("enable"):
+        if sonarr:
             sections.append(t.get_text("HelpMediaSeries"))
-        if config.get("lidarr", {}).get("enable"):
+        if lidarr:
             sections.append(t.get_text("HelpMediaMusic"))
 
-        if config.get("transmission", {}).get("enable", False):
+        # Same gates as build_authenticated_commands() in src/bot/commands.py
+        if radarr or sonarr:
+            sections.append(t.get_text("HelpCalendar"))
+        if radarr or sonarr or lidarr:
+            sections.append(t.get_text("HelpQueue"))
+        if radarr or sonarr:
+            sections.append(t.get_text("HelpHistory"))
+
+        if transmission:
             sections.append(t.get_text("HelpDownloadTransmission"))
-        if config.get("sabnzbd", {}).get("enable", False):
+        if sabnzbd:
             sections.append(t.get_text("HelpDownloadSabnzbd"))
+        if transmission or sabnzbd:
+            sections.append(t.get_text("HelpDownloads"))
 
         if config.get("bazarr", {}).get("enable", False):
             sections.append(t.get_text("HelpSubtitlesBazarr"))

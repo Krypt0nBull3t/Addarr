@@ -267,6 +267,116 @@ async def test_handle_details_error(system_handler, make_update, make_context):
 
 
 # ---------------------------------------------------------------------------
+# Markdown parse mode and escaping (F121)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_show_status_direct_uses_markdown(
+    system_handler, make_update, make_context
+):
+    """/status reply is sent with parse_mode Markdown."""
+    update = make_update(text="/status")
+
+    await system_handler.show_status(update, make_context())
+
+    assert update.message.reply_text.call_args[1]["parse_mode"] == "Markdown"
+
+
+@pytest.mark.asyncio
+async def test_show_status_callback_uses_markdown(
+    system_handler, make_update, make_context
+):
+    """The status edit from a menu callback uses parse_mode Markdown."""
+    update = make_update(callback_data="menu_status")
+
+    await system_handler.show_status(update, make_context())
+
+    call = update.callback_query.message.edit_text.call_args
+    assert call[1]["parse_mode"] == "Markdown"
+
+
+@pytest.mark.asyncio
+async def test_handle_refresh_uses_markdown(
+    system_handler, make_update, make_context
+):
+    """system_refresh edits the status with parse_mode Markdown."""
+    update = make_update(callback_data="system_refresh")
+
+    await system_handler.handle_system_action(update, make_context())
+
+    call = update.callback_query.message.edit_text.call_args
+    assert call[1]["parse_mode"] == "Markdown"
+
+
+@pytest.mark.asyncio
+async def test_handle_details_uses_markdown(
+    system_handler, make_update, make_context
+):
+    """system_details edits the text with parse_mode Markdown."""
+    update = make_update(callback_data="system_details")
+
+    await system_handler.handle_system_action(update, make_context())
+
+    call = update.callback_query.message.edit_text.call_args
+    assert call[1]["parse_mode"] == "Markdown"
+
+
+@pytest.mark.asyncio
+async def test_handle_unknown_action_uses_markdown(
+    system_handler, make_update, make_context
+):
+    """The unknown-action fallback re-renders the status with Markdown."""
+    update = make_update(callback_data="system_foobar")
+
+    await system_handler.handle_system_action(update, make_context())
+
+    call = update.callback_query.message.edit_text.call_args
+    assert call[1]["parse_mode"] == "Markdown"
+
+
+@pytest.mark.asyncio
+async def test_handle_details_escapes_markdown_in_error(
+    system_handler, make_update, make_context
+):
+    """_ and * in a service name or error text are escaped, not parsed."""
+    system_handler._mock_health.run_health_checks = AsyncMock(return_value={
+        "media_services": [
+            {"name": "Radarr_v3", "healthy": False,
+             "status": "Error: a_b *x*"},
+        ],
+        "download_clients": [],
+    })
+    update = make_update(callback_data="system_details")
+
+    await system_handler.handle_system_action(update, make_context())
+
+    details_text = update.callback_query.message.edit_text.call_args[0][0]
+    assert "Radarr\\_v3" in details_text
+    assert "a\\_b \\*x\\*" in details_text
+    assert "*Service Details*" in details_text
+
+
+@pytest.mark.asyncio
+async def test_status_text_escapes_unhealthy_service_name(
+    system_handler, make_update, make_context
+):
+    """An unhealthy service name with _ is escaped in the status text."""
+    system_handler._mock_health.get_status.return_value = {
+        "running": True,
+        "last_check": None,
+        "unhealthy_services": ["my_service"],
+    }
+    update = make_update(text="/status")
+
+    await system_handler.show_status(update, make_context())
+
+    status_text = update.message.reply_text.call_args[0][0]
+    assert "my\\_service" in status_text
+    assert "*System Status*" in status_text
+
+
+# ---------------------------------------------------------------------------
 # handle_system_action — back
 # ---------------------------------------------------------------------------
 
