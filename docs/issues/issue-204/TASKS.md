@@ -88,7 +88,7 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
 
 **Goal:** The series card shows the real rating and no fake studio, posters load, and the docs say Sonarr v4 is required.
 
-- [ ] **3.1** F044 and F045 search results and cards
+- [x] **3.1** F044 and F045 search results and cards
     - **Context:**
         - **Why:** Sonarr sends `ratings.value` and `ratings.votes` and no `studio`. The card shows N/A and "Network: AMC (N/A)". `remotePoster` is already a full URL, so the code adds a second prefix.
         - **Architecture:** `MediaService.search_movies` and `search_series` normalize results. `show_result` and `build_result_caption` in `src/bot/handlers/media/formatters.py` render them. Decisions: series card drops studio and shows `Network:`, the movie card keeps `Studio:`, the series rating label is `Rating` (design.md).
@@ -102,6 +102,15 @@ Branch: `fix/204-servarr-api-spec-mismatch`. Line numbers are from `origin/devel
         - [RED] `search_movies` and `search_series` with a full `remotePoster` URL and empty `images` return that URL unchanged.
         - [GREEN] Implement the three changes and update the existing tests and fixtures they break.
     - **Success:** services and handlers scoped runs pass, flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The N/A rating test (`test_show_result_tmdb_na_rating`) passes before and after the fix: it guards `float("N/A")`, not the change.
+        - Sonarr sends `ratings: {votes: 0, value: 0}` for a series without ratings, so such a card shows "Rating: 0.0/10 (0 votes)". The old code did the same with `ratings.tmdb`. Not changed here.
+    - **Key Changes:**
+        - `src/services/media.py`: `search_movies` and `search_series` use `remotePoster` as is. `search_series` returns `ratings` `{"value", "votes"}` and no `studio`.
+        - `src/bot/handlers/media/formatters.py`: `Rating:` line for `ratings.value`. A series card shows `Network:`, a movie card `Studio:`.
+        - Tests and fixtures: `tests/fixtures/sample_data.py` and `tests/integration/fixtures.py` use the Sonarr spec shape (`ratings.value`, no studio) for series.
+    - **Notes:** The `ratings` key `"tmdb"` is now `"value"` in the series result dict. Nothing else in `src/` reads it.
 
 - [ ] **3.2** F043 document "Sonarr v4 required"
     - **Context:**

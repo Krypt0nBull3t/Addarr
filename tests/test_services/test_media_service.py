@@ -151,6 +151,18 @@ class TestSearchMovies:
         mock_radarr_client.search.assert_awaited_once_with("fight club")
 
     @pytest.mark.asyncio
+    async def test_search_movies_remote_poster_is_used_as_is(self, mock_radarr_client):
+        """remotePoster is a full URL: no second prefix when images has no poster."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        url = "https://image.tmdb.org/t/p/original/abc123.jpg"
+        mock_radarr_client.search.return_value = [{**SAMPLE_MOVIE, "remotePoster": url}]
+
+        results = await service.search_movies("fight club")
+
+        assert results[0]["poster"] == url
+
+    @pytest.mark.asyncio
     async def test_search_movies_external_ids(self, mock_radarr_client):
         """Normalized movie results include external_ids with imdb and tmdb."""
         service = MediaService()
@@ -214,6 +226,43 @@ class TestSearchSeries:
         assert results[0]["title"] == "Breaking Bad (2008)"
         assert results[0]["id"] == "81189"
         mock_sonarr_client.search.assert_awaited_once_with("breaking bad")
+
+    @pytest.mark.asyncio
+    async def test_search_series_reads_rating_value_and_has_no_studio(self, mock_sonarr_client):
+        """Sonarr sends ratings.value and ratings.votes, and no studio."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        series = {**SAMPLE_SERIES, "ratings": {"votes": 120, "value": 8.1}}
+        series.pop("studio")
+        mock_sonarr_client.search.return_value = [series]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["ratings"] == {"value": 8.1, "votes": 120}
+        assert "studio" not in results[0]
+        assert results[0]["network"] == "AMC"
+
+    @pytest.mark.asyncio
+    async def test_search_series_rating_missing_is_na(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search.return_value = [SAMPLE_SERIES]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["ratings"] == {"value": "N/A", "votes": 0}
+
+    @pytest.mark.asyncio
+    async def test_search_series_remote_poster_is_used_as_is(self, mock_sonarr_client):
+        """remotePoster is a full URL: no second prefix when images has no poster."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        url = "https://artworks.thetvdb.com/banners/posters/81189-1.jpg"
+        mock_sonarr_client.search.return_value = [{**SAMPLE_SERIES, "remotePoster": url}]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["poster"] == url
 
     @pytest.mark.asyncio
     async def test_search_series_external_ids(self, mock_sonarr_client):

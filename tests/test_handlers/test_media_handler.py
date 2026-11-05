@@ -1739,8 +1739,8 @@ async def test_show_result_last_result(media_handler, make_message):
 
 
 @pytest.mark.asyncio
-async def test_show_result_tmdb_rating(media_handler, make_message):
-    """_show_result includes TMDB rating for series."""
+async def test_show_result_series_rating(media_handler, make_message):
+    """_show_result includes the rating for series."""
     message = make_message()
     result = {
         "id": "123",
@@ -1748,26 +1748,25 @@ async def test_show_result_tmdb_rating(media_handler, make_message):
         "overview": "Overview",
         "year": 2024,
         "poster": None,
-        "ratings": {"tmdb": "8.5", "votes": 1000},
+        "ratings": {"value": "8.5", "votes": 1000},
     }
 
     await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "TMDB" in caption
+    assert "Rating: 8.5/10 (1,000 votes)" in caption
 
 
 @pytest.mark.asyncio
-async def test_show_result_network_and_studio(media_handler, make_message):
-    """_show_result shows network and studio for TV shows."""
+async def test_show_result_shows_network_for_tv_shows(media_handler, make_message):
+    """_show_result shows the network and no studio for TV shows."""
     message = make_message()
     result = {
         "id": "123",
         "title": "Test",
         "overview": "Overview",
         "poster": None,
-        "studio": "Sony",
         "network": "HBO",
     }
 
@@ -1775,27 +1774,8 @@ async def test_show_result_network_and_studio(media_handler, make_message):
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "HBO" in caption
-
-
-@pytest.mark.asyncio
-async def test_show_result_network_same_as_studio(media_handler, make_message):
-    """_show_result shows only network when same as studio."""
-    message = make_message()
-    result = {
-        "id": "123",
-        "title": "Test",
-        "overview": "Overview",
-        "poster": None,
-        "studio": "HBO",
-        "network": "HBO",
-    }
-
-    await show_result(message, result, 0, 1)
-
-    call_args = message.reply_text.call_args
-    caption = call_args[0][0]
-    assert "HBO" in caption
+    assert "📺 Network: HBO\n" in caption
+    assert "Studio" not in caption
 
 
 @pytest.mark.asyncio
@@ -1857,21 +1837,21 @@ async def test_show_result_rt_na_rating(media_handler, make_message):
 
 @pytest.mark.asyncio
 async def test_show_result_tmdb_na_rating(media_handler, make_message):
-    """_show_result handles N/A TMDB rating."""
+    """_show_result handles N/A series rating."""
     message = make_message()
     result = {
         "id": "123",
         "title": "Test",
         "overview": "Overview",
         "poster": None,
-        "ratings": {"tmdb": "N/A"},
+        "ratings": {"value": "N/A"},
     }
 
     await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "TMDB" not in caption
+    assert "Rating" not in caption
 
 
 @pytest.mark.asyncio
@@ -2056,19 +2036,19 @@ async def test_build_result_caption_movie_with_year_and_ratings(
 
 
 @pytest.mark.asyncio
-async def test_build_result_caption_series_with_tmdb(media_handler):
-    """_build_result_caption includes TMDB rating for series."""
+async def test_build_result_caption_series_with_rating(media_handler):
+    """_build_result_caption includes the rating for series."""
     result = {
         "id": "456",
         "title": "Test Series",
         "overview": "Series overview",
         "year": 2024,
-        "ratings": {"tmdb": "8.5", "votes": 1000},
+        "ratings": {"value": "8.5", "votes": 1000},
     }
 
     caption = build_result_caption(result)
 
-    assert "TMDB" in caption
+    assert "Rating" in caption
     assert "8.5" in caption
     assert "1,000" in caption
 

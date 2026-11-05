@@ -104,10 +104,8 @@ class MediaService:
                         # Try Radarr image first
                         next((img["remoteUrl"] for img in movie.get("images", [])
                              if img.get("coverType", "").lower() == "poster"), None)
-                        # Fallback to TMDB
-                        or (f"https://image.tmdb.org/t/p/w500/{movie.get('remotePoster')}"
-                            if movie.get("remotePoster")
-                            else None)
+                        # remotePoster is already a full URL
+                        or movie.get("remotePoster")
                     ),
                     "ratings": {
                         "imdb": movie.get("ratings", {}).get("imdb", {}).get("value", "N/A"),
@@ -147,17 +145,14 @@ class MediaService:
                         # Try Sonarr image first
                         next((img["remoteUrl"] for img in series.get("images", [])
                              if img.get("coverType", "").lower() == "poster"), None)
-                        # Fallback to TVDB
-                        or (f"https://artworks.thetvdb.com/banners/{series.get('remotePoster')}"
-                            if series.get('remotePoster')
-                            else None)
+                        # remotePoster is already a full URL
+                        or series.get("remotePoster")
                     ),
                     "ratings": {
-                        "tmdb": series.get("ratings", {}).get("tmdb", {}).get("value", "N/A"),
-                        "votes": series.get("ratings", {}).get("tmdb", {}).get("votes", 0)
+                        "value": series.get("ratings", {}).get("value", "N/A"),
+                        "votes": series.get("ratings", {}).get("votes", 0)
                     },
                     "network": series.get("network", "N/A"),
-                    "studio": series.get("studio", "N/A"),  # Added studio info
                     "status": series.get("status", "unknown"),
                     "seasons": len(series.get("seasons", [])),
                     "runtime": series.get("runtime", "N/A"),
