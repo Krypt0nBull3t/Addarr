@@ -181,7 +181,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - CLAUDE.md: removed the sync-test bullet; the handler and state-machine lines point to `dispatch.py` for media states
     - **Notes:** the issue's item "`src/bot/states.py` is gone" is replaced (maintainer decision); say so in the PR body
 
-- [ ] **1.9** Verify the whole change
+- [x] **1.9** Verify the whole change
     - **Context:**
         - **Why:** Confirm the acceptance criteria and that nothing else broke
         - **Architecture:** Preflight from `.claude/skills/addarr-workflow/references/preflight.md`, every command through the suite lock
@@ -194,3 +194,9 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [GREEN] Run the preflight (flake8, mypy, translations, unit tests with the 100% gate, integration, architecture)
         - [GREEN] Run `graphify update .`
     - **Success:** all greps empty (bar the note above), preflight passes, coverage 100%
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The `def is_authenticated` grep shows only `AuthHandler.is_authenticated` (`src/bot/handlers/auth.py:130`), as expected
+        - The suite lock was busy once (another session); waiting is expected
+    - **Key Changes:** none (verification only)
+    - **Notes:** flake8 and mypy clean; unit 2146 passed at 100% coverage, integration 100 passed, architecture 154 passed
