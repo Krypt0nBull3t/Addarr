@@ -318,12 +318,11 @@ class MediaService:
             if not quality_profiles:
                 return False, "No quality profiles configured in Sonarr"
 
-            # Get series details and seasons
-            lookup_results = await self.sonarr.get_series(tvdb_id)
-            if not lookup_results:
+            # Get series details; the lookup result also holds the seasons
+            series = await self.sonarr.get_series(tvdb_id)
+            if not series:
                 return False, "Series not found"
 
-            series = lookup_results
             seasons = series.get("seasons")
             if not seasons:
                 return False, "No seasons found for series"
