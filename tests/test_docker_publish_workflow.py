@@ -1,12 +1,13 @@
 """Tests for .github/workflows/docker-hub-push.yml: the image gets a version tag."""
 
-import ast
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 import yaml
+
+from tests.test_version import _declared_version
 
 ROOT = Path(__file__).parent.parent
 WORKFLOW = ROOT / ".github" / "workflows" / "docker-hub-push.yml"
@@ -42,15 +43,6 @@ def _run_step(step, cwd, github_env):
     )
 
 
-def _init_version():
-    """__version__ in src/__init__.py, read with ast (conftest injects the import)."""
-    tree = ast.parse((ROOT / "src" / "__init__.py").read_text())
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and node.targets[0].id == "__version__":
-            return node.value.value
-    raise AssertionError("no __version__ in src/__init__.py")
-
-
 def test_tags_hold_latest_and_version_tag(build_step):
     """The image is pushed as :latest and as a version tag."""
     tags = build_step["with"]["tags"].splitlines()
@@ -72,7 +64,7 @@ def test_version_step_writes_version_from_init(version_step, tmp_path):
     result = _run_step(version_step, ROOT, github_env)
 
     assert result.returncode == 0, result.stderr
-    assert github_env.read_text() == f"VERSION={_init_version()}\n"
+    assert github_env.read_text() == f"VERSION={_declared_version()}\n"
 
 
 @needs_bash
