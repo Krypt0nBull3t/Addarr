@@ -31,7 +31,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - Deleted `TestSaveChatId`, `TestCheckAuth`, `TestGetAuthorizedChats`, `TestIsAuthenticated`
     - **Notes:** `CHATID_PATH` stays in `src/definitions.py` (#218 removes it)
 
-- [ ] **1.2** Delete the dead functions in `src/definitions.py`
+- [x] **1.2** Delete the dead functions in `src/definitions.py`
     - **Context:**
         - **Why:** F260: `load_config`, `get_admins`, `get_allowed_chats` and `is_allowed_chat` have no caller since #202 moved `is_admin` to `helpers.py`
         - **Architecture:** `definitions.py` keeps only constants (`CHAT_MODES`, the paths)
@@ -43,6 +43,14 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [RED] Grep for the 4 names in `src/`, `tests/`, `scripts/`, `run.py`: only definitions and `test_definitions.py`
         - [GREEN] Delete the functions, their tests and the unused imports
     - **Success:** `grep -n "^def " src/definitions.py` returns nothing; `scripts/test_runner.py config --coverage` and `pytest tests/test_definitions.py` pass
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The module docstring still promised "default settings": removed that line
+        - `test_definitions.py` needed no `pytest` or `yaml` import after the deletion
+    - **Key Changes:**
+        - Deleted `load_config`, `get_admins`, `get_allowed_chats`, `is_allowed_chat` and the imports `Path`, `yaml` from `src/definitions.py`
+        - Deleted `TestLoadConfig`, `TestGetAdmins`, `TestGetAllowedChats`, `TestIsAllowedChat`
+    - **Notes:** `src/definitions.py` is now constants only
 
 - [ ] **1.3** Delete the dead models
     - **Context:**
