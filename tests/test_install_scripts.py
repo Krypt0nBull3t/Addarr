@@ -117,6 +117,26 @@ class TestWindowsInstaller:
         assert order == sorted(order)
 
 
+class TestWindowsReadme:
+    """Verify the README and scripts/ point to no Windows service that cannot start."""
+
+    def test_service_script_is_gone(self):
+        """addarr.service.ps1 registered powershell.exe as a service (error 1053)."""
+        assert not os.path.exists(os.path.join(ROOT, "scripts", "addarr.service.ps1"))
+
+    def test_readme_points_to_no_windows_service(self):
+        """No deleted script, no service name, no elevation step for the Windows install."""
+        readme = read(README)
+        for word in ("addarr.service.ps1", "AddarrBot", "Windows Service", "Start-Service", "as Administrator"):
+            assert word not in readme
+
+    def test_readme_documents_the_scheduled_task(self):
+        """Windows users learn how to manage the logon task the installer creates."""
+        readme = read(README)
+        for command in ("Start-ScheduledTask", "Stop-ScheduledTask", "Get-ScheduledTask"):
+            assert f"{command} -TaskName Addarr" in readme
+
+
 class TestPythonVersion:
     """Verify the installer and README agree on Python 3.10 as the minimum."""
 

@@ -74,7 +74,7 @@ wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/in
 ```
 
 #### Windows
-Open PowerShell as Administrator and run:
+Open PowerShell and run:
 
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.ps1'))
@@ -138,7 +138,7 @@ For more options, see [🛠️ Installation](#️-installation)
     - [Supported Languages](#supported-languages)
     - [Adding Translations](#adding-translations)
   - [🔧 Service Management](#-service-management)
-    - [Windows Service](#windows-service)
+    - [Windows Scheduled Task](#windows-scheduled-task)
     - [Linux Systemd Service](#linux-systemd-service)
   - [☁️ Deployment Options](#️-deployment-options)
     - [Docker Deployment](#docker-deployment)
@@ -582,25 +582,15 @@ If you want to add a new language, follow these steps:
 
 ## 🔧 Service Management
 
-Addarr Refresh can be run as a Windows service or a Linux Systemd service:
+Addarr Refresh can run as a logon scheduled task on Windows or as a Linux Systemd service:
 
-### Windows Service
-1. Open PowerShell as Administrator
-2. Navigate to the scripts directory:
-   ```powershell
-   cd C:\Users\<username>\AppData\Local\Addarr\scripts
-   ```
-3. Run the service installation script:
-   ```powershell
-   .\addarr.service.ps1
-   ```
-4. Manage the service:
-   ```powershell
-   Start-Service AddarrBot
-   Stop-Service AddarrBot
-   Restart-Service AddarrBot
-   Get-Service AddarrBot
-   ```
+### Windows Scheduled Task
+The Windows installer offers a task that starts Addarr when you log on, as your normal user, after setup has written `config.yaml`. Manage it in PowerShell:
+```powershell
+Start-ScheduledTask -TaskName Addarr
+Stop-ScheduledTask -TaskName Addarr
+Get-ScheduledTask -TaskName Addarr
+```
 
 ### Linux Systemd Service
 1. Create the user service directory:

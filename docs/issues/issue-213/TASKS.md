@@ -38,7 +38,7 @@ Source: `docs/issues/issue-213/plan.md` (design: `design.md`). Branch `fix/213-w
         - `tests/test_install_scripts.py`: new `TestWindowsInstaller` (8 tests).
     - **Notes:** The PowerShell is not run here (no `pwsh`). The developer runs the Windows acceptance checks from the issue on Windows 10/11.
 
-- [ ] **1.2** Delete `addarr.service.ps1` and its README section, add the scheduled-task note (F183)
+- [x] **1.2** Delete `addarr.service.ps1` and its README section, add the scheduled-task note (F183)
     - **Context:**
         - **Why:** `scripts/addarr.service.ps1` registers `powershell.exe` with `New-Service`, which cannot start (error 1053). `README.md` points to it and links to the section.
         - **Architecture:** Docs and one deleted file. The new README note is the working path for Windows users.
@@ -53,3 +53,12 @@ Source: `docs/issues/issue-213/plan.md` (design: `design.md`). Branch `fix/213-w
         - [GREEN] Run `tests/test_install_scripts.py` and `tests/test_architecture`: pass
         - [GREEN] `git grep -n -i -E "nssm|addarr\.service\.ps1|LocalSystem"` lists no match in `scripts/` or `README.md`
     - **Success:** 3 new tests pass, architecture tests pass (including `test_repo_docs.py`), no reference to the deleted script remains.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The README had a second "as Administrator" mention only at line 77 (quick install) besides the deleted section; the word test pins both.
+        - `git grep` for `nssm|addarr.service.ps1|LocalSystem` in `scripts/` and `README.md` now lists nothing.
+    - **Key Changes:**
+        - Deleted `scripts/addarr.service.ps1`.
+        - `README.md`: quick-install text without "Administrator", TOC link and Service Management section now "Windows Scheduled Task" with `Start-`, `Stop-` and `Get-ScheduledTask -TaskName Addarr`.
+        - `tests/test_install_scripts.py`: new `TestWindowsReadme` (3 tests).
+    - **Notes:** The README "Option 2" text near line 279 (`iex` install command) is unchanged; it never said Administrator.
