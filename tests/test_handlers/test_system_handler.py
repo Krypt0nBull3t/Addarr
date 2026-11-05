@@ -173,6 +173,28 @@ async def test_handle_refresh_unchanged_message(
 
 
 @pytest.mark.asyncio
+async def test_refresh_answers_before_health_check(
+    system_handler, make_update, make_context
+):
+    """system_refresh stops the spinner before the slow health call."""
+    order = []
+
+    async def slow_health():
+        order.append("service")
+        return {"media_services": [], "download_clients": []}
+
+    system_handler._mock_health.run_health_checks = slow_health
+    update = make_update(callback_data="system_refresh")
+    update.callback_query.answer.side_effect = (
+        lambda *a, **k: order.append("answer")
+    )
+
+    await system_handler.handle_system_action(update, make_context())
+
+    assert order == ["answer", "service"]
+
+
+@pytest.mark.asyncio
 async def test_handle_refresh_error(system_handler, make_update, make_context):
     """system_refresh shows error on exception."""
     system_handler._mock_health.run_health_checks = AsyncMock(
@@ -183,7 +205,7 @@ async def test_handle_refresh_error(system_handler, make_update, make_context):
 
     await system_handler.handle_system_action(update, context)
 
-    update.callback_query.answer.assert_called_once()
+    update.callback_query.answer.assert_awaited_once_with("StatusRefreshed")
     system_handler._mock_ts.get_text.assert_any_call("StatusRefreshError")
 
 

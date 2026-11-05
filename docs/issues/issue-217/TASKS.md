@@ -141,14 +141,14 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Key Changes:** Added `test_settings_sab_speed_back_returns_to_sab_menu` in `tests/integration/test_settings_flow.py` and `test_help_from_menu_has_back_button` in `tests/integration/test_help_flow.py`.
     - **Notes:** The full preflight runs in the create-pr flow.
 
-### Phase 2: Review feedback round 1 (2 tasks)
+### Phase 2: Review feedback round 1 (3 tasks)
 
 **Goal:** Close two open threads on PR #260 so the library and system screens never strand the user or the spinner.
 
 **Phase Context:**
 
 - Why NOT add Back to the `/allMovies` command branches in `_fetch_and_show`: they send a new message with `reply_text`. There is no parent screen to go back to.
-- Why NOT touch `_handle_refresh` in `system.py`: its success toast needs `answer(text)` after the health check.
+- `_handle_refresh` in `system.py` keeps its success toast: it moves to the start (task 2.3), shown before the check ends.
 
 - [x] **2.1** [should-fix] Library callback errors keep a Back button (from Krypt0nBull3t, `library.py:216`)
     - **Context:**
@@ -184,3 +184,20 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Learnings:** Task 1.3 moved `answer()` before the edit but still after the slow service call, so the spinner could still expire. A failure toast after an earlier `answer()` would be a second answer to one query, so the toasts went; the edited message already carries the error text. Old issue notes (`issue-98`, `issue-108`) still name the two keys; they are history and stay.
     - **Key Changes:** `_handle_details` and `_handle_diskspace` in `src/bot/handlers/system.py` call `await query.answer()` before the `try`; the failure `answer(text)` calls are gone. `StatusDetailsFailed` and `DiskSpaceFailed` are deleted from the template and the 9 locales. Added two answer-order tests and tightened two error-path tests.
     - **Notes:** Handlers scoped run: 703 tests, 100% coverage. `--validate-i18n`, mypy, integration and architecture tests pass.
+
+- [x] **2.3** [should-fix] Answer first in system refresh, drop the failure toast and its key (from Krypt0nBull3t, `system.py:150`, two threads)
+    - **Context:**
+        - **Why:** `_handle_refresh` answers with the `StatusRefreshed` toast only after `run_health_checks()`, so a slow check can leave the spinner or expire the callback.
+        - **Architecture:** Same as task 2.2. `await query.answer(StatusRefreshed)` before the `try`; the failure `answer(StatusRefreshFailed)` goes (a second answer to one query fails; the edit shows `StatusRefreshError`). Delete `StatusRefreshFailed` from the template and the 9 locales (`i18n-key` skill).
+        - **Key refs:** `src/bot/handlers/system.py:122-143`, `tests/test_handlers/test_system_handler.py:135-187`.
+        - **Watch out:** The toast now shows before the check ends. The refresh keeps `edit_text_ignoring_unmodified`.
+    - **Scope:** One handler, one removed toast, 10 translation files.
+    - **Touches:** `src/bot/handlers/system.py`, `tests/test_handlers/test_system_handler.py`, `translations/`
+    - **Action items:**
+        - [RED] Write `test_refresh_answers_before_health_check` (call order). Tighten `test_handle_refresh_error`: `answer` awaited once with `StatusRefreshed`.
+        - [GREEN] Move the answer first; remove the failure toast; delete the key in 10 files.
+    - **Success:** New tests fail before and pass after. `--validate-i18n`, handlers run, flake8 and mypy pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:** Task 2.2 left `_handle_refresh` out because its toast came after the check. The toast can show first: it says "refreshed" a moment before the check ends, but the spinner stops at once and the error path edits the message. The same double-answer reason removes the failure toast.
+    - **Key Changes:** `_handle_refresh` in `src/bot/handlers/system.py` awaits `query.answer(StatusRefreshed)` before the `try`; the failure `answer(StatusRefreshFailed)` is gone. `StatusRefreshFailed` is deleted from the template and the 9 locales. Added `test_refresh_answers_before_health_check`; `test_handle_refresh_error` now checks one answer.
+    - **Notes:** All three system handlers (details, disk space, refresh) now answer first.

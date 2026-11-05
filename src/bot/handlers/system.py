@@ -121,12 +121,10 @@ class SystemHandler:
 
     async def _handle_refresh(self, query):
         """Re-run health checks and update the status display."""
+        await query.answer(self.translation.get_text("StatusRefreshed"))
         try:
             await health_service.run_health_checks()
             status_text = self._build_status_text()
-            await query.answer(
-                self.translation.get_text("StatusRefreshed")
-            )
             await edit_text_ignoring_unmodified(
                 query.message,
                 status_text,
@@ -137,9 +135,6 @@ class SystemHandler:
             await query.message.edit_text(
                 self.translation.get_text("StatusRefreshError"),
                 reply_markup=get_system_keyboard(),
-            )
-            await query.answer(
-                self.translation.get_text("StatusRefreshFailed")
             )
 
     async def _handle_details(self, query):

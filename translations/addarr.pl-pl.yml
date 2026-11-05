@@ -316,7 +316,6 @@ pl-pl:
   ItemDataNotFound: "❌ Item data not found"
   StatusRefreshed: "Status refreshed"
   StatusRefreshError: "❌ Error refreshing status. Please try again."
-  StatusRefreshFailed: "Refresh failed"
   StatusDetailsError: "❌ Error retrieving service details. Please try again."
   DiskSpaceError: "❌ Error retrieving disk space. Please try again."
   DiskSpaceNone: "No disk space data available."
