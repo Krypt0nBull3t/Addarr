@@ -6,7 +6,7 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
 
 **Goal:** A failed `message.delete()` never stops the password check or a search.
 
-- [ ] **1.1** Guard the deletes in the media result cards
+- [x] **1.1** Guard the deletes in the media result cards
     - **Context:**
         - **Why:** In a group where the bot cannot delete, `message.delete()` raises `TelegramError`. In `show_result` it lands in the outer `except` and sends a second card (or a SearchError).
         - **Architecture:** One module-level helper in `formatters.py`; all 8 `await message.delete()` calls use it.
@@ -20,6 +20,14 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
         - [RED] `test_delete_quietly_lets_other_errors_through`
         - [GREEN] Add `_delete_quietly`, replace the 8 calls
     - **Success:** the new tests fail before the fix and pass after; handlers scoped run keeps 100%; flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - Adding the helper with a bare `await message.delete()` first turned the 5 behavior tests red for the right reason (BadRequest escaping) before the catch went in.
+        - `show_result` had 4 delete calls, not the 3 the issue listed; all 8 flow call sites now go through the helper.
+    - **Key Changes:**
+        - `src/bot/handlers/media/formatters.py`: `_delete_quietly(message)` catches `TelegramError`, logs a warning; all deletes use it.
+        - `tests/test_handlers/test_media_formatters.py`: 4 new tests (5 cases) for `show_result`, `show_list`, `show_list_detail` and the non-Telegram error path.
+    - **Notes:** Only `TelegramError` is swallowed; other errors still propagate.
 
 - [ ] **1.2** Guard the password-message delete
     - **Context:**
