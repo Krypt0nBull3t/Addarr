@@ -86,7 +86,11 @@ class SabnzbdHandler:
         speed = int(query.data.replace("sabnzbd_speed_", ""))
 
         try:
-            await self.sabnzbd_service.set_speed_limit(speed)
+            if not await self.sabnzbd_service.set_speed_limit(speed):
+                await query.message.edit_text(
+                    self.translation.get_text("Sabnzbd.Error")
+                )
+                return
 
             # Get appropriate message for speed setting
             message_key = f"Sabnzbd.ChangedTo{speed}"

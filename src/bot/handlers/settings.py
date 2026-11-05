@@ -38,6 +38,8 @@ from src.utils.helpers import is_admin
 
 logger = get_logger("addarr.settings")
 
+SAB_ACTION_ERROR = "❌ SABnzbd error — could not complete action"
+
 
 class SettingsHandler:
     """Handler for settings management (admin-only)"""
@@ -610,12 +612,14 @@ class SettingsHandler:
             )
         else:
             speed = int(query.data.replace("dl_sab_speed_", ""))
-            if self.sabnzbd_service.is_enabled():
-                await self.sabnzbd_service.set_speed_limit(speed)
+            ok = (
+                self.sabnzbd_service.is_enabled()
+                and await self.sabnzbd_service.set_speed_limit(speed)
+            )
             enabled = config.get("sabnzbd", {}).get("enable", False)
             keyboard = get_sabnzbd_settings_keyboard(enabled)
             await query.message.edit_text(
-                f"✅ Speed limit set to {speed}%",
+                f"✅ Speed limit set to {speed}%" if ok else SAB_ACTION_ERROR,
                 reply_markup=keyboard,
             )
         return States.SETTINGS_DOWNLOADS
@@ -629,19 +633,19 @@ class SettingsHandler:
 
         try:
             if query.data == "dl_sab_pause" and self.sabnzbd_service.is_enabled():
-                await self.sabnzbd_service.pause_queue()
-                text = "⏸ Queue paused"
+                ok = await self.sabnzbd_service.pause_queue()
+                text = "⏸ Queue paused" if ok else SAB_ACTION_ERROR
             elif (
                 query.data == "dl_sab_resume"
                 and self.sabnzbd_service.is_enabled()
             ):
-                await self.sabnzbd_service.resume_queue()
-                text = "▶️ Queue resumed"
+                ok = await self.sabnzbd_service.resume_queue()
+                text = "▶️ Queue resumed" if ok else SAB_ACTION_ERROR
             else:
                 text = "❌ SABnzbd not available"
         except Exception as e:
             logger.error(f"Error during SABnzbd pause/resume ({query.data}): {e}")
-            text = "❌ SABnzbd error — could not complete action"
+            text = SAB_ACTION_ERROR
 
         enabled = config.get("sabnzbd", {}).get("enable", False)
         keyboard = get_sabnzbd_settings_keyboard(enabled)

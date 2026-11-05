@@ -84,7 +84,7 @@ Branch: `fix/207-download-failures-look-like-success`.
     - **Key Changes:** `get_valid_service_config` returns `{"host", "port"}` for Transmission in the success and the skip case (two early returns, no helper). Added two tests.
     - **Notes:** Plan said a helper for the four return sites. Two early returns are smaller. `ssl` is not written (config_example has no Transmission `ssl`).
 
-- [ ] **1.5** F080: handlers show an error when an action returns `False`
+- [x] **1.5** F080: handlers show an error when an action returns `False`
     - **Context:**
         - **Why:** `set_speed_limit`, `pause_queue` and `resume_queue` return `False` on failure. The handlers ignore it and show success.
         - **Architecture:** Handler layer. Use existing texts: `Sabnzbd.Error` in the SABnzbd handler, the existing "could not complete action" text in Settings. No new key.
@@ -97,6 +97,10 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] Settings: speed, pause and resume each with the service returning `False` show the error text, not the success text.
         - [GREEN] Branch on the returned bool.
     - **Success:** Tests pass. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** The Settings speed branch also showed success when the service was disabled. `is_enabled() and await set_speed_limit(...)` now shows the error in that case too.
+    - **Key Changes:** `src/bot/handlers/sabnzbd.py` returns the `Sabnzbd.Error` text on `False`. `src/bot/handlers/settings.py` has a `SAB_ACTION_ERROR` constant used by the speed, pause, resume and `except` paths. Added 4 tests.
+    - **Notes:** The Settings texts are still hardcoded English (not in scope).
 
 - [ ] **1.6** F085: shared `clamp_page` and a clamped Refresh
     - **Context:**
