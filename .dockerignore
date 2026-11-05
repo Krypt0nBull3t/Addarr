@@ -5,6 +5,7 @@ docker-compose.yml
 Dockerfile
 *.log
 config.yaml
+backup/
 admin.txt
 chatid.txt
 user_preferences.json

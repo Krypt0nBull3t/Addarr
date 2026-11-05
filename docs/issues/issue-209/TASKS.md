@@ -12,7 +12,7 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
 - Why NOT `os.replace`: the compose file bind-mounts the single file `config.yaml`. A replace swaps the inode and breaks the mount. The code comment must say this.
 - Why NOT merge into a fresh ruamel tree (option B): the orchestrator chose option A. `Config._config` becomes a `CommentedMap`, a `dict` subclass, so every reader keeps working.
 
-- [ ] **1.1** F013: prune and lock down backups
+- [x] **1.1** F013: prune and lock down backups
     - **Context:**
         - **Why:** Every save writes a full backup with all secrets. Backups are never pruned, keep the source mode (0644), and `backup/` is copied into the Docker image.
         - **Architecture:** `create_backup` in `src/utils/backup.py` is the one place all backups go through (`settings.py`, `config_handler.py:46,78`, `wizard.py:181`, `run.py:70`). Fix it there.
@@ -28,6 +28,15 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
         - [RED] `test_dockerignore_lists_backup_dir`: `.dockerignore` has the line `backup/`
         - [GREEN] Implement in `create_backup`: `mkdir(mode=0o700, ...)`, `os.chmod(backup_file, 0o600)`, `_prune_backups(...)` with `unlink(missing_ok=True)`; add `backup/` to `.dockerignore`
     - **Success:** `scripts/test_runner.py utils --coverage` passes, flake8 and mypy clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `shutil.copy2` keeps the source mode, so the `chmod` must come after the copy. A new `backup/` dir at `0o700` closes the window in which the copy is still `0o644`.
+        - Backup names sort in time order, so a name sort finds the oldest. The glob `config_[0-9]*_[0-9]*.yaml` keeps `config_example_*` files safe.
+    - **Key Changes:**
+        - `src/utils/backup.py`: `MAX_BACKUPS = 10`, `_prune_backups()`, `mkdir(mode=0o700)`, `os.chmod(backup_file, 0o600)`
+        - `.dockerignore`: `backup/` line
+        - `tests/test_utils/test_backup.py`: `TestBackupRetentionAndMode` (5 tests) and `test_dockerignore_lists_backup_dir`
+    - **Notes:** An existing `backup/` dir keeps its old mode (not chmodded on purpose: a dir owned by another user would break backups). Existing old backups with mode 0644 stay until they are pruned.
 
 - [ ] **1.2** F030 and F031: write once and keep comments
     - **Context:**
