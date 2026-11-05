@@ -3,7 +3,8 @@ Repository docs drift tests.
 
 CLAUDE.md is the agents' map of the repo. These checks fail when it names a
 path, CI job or test that does not exist, or leaves out a CI job or an
-architecture test file. They also check the GitHub issue forms.
+architecture test file. They also check that AGENTS.md (the rules for the
+automated PR reviewer) names only paths that exist, and the GitHub issue forms.
 """
 
 import glob
@@ -38,14 +39,32 @@ def section(text, heading):
     return match.group(1)
 
 
-def test_claude_md_paths_exist():
+def missing_paths(rel_path):
+    """Repo paths the doc names in code spans that do not exist."""
     # Drop `:line` and `:func()` suffixes.
-    paths = {p.split(":")[0] for p in REPO_PATH.findall(read_text("CLAUDE.md"))}
-    missing = sorted(
+    paths = {p.split(":")[0] for p in REPO_PATH.findall(read_text(rel_path))}
+    return sorted(
         p for p in paths - ABSENT_ON_PURPOSE
         if not os.path.exists(os.path.join(PROJECT_ROOT, p))
     )
-    assert missing == []
+
+
+def test_claude_md_paths_exist():
+    assert missing_paths("CLAUDE.md") == []
+
+
+def test_agents_md_paths_exist():
+    assert missing_paths("AGENTS.md") == []
+
+
+def test_agents_md_has_reviewer_rules():
+    body = section(read_text("AGENTS.md"), "Reviewing a pull request")
+    assert "pulls/{number}/comments" in body
+    assert "CLAUDE.md" in body
+
+
+def test_claude_md_names_agents_md():
+    assert "AGENTS.md" in section(read_text("CLAUDE.md"), "Agents")
 
 
 def test_claude_md_names_every_ci_job():

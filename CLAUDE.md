@@ -21,6 +21,7 @@ Project agents and the skill that drives one:
 - **`arr-api-contract-checker`** (`.claude/agents/arr-api-contract-checker.md`): checks the Radarr, Sonarr and Lidarr requests in `src/api/` against the Servarr OpenAPI specs. Run it after adding or changing a request in `src/api/`, or when a test mocks a new *arr endpoint or response field.
 - **`untrusted-pr-reviewer`** (`.claude/agents/untrusted-pr-reviewer.md`): read-only review (Read, Grep, Glob) of a PR from a fork or an external contributor. It reads only the plain-text export that `review-external-pr` builds.
 - **`review-external-pr`** skill (`.claude/skills/review-external-pr/SKILL.md`): exports a PR without a checkout and dispatches `untrusted-pr-reviewer`. Use it for every PR whose author is not a maintainer.
+- **`AGENTS.md`**: the rules for the automated PR reviewer (a Codex agent). It reads the open review threads first and posts each finding once.
 
 ## Shell Conventions
 
