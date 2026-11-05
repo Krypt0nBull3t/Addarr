@@ -74,7 +74,7 @@ pytest -x                                   # Stop on first failure
 python scripts/test_runner.py api --coverage        # API clients
 python scripts/test_runner.py services --coverage   # Service layer
 python scripts/test_runner.py handlers --coverage   # Bot handlers
-python scripts/test_runner.py models --coverage     # Data models
+python scripts/test_runner.py models --coverage     # Data models (webhook events)
 python scripts/test_runner.py bot --coverage        # Bot structure
 python scripts/test_runner.py utils --coverage      # Utilities
 python scripts/test_runner.py config --coverage     # Configuration
@@ -103,7 +103,6 @@ Automated architecture tests in `tests/test_architecture/` enforce conventions a
   - `test_handler_entry_points_have_require_auth`: every command and conversation entry point has `@require_auth`, unless it is listed in `AUTH_ALLOWLIST`.
   - `test_singleton_reset_coverage`: `SINGLETON_CLASSES` and the `reset_singletons` fixture list the same classes.
   - `test_media_config_dispatch_integrity`: every `MEDIA_CONFIG` method name in `src/bot/handlers/media/dispatch.py` exists on `MediaService`.
-  - `test_media_state_constants_in_sync`: the media states in `src/bot/handlers/media/dispatch.py` equal those in `src/bot/states.py`.
   - `test_config_calls_exist_on_real_config`: `src/` calls only methods the real `Config` defines, not `MockConfig` test helpers.
 - **Agent tooling** (`test_agent_tooling.py`): Claude Code safety rules. It checks the `.claude/settings.json` deny and ask rules, the guarded graphify skill and its version pin, the untrusted-text rule in this file, the agents' tool lists, that `review-external-pr` never runs PR code, the git-ignored secret files, and the requirement pins.
 - **Skill accuracy** (`test_skills.py`): every path, module, class, function and fixture that a project skill in `.claude/skills/` names exists, and the `addarr-workflow` preflight and coverage commands match `.github/workflows/ci.yml`. The checks parse the repo with `ast` and never import `src`.
@@ -138,7 +137,7 @@ mypy configured in `mypy.ini` with gradual adoption:
 
 The codebase follows a three-layer architecture with strict separation:
 
-1. **Handlers** (`src/bot/handlers/`) — Telegram command/callback handlers. Each handler class exposes `get_handler()` returning a list of `ConversationHandler` or `CommandHandler` instances. Multi-step interactions use `ConversationHandler` with states defined in `src/bot/states.py`.
+1. **Handlers** (`src/bot/handlers/`) — Telegram command/callback handlers. Each handler class exposes `get_handler()` returning a list of `ConversationHandler` or `CommandHandler` instances. Multi-step interactions use `ConversationHandler`. The settings, webhook and Bazarr states are in `src/bot/states.py`; the media states are in `src/bot/handlers/media/dispatch.py`.
 
 2. **Services** (`src/services/`): Business logic layer using singleton pattern (`__new__` override; see `docs/adr/0001-singleton-services.md`). `MediaService` aggregates all API clients. `HealthService` runs periodic health checks. `TranslationService` loads the YAML translation files.
 
@@ -148,7 +147,7 @@ The codebase follows a three-layer architecture with strict separation:
 
 - **Async throughout**: All I/O uses `async/await` via `aiohttp` and `python-telegram-bot` v20+.
 - **Authentication decorator**: `@require_auth` from `src/bot/handlers/auth.py` guards handler methods. Authenticated user IDs are persisted to `config.yaml` with `authenticated_users_hash` (sha256 of `telegram.password`); `AuthHandler.__init__` clears the list when the hash differs or is missing.
-- **Conversation state machine**: Media flow progresses through `SEARCHING → SELECTING → QUALITY_SELECT`, then `SEASON_SELECT` (TV) or `ALBUM_SELECT` (music artist), then `END` (states in `src/bot/states.py`, mirrored in `src/bot/handlers/media/dispatch.py`).
+- **Conversation state machine**: Media flow progresses through `SEARCHING → SELECTING → QUALITY_SELECT`, then `SEASON_SELECT` (TV) or `ALBUM_SELECT` (music artist), then the conversation ends (states in `src/bot/handlers/media/dispatch.py`).
 - **Keyboards**: Shared inline keyboard builders live in `src/bot/keyboards.py`; use one when it fits. Flow-specific keyboards are built in the handler, e.g. `src/bot/handlers/media/formatters.py` (result navigation), `src/bot/handlers/media/season_picker.py` (seasons) and `src/bot/handlers/delete.py`.
 - **Global config singleton**: `src/config/settings.py` exports a module-level `config` instance loaded from `config.yaml` and validated against `config_example.yaml`.
 - **No settings import before a valid config**: Importing `src.config.settings` loads and validates `config.yaml`. `src/setup/` and the utils that run before a valid config exists (`config_handler`, `error_handler`, `logger`, `prerun`, `backup`, `terminal`) never import it at module level. A function-level import is allowed (`src/utils/splash.py`). Share constants through `src/definitions.py` (`CHAT_MODES`) and helpers through small modules (`src/utils/terminal.py`). See `docs/adr/0005-no-settings-import-before-config.md`.
