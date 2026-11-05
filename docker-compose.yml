@@ -28,9 +28,6 @@ services:
     volumes:
       # Writable: /auth and settings changes save config.yaml
       - ./config.yaml:/app/config.yaml:rw
-      - ./chatid.txt:/app/chatid.txt:rw
-      - ./admin.txt:/app/admin.txt:ro
-      - ./allowlist.txt:/app/allowlist.txt:ro
       - ./logs:/app/logs:rw
       - ./backup:/app/backup:rw
       # Named volume for user_preferences.json. A new named volume gets the
