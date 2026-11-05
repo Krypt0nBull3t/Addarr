@@ -158,7 +158,7 @@ Branch: `fix/207-download-failures-look-like-success`.
     - **Key Changes:** `src/bot/keyboards.py`: `DL_CLIENT_CODES`; queue keyboard tags item and all-buttons with the client code in multi-client mode. `src/bot/handlers/downloads.py`: `CODE_TO_CLIENT`, `_service_for`, `_split_item_callback`, `_all_callback_client`, `_parse_item_id(raw, client)`, `_do_action(query, context, client, ...)`, new pause-all and resume-all patterns. Added 13 tests.
     - **Notes:** Page, tab and refresh buttons still follow `user_data` (design decision 1).
 
-- [ ] **1.9** Integration check and preflight
+- [x] **1.9** Integration check and preflight
     - **Context:**
         - **Why:** The change alters a user-facing flow (`/downloads`).
         - **Architecture:** `BotHarness` in `tests/integration/conftest.py`; `tests/integration/test_downloads_flow.py` exists.
@@ -170,3 +170,7 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] Integration test: with the queue fetch failing, `/downloads` shows the error text and a Refresh button.
         - [GREEN] Fix any gap. Run the preflight (flake8, mypy, i18n, unit tests with the 100% gate, integration, architecture).
     - **Success:** The preflight passes. Every task above has its completion metadata.
+    - **Completed:** 2026-11-05
+    - **Learnings:** The integration harness needs `python-telegram-bot[job-queue]`; a venv built before the branch switch lacked it and every integration test errored with a `JobQueue` warning. `BotResponse.reply_markup` is a JSON string, so tests parse it with `json.loads`.
+    - **Key Changes:** Two integration tests in `tests/integration/test_downloads_flow.py` (error view; stale Transmission button). The callback registry in `.claude/skills/addarr-handlers/references/callbacks.md` lists the new formats.
+    - **Notes:** Preflight: flake8, mypy, i18n clean. Unit 2261 passed at 100%. Integration 102 passed. Architecture 155 passed.

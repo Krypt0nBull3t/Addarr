@@ -52,8 +52,8 @@ Built from the `CallbackQueryHandler(..., pattern=...)` calls in `src/bot/handle
 | `dl_client_` | DownloadsHandler | `dl_client_tx`, `dl_client_sab` | Switch download client |
 | `dl_tab_` | DownloadsHandler | `dl_tab_queue`, `dl_tab_history` | Queue/history tab |
 | `dl_page_` | DownloadsHandler | `dl_page_2` | Downloads pagination |
-| `dl_pause_` / `dl_resume_` | DownloadsHandler | `dl_pause_<nzo_id>`, `dl_resume_<nzo_id>` | Pause/resume one item (pattern `(?!all)` excludes the next row) |
-| `dl_pauseall` / `dl_resumeall` | DownloadsHandler | `dl_pauseall` | Pause/resume everything |
+| `dl_pause_` / `dl_resume_` | DownloadsHandler | `dl_pause_<sab\|tx>_<id>`, old form `dl_pause_<id>` | Pause/resume one item. Multi-client mode names the client; the old form follows `user_data` (pattern `(?!all)` excludes the next row) |
+| `dl_pauseall` / `dl_resumeall` | DownloadsHandler | `dl_pauseall_<sab\|tx>`, old form `dl_pauseall` | Pause/resume everything on the named client; the old form follows `user_data` |
 | `dl_refresh` / `dl_noop` | DownloadsHandler | `dl_refresh` | Refresh; `dl_noop` is a disabled button |
 | `menu_back` | HelpHandler | `menu_back` | Back from help to the main menu |
 | `pref_toggle_view` | PreferencesHandler | `pref_toggle_view` | Toggle the card/list view preference |
