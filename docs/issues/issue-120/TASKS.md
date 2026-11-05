@@ -10,6 +10,7 @@
         - Update job display name to include version: `name: Unit Tests (${{ matrix.python-version }})`
         - Fix artifact name: `coverage-report` → `coverage-report-${{ matrix.python-version }}`
     - **Completed:** 2026-03-10
+    - **Learnings:** None recorded
     - **Key Changes:** `.github/workflows/ci.yml` unit-test job — matrix strategy + dynamic artifact name
     - **Notes:** Artifact name must be unique per matrix run or upload-artifact will fail
 
@@ -20,7 +21,9 @@
         - Replace `python-version: "3.11"` with `python-version: ${{ matrix.python-version }}`
         - Update job display name: `name: Integration Tests (${{ matrix.python-version }})`
     - **Completed:** 2026-03-10
+    - **Learnings:** None recorded
     - **Key Changes:** `.github/workflows/ci.yml` integration-test job — matrix strategy
+    - **Notes:** None recorded
 
 - [x] **1.3** Add matrix strategy to architecture-test job
     - **File:** `.github/workflows/ci.yml` (architecture-test job)
@@ -29,13 +32,16 @@
         - Replace `python-version: "3.11"` with `python-version: ${{ matrix.python-version }}`
         - Update job display name: `name: Architecture Tests (${{ matrix.python-version }})`
     - **Completed:** 2026-03-10
+    - **Learnings:** None recorded
     - **Key Changes:** `.github/workflows/ci.yml` architecture-test job — matrix strategy
+    - **Notes:** None recorded
 
 - [x] **1.4** Update docker-build needs to reference matrix jobs correctly
     - **Context:** `needs: [unit-test, integration-test, architecture-test]` — GitHub Actions automatically waits for all matrix combinations, no changes needed
     - **Completed:** 2026-03-10
     - **Learnings:** GitHub Actions `needs` on a matrix job waits for all matrix combinations by default
     - **Key Changes:** No changes needed — verified existing `needs` works with matrix jobs
+    - **Notes:** None recorded
 
 ## Phase 2: Validation
 
@@ -45,3 +51,4 @@
     - **Completed:** 2026-03-10
     - **Learnings:** CI-only changes don't affect local checks — all 1869 tests pass
     - **Key Changes:** No additional changes needed — all checks green
+    - **Notes:** None recorded

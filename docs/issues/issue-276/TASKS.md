@@ -60,7 +60,7 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
         - `docs/issues/issue-105/TASKS.md`: tasks 1.1 and 1.2 get all four fields
     - **Notes:** The gap check dropped from 10 to 7. `3afa7de` also added the Sonarr sample data, so the 105 / 1.1 Notes say so
 
-- [ ] **2.2** issue-120 tasks 1.1 to 1.4 and 2.1, issue-127 task 3.1
+- [x] **2.2** issue-120 tasks 1.1 to 1.4 and 2.1, issue-127 task 3.1
     - **Context:**
         - **Why:** These tasks have some fields but lack Learnings (120: 1.1, 1.2, 1.3) or Notes (120: 1.2, 1.3, 1.4, 2.1; 127: 3.1).
         - **Architecture:** Add only the missing field, in its place in the field order. Do not edit existing fields.
@@ -72,6 +72,13 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
         - [RED] Run the gap check; it lists these six tasks
         - [GREEN] Read the commits; add each missing field with `None recorded` or one quoted sentence
     - **Success:** The gap check no longer lists these six tasks; architecture tests pass
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The commits for both issues (`03d1497`, `6558d2f`) state no reason or gotcha, so every added field reads `None recorded`
+    - **Key Changes:**
+        - `docs/issues/issue-120/TASKS.md`: Learnings on 1.1, 1.2, 1.3; Notes on 1.2, 1.3, 1.4, 2.1
+        - `docs/issues/issue-127/TASKS.md`: Notes on 3.1
+    - **Notes:** The gap check dropped from 7 to 1
 
 - [ ] **2.3** Tick issue-222 task 2.1
     - **Context:**
