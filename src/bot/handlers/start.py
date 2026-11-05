@@ -17,6 +17,7 @@ from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.bot.handlers.calendar import CalendarHandler
 from src.bot.handlers.help import HelpHandler
+from src.bot.handlers.media.formatters import send_response
 from src.bot.handlers.system import SystemHandler
 from src.bot.handlers.delete import DeleteHandler
 from src.bot.keyboards import get_main_menu_keyboard, get_library_menu_keyboard
@@ -89,8 +90,8 @@ class StartHandler:
             logger.info(f"Cancel action triggered by user {user.first_name} (ID: {user.id})")
             if context.user_data:
                 context.user_data.clear()
-            await query.message.edit_text(
-                self.translation.get_text("Canceled")
+            await send_response(
+                query.message, self.translation.get_text("Canceled")
             )
             return
 

@@ -29,7 +29,7 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Key Changes:** `handle_menu_callback` in `src/bot/handlers/media/handler.py` awaits `query.answer()` once at the top. Added `test_handle_menu_callback_movie_answers_query`.
     - **Notes:** The handlers scoped run passes at 100% coverage (669 tests).
 
-- [ ] **1.2** F114: Cancel works on a photo message
+- [x] **1.2** F114: Cancel works on a photo message
     - **Context:**
         - **Why:** `start.py` cancel calls `edit_text` on a poster photo message and gets `BadRequest`.
         - **Architecture:** `StartHandler.handle_menu_selection`; reuse `send_response` (edits the caption for a photo, the text otherwise).
@@ -41,6 +41,10 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
         - [RED] Write `test_cancel_on_photo_message_edits_caption`: `edit_caption` awaited, `edit_text` not awaited.
         - [GREEN] Replace the `edit_text` call with `await send_response(query.message, text)`.
     - **Success:** Test fails before and passes after. The existing cancel test and `tests/test_architecture` pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:** `send_response` falls back to `reply_text` if the edit fails, so Cancel now also survives other edit errors. A venv without the `[job-queue]` extra makes every integration test error with "No `JobQueue` set up"; reinstall the pinned requirements.
+    - **Key Changes:** `handle_menu_selection` cancel branch in `src/bot/handlers/start.py` calls `send_response`. Added `test_cancel_on_photo_message_edits_caption` and a `MagicMock` import in `tests/test_handlers/test_start_handler.py`.
+    - **Notes:** The handlers scoped run (670 tests, 100%), architecture and integration tests pass.
 
 - [ ] **1.3** F110: a re-tap never hangs the spinner
     - **Context:**
