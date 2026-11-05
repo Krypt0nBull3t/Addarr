@@ -93,6 +93,17 @@ def test_claude_md_test_names_exist():
     assert sorted(named - defined) == []
 
 
+def test_auto_approve_binds_approval_to_ci_commit():
+    """The bot approval must name the commit CI checked (issue #246)."""
+    workflow = yaml.safe_load(read_text(".github/workflows/auto-approve.yml"))
+    steps = workflow["jobs"]["review"]["steps"]
+    approve = next(s for s in steps if s.get("name") == "Approve PR")
+    assert (
+        "commit_id: context.payload.workflow_run.head_sha"
+        in approve["with"]["script"]
+    )
+
+
 # Field labels per issue form, in order: the sections the audit issues use.
 ISSUE_FORMS = {
     "bug_report.yml": [

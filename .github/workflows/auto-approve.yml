@@ -431,6 +431,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: ${{ steps.pr.outputs.number }},
+              commit_id: context.payload.workflow_run.head_sha,
               event: 'APPROVE',
               body: 'All CI checks passed. Review complete — auto-approved.'
             });

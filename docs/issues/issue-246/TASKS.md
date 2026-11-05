@@ -6,7 +6,7 @@ Plan: `docs/issues/issue-246/plan.md`. The developer approved the plan and the o
 
 **Goal:** The bot approval names the commit CI checked, ADR 0006 records the stale-approval rules, and `CLAUDE.md` says so.
 
-- [ ] **1.1** Pin `commit_id` and add it to the approval step
+- [x] **1.1** Pin `commit_id` and add it to the approval step
     - **Context:**
         - **Why:** `pulls.createReview` without `commit_id` binds the approval to the PR head at call time. A push during the up-to-300 s wait for the checks gets approved for a commit CI did not check.
         - **Architecture:** CI-only change. The drift tests in `tests/test_architecture/test_repo_docs.py` already read `.github/workflows/ci.yml` with `yaml.safe_load` and the `read_text` helper; do the same for `auto-approve.yml`.
@@ -18,6 +18,14 @@ Plan: `docs/issues/issue-246/plan.md`. The developer approved the plan and the o
         - [RED] Write `test_auto_approve_binds_approval_to_ci_commit` after `test_claude_md_test_names_exist`: load the workflow, take the step named `Approve PR` from `jobs.review.steps`, assert `"commit_id: context.payload.workflow_run.head_sha" in step["with"]["script"]`. Run it and confirm it fails on that assertion.
         - [GREEN] Add `commit_id: context.payload.workflow_run.head_sha,` between `pull_number` and `event` in the `pulls.createReview` call.
     - **Success:** The new test passes, `tests/test_architecture` passes, `git diff origin/development -- .github/` shows one added line.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The workflow step `Approve PR` keeps its code in `with.script`, so a YAML parse plus a substring check is enough to pin the line.
+        - The suite lock runs pytest with the coverage addopts; `--no-cov` keeps scoped runs quiet.
+    - **Key Changes:**
+        - Added `test_auto_approve_binds_approval_to_ci_commit` to `tests/test_architecture/test_repo_docs.py`.
+        - Added `commit_id: context.payload.workflow_run.head_sha,` to the `Approve PR` step in `.github/workflows/auto-approve.yml`.
+    - **Notes:** Seen RED first (assertion on the missing line), then GREEN. 158 architecture tests pass.
 
 - [ ] **1.2** ADR 0006 and the ADR 0004 note
     - **Context:**
