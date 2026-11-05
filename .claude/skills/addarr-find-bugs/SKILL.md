@@ -35,6 +35,7 @@ For each changed file, check:
 * [ ] **Async bugs**: Missing `await`, unclosed sessions, fire-and-forget coroutines
 * [ ] **Singleton issues**: State in `__init__` vs `_initialize`, missing `is_enabled()` checks
 * [ ] **Config safety**: Direct `config["key"]` indexing, missing `.get()` defaults
+* [ ] **YAML 1.1 vs 1.2**: ruamel reads YAML 1.2, so `enable: no` is the truthy string `"no"` (PyYAML gave `False`). A ruamel loader of `config.yaml` must set `version = (1, 1)`; `Config` does (`_loader` in `src/config/settings.py`)
 * [ ] **Telegram API misuse**: Missing `query.answer()`, `reply_text` on callbacks, `edit_text` on photo messages
 * [ ] **Repeated callback edits**: Paged, refresh or filter callbacks that can render the same text again use `edit_text_ignoring_unmodified` (`src/utils/chat.py`), or a double tap raises "Message is not modified"
 * [ ] **Error handling**: Swallowing exceptions silently, raising from `_initialize`
