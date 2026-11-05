@@ -33,54 +33,86 @@ class TestHealthServiceSingleton:
 
 
 class TestDisplayHealthStatus:
-    def test_all_healthy(self, capsys):
-        results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
-                {"name": "Sonarr", "healthy": True, "status": "Online (v3.0.0)"},
-            ],
-            "download_clients": [
-                {"name": "SABnzbd", "healthy": True, "status": "Online (v3.5.0)"},
-            ],
-        }
-        result = display_health_status(results)
+    HEALTHY = {
+        "media_services": [
+            {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
+            {"name": "Sonarr", "healthy": True, "status": "Online (v3.0.0)"},
+        ],
+        "download_clients": [
+            {"name": "SABnzbd", "healthy": True, "status": "Online (v3.5.0)"},
+        ],
+    }
+    UNHEALTHY = {
+        "media_services": [
+            {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
+            {"name": "Sonarr", "healthy": False, "status": "Error: HTTP 500"},
+        ],
+        "download_clients": [],
+    }
+
+    @staticmethod
+    def _messages(log_method):
+        return [c.args[0] for c in log_method.call_args_list]
+
+    def test_all_healthy(self):
+        with patch("src.services.health.logger") as mock_logger:
+            result = display_health_status(self.HEALTHY)
+
         assert result is True
+        assert any(
+            "All services are healthy" in m
+            for m in self._messages(mock_logger.info)
+        )
+        mock_logger.error.assert_not_called()
 
-        output = capsys.readouterr().out
-        assert "All services are healthy" in output
+    def test_some_unhealthy(self):
+        with patch("src.services.health.logger") as mock_logger:
+            result = display_health_status(self.UNHEALTHY)
 
-    def test_some_unhealthy(self, capsys):
-        results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
-                {"name": "Sonarr", "healthy": False, "status": "Error: HTTP 500"},
-            ],
-            "download_clients": [],
-        }
-        result = display_health_status(results)
         assert result is False
+        assert any(
+            "Some services are not responding" in m
+            for m in self._messages(mock_logger.error)
+        )
 
-        output = capsys.readouterr().out
-        assert "Some services are not responding" in output
+    def test_service_status_lines_are_logged(self):
+        with patch("src.services.health.logger") as mock_logger:
+            display_health_status(self.UNHEALTHY)
 
-    def test_no_media_services(self, capsys):
+        logged = " ".join(
+            self._messages(mock_logger.info)
+            + self._messages(mock_logger.warning)
+        )
+        assert "Radarr" in logged and "Online (v4.7.0)" in logged
+        assert "Sonarr" in logged and "Error: HTTP 500" in logged
+
+    @pytest.mark.parametrize("results", [HEALTHY, UNHEALTHY])
+    def test_health_output_goes_to_logger_not_stdout(self, results, capsys):
+        with patch("src.services.health.logger"):
+            display_health_status(results)
+
+        assert capsys.readouterr().out == ""
+
+    def test_no_media_services(self):
         results = {
             "media_services": [],
             "download_clients": [
                 {"name": "SABnzbd", "healthy": True, "status": "Online"},
             ],
         }
-        result = display_health_status(results)
+        with patch("src.services.health.logger"):
+            result = display_health_status(results)
         assert result is True
 
-    def test_no_download_clients(self, capsys):
+    def test_no_download_clients(self):
         results = {
             "media_services": [
                 {"name": "Radarr", "healthy": True, "status": "Online"},
             ],
             "download_clients": [],
         }
-        result = display_health_status(results)
+        with patch("src.services.health.logger"):
+            result = display_health_status(results)
         assert result is True
 
 
@@ -1071,47 +1103,101 @@ class TestGetApiClient:
 
 
 class TestGetDiskSpace:
+    @staticmethod
+    def _config_enabling(*enabled):
+        """Config mock where only the given *arr services are enabled."""
+        mock_config = MagicMock()
+        mock_config.get.side_effect = lambda key, default=None: (
+            {"enable": key in enabled}
+            if key in ("radarr", "sonarr", "lidarr")
+            else default
+        )
+        return mock_config
+
+    @staticmethod
+    def _client(drives=None, error=None):
+        client = AsyncMock()
+        if error:
+            client.get_disk_space.side_effect = error
+        else:
+            client.get_disk_space.return_value = drives
+        client.close = AsyncMock()
+        return client
+
     @pytest.mark.asyncio
-    async def test_get_disk_space_returns_drives_from_first_enabled(self):
-        """Returns drives from the first enabled *arr service."""
+    async def test_returns_drives_of_every_enabled_app(self):
+        """Radarr and Sonarr on different paths: both drives are returned."""
         service = HealthService()
+        clients = {
+            "radarr": self._client([{"path": "/movies", "freeSpace": 1}]),
+            "sonarr": self._client([{"path": "/tv", "freeSpace": 2}]),
+        }
 
-        mock_client = AsyncMock()
-        mock_client.get_disk_space.return_value = RADARR_DISK_SPACE
-        mock_client.close = AsyncMock()
-
-        with patch.object(
-            service, "_get_api_client", return_value=mock_client
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("radarr", "sonarr"),
+        ), patch.object(
+            service, "_get_api_client", side_effect=clients.get
         ):
             results = await service.get_disk_space()
 
+        assert [d["path"] for d in results] == ["/movies", "/tv"]
+        for client in clients.values():
+            client.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_shared_path_appears_once(self):
+        """A path reported by two apps appears once; the first app wins."""
+        service = HealthService()
+        clients = {
+            "radarr": self._client([{"path": "/data", "freeSpace": 1}]),
+            "sonarr": self._client(
+                [{"path": "/data", "freeSpace": 2}, {"path": "/tv"}]
+            ),
+        }
+
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("radarr", "sonarr"),
+        ), patch.object(
+            service, "_get_api_client", side_effect=clients.get
+        ):
+            results = await service.get_disk_space()
+
+        assert [d["path"] for d in results] == ["/data", "/tv"]
+        assert results[0]["freeSpace"] == 1
+
+    @pytest.mark.asyncio
+    async def test_drive_without_path_is_kept(self):
+        """A drive entry with no path key is not dropped."""
+        service = HealthService()
+        client = self._client([{"label": "nopath"}, {"label": "other"}])
+
+        with patch(
+            "src.services.health.config", self._config_enabling("radarr")
+        ), patch.object(service, "_get_api_client", return_value=client):
+            results = await service.get_disk_space()
+
         assert len(results) == 2
-        assert results[0]["path"] == "/movies"
-        mock_client.close.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_disk_space_skips_disabled_services(self):
-        """Skips disabled services and queries the first enabled one."""
+        """Disabled services are not queried."""
         service = HealthService()
+        client = self._client(RADARR_DISK_SPACE)
 
-        mock_client = AsyncMock()
-        mock_client.get_disk_space.return_value = RADARR_DISK_SPACE
-        mock_client.close = AsyncMock()
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("sonarr", "lidarr"),
+        ), patch.object(
+            service, "_get_api_client", return_value=client
+        ) as mock_get:
+            results = await service.get_disk_space()
 
-        with patch("src.services.health.config") as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": False} if key == "radarr"
-                else {"enable": True} if key == "sonarr"
-                else {"enable": True} if key == "lidarr"
-                else default
-            )
-            with patch.object(
-                service, "_get_api_client", return_value=mock_client
-            ) as mock_get:
-                results = await service.get_disk_space()
-
-        # Should have been called with sonarr (first enabled after radarr)
-        mock_get.assert_called_once_with("sonarr")
+        assert [c.args[0] for c in mock_get.call_args_list] == [
+            "sonarr",
+            "lidarr",
+        ]
         assert len(results) == 2
 
     @pytest.mark.asyncio
@@ -1126,51 +1212,36 @@ class TestGetDiskSpace:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_get_disk_space_falls_through_on_error(self):
-        """Falls through to next enabled service on client error."""
+    async def test_get_disk_space_continues_after_error(self):
+        """A failing app is skipped; the others still report."""
         service = HealthService()
+        failing = self._client(error=Exception("connection refused"))
+        working = self._client(RADARR_DISK_SPACE)
+        clients = {"radarr": failing, "sonarr": working}
 
-        failing_client = AsyncMock()
-        failing_client.get_disk_space.side_effect = Exception("connection refused")
-        failing_client.close = AsyncMock()
-
-        working_client = AsyncMock()
-        working_client.get_disk_space.return_value = RADARR_DISK_SPACE
-        working_client.close = AsyncMock()
-
-        call_count = 0
-
-        def _mock_get_client(key):
-            nonlocal call_count
-            call_count += 1
-            if key == "radarr":
-                return failing_client
-            return working_client
-
-        with patch.object(
-            service, "_get_api_client", side_effect=_mock_get_client
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("radarr", "sonarr"),
+        ), patch.object(
+            service, "_get_api_client", side_effect=clients.get
         ):
             results = await service.get_disk_space()
 
         assert len(results) == 2
-        assert call_count == 2  # radarr failed, sonarr succeeded
+        failing.close.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_disk_space_get_api_client_returns_none(self):
         """Skips service when _get_api_client returns None."""
         service = HealthService()
+        client = self._client(RADARR_DISK_SPACE)
+        clients = {"radarr": None, "sonarr": client}
 
-        mock_client = AsyncMock()
-        mock_client.get_disk_space.return_value = RADARR_DISK_SPACE
-        mock_client.close = AsyncMock()
-
-        def _mock_get_client(key):
-            if key == "radarr":
-                return None
-            return mock_client
-
-        with patch.object(
-            service, "_get_api_client", side_effect=_mock_get_client
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("radarr", "sonarr"),
+        ), patch.object(
+            service, "_get_api_client", side_effect=clients.get
         ):
             results = await service.get_disk_space()
 

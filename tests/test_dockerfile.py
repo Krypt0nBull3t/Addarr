@@ -1,6 +1,10 @@
 """Tests for Dockerfile security and health improvements."""
 
 import os
+import re
+import subprocess
+import time
+
 import pytest
 
 DOCKERFILE_PATH = os.path.join(
@@ -32,6 +36,37 @@ class TestDockerfileSecurity:
             line for line in dockerfile_lines if line.strip().startswith("HEALTHCHECK")
         ]
         assert len(healthcheck_lines) > 0, "Dockerfile must contain a HEALTHCHECK"
+
+    @staticmethod
+    def _healthcheck_command(dockerfile_lines):
+        """The command of the HEALTHCHECK instruction (continuation lines joined)."""
+        text = "".join(dockerfile_lines).replace("\\\n", " ")
+        match = re.search(r"^HEALTHCHECK\s.*?\bCMD\s+(.*)$", text, re.MULTILINE)
+        assert match, "HEALTHCHECK must have a CMD"
+        return match.group(1).strip()
+
+    def test_healthcheck_checks_heartbeat_age(self, dockerfile_lines):
+        """The healthcheck reads the heartbeat file age, not the process list."""
+        command = self._healthcheck_command(dockerfile_lines)
+        assert "stat -c %Y" in command
+        assert "-lt 60" in command
+        assert "pgrep" not in command
+
+    def test_healthcheck_command_behaviour(self, dockerfile_lines, tmp_path):
+        """Healthy for a fresh file; unhealthy for an old or a missing file."""
+        command = self._healthcheck_command(dockerfile_lines)
+        heartbeat = tmp_path / "heartbeat"
+        env = {**os.environ, "ADDARR_HEARTBEAT_FILE": str(heartbeat)}
+
+        def run():
+            return subprocess.run(["sh", "-c", command], env=env).returncode
+
+        assert run() == 1  # missing
+        heartbeat.touch()
+        assert run() == 0  # fresh
+        old = time.time() - 120
+        os.utime(heartbeat, (old, old))
+        assert run() == 1  # older than 60 s
 
     def test_has_stopsignal(self, dockerfile_lines):
         """Container should handle graceful shutdown."""

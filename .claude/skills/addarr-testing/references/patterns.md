@@ -6,6 +6,7 @@
 - [Services](#services)
 - [Handlers](#handlers)
 - [Integration Tests](#integration-tests)
+- [Bot Lifecycle](#bot-lifecycle)
 - [Config](#config)
 - [Keyboards](#keyboards)
 - [Translations](#translations)
@@ -355,6 +356,25 @@ Skip integration tests for:
 - API client changes (covered by unit tests with `aioresponses`)
 - Service logic changes (covered by unit tests with mock clients)
 - Config, utils, translations, CI, docs changes
+
+---
+
+## Bot Lifecycle
+
+### Shutdown that `asyncio.run` must not cancel
+
+A signal handler runs `AddarrBot.stop()` as a side task, and `asyncio.run` cancels pending tasks when `main()` returns. A test with a mocked `asyncio.run` passes without the fix. Use a sync test around the real one:
+
+```python
+def test_sigterm_runs_shutdown_before_exit(self, mock_app, tmp_path):
+    real_sleep = asyncio.sleep           # keep it before the patch below
+    ...
+    with patch("src.main.asyncio.sleep", side_effect=short_tick):
+        asyncio.run(main())              # real run: cancels pending tasks on exit
+    mock_app.shutdown.assert_awaited_once()
+```
+
+Make one shutdown step take real time (`await real_sleep(0.05)`), or the side task finishes before the cancel and the test cannot fail. The full test is `TestMain::test_sigterm_runs_shutdown_before_exit` in `tests/test_main.py`.
 
 ---
 

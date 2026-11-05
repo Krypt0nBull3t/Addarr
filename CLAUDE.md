@@ -189,6 +189,8 @@ GitHub Actions workflows in `.github/workflows/`:
 
 **Requirement pins:** `requirements.txt` and `requirements-test.txt` use exact `==` pins. A line may carry an `[extra]` (`python-telegram-bot[job-queue]==22.8`); the pin stays exact. Each pin must install on the lowest Python in the `ci.yml` Compatibility matrix (3.10), not only on the 3.11 that CI and Docker use. Check with `pip install --dry-run --quiet --python-version 3.10 --only-binary=:all: --target <scratch-dir> -r requirements.txt -r requirements-test.txt`. `.github/dependabot.yml` ignores bumps that need a newer Python (pytestarch 5).
 
+**PTB private attribute:** `AddarrBot._polling_stopped` in `src/main.py` reads `Updater._Updater__polling_task`, because PTB 22.8 keeps `updater.running` True after the polling task dies on InvalidToken or Conflict. `test_updater_keeps_private_polling_task_attribute` in `tests/test_main.py` fails when a PTB bump renames it: re-check how polling failure shows before you update that test.
+
 ## Known Future Work
 
 Imports were cleaned up during a lint pass. If implementing the following, re-add the corresponding imports:
@@ -226,7 +228,7 @@ docker-compose up -d
 docker build -t addarr . && docker run -d -v $(pwd)/config.yaml:/app/config.yaml addarr
 ```
 
-Base image: `python:3.11-alpine3.24`. Uses host networking. Runs as the non-root user `addarr`. Persistent files to mount: `config.yaml` (writable: `/auth` and settings save it), `logs/`, `backup/`. `user_preferences.json` lives in `data/`, which compose keeps in the named volume `addarr-data`. If `logs/` is not writable, the logger falls back to console-only output with one warning. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.
+Base image: `python:3.11-alpine3.24`. Uses host networking. Runs as the non-root user `addarr`. Persistent files to mount: `config.yaml` (writable: `/auth` and settings save it), `logs/`, `backup/`. `user_preferences.json` lives in `data/`, which compose keeps in the named volume `addarr-data`. If `logs/` is not writable, the logger falls back to console-only output with one warning. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow. The `HEALTHCHECK` (Dockerfile) and the compose `healthcheck` read a heartbeat file, `HEARTBEAT_FILE` in `src/definitions.py` (env `ADDARR_HEARTBEAT_FILE`, default `<tempdir>/addarr-heartbeat`). The keep-alive loop in `src/main.py` touches it every 10 s; the container is unhealthy when the file is missing or older than 60 s.
 
 ## graphify
 
