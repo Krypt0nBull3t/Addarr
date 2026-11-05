@@ -28,7 +28,7 @@ Run every test and gate through the suite lock (`<lock>` in the addarr-workflow 
         - `tests/test_handlers/test_auth_handler.py`: `test_check_password_correct_sends_main_menu`
     - **Notes:** The post-edit flake8 hook can report F821 between the call edit and the import edit; it clears once both are in.
 
-- [ ] **1.2** F121: send status and details texts with Markdown and escape dynamic text
+- [x] **1.2** F121: send status and details texts with Markdown and escape dynamic text
     - **Context:**
         - **Why:** `*System Status*` and the other titles show their asterisks, because `show_status`, the refresh, the details view and the unknown-action fallback send no `parse_mode`. Service names and health status strings can hold `_` or `*`, which break parsing once `parse_mode` is set.
         - **Architecture:** Keep Markdown, as Disk Space (`_handle_diskspace`) does. Add a module helper `_md(text) -> str` that returns `telegram.helpers.escape_markdown(str(text), version=1)` and use it for every service name and status in `_build_status_text` and `_build_details_text`.
@@ -42,6 +42,14 @@ Run every test and gate through the suite lock (`<lock>` in the addarr-workflow 
         - [RED] Write the same escaping test for an unhealthy service name `my_service` in the status text
         - [GREEN] Add `_md`, use it in both builders, and add `parse_mode="Markdown"` to the five calls
     - **Success:** The new tests fail before and pass after; handlers scoped run passes; flake8 and mypy clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `edit_text_ignoring_unmodified` forwards kwargs to `message.edit_text`, so the refresh test reads `parse_mode` from `edit_text.call_args`.
+        - `escape_markdown(version=1)` turns `a_b *x*` into `a\_b \*x\*`; the fixed titles stay unescaped because only dynamic values go through `_md`.
+    - **Key Changes:**
+        - `src/bot/handlers/system.py`: `_md()` helper; `parse_mode="Markdown"` on `show_status` (2 sends), refresh, details and the unknown-action fallback; service names and status text escaped in `_build_status_text` and `_build_details_text`
+        - `tests/test_handlers/test_system_handler.py`: 7 tests (5 parse_mode, 2 escaping)
+    - **Notes:** Error texts from translations (`StatusRefreshError`, `StatusDetailsError`) and the Main Menu text stay plain, with no `parse_mode`.
 
 - [ ] **1.3** F122: History Refresh label and check mark
     - **Context:**
