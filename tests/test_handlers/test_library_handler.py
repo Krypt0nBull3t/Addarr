@@ -456,3 +456,37 @@ async def test_library_selection_empty_library(
     update.callback_query.message.edit_text.assert_called_once()
     call_args = update.callback_query.message.edit_text.call_args
     assert "LibraryEmpty" in str(call_args)
+
+
+@pytest.mark.parametrize("branch", [
+    "not_enabled", "error", "empty", "expired",
+])
+@pytest.mark.asyncio
+async def test_library_callback_dead_ends_have_back_button(
+    library_handler, make_update, make_context, branch
+):
+    """A library callback that ends in plain text still offers Back."""
+    service = library_handler._mock_service
+    if branch == "not_enabled":
+        service.get_movies = AsyncMock(side_effect=ValueError("off"))
+    elif branch == "error":
+        service.get_movies = AsyncMock(side_effect=Exception("boom"))
+    elif branch == "empty":
+        service.get_movies = AsyncMock(return_value=[])
+
+    if branch == "expired":
+        update = make_update(callback_data="lib_m_1")
+        await library_handler.handle_page_navigation(
+            update, make_context(user_data={})
+        )
+    else:
+        update = make_update(callback_data="library_movie")
+        await library_handler.handle_library_selection(
+            update, make_context()
+        )
+
+    markup = update.callback_query.message.edit_text.call_args.kwargs[
+        "reply_markup"
+    ]
+    callbacks = [b.callback_data for row in markup.inline_keyboard for b in row]
+    assert callbacks == ["menu_library"]

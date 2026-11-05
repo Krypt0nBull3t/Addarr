@@ -98,7 +98,8 @@ class LibraryHandler:
             await query.message.edit_text(
                 self.translation.get_text(
                     "LibraryNotEnabled", subject=type_info["label"]
-                )
+                ),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
         except Exception:
@@ -107,7 +108,8 @@ class LibraryHandler:
                 exc_info=True,
             )
             await query.message.edit_text(
-                self.translation.get_text("LibraryError")
+                self.translation.get_text("LibraryError"),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
 
@@ -115,7 +117,8 @@ class LibraryHandler:
             await query.message.edit_text(
                 self.translation.get_text(
                     "LibraryEmpty", subject=type_info["label"]
-                )
+                ),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
 
@@ -243,7 +246,8 @@ class LibraryHandler:
 
         if not items:
             await query.message.edit_text(
-                self.translation.get_text("LibraryExpired")
+                self.translation.get_text("LibraryExpired"),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
 

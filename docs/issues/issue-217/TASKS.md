@@ -140,3 +140,43 @@ Run each test command through the suite lock, as the `addarr-workflow` skill say
     - **Learnings:** The "settings, Back shows the main menu" flow already existed as `test_settings_back_ends_conversation`; Task 1.6 changed it. The new SAB flow taps the Back button read from the speed screen, so it fails when that button points to the wrong place (checked by reverting the callback to `dl_back`).
     - **Key Changes:** Added `test_settings_sab_speed_back_returns_to_sab_menu` in `tests/integration/test_settings_flow.py` and `test_help_from_menu_has_back_button` in `tests/integration/test_help_flow.py`.
     - **Notes:** The full preflight runs in the create-pr flow.
+
+### Phase 2: Review feedback round 1 (2 tasks)
+
+**Goal:** Close two open threads on PR #260 so the library and system screens never strand the user or the spinner.
+
+**Phase Context:**
+
+- Why NOT add Back to the `/allMovies` command branches in `_fetch_and_show`: they send a new message with `reply_text`. There is no parent screen to go back to.
+- Why NOT touch `_handle_refresh` in `system.py`: its success toast needs `answer(text)` after the health check.
+
+- [x] **2.1** [should-fix] Library callback errors keep a Back button (from Krypt0nBull3t, `library.py:216`)
+    - **Context:**
+        - **Why:** The not-enabled, error and empty branches of `handle_library_selection` and the expired branch of `handle_page_navigation` edit the library menu message to plain text with no keyboard. Only the non-empty list got `menu_library` in task 1.5.
+        - **Architecture:** Reuse `get_back_keyboard("menu_library")` from `src/bot/keyboards.py`.
+        - **Key refs:** `src/bot/handlers/library.py:97-125`, `:242-247`, `tests/test_handlers/test_library_handler.py:285`, `:407-450`.
+        - **Watch out:** The command branches in `_fetch_and_show` stay as they are.
+    - **Scope:** Four `edit_text` calls.
+    - **Touches:** `src/bot/handlers/library.py`, `tests/test_handlers/test_library_handler.py`
+    - **Action items:**
+        - [RED] Write `test_library_callback_dead_ends_have_back_button` (parametrized: not enabled, error, empty, expired); assert `reply_markup` has one `menu_library` button.
+        - [GREEN] Pass `reply_markup=get_back_keyboard("menu_library")` in the four calls.
+    - **Success:** New tests fail before and pass after. The library tests pass. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** Task 1.5 covered only the list. The branches that replace the menu message with plain text are dead ends too. The command path (`_fetch_and_show`) has no parent screen, so it stays without Back.
+    - **Key Changes:** `handle_library_selection` (not enabled, error, empty) and `handle_page_navigation` (expired) pass `get_back_keyboard("menu_library")`. Added the parametrized `test_library_callback_dead_ends_have_back_button`.
+    - **Notes:** Handlers scoped run: 701 tests, 100% coverage. Integration tests pass.
+
+- [ ] **2.2** [should-fix] Answer first in system details and disk space, drop the failure toasts and their keys (from Krypt0nBull3t, `system.py:150`)
+    - **Context:**
+        - **Why:** `_handle_details` and `_handle_diskspace` answer after the slow health call, so Telegram can keep the spinner or expire the callback.
+        - **Architecture:** `await query.answer()` first in each handler. A second `answer(text)` in the `except` branch would answer the same query twice, so the two failure toasts go. The edited message already shows the error text. The keys `StatusDetailsFailed` and `DiskSpaceFailed` then have no use: delete them from the template and the 9 locales (`i18n-key` skill).
+        - **Key refs:** `src/bot/handlers/system.py:145-190`, `tests/test_handlers/test_system_handler.py`, `translations/addarr.*.yml`.
+        - **Watch out:** `_handle_refresh` stays as it is (its toast needs the answer after the check). Search `src/`, `tests/` and `.claude/` for both key names.
+    - **Scope:** Two handlers, two removed toasts, 10 translation files.
+    - **Touches:** `src/bot/handlers/system.py`, `tests/test_handlers/test_system_handler.py`, `translations/`
+    - **Action items:**
+        - [RED] Write `test_details_answers_before_health_check` and `test_diskspace_answers_before_service_call` (record the call order); assert `answer` precedes the service call.
+        - [RED] Write error-path tests: details and disk space still edit the error text, and answer exactly once.
+        - [GREEN] Move `answer()` first; remove the failure `answer(text)` calls; delete the two keys in all 10 files.
+    - **Success:** New tests fail before and pass after. `--validate-i18n`, the handlers run, flake8 and mypy pass.
