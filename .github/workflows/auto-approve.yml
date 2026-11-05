@@ -87,7 +87,6 @@ jobs:
               r'^\.claude/',
               r'^docs/',
               r'^translations/',
-              r'^helm/',
               r'\.md$',
           ]
 

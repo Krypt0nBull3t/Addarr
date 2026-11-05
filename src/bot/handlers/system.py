@@ -6,6 +6,7 @@ Description: System command handler module.
 """
 
 from telegram import Update
+from telegram.helpers import escape_markdown
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
 from src.utils.helpers import format_bytes
@@ -18,6 +19,11 @@ from src.utils.chat import edit_text_ignoring_unmodified
 logger = get_logger("addarr.system")
 
 LOW_SPACE_THRESHOLD = 10  # percent free
+
+
+def _md(text):
+    """Escape text for Telegram's legacy Markdown so _ and * stay literal."""
+    return escape_markdown(str(text), version=1)
 
 
 def _format_usage_bar(percent_used, width=10):
@@ -84,11 +90,13 @@ class SystemHandler:
             await update.callback_query.message.edit_text(
                 status_text,
                 reply_markup=keyboard,
+                parse_mode="Markdown",
             )
         else:
             await update.message.reply_text(
                 status_text,
                 reply_markup=keyboard,
+                parse_mode="Markdown",
             )
 
     @require_auth
@@ -117,6 +125,7 @@ class SystemHandler:
             await query.message.edit_text(
                 status_text,
                 reply_markup=get_system_keyboard(),
+                parse_mode="Markdown",
             )
 
     async def _handle_refresh(self, query):
@@ -131,6 +140,7 @@ class SystemHandler:
                 query.message,
                 status_text,
                 reply_markup=get_system_keyboard(),
+                parse_mode="Markdown",
             )
         except Exception as e:
             logger.error(f"Error refreshing status: {e}")
@@ -150,6 +160,7 @@ class SystemHandler:
             await query.message.edit_text(
                 details_text,
                 reply_markup=get_system_keyboard(),
+                parse_mode="Markdown",
             )
             await query.answer()
         except Exception as e:
@@ -163,7 +174,7 @@ class SystemHandler:
             )
 
     async def _handle_diskspace(self, query):
-        """Show disk space information from the first available *arr service."""
+        """Show disk space information from every enabled *arr service."""
         try:
             drives = await health_service.get_disk_space()
             text = _build_disk_space_text(drives, self.translation)
@@ -210,7 +221,7 @@ class SystemHandler:
         if unhealthy:
             text += "❌ Unhealthy:\n"
             for service in unhealthy:
-                text += f"  • {service}\n"
+                text += f"  • {_md(service)}\n"
         else:
             text += "✅ All services healthy\n"
 
@@ -230,13 +241,13 @@ class SystemHandler:
             text += "🎬 *Media Services*\n"
             for svc in media:
                 icon = "✅" if svc["healthy"] else "❌"
-                text += f"  {icon} {svc['name']}: {svc['status']}\n"
+                text += f"  {icon} {_md(svc['name'])}: {_md(svc['status'])}\n"
             text += "\n"
 
         if clients:
             text += "📥 *Download Clients*\n"
             for cl in clients:
                 icon = "✅" if cl["healthy"] else "❌"
-                text += f"  {icon} {cl['name']}: {cl['status']}\n"
+                text += f"  {icon} {_md(cl['name'])}: {_md(cl['status'])}\n"
 
         return text

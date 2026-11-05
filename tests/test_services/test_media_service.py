@@ -3,7 +3,7 @@ Tests for src/services/media.py -- MediaService singleton.
 """
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from src.services.media import MediaService
 
@@ -2422,3 +2422,25 @@ class TestGetHistory:
         assert result["quality"] == "HDTV-720p"
         assert result["source_title"] == "Breaking.Bad.S01E01.720p"
         assert result["service"] == "sonarr"
+
+
+# ---------------------------------------------------------------------------
+# close
+# ---------------------------------------------------------------------------
+
+
+class TestClose:
+    @pytest.mark.asyncio
+    async def test_close_closes_configured_clients_and_skips_none(self):
+        service = MediaService()  # also creates the sonarr and lidarr clients
+        radarr, lidarr = AsyncMock(), AsyncMock()
+
+        with (
+            patch.object(MediaService, "_radarr", radarr),
+            patch.object(MediaService, "_sonarr", None),
+            patch.object(MediaService, "_lidarr", lidarr),
+        ):
+            await service.close()
+
+        radarr.close.assert_awaited_once()
+        lidarr.close.assert_awaited_once()

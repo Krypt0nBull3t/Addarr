@@ -111,6 +111,7 @@ pl-pl:
   Authorize: "🔐 Musisz najpierw autoryzować ten czat. Jakie jest hasło?"
   Wrong password: "❌ Hasło nieprawidłowe. Spróbuj ponownie..."
   Chatid added: "✅ Ten czat został dodany do listy autoryzowanych czatów. Możesz teraz korzystać z bota."
+  AuthSaveFailed: "Na razie masz dostęp, ale bot nie mógł tego zapisać. Po ponownym uruchomieniu musisz uwierzytelnić się ponownie. Poproś administratora o sprawdzenie, czy config.yaml jest zapisywalny."
   NotAdmin: "⛔ Musisz być administratorem, aby wykonać tę komendę."
   Chatid already allowed: "ℹ️ Ten czat jest już autoryzowany."
   
@@ -157,7 +158,8 @@ pl-pl:
     📊 /status - Check system status
     ⚙️ /settings - Manage settings
     🗑️ /delete - Delete media
-    📚 /library - Browse your library
+    👤 /preferences - Manage preferences
+    🔔 /webhooks - Manage webhook notifications
   HelpMediaMovies: |
     🎬 /movie - Search and add movies
     🎬 /allmovies - Show all movies
@@ -167,6 +169,12 @@ pl-pl:
   HelpMediaMusic: |
     🎵 /music - Search and add music
     🎵 /allmusic - Show all music
+  HelpCalendar: |
+    📅 /upcoming - Browse upcoming releases
+    🔍 /missing - Browse missing media
+  HelpQueue: "⏳ /queue - Browse download queue"
+  HelpHistory: "📜 /history - Browse recent activity"
+  HelpDownloads: "📦 /downloads - Download queue"
   HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
   HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
   HelpSubtitlesBazarr: "🎭 /subtitles - Manage subtitles (Bazarr)"

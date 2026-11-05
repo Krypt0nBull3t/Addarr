@@ -53,8 +53,6 @@ Addarr Refresh is a modern Telegram bot that helps you manage your media collect
   <br>
   🎨 Modern UI with inline keyboards and rich media
   <br>
-  📁 Helm chart for easy deployment
-  <br>
   🐳 Docker image for easy containerization
   <br>
   🔍 Validations and error handling
@@ -145,7 +143,6 @@ For more options, see [🛠️ Installation](#️-installation)
     - [Linux Systemd Service](#linux-systemd-service)
   - [☁️ Deployment Options](#️-deployment-options)
     - [Docker Deployment](#docker-deployment)
-    - [Kubernetes Deployment](#kubernetes-deployment)
   - [👨‍💻 Development](#-development)
     - [Project Structure](#project-structure)
     - [Development Setup](#development-setup)
@@ -372,11 +369,15 @@ After installation:
 
 > **File permissions:** the container runs as the non-root user `addarr` (UID 100, GID 101 in the
 > current image; check with `docker-compose run --rm --entrypoint id addarr`).
-> It must be able to write `config.yaml` (`/auth` and settings changes save it), `chatid.txt`,
-> `logs/` and `backup/`, for example with `sudo chown 100:101 config.yaml chatid.txt logs backup`.
+> It must be able to write `config.yaml` (`/auth` and settings changes save it),
+> `logs/` and `backup/`, for example with `sudo chown 100:101 config.yaml logs backup`.
 > If `logs/` is not writable, Addarr logs to the console only (`docker-compose logs`) and prints one warning.
 > User preferences (`user_preferences.json`) are kept in the named volume `addarr-data`,
 > so they survive when the container is recreated.
+
+> **Memory limit:** `docker-compose.yml` limits the container to 256M. A full library load
+> (`GET /movie`) reads the whole Radarr library into memory. A library of about 7000 movies or
+> more needs a higher limit: raise `deploy.resources.limits.memory` in `docker-compose.yml`.
 
 #### Using Docker standalone
 1. **Build the image**
@@ -638,7 +639,7 @@ Addarr Refresh can be run as a Windows service or a Linux Systemd service:
 
 ## ☁️ Deployment Options
 
-Addarr Refresh can be deployed using Docker or Kubernetes:
+Addarr Refresh can be deployed using Docker:
 
 ### Docker Deployment
 1. **Clone the repository**
@@ -656,17 +657,6 @@ Addarr Refresh can be deployed using Docker or Kubernetes:
 3. **Start with Docker Compose**
    ```bash
    docker-compose up -d
-   ```
-
-### Kubernetes Deployment
-1. **Create a Kubernetes deployment**
-   ```bash
-   kubectl apply -f kubernetes/deployment.yaml
-   ```
-
-2. **Create a Kubernetes service**
-   ```bash
-   kubectl apply -f kubernetes/service.yaml
    ```
 
 ## 👨‍💻 Development
