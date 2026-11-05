@@ -14,7 +14,7 @@ Every test and gate runs through `~/.local/share/agent-suite/with-suite-lock.sh 
 - Why cache the derived value in `AuthHandler`: one hash takes about 0.3 s (seconds on a Raspberry Pi) and `check_password` runs on the event loop. A matching stored value is reused; otherwise one derivation happens in `__init__`.
 - Out of scope: the setup wizard password display (CodeQL alerts #3 and #4, dismissed by design), any other auth change.
 
-- [ ] **1.1** Salted PBKDF2 helpers and `AuthHandler` wiring
+- [x] **1.1** Salted PBKDF2 helpers and `AuthHandler` wiring
     - **Context:**
         - **Why:** `_password_hash()` (`src/bot/handlers/auth.py:118`) is plain unsalted sha256; CodeQL `py/weak-sensitive-data-hashing` flags it. The helpers and the handler change in one task: the new value breaks the old startup comparison, so a commit between them would leave the suite red.
         - **Architecture:** Module-level helpers in `src/bot/handlers/auth.py`, stdlib only. Stored format `pbkdf2_sha256$<iterations>$<salt hex>$<hash hex>`, salt from `secrets.token_bytes(16)`, compare with `hmac.compare_digest` (already imported). `AuthHandler.__init__` reads `stored = config.get("authenticated_users_hash")`. A match sets `self._stored_hash = stored`. Otherwise it sets `self._stored_hash = _password_hash(self.password)` and, when the user list is non-empty, keeps the existing revoke path (warn, clear, save). `_save_authenticated_users` writes `self._stored_hash`.
@@ -35,6 +35,16 @@ Every test and gate runs through `~/.local/share/agent-suite/with-suite-lock.sh 
         - [GREEN] Add the autouse `fast_pbkdf2` fixture to `tests/conftest.py` and update the MockConfig hash and its comment (drop `import hashlib` only if unused).
         - [GREEN] Implement the `__init__` and `_save_authenticated_users` changes.
     - **Success:** `pytest tests/test_handlers/test_auth_handler.py` passes; `scripts/test_runner.py handlers --coverage` shows `auth.py` fully covered; `pytest tests/integration` passes; flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The autouse `fast_pbkdf2` fixture patches the live constant, so only an `ast` read of `auth.py` can pin the real 600000.
+        - `_hash_matches` reads the count from the stored string, so the MockConfig value (1000 iterations, fixed salt) matches whatever the fixture sets.
+        - Tasks 1.1 and 1.2 of the plan were merged: the new hash breaks the old startup comparison, so one commit keeps the suite green.
+    - **Key Changes:**
+        - `src/bot/handlers/auth.py`: `PBKDF2_ITERATIONS`, salted `_password_hash`, new `_hash_matches` (cap 1..10x), `AuthHandler._stored_hash` reused by `_save_authenticated_users`.
+        - `tests/conftest.py`: `fast_pbkdf2` autouse fixture, PBKDF2 MockConfig hash.
+        - `tests/test_handlers/test_auth_handler.py`: #210 tests use `_stored`/`_matches`; new #274 section (format, random salt, cap, malformed, legacy SHA256, reuse).
+    - **Notes:** `auth.py` is at 100% in the handlers run; integration (782) and architecture (263) tests pass. No new integration test: the hash is not a user-facing flow, and `tests/integration/test_auth_flow.py` still passes.
 
 - [ ] **1.2** Update CLAUDE.md
     - **Context:**
