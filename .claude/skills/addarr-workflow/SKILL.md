@@ -218,7 +218,9 @@ Step 2  INVOKE  @release-readiness (runs all 4 phases)
 Step 3  RUN     Report final verdict: READY or NOT READY
 Step 4  ASK     If READY, confirm user wants to create the merge PR to main
 Step 5  RUN     If confirmed: write the body (merged PRs since main, the
-                release-readiness verdict) to <scratchpad>/release-body.md, then
+                release-readiness verdict, and the "Upgrade note" lines of the
+                PRs merged since the last tag, for the GitHub Release notes; no
+                changelog file) to <scratchpad>/release-body.md, then
                 gh pr create --repo Krypt0nBull3t/Addarr --base main --head development
                   --title "Release: development to main" --body-file <scratchpad>/release-body.md
 ```

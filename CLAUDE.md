@@ -94,6 +94,7 @@ Tests live in `tests/` mirroring `src/` structure. Key patterns:
 - **Translation mock**: `autouse=True` fixture patches `TranslationService._load_translations` so tests don't need YAML files.
 - **Config patching gotcha**: Module-level `from src.config.settings import config` binds at import time. To override in tests, patch at the import site: `patch("src.the_module.config", mock_config)` — replacing `sys.modules` won't affect modules that already imported `config`.
 - **Real settings module**: Tests of `src/config/settings.py` use the `load_settings` fixture in `tests/test_config/conftest.py`, which runs the real module with the file reads patched. A test of a copy of the code cannot fail.
+- **Injected values**: `tests/conftest.py` sets `src.__version__` itself, so a test that imports `src` cannot fail on the real value. `tests/test_version.py` reads `src/__init__.py` with `ast`.
 
 ### Architecture Tests
 
