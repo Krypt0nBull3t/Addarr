@@ -269,7 +269,6 @@ Integration tests live in `tests/integration/` and exercise full conversation fl
 |-|-|
 | `conftest.py` | `BotHarness` class, update factories, `harness`, `downloads_harness` and `bazarr_harness` fixtures |
 | `fixtures.py` | Shared test data (search results, quality profiles, queue data) |
-| `api_mocks.py` | Mock API helper for consistent service responses |
 
 ### BotHarness
 

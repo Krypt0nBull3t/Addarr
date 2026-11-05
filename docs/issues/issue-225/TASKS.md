@@ -62,7 +62,7 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - `tests/test_utils/test_logger.py`: `test_log_paths_are_outside_repo_logs_dir`.
     - **Notes:** `tests/test_utils/test_logger.py` still patches `src.utils.logger.LOG_PATH` per test; that is unchanged.
 
-- [ ] **1.3** F251: delete the dead files
+- [x] **1.3** F251: delete the dead files
     - **Context:**
         - **Why:** `tests/fixtures/config_fixtures.py`, `tests/integration/api_mocks.py` and its test `tests/integration/test_api_mocks.py` are used by nothing else.
         - **Architecture:** Plain deletion. `tests/test_architecture/test_skills.py` and `test_repo_docs.py` fail when a skill or CLAUDE.md names a path that no longer exists, so check references first.
@@ -74,6 +74,16 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - [RED] Run the grep for references and the integration and architecture tests first (baseline green)
         - [GREEN] `git rm` the three files and fix any reference found
     - **Success:** `tests/integration` and `tests/test_architecture` pass, the three files are gone.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The `Grep` tool was not available in this session; `git grep` found the references.
+        - `tests/test_architecture` does not catch stale file names in `.claude/skills/addarr-testing/references/`, so those two files were fixed by hand.
+        - Old issue docs (`docs/issues/issue-136`, `docs/issues/feature/test-suite`) name the deleted files as history. They stay as they are.
+    - **Key Changes:**
+        - Deleted `tests/fixtures/config_fixtures.py`, `tests/integration/api_mocks.py`, `tests/integration/test_api_mocks.py`.
+        - `.claude/skills/addarr-testing/references/fixtures.md`: removed the Config Fixtures section and the `api_mocks.py` paragraph.
+        - `.claude/skills/addarr-testing/references/patterns.md`: removed the `api_mocks.py` table row.
+    - **Notes:** Task 1.4 must also update the skill docs for the fixtures and constants it deletes (`SKILL.md` and `references/fixtures.md` name them).
 
 - [ ] **1.4** F251: delete dead fixtures and unused sample data
     - **Context:**

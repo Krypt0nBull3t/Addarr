@@ -235,8 +235,6 @@ Defined in `tests/integration/conftest.py`. Available to `tests/integration/` te
 - `bazarr_harness`: a harness with `BazarrService.is_enabled` patched to `True` and `bazarr.enable` set in config
 - `aio_mock`: `aioresponses()` context manager
 
-`tests/integration/api_mocks.py` has `RadarrMockHelper`, `SonarrMockHelper` and `LidarrMockHelper` for registering *arr responses.
-
 ---
 
 ## Sample Data
@@ -279,20 +277,3 @@ Bazarr responses are in `tests/fixtures/bazarr_data.py` (`from tests.fixtures.ba
 | `BAZARR_MOVIES` | dict | `data` list of movies with subtitles, and `total` |
 | `BAZARR_MOVIES_WANTED` | dict | `data` list of movies missing subtitles, and `total` |
 | `BAZARR_EPISODES_WANTED` | dict | `data` list of episodes missing subtitles, and `total` |
-
----
-
-## Config Fixtures
-
-Defined in `tests/fixtures/config_fixtures.py`. Factory functions for config variations:
-
-```python
-from tests.fixtures.config_fixtures import make_config, make_radarr_config
-```
-
-- `make_config(**overrides)` — Full config with overrides merged
-- `make_radarr_config(enable=True, **overrides)` — Radarr-specific
-- `make_sonarr_config(enable=True, **overrides)` — Sonarr-specific
-- `make_lidarr_config(enable=True, **overrides)` — Lidarr-specific
-- `make_transmission_config(enable=False, **overrides)` — Transmission-specific
-- `make_sabnzbd_config(enable=False, **overrides)` — SABnzbd-specific
