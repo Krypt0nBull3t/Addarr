@@ -22,6 +22,7 @@ from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
     get_webhook_events_keyboard,
     get_webhook_menu_keyboard,
+    get_webhook_port_keyboard,
     get_webhook_service_keyboard,
 )
 from src.bot.states import States
@@ -64,6 +65,9 @@ class WebhooksHandler:
                             self.prompt_port, pattern="^wh_port$"
                         ),
                         CallbackQueryHandler(
+                            self._back_to_menu, pattern="^wh_back$"
+                        ),
+                        CallbackQueryHandler(
                             self.handle_close, pattern="^wh_close$"
                         ),
                     ],
@@ -86,6 +90,9 @@ class WebhooksHandler:
                     CommandHandler("cancel", self.handle_close),
                     CallbackQueryHandler(
                         self.handle_close, pattern="^wh_close$"
+                    ),
+                    CallbackQueryHandler(
+                        self.handle_close, pattern="^menu_cancel$"
                     ),
                 ],
                 name="webhooks_conversation",
@@ -268,7 +275,9 @@ class WebhooksHandler:
         await query.answer()
 
         text = self.translation.get_text("WebhookPortPrompt")
-        await query.message.edit_text(text=text)
+        await query.message.edit_text(
+            text=text, reply_markup=get_webhook_port_keyboard()
+        )
         return States.WEBHOOK_CHANGE_PORT
 
     async def save_port(
@@ -344,8 +353,6 @@ class WebhooksHandler:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Close the webhook settings wizard."""
-        context.user_data.clear()
-
         if update.callback_query:
             await update.callback_query.answer()
             await update.callback_query.message.edit_text(

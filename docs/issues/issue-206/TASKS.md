@@ -39,7 +39,7 @@ The PR body must say that remote *arr apps need `webhooks.host: 0.0.0.0`.
 
 **Goal:** Back, Close and the port prompt behave, and `/webhooks` never shows a secret outside a private chat or resets one by a tap.
 
-- [ ] **2.1** Back, Close and port Cancel (F101, F102, F103)
+- [x] **2.1** Back, Close and port Cancel (F101, F102, F103)
     - **Context:**
         - **Why:** `wh_back` has no handler in `WEBHOOK_MENU` (F101). Close calls `context.user_data.clear()` and wipes other flows (F102). The port prompt has no Cancel button and `menu_cancel` is not a fallback, so after a Cancel tap the conversation stays in `WEBHOOK_CHANGE_PORT` and typed text is saved as a port (F103).
         - **Architecture:** `ConversationHandler` in `WebhooksHandler.get_handler()`. Keyboards live in `src/bot/keyboards.py` (webhook section, ~line 1245). The `^menu_cancel$` callback is the shared Cancel callback data (`src/bot/keyboards.py:74`); `StartHandler` registers last, so the webhook conversation sees it first while it is active.
@@ -54,6 +54,16 @@ The PR body must say that remote *arr apps need `webhooks.host: 0.0.0.0`.
         - [RED] Write pytest tests: a fallback matches `menu_cancel`, returns `ConversationHandler.END`, and text sent afterwards is not saved as the port
         - [GREEN] Add the `wh_back` handler and the `menu_cancel` fallback; remove `context.user_data.clear()`; pass `get_webhook_port_keyboard()` to `prompt_port`
     - **Success:** `scripts/test_runner.py handlers --coverage` and `scripts/test_runner.py bot --coverage` pass; flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `check_update` on a `CallbackQueryHandler` needs a real `Update`; the `make_update` factory gives a `MagicMock`, so the tests match on `handler.pattern` (fallbacks also hold a `CommandHandler` with no `pattern`).
+        - All 5 new tests failed with `src/` stashed, then passed with it restored.
+        - The unit test proves `menu_cancel` ends the conversation. "Text after cancel is not saved as a port" is proven end to end in task 3.1 (it needs the real conversation state).
+    - **Key Changes:**
+        - `src/bot/handlers/webhooks.py`: `wh_back` handler in `WEBHOOK_MENU`; `menu_cancel` fallback to `handle_close`; `prompt_port` sends `get_webhook_port_keyboard()`; `context.user_data.clear()` removed.
+        - `src/bot/keyboards.py`: new `get_webhook_port_keyboard()`.
+        - Tests in `tests/test_handlers/test_webhooks_handler.py` and `tests/test_bot/test_keyboards.py`.
+    - **Notes:** `scripts/test_runner.py bot --coverage` prints a failing 100% gate (it also lists `src/bot/handlers/`, which `tests/test_bot/` does not cover). Ignore it; the preflight runs the real gate.
 
 - [ ] **2.2** Private-chat gate and stable secrets (F012, F100)
     - **Context:**

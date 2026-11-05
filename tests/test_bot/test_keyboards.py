@@ -2314,3 +2314,16 @@ class TestDeleteItemsKeyboard:
         for row in rows:
             for btn in row:
                 assert len(btn.callback_data.encode()) <= 64
+
+
+class TestWebhookPortKeyboard:
+    """Cancel keyboard of the webhook port prompt."""
+
+    def test_single_cancel_button(self):
+        from src.bot.keyboards import get_webhook_port_keyboard
+
+        keyboard = get_webhook_port_keyboard()
+
+        assert isinstance(keyboard, InlineKeyboardMarkup)
+        buttons = [b for row in keyboard.inline_keyboard for b in row]
+        assert [b.callback_data for b in buttons] == ["menu_cancel"]

@@ -285,6 +285,36 @@ class TestPortChange:
         assert result == States.WEBHOOK_CHANGE_PORT
 
     @pytest.mark.asyncio
+    async def test_prompt_port_has_cancel_button(
+        self, handler, context, webhook_handler_config, make_update, make_user
+    ):
+        """The port prompt carries a Cancel button (menu_cancel)."""
+        update = make_update(callback_data="wh_port", user=make_user(user_id=12345))
+
+        with patch("src.bot.handlers.webhooks.config", webhook_handler_config):
+            await handler.prompt_port(update, context)
+
+        markup = update.callback_query.message.edit_text.call_args.kwargs["reply_markup"]
+        callbacks = [b.callback_data for row in markup.inline_keyboard for b in row]
+        assert callbacks == ["menu_cancel"]
+
+    @pytest.mark.asyncio
+    async def test_menu_cancel_is_a_fallback_that_ends_the_conversation(
+        self, handler, context, make_update, make_user
+    ):
+        """menu_cancel leaves WEBHOOK_CHANGE_PORT, so typed text is not read as a port."""
+        fallbacks = handler.get_handler()[0].fallbacks
+        update = make_update(callback_data="menu_cancel", user=make_user(user_id=12345))
+
+        matching = [
+            f for f in fallbacks
+            if getattr(f, "pattern", None) and f.pattern.match("menu_cancel")
+        ]
+        assert len(matching) == 1
+        result = await matching[0].callback(update, context)
+        assert result == ConversationHandler.END
+
+    @pytest.mark.asyncio
     async def test_save_port_valid(
         self, handler, context, webhook_handler_config, make_update, make_user
     ):
@@ -350,6 +380,18 @@ class TestClose:
         result = await handler.handle_close(update, context)
         assert result == ConversationHandler.END
 
+    @pytest.mark.asyncio
+    async def test_close_keeps_unrelated_user_data(
+        self, handler, make_context, make_update, make_user
+    ):
+        """Close must not wipe the state of other open flows."""
+        context = make_context(user_data={"other_flow": "keep me"})
+        update = make_update(callback_data="wh_close", user=make_user(user_id=12345))
+
+        await handler.handle_close(update, context)
+
+        assert context.user_data == {"other_flow": "keep me"}
+
 
 # ---------------------------------------------------------------------------
 # get_handler tests
@@ -382,6 +424,33 @@ class TestBackToMenu:
 
         result = await handler._back_to_menu(update, context)
         assert result == ConversationHandler.END
+
+
+class TestBackRegistered:
+    """wh_back must be handled in the main menu state too."""
+
+    @pytest.mark.asyncio
+    async def test_wh_back_in_webhook_menu_shows_menu_again(
+        self, handler, context, webhook_handler_config, make_update, make_user
+    ):
+        """After a service screen, Back (wh_back) returns to the menu."""
+        from src.bot.states import States
+
+        update = make_update(callback_data="wh_back", user=make_user(user_id=12345))
+        menu_handlers = handler.get_handler()[0].states[States.WEBHOOK_MENU]
+        matching = [h for h in menu_handlers if h.pattern.match("wh_back")]
+        assert len(matching) == 1
+
+        with patch("src.bot.handlers.webhooks.config", webhook_handler_config):
+            result = await matching[0].callback(update, context)
+
+        assert result == States.WEBHOOK_MENU
+        update.callback_query.message.edit_text.assert_awaited_once()
+        markup = update.callback_query.message.edit_text.call_args.kwargs["reply_markup"]
+        assert any(
+            b.callback_data == "wh_setup_radarr"
+            for row in markup.inline_keyboard for b in row
+        )
 
 
 class TestGuardClauses:
