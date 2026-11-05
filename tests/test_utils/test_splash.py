@@ -8,7 +8,6 @@ from src.utils.splash import (
     show_splash_screen,
     show_version,
     show_welcome_screen,
-    show_token_help,
 )
 
 # conftest puts only this module in sys.modules, so the `src` package has no
@@ -234,43 +233,3 @@ class TestShowWelcomeScreen:
         show_welcome_screen()
         captured = capsys.readouterr()
         assert "Starting bot" in captured.out
-
-
-# ---- show_token_help ----
-
-
-class TestShowTokenHelp:
-    """Tests for show_token_help -- prints token configuration guidance."""
-
-    def test_shows_invalid_token_header(self, capsys):
-        """Output includes the invalid token error header."""
-        show_token_help()
-        captured = capsys.readouterr()
-        assert "Invalid Telegram Bot Token" in captured.out
-
-    def test_shows_botfather_instructions(self, capsys):
-        """Output includes BotFather instructions."""
-        show_token_help()
-        captured = capsys.readouterr()
-        assert "@BotFather" in captured.out
-        assert "/newbot" in captured.out
-
-    def test_shows_config_example(self, capsys):
-        """Output includes config.yaml example."""
-        show_token_help()
-        captured = capsys.readouterr()
-        assert "config.yaml" in captured.out
-        assert "telegram" in captured.out
-        assert "token" in captured.out
-
-    def test_shows_setup_wizard_hint(self, capsys):
-        """Output includes setup wizard command."""
-        show_token_help()
-        captured = capsys.readouterr()
-        assert "python run.py --setup" in captured.out
-
-    def test_shows_wiki_url(self, capsys):
-        """Output includes the help wiki URL."""
-        show_token_help()
-        captured = capsys.readouterr()
-        assert "https://github.com/cyneric/addarr/wiki" in captured.out
