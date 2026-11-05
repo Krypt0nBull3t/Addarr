@@ -102,7 +102,7 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
 
 **Goal:** All CI checks pass locally before the PR.
 
-- [ ] **3.1** Acceptance check and preflight
+- [x] **3.1** Acceptance check and preflight
     - **Context:**
         - **Why:** CI requires lint, mypy, i18n, the 100% coverage gate, integration and architecture tests, and the issue says no source change.
         - **Architecture:** `/addarr pr` runs the review, then the preflight in `references/preflight.md`.
@@ -114,3 +114,26 @@ Docs only. No change in `src/`. See `plan.md` for the audit table and the rules 
         - [GREEN] Run the gap check (`gaps: 0`) and `git diff --stat origin/development` (only `CLAUDE.md` and files under `docs/issues/`)
         - [GREEN] Run the create-pr flow
     - **Success:** Every preflight step passes; no file under `src/` changed
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The pre-PR review caught a wrong claim in the new CLAUDE.md bullet ("outside any `try`"): `handler.py` calls `enforce_rate_limit` inside the method-wide `try`. The same claim sat in the `anti-patterns.md` GOOD example, so both were corrected
+    - **Key Changes:**
+        - `CLAUDE.md`: removed "outside any `try`" from the rate-limit bullet (`8250c1f`)
+        - `.claude/skills/addarr-handlers/references/anti-patterns.md`: reworded the GOOD example comment (`f70bb8e`)
+    - **Notes:** Preflight passed: lint, mypy, i18n clean; unit 2389 passed at 100% coverage; integration 105; architecture 158. The gap check printed `gaps: 0`, and `git diff --name-only origin/development` listed no file under `src/`. PR #277 CI was green on all 14 checks
+
+### Phase 4: Review feedback round 1 (1 task)
+
+**Goal:** Answer the review thread on `docs/issues/issue-276/TASKS.md:105`.
+
+- [x] **4.1** [should-fix] Tick task 3.1 and add its metadata (from Krypt0nBull3t)
+    - **Context:** Thread `PRRT_kwDORQhqUc60TgPa` at `docs/issues/issue-276/TASKS.md:105`: task 3.1 stayed `- [ ]` although its work was done, which contradicts the PR goal and the gap check it describes.
+    - **Action items:**
+        - [RED] The line `- [ ] **3.1**` is in `docs/issues/issue-276/TASKS.md` (a `git grep -F` finds it)
+        - [GREEN] Tick 3.1 and add `Completed`, `Learnings`, `Key Changes` and `Notes`
+    - **Success:** No unticked task is left in `docs/issues/issue-276/TASKS.md`; architecture tests pass
+    - **Completed:** 2026-11-05
+    - **Learnings:** The preflight task ran inside the create-pr flow, before the PR existed, so the box stayed open when the PR opened. Tick the last task before the push
+    - **Key Changes:**
+        - `docs/issues/issue-276/TASKS.md`: task 3.1 ticked with its four fields; this phase added
+    - **Notes:** The reply to the thread names the commit; the thread is left open for the reviewer
