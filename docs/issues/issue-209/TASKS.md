@@ -38,7 +38,7 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
         - `tests/test_utils/test_backup.py`: `TestBackupRetentionAndMode` (5 tests) and `test_dockerignore_lists_backup_dir`
     - **Notes:** An existing `backup/` dir keeps its old mode (not chmodded on purpose: a dir owned by another user would break backups). Existing old backups with mode 0644 stay until they are pruned.
 
-- [ ] **1.2** F030 and F031: write once and keep comments
+- [x] **1.2** F030 and F031: write once and keep comments
     - **Context:**
         - **Why:** `Config.save()` truncates the file and then dumps with PyYAML, so a failed dump leaves an empty `config.yaml`, and PyYAML drops every comment. `_load_config` uses `yaml.safe_load`, so comments are lost at load too.
         - **Architecture:** `src/config/settings.py` gets a module-level `_yaml = YAML()` (ruamel round-trip, `preserve_quotes = True`, `indent(mapping=2, sequence=4, offset=2)`, as in `src/utils/config_handler.py:23-25`). Do not import `config_handler` (ADR 0005). `Config._write_config(self) -> None` dumps `self._config` to a `StringIO`, then opens `CONFIG_PATH` once and writes the text. `save()` is `create_backup()` then `_write_config()`. The startup prompt write at `settings.py:123-124` calls `_write_config()` too.
@@ -53,6 +53,14 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
         - [GREEN] Implement the loader, `_write_config`, `save`; point the `:123` write at `_write_config`; switch the dump-fails patch to `_yaml.dump`
         - [GREEN] Remove the two copied-code `TestSave` tests
     - **Success:** `scripts/test_runner.py config --coverage` passes, `mypy src/` clean, flake8 clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The red run of the dump-fails test showed the old bug: `config.yaml` was empty (`'' == 'old: content\n'`) after a failed dump.
+        - `scripts/test_runner.py config --coverage` reports 0 statements for `src/config/settings.py` (the loader runs a copy of the file under another name), so the real coverage number for this file comes only from the preflight run.
+    - **Key Changes:**
+        - `src/config/settings.py`: module-level ruamel `_yaml`; `_load_config` uses it; new `Config._write_config()` (dump to `StringIO`, one write, comment says why no `os.replace`); `save()` and the startup prompt write use it
+        - `tests/test_config/test_settings.py`: new `TestRealSettingsSave` (3 tests); removed the two `TestSave` tests that tested a copy of the code and the unused `mock_open` import
+    - **Notes:** `Config._config` is now a ruamel `CommentedMap`. The preflight and integration runs must confirm no reader breaks on it.
 
 - [ ] **1.3** F032: tell the user when the auth save fails
     - **Context:**

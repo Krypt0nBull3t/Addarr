@@ -10,7 +10,7 @@ level. Instead, we test:
 """
 
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 
 
 class TestMockConfig:
@@ -302,75 +302,6 @@ class TestSave:
         cfg = MockConfig()
         cfg.save()  # should not raise
 
-    def test_save_writes_yaml(self):
-        """Config.save() writes _config via yaml.dump after backup."""
-        import yaml
-        import sys
-
-        # Get the mock settings module from sys.modules
-        settings_mod = sys.modules["src.config.settings"]
-
-        # Add necessary attributes for save() to work
-        settings_mod.create_backup = lambda: None
-        settings_mod.CONFIG_PATH = "/tmp/fake_config.yaml"
-        settings_mod.yaml = yaml
-
-        # Add a real save method to MockConfig for this test
-        from tests.conftest import MockConfig
-        cfg = MockConfig()
-        cfg._config = {"language": "en-us", "telegram": {"token": "t"}}
-
-        m = mock_open()
-        with (
-            patch.object(settings_mod, "create_backup") as mock_backup,
-            patch("builtins.open", m),
-        ):
-            # Call save using the real implementation logic
-            settings_mod.create_backup()
-            with open(settings_mod.CONFIG_PATH, 'w') as f:
-                yaml.dump(cfg._config, f, default_flow_style=False)
-
-            mock_backup.assert_called_once()
-            handle = m()
-            written = "".join(
-                c.args[0] for c in handle.write.call_args_list
-            )
-            assert "language" in written
-
-    def test_save_creates_backup_first(self):
-        """save() must call create_backup() before writing the file."""
-        import yaml
-        import sys
-
-        settings_mod = sys.modules["src.config.settings"]
-        settings_mod.create_backup = lambda: None
-        settings_mod.CONFIG_PATH = "/tmp/fake_config.yaml"
-
-        call_order = []
-
-        def track_backup():
-            call_order.append("backup")
-
-        m = mock_open()
-        original_open = m
-
-        def track_open(*args, **kwargs):
-            call_order.append("open")
-            return original_open(*args, **kwargs)
-
-        with (
-            patch.object(settings_mod, "create_backup",
-                         side_effect=track_backup),
-            patch("builtins.open", side_effect=track_open),
-        ):
-            # Simulate save() order: backup first, then open
-            settings_mod.create_backup()
-            with open(settings_mod.CONFIG_PATH, 'w') as f:
-                yaml.dump({"language": "en-us"}, f, default_flow_style=False)
-
-            assert call_order[0] == "backup"
-            assert call_order[1] == "open"
-
 
 class TestApplyDefaultKey:
     """Test _apply_default_key logic for non-interactive (Docker) config defaults.
@@ -579,6 +510,56 @@ class TestRealSettingsMissingSection:
         )
         saved = yaml.safe_load(result.written[CONFIG_PATH])
         assert saved["bazarr"] == self._example()["bazarr"]
+
+
+class TestRealSettingsSave:
+    """F030, F031: save() writes once and keeps the comments in config.yaml."""
+
+    @staticmethod
+    def _commented(text):
+        quoted = text.replace("password: test-pass", 'password: "test-pass"')
+        return "# keep me\n" + quoted
+
+    def test_save_keeps_old_file_when_dump_fails(
+        self, load_settings, valid_config_text, tmp_path
+    ):
+        result = load_settings(valid_config_text)
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("old: content\n")
+        result.module.CONFIG_PATH = str(config_file)
+
+        with patch.object(
+            result.module._yaml, "dump", side_effect=RuntimeError("boom")
+        ):
+            with pytest.raises(RuntimeError):
+                result.config.save()
+
+        assert config_file.read_text() == "old: content\n"
+
+    def test_save_keeps_comments_and_quotes(
+        self, load_settings, valid_config_text, tmp_path
+    ):
+        result = load_settings(self._commented(valid_config_text))
+        config_file = tmp_path / "config.yaml"
+        result.module.CONFIG_PATH = str(config_file)
+
+        result.config.update_nested("language", "nl-be")
+        result.config.save()
+
+        saved = config_file.read_text()
+        assert "# keep me" in saved
+        assert 'password: "test-pass"' in saved
+        assert "language: nl-be" in saved
+
+    def test_startup_prompt_write_keeps_comment(
+        self, load_settings, valid_config_text
+    ):
+        from src.definitions import CONFIG_PATH
+        text = self._commented(
+            _mutate(valid_config_text, lambda d: d.pop("bazarr"))
+        )
+        result = load_settings(text, interactive=True)
+        assert "# keep me" in result.written[CONFIG_PATH]
 
 
 _VALIDATED_SERVICES = ("radarr", "sonarr", "lidarr", "sabnzbd", "bazarr")

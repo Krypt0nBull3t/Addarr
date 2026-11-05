@@ -10,14 +10,23 @@ all required settings are present and valid.
 """
 
 import os
+from io import StringIO
+
 import yaml
 import questionary
+from ruamel.yaml import YAML
 from typing import Dict, Any, List
 from colorama import Fore
 
 from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH, CHAT_MODES
 from ..utils.backup import create_backup
 from ..utils.terminal import is_interactive
+
+
+# Round-trip loader and dumper: keeps the comments and quotes of config.yaml
+_yaml = YAML()
+_yaml.preserve_quotes = True
+_yaml.indent(mapping=2, sequence=4, offset=2)
 
 
 class ConfigurationError(Exception):
@@ -93,7 +102,7 @@ class Config:
             raise ConfigurationError(f"Configuration file not found: {CONFIG_PATH}")
 
         with open(CONFIG_PATH, 'r') as f:
-            loaded = yaml.safe_load(f)
+            loaded = _yaml.load(f)
         if not isinstance(loaded, dict):
             raise ConfigurationError(
                 f"Configuration file is empty or not a mapping: {CONFIG_PATH}. "
@@ -120,8 +129,7 @@ class Config:
                             self._apply_default_key(key, example_config)
                         else:
                             self._configure_missing_key(key)
-                    with open(CONFIG_PATH, 'w') as f:
-                        yaml.dump(self._config, f, default_flow_style=False)
+                    self._write_config()
                     print(f"{Fore.GREEN}✅ Configuration updated successfully!")
                 else:
                     raise ConfigurationError(
@@ -270,11 +278,24 @@ class Config:
             current = current[key]
         current[keys[-1]] = value
 
+    def _write_config(self) -> None:
+        """Write the config to disk, keeping its comments.
+
+        Dump to a string first: opening the file with 'w' empties it, so a
+        failed dump after the open would leave an empty config.yaml. Then
+        write once into the same file. No os.replace: the compose file
+        bind-mounts the single file config.yaml, and a replace swaps the
+        inode and breaks that mount.
+        """
+        buffer = StringIO()
+        _yaml.dump(self._config, buffer)
+        with open(CONFIG_PATH, 'w') as f:
+            f.write(buffer.getvalue())
+
     def save(self):
         """Persist current config to disk."""
         create_backup()
-        with open(CONFIG_PATH, 'w') as f:
-            yaml.dump(self._config, f, default_flow_style=False)
+        self._write_config()
 
 
 # Create global config instance
