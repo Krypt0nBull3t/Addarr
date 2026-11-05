@@ -62,9 +62,6 @@ def mock_lidarr_client():
     client.get_quality_profiles = AsyncMock(
         return_value=[{"id": 1, "name": "Lossless"}]
     )
-    client.get_metadata_profiles = AsyncMock(
-        return_value=[{"id": 1, "name": "Standard"}]
-    )
     client.get_artists = AsyncMock(return_value=[])
     client.get_artist_by_id = AsyncMock(return_value=None)
     client.delete_artist = AsyncMock(return_value=True)

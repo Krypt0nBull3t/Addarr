@@ -13,7 +13,6 @@ from src.utils.logger import (
     ColoredFormatter,
     ColoredLogger,
     get_logger,
-    log_exception,
     log_user_interaction,
     SUCCESS_LEVEL,
 )
@@ -269,29 +268,6 @@ class TestLoggingConfig:
         (tmp_path / "config.yaml").write_bytes(b"\xff\xfe\x00bad")
         console, _ = self._setup(tmp_path)
         assert len(console) == 1
-
-
-class TestLogException:
-    """Tests for log_exception helper."""
-
-    def test_log_exception_with_context(self):
-        """log_exception includes context in the error message."""
-        mock_logger = MagicMock()
-        err = ValueError("test error")
-        log_exception(mock_logger, err, context="unit test")
-        mock_logger.error.assert_called_once()
-        call_args = mock_logger.error.call_args
-        assert "unit test" in call_args[0][0]
-        assert "test error" in call_args[0][0]
-
-    def test_log_exception_without_context(self):
-        """log_exception works without context string."""
-        mock_logger = MagicMock()
-        err = RuntimeError("boom")
-        log_exception(mock_logger, err)
-        mock_logger.error.assert_called_once()
-        call_args = mock_logger.error.call_args
-        assert "boom" in call_args[0][0]
 
 
 class TestLogUserInteraction:

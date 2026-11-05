@@ -149,11 +149,6 @@ LIDARR_ALBUM_SEARCH_RESULTS = [
     },
 ]
 
-LIDARR_METADATA_PROFILES = [
-    {"id": 1, "name": "Standard"},
-    {"id": 2, "name": "None"},
-]
-
 RADARR_DISK_SPACE = [
     {
         "path": "/movies",

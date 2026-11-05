@@ -157,27 +157,6 @@ def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def log_exception(logger: logging.Logger, e: Exception, context: Optional[str] = None):
-    """
-    Helper function to log exceptions with full context
-
-    Args:
-        logger: Logger instance
-        e: Exception to log
-        context: Additional context information
-    """
-    error_msg = f"{Fore.RED}❌ Error"
-    if context:
-        error_msg += f" in {context}"
-    error_msg += f": {str(e)}"
-
-    logger.error(
-        error_msg,
-        exc_info=True,
-        stack_info=True
-    )
-
-
 def log_user_interaction(logger, user, action: str, input_data: Optional[str] = None):
     """Log user interaction with the bot with emojis
 

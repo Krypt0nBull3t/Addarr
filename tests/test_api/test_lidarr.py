@@ -18,7 +18,6 @@ from tests.conftest import _mock_config
 from tests.fixtures.sample_data import (
     LIDARR_SEARCH_RESULTS,
     LIDARR_ALBUM_SEARCH_RESULTS,
-    LIDARR_METADATA_PROFILES,
     LIDARR_LIBRARY_ARTISTS,
     LIDARR_LIBRARY_ARTIST_DETAIL,
     LIDARR_QUEUE,
@@ -619,47 +618,6 @@ class TestLidarrRootFolders:
         finally:
             config._config["lidarr"]["paths"] = orig_paths
             await client.close()
-
-
-# ---------------------------------------------------------------------------
-# get_metadata_profiles
-# ---------------------------------------------------------------------------
-
-
-class TestLidarrMetadataProfiles:
-    @pytest.mark.asyncio
-    async def test_get_metadata_profiles(self, aio_mock, lidarr_client):
-        aio_mock.get(
-            f"{BASE}/metadataprofile",
-            payload=LIDARR_METADATA_PROFILES,
-            status=200,
-        )
-        profiles = await lidarr_client.get_metadata_profiles()
-        assert len(profiles) == 2
-        assert profiles[0]["id"] == 1
-        assert profiles[0]["name"] == "Standard"
-        assert profiles[1]["id"] == 2
-        assert profiles[1]["name"] == "None"
-
-    @pytest.mark.asyncio
-    async def test_get_metadata_profiles_empty(self, aio_mock, lidarr_client):
-        """500 response exhausts retries, returns empty list."""
-        for _ in range(3):
-            aio_mock.get(
-                f"{BASE}/metadataprofile",
-                status=500,
-                body="error",
-            )
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            profiles = await lidarr_client.get_metadata_profiles()
-        assert profiles == []
-
-    @pytest.mark.asyncio
-    async def test_get_metadata_profiles_exception(self, lidarr_client):
-        """Lines 254-256: Exception in get_metadata_profiles."""
-        with patch.object(lidarr_client, "_make_request", side_effect=Exception("boom")):
-            profiles = await lidarr_client.get_metadata_profiles()
-        assert profiles == []
 
 
 # ---------------------------------------------------------------------------
