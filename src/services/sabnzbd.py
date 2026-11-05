@@ -183,15 +183,12 @@ class SABnzbdService:
             logger.error(f"Error resuming SABnzbd item {nzo_id}: {type(e).__name__}")
             return False
 
-    async def get_queue_details(self) -> Dict[str, Any]:
-        """Get detailed SABnzbd queue data for dashboard display"""
-        empty = {
-            'paused': False,
-            'speed': '0 KB/s',
-            'size_remaining': '0 MB',
-            'items_count': 0,
-            'items': []
-        }
+    async def get_queue_details(self) -> Optional[Dict[str, Any]]:
+        """Get detailed SABnzbd queue data for dashboard display.
+
+        Returns None when the fetch failed (HTTP error, exception, or a reply
+        without a queue, such as a wrong API key).
+        """
         try:
             params = {
                 'mode': 'queue',
@@ -203,7 +200,10 @@ class SABnzbdService:
                 async with session.get(f"{self.base_url}/api", params=params) as response:
                     if response.status == 200:
                         data = await response.json()
-                        queue = data.get('queue', {})
+                        if 'queue' not in data:
+                            logger.error("SABnzbd queue reply has no queue (wrong API key?)")
+                            return None
+                        queue = data['queue']
 
                         items = []
                         for slot in queue.get('slots', []):
@@ -231,11 +231,11 @@ class SABnzbdService:
                         }
                     else:
                         logger.error(f"SABnzbd API returned status {response.status}")
-                        return empty
+                        return None
 
         except Exception as e:
             logger.error(f"Error getting SABnzbd queue details: {type(e).__name__}")
-            return empty
+            return None
 
     async def get_history(self, limit: int = 10) -> Dict[str, Any]:
         """Get SABnzbd download history"""

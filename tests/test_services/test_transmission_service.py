@@ -329,8 +329,8 @@ class TestTransmissionQueueDetails:
         assert result["paused"] is True
 
     @pytest.mark.asyncio
-    async def test_get_queue_details_empty_on_error(self):
-        """Returns empty dict shape on exception."""
+    async def test_get_queue_details_none_on_error(self):
+        """Returns None on exception, so the handler can show an error."""
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
@@ -340,8 +340,7 @@ class TestTransmissionQueueDetails:
 
         result = await service.get_queue_details()
 
-        assert result["items_count"] == 0
-        assert result["items"] == []
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_queue_details_empty_when_no_torrents(self):
@@ -365,7 +364,7 @@ class TestTransmissionQueueDetails:
 
     @pytest.mark.asyncio
     async def test_get_queue_details_no_client(self):
-        """Returns False/empty when client is None."""
+        """Returns None when client is None."""
         from src.services.transmission import TransmissionService
 
         service = TransmissionService()
@@ -373,8 +372,7 @@ class TestTransmissionQueueDetails:
 
         result = await service.get_queue_details()
 
-        assert result["items_count"] == 0
-        assert result["items"] == []
+        assert result is None
 
 
 # ---------------------------------------------------------------------------

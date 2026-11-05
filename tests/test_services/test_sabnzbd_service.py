@@ -417,8 +417,21 @@ class TestGetQueueDetails:
             m.get(SABNZBD_API_PATTERN, status=500)
             result = await sabnzbd_service.get_queue_details()
 
-        assert result["items_count"] == 0
-        assert result["items"] == []
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_none_on_wrong_api_key(
+        self, sabnzbd_service
+    ):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                payload={"status": False, "error": "API Key Incorrect"},
+                status=200,
+            )
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_queue_details_connection_error(self, sabnzbd_service):
@@ -429,8 +442,7 @@ class TestGetQueueDetails:
             )
             result = await sabnzbd_service.get_queue_details()
 
-        assert result["items_count"] == 0
-        assert result["items"] == []
+        assert result is None
 
 
 # ---------------------------------------------------------------------------

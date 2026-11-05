@@ -31,7 +31,7 @@ Branch: `fix/207-download-failures-look-like-success`.
     - **Key Changes:** `src/services/sabnzbd.py` reads `sizeleft`. Added `test_get_queue_details_size_remaining_uses_sizeleft`. The fixture now has `size` 9.9 GB and `sizeleft` 1.2 GB.
     - **Notes:** The other SABnzbd fixtures that use `size` as remaining size are #216.
 
-- [ ] **1.2** F081 services: `get_queue_details` returns `None` on a failed fetch
+- [x] **1.2** F081 services: `get_queue_details` returns `None` on a failed fetch
     - **Context:**
         - **Why:** An error returns the `empty` dict, so `/downloads` shows "DownloadsEmpty".
         - **Architecture:** Service layer returns `Optional[Dict[str, Any]]`. `None` means the fetch failed. A real empty queue stays a dict with `items_count` 0.
@@ -44,6 +44,10 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] Transmission tests: `None` when the client is missing, `None` on a request error.
         - [GREEN] Change both methods. Update existing tests that expect the `empty` dict on errors.
     - **Success:** Tests pass. mypy shows no new error outside `downloads.py`.
+    - **Completed:** 2026-11-05
+    - **Learnings:** A wrong SABnzbd key is HTTP 200 with no `queue` key, so a status check alone does not catch it. mypy shows no error in `downloads.py` (handler-layer errors are suppressed), so task 1.7 must handle `None` on its own.
+    - **Key Changes:** `SABnzbdService.get_queue_details` and `TransmissionService.get_queue_details` return `Optional[Dict]` and `None` on failure. Removed the `empty` dicts. Updated the error-path tests and added `test_get_queue_details_none_on_wrong_api_key`.
+    - **Notes:** Until task 1.7, `downloads.py` indexes the result and would crash on `None`. Do not ship tasks 1.2 and 1.7 apart.
 
 - [ ] **1.3** F083: the wizard SABnzbd check needs the key
     - **Context:**
