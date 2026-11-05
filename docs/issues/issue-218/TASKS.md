@@ -40,7 +40,7 @@ architecture tests (`test_repo_docs.py`, `test_skills.py`) are the guard: run th
         - `new-task.md`: "Docker/Helm impact" became "Docker impact".
     - **Notes:** Architecture suite: 155 passed. The grep still finds the two `.github/` lines (task 1.3) and `transcribe.md` (generic example label, left as is).
 
-- [ ] **1.2** Remove the legacy .txt mounts, constants and doc lines (F191)
+- [x] **1.2** Remove the legacy .txt mounts, constants and doc lines (F191)
     - **Context:**
         - **Why:** `admin.txt`, `allowlist.txt` and `chatid.txt` are not read by live code, yet compose mounts them and the docs name them.
         - **Architecture:** Delete the mounts and the unused constants; keep `CHATID_PATH` (see Phase Context).
@@ -57,6 +57,16 @@ architecture tests (`test_repo_docs.py`, `test_skills.py`) are the guard: run th
         - [GREEN] `config-patterns.md`: delete the `ADMIN_PATH` and `ALLOWLIST_PATH` rows
         - [GREEN] Run `docker compose config`, then the architecture suite and `<lock> .venv/bin/python scripts/test_runner.py config --coverage` (definitions is imported widely, so also `... utils --coverage`)
     - **Success:** `docker compose config` is valid; the F191 grep finds no `ADMIN_PATH`, `ALLOWLIST_PATH`, `admin.txt` or `allowlist.txt` in `src/`, `docker-compose.yml`, `.dockerignore` or `CLAUDE.md`; tests pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `ADMIN_PATH` and `ALLOWLIST_PATH` had no importer in `src/`, `tests/`, `scripts/` or `run.py`, so deleting them needed no test change.
+        - `docker compose config -q` exits 0. It warns that the `version` attribute is obsolete; that is not part of this issue.
+    - **Key Changes:**
+        - `docker-compose.yml`: removed the `chatid.txt`, `admin.txt` and `allowlist.txt` volume lines.
+        - `.dockerignore`: removed `admin.txt` and `chatid.txt`.
+        - `src/definitions.py`: removed `ADMIN_PATH` and `ALLOWLIST_PATH`.
+        - `CLAUDE.md` (Docker section), `README.md` (permissions note) and `config-patterns.md` (constants table): dropped the names.
+    - **Notes:** The F191 grep over `src/`, `docker-compose.yml`, `.dockerignore` and `CLAUDE.md` still finds `CHATID_PATH` (`src/definitions.py:24`, `src/utils/helpers.py`). Task 1.4 removes it after #226 merges. Checks: architecture 155 passed; config 126 passed and utils 229 passed, both at 100% coverage.
 
 - [ ] **1.3** Remove the Helm lines in `.github/` (developer approved, 2026-11-05)
     - **Context:**

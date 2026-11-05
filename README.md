@@ -369,8 +369,8 @@ After installation:
 
 > **File permissions:** the container runs as the non-root user `addarr` (UID 100, GID 101 in the
 > current image; check with `docker-compose run --rm --entrypoint id addarr`).
-> It must be able to write `config.yaml` (`/auth` and settings changes save it), `chatid.txt`,
-> `logs/` and `backup/`, for example with `sudo chown 100:101 config.yaml chatid.txt logs backup`.
+> It must be able to write `config.yaml` (`/auth` and settings changes save it),
+> `logs/` and `backup/`, for example with `sudo chown 100:101 config.yaml logs backup`.
 > If `logs/` is not writable, Addarr logs to the console only (`docker-compose logs`) and prints one warning.
 > User preferences (`user_preferences.json`) are kept in the named volume `addarr-data`,
 > so they survive when the container is recreated.
