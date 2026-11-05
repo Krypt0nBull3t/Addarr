@@ -550,6 +550,21 @@ class TestRealSettingsSave:
         assert "# keep me" in saved
         assert 'password: "test-pass"' in saved
         assert "language: nl-be" in saved
+        assert "%YAML" not in saved
+
+    def test_yaml_1_1_booleans_still_load_as_booleans(
+        self, load_settings, valid_config_text
+    ):
+        """`enable: no` stays False, as PyYAML read it (YAML 1.2 makes it a string)."""
+        start = valid_config_text.index("\nradarr:")
+        flipped = (
+            valid_config_text[:start]
+            + valid_config_text[start:].replace("enable: false", "enable: no", 1)
+        )
+        assert "enable: no" in flipped
+        result = load_settings(flipped)
+        assert result.error is None
+        assert result.config["radarr"]["enable"] is False
 
     def test_startup_prompt_write_keeps_comment(
         self, load_settings, valid_config_text

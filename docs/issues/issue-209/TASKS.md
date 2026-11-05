@@ -61,6 +61,7 @@ Every test, gate and `git push` runs through the suite lock. Use `.venv/bin/pyth
         - `src/config/settings.py`: module-level ruamel `_yaml`; `_load_config` uses it; new `Config._write_config()` (dump to `StringIO`, one write, comment says why no `os.replace`); `save()` and the startup prompt write use it
         - `tests/test_config/test_settings.py`: new `TestRealSettingsSave` (3 tests); removed the two `TestSave` tests that tested a copy of the code and the unused `mock_open` import
     - **Notes:** `Config._config` is now a ruamel `CommentedMap`. The preflight and integration runs must confirm no reader breaks on it.
+    - **Pre-PR review fix:** ruamel reads YAML 1.2, where `enable: no` is the truthy string `"no"` (PyYAML read it as `False`). A hand-edited disabled service would switch on. `Config` now loads with `_loader` (YAML 1.1) and dumps with `_yaml`, which keeps the `%YAML 1.1` header out of the file. Tests: `test_yaml_1_1_booleans_still_load_as_booleans`, `%YAML` check in `test_save_keeps_comments_and_quotes`.
 
 - [x] **1.3** F032: tell the user when the auth save fails
     - **Context:**

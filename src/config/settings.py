@@ -23,7 +23,13 @@ from ..utils.backup import create_backup
 from ..utils.terminal import is_interactive
 
 
-# Round-trip loader and dumper: keeps the comments and quotes of config.yaml
+# Round-trip loader and dumper: keeps the comments and quotes of config.yaml.
+# The loader reads YAML 1.1, as PyYAML did: `enable: no` stays False. In YAML 1.2
+# it is the string "no", which is truthy and would switch the service on. A
+# separate dumper keeps the `%YAML 1.1` header out of the saved file.
+_loader = YAML()
+_loader.version = (1, 1)
+_loader.preserve_quotes = True
 _yaml = YAML()
 _yaml.preserve_quotes = True
 _yaml.indent(mapping=2, sequence=4, offset=2)
@@ -102,7 +108,7 @@ class Config:
             raise ConfigurationError(f"Configuration file not found: {CONFIG_PATH}")
 
         with open(CONFIG_PATH, 'r') as f:
-            loaded = _yaml.load(f)
+            loaded = _loader.load(f)
         if not isinstance(loaded, dict):
             raise ConfigurationError(
                 f"Configuration file is empty or not a mapping: {CONFIG_PATH}. "
