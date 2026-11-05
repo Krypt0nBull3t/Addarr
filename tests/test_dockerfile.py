@@ -99,3 +99,28 @@ class TestDockerfileSecurity:
         """
         full_text = "".join(dockerfile_lines)
         assert "/app/data" in full_text
+
+
+class TestDockerfileReproducibleBuild:
+    """The image installs the pinned requirements and nothing newer."""
+
+    @staticmethod
+    def _text(dockerfile_lines):
+        """Dockerfile text with continuation lines joined."""
+        return "".join(dockerfile_lines).replace("\\\n", " ")
+
+    def test_requirements_install_has_no_upgrade(self, dockerfile_lines):
+        """--upgrade on the requirements install lifts a pinned package."""
+        install = [
+            part
+            for part in self._text(dockerfile_lines).split("&&")
+            if "-r requirements.txt" in part
+        ]
+        assert len(install) == 1
+        assert "--upgrade" not in install[0]
+
+    def test_pip_is_upgraded_before_requirements(self, dockerfile_lines):
+        """The base image's pip has advisories; 26.2 fixes them."""
+        text = self._text(dockerfile_lines)
+        assert '"pip>=26.2"' in text
+        assert text.index('"pip>=26.2"') < text.index("-r requirements.txt")

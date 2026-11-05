@@ -33,7 +33,7 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
         - `tests/test_handlers/test_help_handler.py`: two new link-preview tests.
     - **Notes:** Handlers run: 759 passed, 100% coverage. Integration: 105 passed. No integration test asserted the old argument.
 
-- [ ] **1.2** Install requirements without `--upgrade` and pin the pip upgrade (F151, F153)
+- [x] **1.2** Install requirements without `--upgrade` and pin the pip upgrade (F151, F153)
     - **Context:**
         - **Why:** `Dockerfile:16` runs `pip install --no-cache-dir -r requirements.txt --upgrade`, which can lift a pinned package. The pip upgrade (`pip>=26.2`, lines 14-15) is already committed, with no test.
         - **Architecture:** Text tests on the `Dockerfile`, in the style of `tests/test_dockerfile.py`.
@@ -46,6 +46,14 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
         - [RED] Write `test_pip_is_upgraded_before_requirements` (passes today; it pins F153)
         - [GREEN] Remove ` --upgrade` from the requirements install
     - **Success:** the first test fails first, then both pass; `pytest tests/test_dockerfile.py` passes
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `test_requirements_install_has_no_upgrade` failed first on the `--upgrade` assertion; `test_pip_is_upgraded_before_requirements` passed at once because F153 was already committed.
+        - Splitting the joined Dockerfile text on `&&` isolates the requirements install from the pip upgrade.
+    - **Key Changes:**
+        - `Dockerfile`: the requirements install no longer has `--upgrade`; the `pip>=26.2` upgrade stays.
+        - `tests/test_dockerfile.py`: new class `TestDockerfileReproducibleBuild` with two tests.
+    - **Notes:** `tests/test_dockerfile.py` 10 passed; `tests/test_architecture` 158 passed.
 
 - [ ] **1.3** Keep dev-only folders out of the image (F152)
     - **Context:**
