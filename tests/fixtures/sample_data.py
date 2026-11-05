@@ -40,11 +40,6 @@ RADARR_MOVIE_DETAIL = {
     "id": 1,
 }
 
-RADARR_ROOT_FOLDERS = [
-    {"path": "/movies", "freeSpace": 1000000000000},
-    {"path": "/movies2", "freeSpace": 500000000000},
-]
-
 RADARR_QUALITY_PROFILES = [
     {"id": 1, "name": "HD-1080p", "upgradeAllowed": True},
     {"id": 2, "name": "Ultra-HD", "upgradeAllowed": False},
@@ -99,12 +94,6 @@ SONARR_SERIES_DETAIL = {
     ],
     "id": 1,
 }
-
-SONARR_SEASONS = [
-    {"seasonNumber": 0, "monitored": False},
-    {"seasonNumber": 1, "monitored": True},
-    {"seasonNumber": 2, "monitored": True},
-]
 
 LIDARR_SEARCH_RESULTS = [
     {
@@ -187,42 +176,6 @@ TRANSMISSION_SESSION = {
         "download-dir": "/downloads",
     },
     "result": "success",
-}
-
-SABNZBD_QUEUE = {
-    "queue": {
-        "slots": [],
-        "noofslots": 0,
-        "speed": "0 KB/s",
-        "size": "0 MB",
-        "status": "Idle",
-    }
-}
-
-SABNZBD_VERSION = {"version": "4.0.0"}
-
-SABNZBD_HISTORY = {
-    "history": {
-        "noofslots": 2,
-        "slots": [
-            {
-                "status": "Completed",
-                "nzb_name": "Ubuntu.22.04.nzb",
-                "name": "Ubuntu 22.04",
-                "category": "software",
-                "size": "2.1 GB",
-                "completed": 1700000000,
-            },
-            {
-                "status": "Completed",
-                "nzb_name": "Fedora.39.nzb",
-                "name": "Fedora 39",
-                "category": "software",
-                "size": "1.8 GB",
-                "completed": 1700001000,
-            },
-        ],
-    }
 }
 
 # ---------------------------------------------------------------------------

@@ -52,14 +52,6 @@ def mock_translation_service():
 
 
 @pytest.fixture
-def mock_notification_service():
-    """Mock NotificationService."""
-    service = MagicMock()
-    service.notify_admin = AsyncMock()
-    return service
-
-
-@pytest.fixture
 def admin_mode(mock_config):
     """Admin mode on with admin user 1, so the default test user 12345 is no admin."""
     mock_config._set("security", {
@@ -157,65 +149,6 @@ def start_handler(mock_media_service, mock_translation_service):
         handler._mock_ts = mock_translation_service
         handler._mock_kbd = mock_kbd
         handler._mock_lib_kbd = mock_lib_kbd
-        yield handler
-
-
-@pytest.fixture
-def transmission_handler(mock_translation_service):
-    """Create a TransmissionHandler with patched services."""
-    with (
-        patch("src.bot.handlers.transmission.TransmissionService") as mock_ts_svc,
-        patch("src.bot.handlers.transmission.TranslationService") as mock_ts_class,
-    ):
-        mock_ts_class.return_value = mock_translation_service
-        mock_trans = MagicMock()
-        mock_trans.is_enabled.return_value = True
-        mock_trans.get_session = AsyncMock(return_value={"alt-speed-enabled": False})
-        mock_trans.toggle_turtle_mode = AsyncMock(return_value=True)
-        mock_ts_svc.return_value = mock_trans
-
-        from src.bot.handlers.transmission import TransmissionHandler
-        from src.bot.handlers.auth import AuthHandler
-
-        AuthHandler._authenticated_users = {12345}
-        handler = TransmissionHandler()
-        handler._mock_trans = mock_trans
-        handler._mock_ts = mock_translation_service
-        yield handler
-
-
-@pytest.fixture
-def auth_handler():
-    """Create an AuthHandler with patched dependencies."""
-    with (
-        patch("src.bot.handlers.auth.TranslationService") as mock_ts_class,
-    ):
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
-
-        from src.bot.handlers.auth import AuthHandler
-
-        AuthHandler._authenticated_users = set()
-        handler = AuthHandler()
-        handler._mock_ts = mock_ts
-        yield handler
-
-
-@pytest.fixture
-def help_handler(mock_translation_service):
-    """Create a HelpHandler with patched services."""
-    with (
-        patch("src.bot.handlers.help.TranslationService") as mock_ts_class,
-    ):
-        mock_ts_class.return_value = mock_translation_service
-
-        from src.bot.handlers.help import HelpHandler
-        from src.bot.handlers.auth import AuthHandler
-
-        AuthHandler._authenticated_users = {12345}
-        handler = HelpHandler()
-        handler._mock_ts = mock_translation_service
         yield handler
 
 

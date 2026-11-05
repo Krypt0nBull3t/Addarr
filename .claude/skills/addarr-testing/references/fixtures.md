@@ -125,17 +125,9 @@ After each test, closes the session of every `radarr_client`, `sonarr_client`, `
 Yields an `aioresponses()` context manager. Register expected URLs:
 
 ```python
-async def test_example(aio_mock, radarr_url):
-    aio_mock.get(f"{radarr_url}/api/v3/movie/lookup?term=test", payload=[...])
+async def test_example(aio_mock):
+    aio_mock.get("http://localhost:7878/api/v3/movie/lookup?term=test", payload=[...])
 ```
-
-### URL Fixtures
-
-- `radarr_url`: `"http://localhost:7878"`
-- `sonarr_url`: `"http://localhost:8989"`
-- `lidarr_url`: `"http://localhost:8686"`
-- `bazarr_url`: `"http://localhost:6767"`
-- `transmission_url`: `"http://localhost:9091"`
 
 ### Client Fixtures
 
@@ -204,10 +196,6 @@ Defined in `tests/test_handlers/conftest.py`. Available to `tests/test_handlers/
 
 `MagicMock` where `get_text` and `get_message` return the key (identity function). `current_language = "en-us"`.
 
-### mock_notification_service
-
-`MagicMock` with `AsyncMock` methods: `notify_admin`.
-
 ### admin_mode
 
 Sets `security.enableAdmin` on and `admins` to `[1]` on `mock_config`, and patches `src.utils.helpers.config` with it. The default test user 12345 is then no admin. Yields the config.
@@ -216,9 +204,7 @@ Sets `security.enableAdmin` on and `admins` to `[1]` on `mock_config`, and patch
 
 Each one patches the handler's services where the handler module imports them, sets `AuthHandler._authenticated_users = {12345}`, and yields the handler. The mocks are on `_mock_*` attributes (for example `handler._mock_service`, `handler._mock_ts`).
 
-`media_handler`, `delete_handler`, `start_handler`, `transmission_handler`, `help_handler`, `library_handler`, `system_handler`, `settings_handler`, `calendar_handler`, `missing_handler`, `queue_handler`, `history_handler`, `preferences_handler`
-
-`auth_handler` is the exception: it starts with no authenticated users.
+`media_handler`, `delete_handler`, `start_handler`, `library_handler`, `system_handler`, `settings_handler`, `calendar_handler`, `missing_handler`, `queue_handler`, `history_handler`, `preferences_handler`
 
 ### unchanged_edit
 
@@ -249,12 +235,10 @@ from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
 |-|-|-|
 | `RADARR_SEARCH_RESULTS` | list[dict] | 2 movie results with tmdbId, title, year, etc. |
 | `RADARR_MOVIE_DETAIL` | dict | Single movie with full fields |
-| `RADARR_ROOT_FOLDERS` | list[dict] | Root folder paths with free space |
 | `RADARR_QUALITY_PROFILES` | list[dict] | Quality profiles with id and name |
 | `RADARR_DISK_SPACE` | list[dict] | Disk space entries with path, label, free and total space |
 | `SONARR_SEARCH_RESULTS` | list[dict] | 2 series results |
 | `SONARR_SERIES_DETAIL` | dict | Single series with seasons |
-| `SONARR_SEASONS` | list[dict] | 3 seasons with seasonNumber and monitored |
 | `LIDARR_SEARCH_RESULTS` | list[dict] | 2 artist results |
 | `LIDARR_ALBUM_SEARCH_RESULTS` | list[dict] | 2 album results |
 | `LIDARR_ALBUM_WITH_TRACKS` | dict | Single album with media (tracks) |
@@ -265,9 +249,6 @@ from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
 | `RADARR_QUEUE` / `SONARR_QUEUE` / `LIDARR_QUEUE` | dict | Paged queue response |
 | `RADARR_HISTORY` / `SONARR_HISTORY` | dict | Paged history response |
 | `TRANSMISSION_SESSION` | dict | Session response with alt-speed-enabled |
-| `SABNZBD_QUEUE` | dict | Queue response with slots and speed |
-| `SABNZBD_VERSION` | dict | Version response |
-| `SABNZBD_HISTORY` | dict | History response |
 
 Bazarr responses are in `tests/fixtures/bazarr_data.py` (`from tests.fixtures.bazarr_data import BAZARR_MOVIES`):
 

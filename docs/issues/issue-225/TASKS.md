@@ -85,7 +85,7 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - `.claude/skills/addarr-testing/references/patterns.md`: removed the `api_mocks.py` table row.
     - **Notes:** Task 1.4 must also update the skill docs for the fixtures and constants it deletes (`SKILL.md` and `references/fixtures.md` name them).
 
-- [ ] **1.4** F251: delete dead fixtures and unused sample data
+- [x] **1.4** F251: delete dead fixtures and unused sample data
     - **Context:**
         - **Why:** An AST scan of `tests/` found fixtures nobody requests and constants nobody imports.
         - **Architecture:** Dead fixtures: `radarr_url`, `sonarr_url`, `lidarr_url`, `bazarr_url`, `transmission_url` (`tests/test_api/conftest.py`); `mock_notification_service`, `transmission_handler`, `auth_handler`, `help_handler` (`tests/test_handlers/conftest.py`, two import classes that do not exist); `bazarr_service` (`tests/test_services/test_bazarr_service.py`); `filtered_service` (`tests/test_services/test_webhook_service.py`). Unused constants in `tests/fixtures/sample_data.py`: `RADARR_ROOT_FOLDERS`, `SONARR_SEASONS`, `SABNZBD_QUEUE`, `SABNZBD_VERSION`, `SABNZBD_HISTORY`, plus any constant only the files deleted in 1.3 used (the audit counts 6).
@@ -98,6 +98,16 @@ Run every pytest, flake8 and mypy command with `.venv/bin/python` through the su
         - [GREEN] Delete each dead fixture and constant, then its unused imports
         - Re-run the scan: no non-autouse unused fixture and no unused constant remains
     - **Success:** `grep -rn "def radarr_url\|def bazarr_service\|def filtered_service" tests` returns nothing, flake8 clean, unit suite passes at 100% coverage.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The scan found 5 unused `sample_data.py` constants, not the 6 the audit counts, and none was left after the 1.3 deletions. Every remaining constant is used.
+        - The skill docs taught the deleted `radarr_url` fixture in many examples (`patterns.md`, `anti-patterns.md`, `fixtures.md`), although no test used it. The examples now use the literal URL `http://localhost:7878`.
+        - The AST scan reports autouse fixtures and fixtures used via `usefixtures` as unused. Those are false positives.
+    - **Key Changes:**
+        - Deleted the 5 `*_url` fixtures (`tests/test_api/conftest.py`), `mock_notification_service`, `transmission_handler`, `auth_handler`, `help_handler` (`tests/test_handlers/conftest.py`), `bazarr_service`, `filtered_service`.
+        - Deleted `RADARR_ROOT_FOLDERS`, `SONARR_SEASONS`, `SABNZBD_QUEUE`, `SABNZBD_VERSION`, `SABNZBD_HISTORY` from `tests/fixtures/sample_data.py`.
+        - Updated `.claude/skills/addarr-testing/SKILL.md`, `references/fixtures.md`, `references/patterns.md`, `references/anti-patterns.md` and `.claude/skills/task-writer/SKILL.md` (it named `bazarr_url`).
+    - **Notes:** Full suite after this task: 2478 passed, coverage 100%.
 
 - [ ] **1.5** F252: delete duplicate tests
     - **Context:**
