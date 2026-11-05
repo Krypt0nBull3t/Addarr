@@ -89,7 +89,7 @@ architecture tests (`test_repo_docs.py`, `test_skills.py`) are the guard: run th
         - `.github/workflows/auto-approve.yml`: removed `r'^helm/',` from `EXCLUDE_PATTERNS`.
     - **Notes:** The developer approved both edits (relayed by the orchestrator, 2026-11-05); the PR body must say so. `auto-approve.yml` still parses with `yaml.safe_load`. Architecture suite: 155 passed.
 
-- [ ] **1.4** Delete `CHATID_PATH` (conditional: only when #226 is merged)
+- [x] **1.4** Delete `CHATID_PATH` (conditional: only when #226 is merged)
     - **Context:**
         - **Why:** F191 wants no `CHATID_PATH` in `src/`. Its only users are the dead helpers `get_authorized_chats` and `save_chat_id`, which #226 deletes.
         - **Architecture:** Do this at create-pr after `git merge origin/development`. Do not delete the helpers here; that is #226's change.
@@ -102,3 +102,11 @@ architecture tests (`test_repo_docs.py`, `test_skills.py`) are the guard: run th
         - [GREEN] Delete `CHATID_PATH` and its doc row
         - [GREEN] Run the F191 grep over `src/`, `docker-compose.yml`, `.dockerignore`, `CLAUDE.md`
     - **Success:** The F191 grep finds nothing in those four targets; preflight passes.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - #226 (PR #256) deleted `get_authorized_chats` and `save_chat_id`, so `CHATID_PATH` had no importer left after the merge.
+        - After the merge only `src/definitions.py` and the `config-patterns.md` row named the constant. No other file needed a change, so the pre-PR review was not re-run.
+    - **Key Changes:**
+        - `src/definitions.py`: removed `CHATID_PATH`.
+        - `config-patterns.md`: removed the `CHATID_PATH` row.
+    - **Notes:** `.gitignore`, the `.claude/settings.json` deny rules, `test_agent_tooling.py` and `.claude/agents/*.md` still name `chatid.txt` on purpose (guards for old files on users' disks).

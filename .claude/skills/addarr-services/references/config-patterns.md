@@ -77,7 +77,6 @@ Defined in `src/definitions.py`:
 | `CONFIG_PATH` | `config.yaml` |
 | `CONFIG_EXAMPLE_PATH` | `config_example.yaml` |
 | `TRANSLATIONS_PATH` | `translations/` |
-| `CHATID_PATH` | `chatid.txt` |
 | `LOG_PATH` | `logs/addarr.log` |
 | `DATA_PATH` | `data/` |
 | `PREFERENCES_PATH` | `data/user_preferences.json` |

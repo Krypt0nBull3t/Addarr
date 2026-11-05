@@ -18,7 +18,6 @@ CONFIG_PATH = os.path.join(ROOT_DIR, "config.yaml")
 CONFIG_EXAMPLE_PATH = os.path.join(ROOT_DIR, "config_example.yaml")
 TRANSLATIONS_PATH = os.path.join(ROOT_DIR, "translations")
 LANG_PATH = os.path.join(ROOT_DIR, "translations/")
-CHATID_PATH = os.path.join(ROOT_DIR, "chatid.txt")
 LOG_PATH = os.path.join(ROOT_DIR, "logs", "addarr.log")
 ERROR_LOG_PATH = os.path.join(ROOT_DIR, "logs", "error.log")
 
