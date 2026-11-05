@@ -187,7 +187,7 @@ class WebhookService:
     @staticmethod
     def _warn_if_admin_notify_missing() -> None:
         """Warn once: without adminNotifyId every event is dropped silently."""
-        notify_id = config.get("logging", {}).get("adminNotifyId")
+        notify_id = (config.get("logging") or {}).get("adminNotifyId")
         if not notify_id or str(notify_id).strip() == "0":
             logger.warning(
                 "Webhook events will be dropped: logging.adminNotifyId is "

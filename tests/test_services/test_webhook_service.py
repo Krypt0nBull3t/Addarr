@@ -539,9 +539,11 @@ class TestAdminNotifyWarning:
         mock_logger.warning.assert_not_called()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("logging_section", [{}, None])
     async def test_logging_section_missing_warns_once(
-        self, webhook_service, webhook_config
+        self, webhook_service, webhook_config, logging_section
     ):
-        webhook_config._set("logging", {})
+        """An empty `logging:` key in YAML is None; start() must not crash on it."""
+        webhook_config._set("logging", logging_section)
         mock_logger = await self._start(webhook_service)
         mock_logger.warning.assert_called_once()

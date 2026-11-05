@@ -89,10 +89,7 @@ class WebhooksHandler:
                 fallbacks=[
                     CommandHandler("cancel", self.handle_close),
                     CallbackQueryHandler(
-                        self.handle_close, pattern="^wh_close$"
-                    ),
-                    CallbackQueryHandler(
-                        self.handle_close, pattern="^menu_cancel$"
+                        self.handle_close, pattern="^(wh_close|menu_cancel)$"
                     ),
                 ],
                 name="webhooks_conversation",
