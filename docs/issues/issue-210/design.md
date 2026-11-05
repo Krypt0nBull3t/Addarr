@@ -11,7 +11,7 @@ Source: issue #210 (F090, F091, F092 of audit 2026-10-28). Decisions confirmed b
 ## Decisions
 
 1. One helper `_delete_quietly(message)` in `formatters.py`. It catches `TelegramError`, logs a warning and returns. `auth.py` gets the same guard inline (a handler must not import from `media`).
-2. One helper `_prompt_chat_password()` in `prompts.py`, used by both prompt sites. It shows a `questionary.text` prompt pre-filled with `secrets.token_urlsafe(16)`. Enter accepts it. A typed value under 12 characters is refused and asked again.
+2. One helper `_prompt_chat_password()` in `prompts.py`, used by both prompt sites. A `questionary.select` offers "Use a generated password" or "Type my own". The generated `secrets.token_urlsafe(16)` value is printed once. A typed password is read with the masked `questionary.password` prompt; a value under 12 characters is refused and asked again. (Changed in review round 1 of PR #258: the first version used a visible pre-filled `questionary.text` prompt, which echoed a typed password. The developer chose masked input.)
 3. `authenticated_users_hash` in `config.yaml` holds the sha256 hex digest of the password. `config.yaml` already holds the password in plain text, so a salt adds no protection.
 4. At start-up, when the list has users and the stored hash differs from the current hash, the list is cleared and saved with the current hash.
 5. A list with no stored hash counts as a mismatch. Every existing user sends `/auth` once after the upgrade. The PR body says so.

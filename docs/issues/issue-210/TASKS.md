@@ -124,3 +124,21 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
     - **Learnings:** `README.md` had one Authentication section; the 12-character rule and the sign-out on password change fit there.
     - **Key Changes:** `README.md` (Authentication), `CLAUDE.md` (Authentication decorator bullet).
     - **Notes:** `tests/test_architecture` passes (155).
+
+### Phase 5: Review feedback round 1 (1 task)
+
+- [x] **5.1** [must-fix] Keep a typed chat password masked (from review on `src/setup/prompts.py:27`)
+    - **Context:** The first version of `_prompt_chat_password()` used a visible pre-filled `questionary.text` prompt, so a typed password showed on screen. The old prompt was masked. The developer chose masked input.
+    - **Action items:**
+        - [RED] Tests: generated password printed once, typed password uses `questionary.password` (never `text`), 11/12 characters, both cancel paths
+        - [GREEN] `questionary.select` between the generated password and "Type my own"; typed value masked with the 12+ rule
+    - **Success:** `scripts/test_runner.py setup --coverage` at 100%.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - A visible pre-filled prompt (decision Q3 a) protects nothing on screen: `config.yaml` holds the password in plain text, but a shoulder-surfer sees only the screen.
+        - The reviewer posted the same finding in three threads; the reply goes in the first.
+    - **Key Changes:**
+        - `src/setup/prompts.py`: `_prompt_chat_password()` now select, then generated (printed once) or masked typed password.
+        - `tests/test_setup/test_prompts.py`: `TestPromptChatPassword` rewritten (6 tests); two existing tests mock `select` and `password`.
+        - `docs/issues/issue-210/design.md`, `plan.md`: decision 2 updated.
+    - **Notes:** The generated password is still printed once, so the user can write it down.

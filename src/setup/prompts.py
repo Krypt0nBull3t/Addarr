@@ -18,16 +18,27 @@ MIN_PASSWORD_LENGTH = 12
 async def _prompt_chat_password() -> Optional[str]:
     """Ask for the chat password.
 
-    The prompt is pre-filled with a random proposal; Enter accepts it. A typed
-    password shorter than MIN_PASSWORD_LENGTH is refused and asked again.
-    Returns None when the prompt is cancelled.
+    The user takes a generated password (shown once) or types their own. A
+    typed password is read masked and refused when shorter than
+    MIN_PASSWORD_LENGTH. Returns None when a prompt is cancelled.
     """
-    proposal = secrets.token_urlsafe(16)
+    choice = await questionary.select(
+        "Chat password for authentication:",
+        choices=[
+            {"name": "Use a generated password (shown once)", "value": "generated"},
+            {"name": "Type my own", "value": "own"},
+        ],
+    ).ask_async()
+    if choice is None:
+        return None
+    if choice == "generated":
+        password = secrets.token_urlsafe(16)
+        print(f"{Fore.YELLOW}Chat password: {password}")
+        print(f"{Fore.YELLOW}It is saved in config.yaml; note it for /auth.")
+        return password
     while True:
-        password = await questionary.text(
-            "Chat password (Enter keeps the generated one, or type your own, "
-            f"at least {MIN_PASSWORD_LENGTH} characters):",
-            default=proposal,
+        password = await questionary.password(
+            f"Chat password (at least {MIN_PASSWORD_LENGTH} characters):"
         ).ask_async()
         if password is None or len(password) >= MIN_PASSWORD_LENGTH:
             return password
