@@ -40,19 +40,7 @@ def _wire_models():
 
     models_dir = os.path.join(_PROJECT_ROOT, "src", "models")
 
-    # Load src.models.media first (no __init__ dependency)
-    _load_real_module(
-        "src.models.media",
-        os.path.join(models_dir, "media.py"),
-    )
-
-    # Load src.models.notification
-    _load_real_module(
-        "src.models.notification",
-        os.path.join(models_dir, "notification.py"),
-    )
-
-    # Load src.models.__init__ (imports from .media and .notification)
+    # Load src.models.__init__ (submodules such as .webhook import on demand)
     models_pkg = _load_real_module(
         "src.models",
         os.path.join(models_dir, "__init__.py"),

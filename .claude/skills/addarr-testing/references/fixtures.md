@@ -186,7 +186,6 @@ Defined in `tests/test_services/conftest.py`. Available to `tests/test_services/
 - `add_artist()` -> `(True, "Success")`
 - `get_root_folders()` -> `["/music"]`
 - `get_quality_profiles()` -> `[{"id": 1, "name": "Lossless"}]`
-- `get_metadata_profiles()` -> `[{"id": 1, "name": "Standard"}]`
 - `search_albums()`, `get_artists()`, `get_queue()` -> `[]`
 - `get_artist_by_id()` -> `None`; `delete_artist()` -> `True`
 
@@ -260,7 +259,6 @@ from tests.fixtures.sample_data import RADARR_SEARCH_RESULTS
 | `LIDARR_SEARCH_RESULTS` | list[dict] | 2 artist results |
 | `LIDARR_ALBUM_SEARCH_RESULTS` | list[dict] | 2 album results |
 | `LIDARR_ALBUM_WITH_TRACKS` | dict | Single album with media (tracks) |
-| `LIDARR_METADATA_PROFILES` | list[dict] | Metadata profiles |
 | `RADARR_LIBRARY_MOVIES` / `SONARR_LIBRARY_SERIES` / `LIDARR_LIBRARY_ARTISTS` | list[dict] | 2 library items each |
 | `RADARR_LIBRARY_MOVIE_DETAIL` / `SONARR_LIBRARY_SERIES_DETAIL` / `LIDARR_LIBRARY_ARTIST_DETAIL` | dict | Single library item with overview and path |
 | `RADARR_WANTED_MISSING` / `RADARR_WANTED_CUTOFF` / `SONARR_WANTED_MISSING` / `SONARR_WANTED_CUTOFF` | dict | Paged wanted response (page, pageSize, totalRecords, records) |
