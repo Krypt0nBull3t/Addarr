@@ -1,43 +1,44 @@
 ---
 name: task-writer
-description: Break down features into sized tasks with TDD ordering. Use when planning a new feature, creating implementation tasks, updating TASKS.md, estimating effort, or organizing multi-step work into phases.
+description: Use when converting an Addarr plan.md into docs/issues/issue-<N>/TASKS.md, or when adding, splitting or resizing tasks in TASKS.md. Produces TDD-ordered tasks with context blocks.
 ---
 
 # Task Writer Skill
 
 ## Core Philosophy
 
-**Feature-focused tasks:** Bundle related work (types, components, tests, API) into one logical unit. Split by integration boundaries, not by files.
+**Feature-focused tasks:** Bundle related work (API client, service, handler, keyboard, translations, tests) into one logical unit. Split by integration boundaries, not by files.
 
 ## Task Sizing Rules
 
-| Feature Size | Files | Task Count | How to Split                         |
-| ------------ | ----- | ---------- | ------------------------------------ |
-| Small        | 1-3   | 1 task     | Don't split                          |
-| Medium       | 4-8   | 2-3 tasks  | Backend → Frontend → Integration     |
-| Large        | 8+    | 3-4 tasks  | By logical layer (see below)         |
+| Feature Size | Files | Task Count | How to Split |
+|-|-|-|-|
+| Small | 1-3 | 1 task | Don't split |
+| Medium | 4-8 | 2-3 tasks | API client/service → handler → integration |
+| Large | 8+ | 3-4 tasks | By logical layer (see below) |
 
 ### Splitting Large Features by Layer
 
-Split by **integration boundaries**, not files:
+Split by **integration boundaries**, not files. The layers follow CLAUDE.md: API clients → services → handlers.
 
 ```
 Phase: [Large Feature] (3-4 tasks)
 
-- [ ] 1.1 Backend logic layer
-      → Models, Actions, API endpoints, unit tests
-      → Success: pest tests pass
+- [ ] 1.1 API client layer
+      → src/api/<service>.py (BaseApiClient subclass with search()), pytest + aioresponses tests
+      → Success: pytest tests/test_api/ passes
 
-- [ ] 1.2 Frontend domain layer
-      → Types, store, repository, components
-      → Success: vitest tests pass
+- [ ] 1.2 Service layer
+      → src/services/<service>.py (singleton via __new__, is_enabled()), tests with AsyncMock clients
+      → Success: pytest tests/test_services/ passes
 
-- [ ] 1.3 User interface layer
-      → Pages, modals, route wiring
-      → Success: feature accessible in browser
+- [ ] 1.3 Handler layer
+      → src/bot/handlers/<feature>.py (get_handler()), states, keyboards, translation keys,
+        registration in src/main.py _add_handlers()
+      → Success: pytest tests/test_handlers/ passes
 
-- [ ] 1.4 Integration testing
-      → E2E tests, manual verification
+- [ ] 1.4 Integration
+      → tests/integration/ flow test with BotHarness, manual check in Telegram
       → Success: full flow works
 ```
 
@@ -54,18 +55,18 @@ Phase: [Large Feature] (3-4 tasks)
 
 - [ ] **N.1** Implement [feature/layer]
     - **Context:** (REQUIRED - enables standalone task pickup)
-        - **Why:** [Business problem this solves - what triggered this task]
+        - **Why:** [Problem this solves - what triggered this task]
         - **Architecture:** [How it fits in, which pattern to follow]
         - **Key refs:** [Specific file:line references to understand entry points]
         - **Watch out:** [Edge cases, gotchas, things that aren't obvious]
     - **Scope:** Brief description of what's included
     - **Touches:** Key files (not exhaustive, just main ones)
     - **Action items:**
-        - [RED] Write tests for [specific behavior 1]
-        - [RED] Write tests for [specific behavior 2]
+        - [RED] Write pytest tests for [specific behavior 1]
+        - [RED] Write pytest tests for [specific behavior 2]
         - [GREEN] Implement [component] to make tests pass
         - [GREEN] Integrate into [existing code]
-    - **Success:** Tests pass, type-check passes, [specific behavior works]
+    - **Success:** Tests pass, flake8 and mypy clean, [specific behavior works]
 ```
 
 **CRITICAL:**
@@ -77,50 +78,57 @@ Phase: [Large Feature] (3-4 tasks)
 
 Bundle these together (one logical unit):
 
-**Backend task:**
-- Model changes / migrations
-- Action classes
-- API endpoints (Controller)
-- Pest unit tests
+**API client / service task:**
+- API client methods in `src/api/` (inherit `BaseApiClient`, implement `search()`)
+- Service methods in `src/services/` (singleton, `is_enabled()` guard, `config.get()` access)
+- New singletons added to `SINGLETON_CLASSES` in `tests/test_architecture/test_conventions.py` and reset in `tests/conftest.py` `reset_singletons`
+- pytest tests: `aioresponses` for HTTP, `AsyncMock` clients for services
 
-**Frontend task:**
-- TypeScript types
-- Store and repository
-- Vue components
-- Vitest tests
+**Handler task:**
+- Handler class in `src/bot/handlers/` with `get_handler()` and `@require_auth`
+- Conversation states in `src/bot/states.py`
+- Keyboards in `src/bot/keyboards.py`
+- Translation keys in `translations/addarr.template.yml` and all 9 locale files (`@i18n-key`)
+- Registration in `src/main.py` `_add_handlers()`
+- pytest tests with `make_update` / `make_context` and the handler fixtures in `tests/test_handlers/conftest.py`
 
 ## What Triggers a New Task (Approval Gates)
 
 Create separate tasks only at these boundaries:
 
-1. **Layer complete** - Backend done, ready for frontend layer
-2. **Ready for manual testing** - Need to verify in browser
+1. **Layer complete** - API client and service done, ready for the handler layer
+2. **Ready for manual testing** - Need to verify in Telegram
 3. **Architectural decision needed** - Multiple valid approaches
 4. **Risk boundary** - If next step could break things, checkpoint first
 
 ## TDD Within Tasks
 
 TDD happens INSIDE each task. Action items ordered: tests first, then implementation.
+The `addarr-workflow` Execution Loop runs it and commits **once per task**, not per behavior.
 
 ```
-Task: Implement client financing tab
+Task: Add the Bazarr wanted-subtitles list
   ↓
   Action items (in this order):
-    [RED]   1. Write Vitest tests for store methods
-    [RED]   2. Write Vitest tests for component rendering
-    [GREEN] 3. Implement store to make tests pass
-    [GREEN] 4. Implement Vue components
+    [RED]   1. pytest tests for BazarrClient.get_wanted_movies() (aio_mock fixture)
+    [RED]   2. pytest tests for BazarrHandler.wanted_movies (make_update, make_context)
+    [GREEN] 3. Implement the client and BazarrService methods
+    [GREEN] 4. Implement the handler method and its keyboard
   ↓
-  Run all tests, verify passing
+  Per behavior: pytest tests/<path>/test_<name>.py::test_<behavior> -v (fails), implement,
+  pytest tests/<path>/test_<name>.py -v (passes)
   ↓
-Task complete
+  Scoped checks for the changed layers (addarr-workflow Execution Loop step 3);
+  the full suite with the 100% coverage gate runs once, in the preflight
+  ↓
+  Mark complete with metadata, one commit for the task
 ```
 
 **Rules:**
 
 1. Action items MUST list [RED] steps before [GREEN] steps
-2. Frontend tests: use `vue-vitest-testing` skill patterns
-3. Backend tests: use Pest with appropriate TestCase
+2. Test patterns: use the `addarr-testing` skill (fixtures, aioresponses, handler factories)
+3. One commit per task, after its scoped checks pass
 
 ## Task Conventions
 
@@ -129,27 +137,20 @@ Task complete
 - **Success criteria required** - Each task must define "done"
 - Keep descriptions concise
 - File paths indicative, not exhaustive
+- On completion, add `Completed`, `Learnings`, `Key Changes` and `Notes` below the task (CLAUDE.md)
 
 ## Decision Framework
 
-| Question                       | Answer                                    |
-| ------------------------------ | ----------------------------------------- |
-| Small change (1-3 files)?      | One task, includes everything             |
-| Medium feature (4-8 files)?    | 2-3 tasks: backend → frontend → integrate |
-| Large feature (8+ files)?      | 3-4 tasks split by logical layer          |
-| Needs manual browser testing?  | Separate verification step                |
-| Architectural uncertainty?     | Stop and ask before implementing          |
-| Trivial (1-line change)?       | Don't create task, just do it             |
+| Question | Answer |
+|-|-|
+| Small change (1-3 files)? | One task, includes everything |
+| Medium feature (4-8 files)? | 2-3 tasks: API client/service → handler → integrate |
+| Large feature (8+ files)? | 3-4 tasks split by logical layer |
+| Needs manual Telegram testing? | Separate verification step |
+| Architectural uncertainty? | Stop and ask before implementing |
+| Trivial (1-line change)? | Don't create task, just do it |
 
 ## Test Count Estimation
-
-Historical data shows test counts in plans are consistently underestimated by 1.5-2x:
-
-| Issue | Planned Tests | Actual Tests | Ratio |
-|-------|--------------|--------------|-------|
-| #79 (task 2.1) | 8 | 15 | 1.9x |
-| #79 (task 2.2) | 13 | 17 | 1.3x |
-| #81 | baseline | +extra coverage tests | ~1.5x |
 
 **Rule of thumb:** When listing `[RED]` action items, the obvious test cases cover ~60-70% of what you'll actually write. Edge cases (error paths, boundary conditions, format variations) add another 30-40%. Plan for ~1.5x the obvious test count when estimating task size.
 
@@ -164,86 +165,88 @@ Before finalizing tasks, check:
 5. Is the task count appropriate for the feature size?
 6. **Can this task be picked up after context loss?** (Context block complete?)
 7. **Are test counts realistic?** (Apply 1.5x multiplier to obvious test cases)
+8. **Does every file, fixture and command named exist?** (Mark new files as new)
 
 ## Output
 
-**Only modify `TASKS.md`** - never create separate files.
+**Only modify `TASKS.md`** (`docs/issues/issue-<N>/TASKS.md`) - never create separate files.
 
 ## Examples
 
-### Small Feature (Frontend Only)
+### Small Feature (Handler Only)
 
 ```markdown
-### Phase 3: Add Client Status Badge (1 task)
+### Phase 3: Refresh Button on /preferences (1 task)
 
-**Goal:** Display client status as colored badge in overview.
+**Goal:** Let users re-read their preferences without sending /preferences again.
 
-- [ ] **3.1** Implement status badge component
+- [ ] **3.1** Add a Refresh button to the preferences message
     - **Context:**
-        - **Why:** Users can't quickly see client status in list view
-        - **Architecture:** Shared component in `shared/components/`, follows IconButton pattern
-        - **Key refs:** `user/domains/client/pages/Overview.vue:45` where badge should appear
-        - **Watch out:** Status enum from `enums/ClientStatus.ts`, colors must match design system
-    - **Scope:** Badge component, integration into client overview
-    - **Touches:** `shared/components/StatusBadge.vue`, `user/domains/client/pages/Overview.vue`
+        - **Why:** The preferences message goes stale after a change made elsewhere
+        - **Architecture:** Plain `CommandHandler` + `CallbackQueryHandler` in `PreferencesHandler.get_handler()`, no conversation
+        - **Key refs:** `src/bot/handlers/preferences.py` (`get_handler()`), `tests/test_handlers/conftest.py` (`preferences_handler`, `unchanged_edit` fixtures)
+        - **Watch out:** Anchor the new pattern (`^pref_refresh$`) and add it to the addarr-handlers callback registry. Editing a message to identical text raises `BadRequest("Message is not modified")`; test it with `unchanged_edit`.
+    - **Scope:** Refresh button, callback handler, translation key
+    - **Touches:** `src/bot/handlers/preferences.py`, `translations/addarr.template.yml` + 9 locale files, `tests/test_handlers/test_preferences_handler.py`
     - **Action items:**
-        - [RED] Write Vitest tests for badge rendering per status
-        - [RED] Write Vitest tests for Overview with badge
-        - [GREEN] Implement StatusBadge component
-        - [GREEN] Integrate into Overview page
-    - **Success:** Tests pass, badge shows correct color per status
+        - [RED] Write pytest tests that the keyboard has a `pref_refresh` button
+        - [RED] Write pytest tests that `pref_refresh` answers the query and re-renders, also when the text is unchanged
+        - [GREEN] Implement the button and the callback handler
+        - [GREEN] Add the translation key to all locale files (`@i18n-key`)
+    - **Success:** pytest passes, flake8 and mypy clean, `--validate-i18n` passes, button refreshes in Telegram
 ```
 
-### Medium Feature (Backend + Frontend)
+### Medium Feature (API Client + Service + Handler)
+
+How Bazarr was built. Its files exist now; "(new)" shows how to mark a file the task creates.
 
 ```markdown
-### Phase 4: Client Notes Feature (3 tasks)
+### Phase 4: Bazarr Subtitles (3 tasks)
 
-**Goal:** Allow users to add private notes to clients.
+**Goal:** Search Bazarr and list wanted subtitles from Telegram.
 
-- [ ] **4.1** Backend API
+- [ ] **4.1** Bazarr API client
     - **Context:**
-        - **Why:** Users need to track private observations about clients
-        - **Architecture:** Tenant model, Action class pattern, API resource
-        - **Key refs:** `Models/Customer/ClientNotation.php` as similar pattern
-        - **Watch out:** Notes are per-user (not shared), soft delete required
-    - **Scope:** Migration, Model, Action, Controller, API routes
-    - **Touches:** `Models/Customer/Note.php`, `Actions/Model/Note/`, `Http/Controllers/Api/NoteController.php`
+        - **Why:** Users want to see missing subtitles without opening Bazarr
+        - **Architecture:** `BaseApiClient` subclass in `src/api/`, same as `RadarrClient`
+        - **Key refs:** `src/api/base.py` (`BaseApiClient`), `src/api/radarr.py` as template
+        - **Watch out:** Bazarr has no version in its path (`/api/...`): set `API_VERSION = ""` and override `_build_api_url()`. `search()` is required by `tests/test_architecture/test_conventions.py`.
+    - **Scope:** Client with `search()`, `get_movies()`, `get_wanted_movies()`, `get_wanted_episodes()`
+    - **Touches:** `src/api/bazarr.py` (new), `tests/test_api/test_bazarr.py` (new), `tests/test_api/conftest.py` (`bazarr_client`), `tests/fixtures/bazarr_data.py` (new)
     - **Action items:**
-        - [RED] Write Pest tests for Note model and actions
-        - [RED] Write Pest tests for API endpoints
-        - [GREEN] Implement model, migration, actions
-        - [GREEN] Implement controller and routes
-    - **Success:** Pest tests pass, API returns notes
+        - [RED] Write pytest tests for each endpoint with `aio_mock` and `bazarr_data.py` responses
+        - [RED] Write pytest tests for connection errors and empty results
+        - [GREEN] Implement `BazarrClient`
+    - **Success:** `pytest tests/test_api/test_bazarr.py` passes, mypy clean
 
-- [ ] **4.2** Frontend domain
+- [ ] **4.2** Bazarr service
     - **Context:**
-        - **Why:** Connect frontend to new notes API
-        - **Architecture:** Domain pattern in `user/domains/note/`
-        - **Key refs:** `user/domains/tags/` as similar simple domain
-        - **Watch out:** Optimistic updates for better UX
-    - **Scope:** Types, store, repository, note components
-    - **Touches:** `user/domains/note/`
+        - **Why:** Handlers must not import API clients (layer rule in `tests/test_architecture/test_layer_boundaries.py`)
+        - **Architecture:** Singleton via `__new__` + `_initialize`, `is_enabled()` reads `config.get("bazarr", {})`
+        - **Key refs:** `src/services/transmission.py` as a small singleton template
+        - **Watch out:** Add `BazarrService` to `SINGLETON_CLASSES` and reset `_instance`, `_client` and `_config` in `reset_singletons` (`tests/conftest.py`)
+    - **Scope:** Service methods that delegate to the client and return `[]` when disabled
+    - **Touches:** `src/services/bazarr.py` (new), `tests/test_services/test_bazarr_service.py` (new), `tests/conftest.py`, `tests/test_architecture/test_conventions.py`
     - **Action items:**
-        - [RED] Write Vitest tests for store CRUD operations
-        - [RED] Write Vitest tests for NoteCard component
-        - [GREEN] Implement types, store, repository
-        - [GREEN] Implement NoteCard and NoteList components
-    - **Success:** Vitest tests pass, components render
+        - [RED] Write pytest tests for `is_enabled()` and each method with an `AsyncMock` client
+        - [RED] Write pytest tests for the disabled path
+        - [GREEN] Implement `BazarrService`
+    - **Success:** pytest passes, architecture tests pass
 
-- [ ] **4.3** Integration into client page
+- [ ] **4.3** Bazarr handler and wiring
     - **Context:**
-        - **Why:** Notes should appear in client detail view
-        - **Architecture:** New tab in client tabs structure
-        - **Key refs:** `user/domains/client/tabs/` for tab pattern
-        - **Watch out:** Load notes when tab becomes active, not on page load
-    - **Scope:** Notes tab, route wiring, client page integration
-    - **Touches:** `user/domains/client/tabs/notes/`, `user/domains/client/routes.ts`
+        - **Why:** Expose the service through `/subtitles`
+        - **Architecture:** `ConversationHandler` with a `BAZARR_SEARCH` state; config-gated registration
+        - **Key refs:** `src/bot/handlers/bazarr.py` callbacks (`bazarr_` prefix), `src/bot/states.py`, `src/main.py` (the Bazarr registration in `AddarrBot._add_handlers()`, on `bazarr.enable`)
+        - **Watch out:** Register before `DownloadsHandler` and `StartHandler` (see addarr-handlers `wiring.md`); every user-facing string needs a translation key
+    - **Scope:** Handler, state, keyboards, translation keys, registration, integration test
+    - **Touches:** `src/bot/handlers/bazarr.py` (new), `src/bot/states.py`, `src/main.py`, `translations/`, `tests/test_handlers/test_bazarr_handler.py` (new), `tests/integration/test_bazarr_flow.py` (new)
     - **Action items:**
-        - [GREEN] Create notes tab page
-        - [GREEN] Wire into client tabs and routes
-        - [GREEN] Manual verification in browser
-    - **Success:** Notes tab works, can CRUD notes for client
+        - [RED] Write pytest tests for the menu, search and wanted-list callbacks with `make_update` / `make_context`
+        - [RED] Write an integration test with the `bazarr_harness` fixture
+        - [GREEN] Implement `BazarrHandler` and register it
+        - [GREEN] Manual verification in Telegram
+    - **Success:** pytest passes (unit + integration), flake8, mypy and `--validate-i18n` clean, `/subtitles` works
 ```
 
 **Remember:** Tasks should be large enough to be meaningful, small enough to be recoverable if something goes wrong.

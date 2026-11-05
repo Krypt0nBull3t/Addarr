@@ -161,13 +161,25 @@ async def test_handle_api_error(
 
 
 def test_pagination_single_page(library_handler):
-    """Single page (5 items) has no navigation buttons."""
+    """Single page (5 items) has no navigation buttons, only Back."""
     items = [{"id": str(i), "title": f"Item {i}"} for i in range(5)]
     text, reply_markup = library_handler._build_page_message(items, 0, "m")
 
     assert "Item 0" in text
     assert "Item 4" in text
-    assert reply_markup is None
+    callbacks = [
+        b.callback_data for row in reply_markup.inline_keyboard for b in row
+    ]
+    assert callbacks == ["menu_library"]
+
+
+@pytest.mark.parametrize("page", [0, 1, 2])
+def test_library_list_has_back_button_on_every_page(library_handler, page):
+    """Every page of the list ends with a Back button to the library menu."""
+    items = [{"id": str(i), "title": f"Item {i}"} for i in range(25)]
+    _, reply_markup = library_handler._build_page_message(items, page, "m")
+
+    assert reply_markup.inline_keyboard[-1][0].callback_data == "menu_library"
 
 
 def test_pagination_first_page_next_only(library_handler):
@@ -253,6 +265,23 @@ async def test_navigation_callback(
 
 
 @pytest.mark.asyncio
+async def test_navigation_refuses_unauthenticated_user(
+    library_handler, make_update, make_context
+):
+    """Page buttons do nothing for unauthenticated users (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = set()
+
+    items = [{"id": str(i), "title": f"Item {i:02d}"} for i in range(25)]
+    update = make_update(callback_data="lib_m_1")
+    context = make_context(user_data={"library_m": items})
+
+    await library_handler.handle_page_navigation(update, context)
+
+    update.callback_query.message.edit_text.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_navigation_expired_session(
     library_handler, make_update, make_context
 ):
@@ -306,3 +335,158 @@ async def test_navigation_non_integer_page(
     result = await library_handler.handle_page_navigation(update, context)
 
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Library sub-menu callback (handle_library_selection)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("callback_data,service_method", [
+    ("library_movie", "get_movies"),
+    ("library_series", "get_series"),
+    ("library_music", "get_music"),
+])
+@pytest.mark.asyncio
+async def test_library_selection_callback(
+    library_handler, make_update, make_context,
+    callback_data, service_method
+):
+    """library_{type} callback fetches items and replies with paginated text."""
+    items = [
+        {"id": "1", "title": "Alpha"},
+        {"id": "2", "title": "Beta"},
+    ]
+    setattr(
+        library_handler._mock_service, service_method,
+        AsyncMock(return_value=items)
+    )
+
+    update = make_update(callback_data=callback_data)
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.answer.assert_called_once()
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    text = call_args[0][0] if call_args[0] else call_args[1].get("text", "")
+    assert "Alpha" in text
+    assert "Beta" in text
+
+
+@pytest.mark.asyncio
+async def test_library_selection_no_callback(
+    library_handler, make_update, make_context
+):
+    """handle_library_selection returns when no callback_query."""
+    update = make_update(text="/test")
+    update.callback_query = None
+    context = make_context()
+
+    result = await library_handler.handle_library_selection(update, context)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_library_selection_unknown_type(
+    library_handler, make_update, make_context
+):
+    """Unknown library type returns early after answering."""
+    update = make_update(callback_data="library_unknown")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.answer.assert_called_once()
+    update.callback_query.message.edit_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_library_selection_service_error(
+    library_handler, make_update, make_context
+):
+    """Service ValueError shows not-enabled message."""
+    library_handler._mock_service.get_movies = AsyncMock(
+        side_effect=ValueError("not enabled")
+    )
+
+    update = make_update(callback_data="library_movie")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "LibraryNotEnabled" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_library_selection_generic_error(
+    library_handler, make_update, make_context
+):
+    """Generic exception shows error message."""
+    library_handler._mock_service.get_movies = AsyncMock(
+        side_effect=Exception("Connection refused")
+    )
+
+    update = make_update(callback_data="library_movie")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "LibraryError" in str(call_args)
+
+
+@pytest.mark.asyncio
+async def test_library_selection_empty_library(
+    library_handler, make_update, make_context
+):
+    """Empty library shows empty message."""
+    library_handler._mock_service.get_movies = AsyncMock(return_value=[])
+
+    update = make_update(callback_data="library_movie")
+    context = make_context()
+
+    await library_handler.handle_library_selection(update, context)
+
+    update.callback_query.message.edit_text.assert_called_once()
+    call_args = update.callback_query.message.edit_text.call_args
+    assert "LibraryEmpty" in str(call_args)
+
+
+@pytest.mark.parametrize("branch", [
+    "not_enabled", "error", "empty", "expired",
+])
+@pytest.mark.asyncio
+async def test_library_callback_dead_ends_have_back_button(
+    library_handler, make_update, make_context, branch
+):
+    """A library callback that ends in plain text still offers Back."""
+    service = library_handler._mock_service
+    if branch == "not_enabled":
+        service.get_movies = AsyncMock(side_effect=ValueError("off"))
+    elif branch == "error":
+        service.get_movies = AsyncMock(side_effect=Exception("boom"))
+    elif branch == "empty":
+        service.get_movies = AsyncMock(return_value=[])
+
+    if branch == "expired":
+        update = make_update(callback_data="lib_m_1")
+        await library_handler.handle_page_navigation(
+            update, make_context(user_data={})
+        )
+    else:
+        update = make_update(callback_data="library_movie")
+        await library_handler.handle_library_selection(
+            update, make_context()
+        )
+
+    markup = update.callback_query.message.edit_text.call_args.kwargs[
+        "reply_markup"
+    ]
+    callbacks = [b.callback_data for row in markup.inline_keyboard for b in row]
+    assert callbacks == ["menu_library"]

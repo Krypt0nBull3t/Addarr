@@ -1,0 +1,38 @@
+#!/bin/bash
+# Cloud environment setup for Claude Code browser sessions.
+# Runs once when a new session starts, before Claude Code launches.
+# Skip if running locally (dependencies already installed).
+
+if [ "$CLAUDE_CODE_REMOTE" != "true" ]; then
+  exit 0
+fi
+
+set -e
+
+# Install GitHub CLI
+if ! command -v gh &> /dev/null; then
+  echo "Installing GitHub CLI..."
+  apt-get update -qq && apt-get install -y -qq gh > /dev/null 2>&1
+fi
+
+# gh reads GH_TOKEN (a secret in the web environment settings) from the
+# environment itself; no login step.
+
+echo "Installing project dependencies..."
+pip install -q -r requirements.txt
+
+echo "Installing test dependencies..."
+pip install -q -r requirements-test.txt
+
+# The graphify PreToolUse hooks in .claude/settings.json call this CLI.
+echo "Installing graphify..."
+pip install -q graphifyy==0.9.97
+
+echo "Verifying tools..."
+python -m flake8 --version
+python -m pytest --version
+python -m mypy --version
+graphify --version
+gh --version
+
+echo "Cloud environment ready."

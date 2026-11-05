@@ -1,13 +1,19 @@
 """
 Tests for src/bot/handlers/sabnzbd.py - SabnzbdHandler.
 
-SabnzbdHandler.__init__ creates SABnzbdService() inside a try/except.
-If SABnzbdService() raises (e.g., sabnzbd not enabled), self.sabnzbd_service
-is set to None. get_handler returns [] when service is None.
+SabnzbdHandler now only handles /sabnzbd speed commands.
+Downloads functionality moved to DownloadsHandler.
 """
 
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
+
+
+@pytest.fixture(autouse=True)
+def _authenticated():
+    """Handlers require auth; authenticate the default test user 12345."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +149,33 @@ async def test_handle_speed_selection_success(
 @pytest.mark.asyncio
 @patch("src.bot.handlers.sabnzbd.TranslationService")
 @patch("src.bot.handlers.sabnzbd.SABnzbdService")
+async def test_handle_speed_selection_false_shows_error(
+    mock_sab_class, mock_ts_class, make_update, make_context
+):
+    """A False result from the service shows the error text, not success."""
+    mock_sab = MagicMock()
+    mock_sab.set_speed_limit = AsyncMock(return_value=False)
+    mock_sab_class.return_value = mock_sab
+
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.sabnzbd import SabnzbdHandler
+
+    handler = SabnzbdHandler()
+
+    update = make_update(callback_data="sabnzbd_speed_25")
+    await handler.handle_speed_selection(update, make_context())
+
+    update.callback_query.message.edit_text.assert_called_once_with(
+        "Sabnzbd.Error"
+    )
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.sabnzbd.TranslationService")
+@patch("src.bot.handlers.sabnzbd.SABnzbdService")
 async def test_handle_speed_selection_exception(
     mock_sab_class, mock_ts_class, make_update, make_context
 ):
@@ -228,4 +261,130 @@ def test_get_handler_returns_list(mock_sab_class, mock_ts_class):
     handlers = handler.get_handler()
 
     assert isinstance(handlers, list)
-    assert len(handlers) > 0
+    assert len(handlers) == 2  # sabnzbd command + speed callback
+
+
+# ---------------------------------------------------------------------------
+# command registration — /downloads when either client enabled
+# ---------------------------------------------------------------------------
+
+
+@patch("src.bot.commands.TranslationService")
+@patch("src.bot.commands.config")
+def test_downloads_command_registered_when_sabnzbd_enabled(
+    mock_config, mock_ts_class
+):
+    """build_authenticated_commands includes /downloads when sabnzbd enabled."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    mock_config.get = MagicMock(side_effect=lambda key, default=None: {
+        "radarr": {"enable": False},
+        "sonarr": {"enable": False},
+        "lidarr": {"enable": False},
+        "transmission": {"enable": False},
+        "sabnzbd": {"enable": True},
+    }.get(key, default if default is not None else {}))
+
+    from src.bot.commands import build_authenticated_commands
+    commands = build_authenticated_commands()
+    command_names = [c.command for c in commands]
+
+    assert "downloads" in command_names
+    assert "sabnzbd" in command_names
+
+
+@patch("src.bot.commands.TranslationService")
+@patch("src.bot.commands.config")
+def test_downloads_command_registered_when_transmission_enabled(
+    mock_config, mock_ts_class
+):
+    """build_authenticated_commands includes /downloads when only transmission enabled."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    mock_config.get = MagicMock(side_effect=lambda key, default=None: {
+        "radarr": {"enable": False},
+        "sonarr": {"enable": False},
+        "lidarr": {"enable": False},
+        "transmission": {"enable": True},
+        "sabnzbd": {"enable": False},
+    }.get(key, default if default is not None else {}))
+
+    from src.bot.commands import build_authenticated_commands
+    commands = build_authenticated_commands()
+    command_names = [c.command for c in commands]
+
+    assert "downloads" in command_names
+    assert "transmission" in command_names
+
+
+@patch("src.bot.commands.TranslationService")
+@patch("src.bot.commands.config")
+def test_downloads_command_not_registered_when_neither_enabled(
+    mock_config, mock_ts_class
+):
+    """build_authenticated_commands excludes /downloads when both disabled."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    mock_config.get = MagicMock(side_effect=lambda key, default=None: {
+        "radarr": {"enable": False},
+        "sonarr": {"enable": False},
+        "lidarr": {"enable": False},
+        "transmission": {"enable": False},
+        "sabnzbd": {"enable": False},
+    }.get(key, default if default is not None else {}))
+
+    from src.bot.commands import build_authenticated_commands
+    commands = build_authenticated_commands()
+    command_names = [c.command for c in commands]
+
+    assert "downloads" not in command_names
+
+
+# ---------------------------------------------------------------------------
+# Access control
+# ---------------------------------------------------------------------------
+
+SABNZBD_ENTRY_POINTS = [
+    ("handle_sabnzbd", {"text": "/sabnzbd"}),
+    ("handle_speed_selection", {"callback_data": "sabnzbd_speed_25"}),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method, update_kwargs", SABNZBD_ENTRY_POINTS)
+@patch("src.bot.handlers.sabnzbd.SABnzbdService")
+async def test_unauthenticated_user_is_refused(
+    mock_sab_class, method, update_kwargs, make_update, make_context
+):
+    """Unauthenticated users cannot use SABnzbd (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    from src.bot.handlers.sabnzbd import SabnzbdHandler
+
+    AuthHandler._authenticated_users = set()
+    handler = SabnzbdHandler()
+
+    await getattr(handler, method)(make_update(**update_kwargs), make_context())
+
+    assert mock_sab_class.return_value.method_calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method, update_kwargs", SABNZBD_ENTRY_POINTS)
+@patch("src.bot.handlers.sabnzbd.SABnzbdService")
+async def test_non_admin_is_refused_when_only_admin(
+    mock_sab_class, method, update_kwargs, admin_mode, make_update, make_context
+):
+    """Admin mode plus sabnzbd.onlyAdmin refuses non-admins (audit item 6)."""
+    from src.bot.handlers.sabnzbd import SabnzbdHandler
+
+    handler = SabnzbdHandler()
+
+    await getattr(handler, method)(make_update(**update_kwargs), make_context())
+
+    assert mock_sab_class.return_value.method_calls == []

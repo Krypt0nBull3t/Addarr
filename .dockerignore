@@ -5,8 +5,8 @@ docker-compose.yml
 Dockerfile
 *.log
 config.yaml
-admin.txt
-chatid.txt
+backup/
+user_preferences.json
 **/.flake8
 **/__pycache__
 **/logs
@@ -39,6 +39,12 @@ LICENSE
 README.md
 *.db
 local/
+
+# Development files the bot does not need
+graphify-out/
+tests/
+docs/
+.claude/
 
 .vscode/
 

@@ -2,17 +2,28 @@
 Tests for src/api/radarr.py -- RadarrClient.
 """
 
+import asyncio
+
 import pytest
 import aiohttp
 from unittest.mock import AsyncMock, patch
+from aioresponses import CallbackResult
+from yarl import URL
+
+from src.api.base import APIError
+from tests.conftest import _mock_config
 
 from tests.fixtures.sample_data import (
     RADARR_SEARCH_RESULTS,
     RADARR_MOVIE_DETAIL,
     RADARR_QUALITY_PROFILES,
-    RADARR_SYSTEM_STATUS,
     RADARR_LIBRARY_MOVIES,
     RADARR_LIBRARY_MOVIE_DETAIL,
+    RADARR_WANTED_MISSING,
+    RADARR_WANTED_CUTOFF,
+    RADARR_QUEUE,
+    RADARR_DISK_SPACE,
+    RADARR_HISTORY,
 )
 
 
@@ -51,23 +62,6 @@ class TestRadarrInit:
 
 
 # ---------------------------------------------------------------------------
-# _make_request
-# ---------------------------------------------------------------------------
-
-
-class TestRadarrMakeRequest:
-    @pytest.mark.asyncio
-    async def test_request_generic_exception(self, aio_mock, radarr_client):
-        """RuntimeError via _request returns None."""
-        aio_mock.get(
-            f"{BASE}/system/status",
-            exception=RuntimeError("unexpected"),
-        )
-        result = await radarr_client._request("system/status")
-        assert result is None
-
-
-# ---------------------------------------------------------------------------
 # search
 # ---------------------------------------------------------------------------
 
@@ -103,15 +97,18 @@ class TestRadarrSearch:
                 exception=aiohttp.ClientError("refused"),
             )
         with patch("asyncio.sleep", new_callable=AsyncMock):
-            results = await radarr_client.search("test")
-        assert results == []
+            with pytest.raises(APIError, match="refused"):
+                await radarr_client.search("test")
 
     @pytest.mark.asyncio
-    async def test_search_exception(self, radarr_client):
-        """Lines 88-90: Exception during search."""
-        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
-            results = await radarr_client.search("test")
-        assert results == []
+    @pytest.mark.parametrize("term", ["Law & Order", "C#", "1+1"])
+    async def test_search_url_encodes_term(self, aio_mock, radarr_client, term):
+        aio_mock.get(
+            URL(f"{BASE}/movie/lookup").with_query(term=term),
+            payload=RADARR_SEARCH_RESULTS,
+        )
+        results = await radarr_client.search(term)
+        assert len(results) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -123,8 +120,8 @@ class TestRadarrGetMovie:
     @pytest.mark.asyncio
     async def test_get_movie_success(self, aio_mock, radarr_client):
         aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/550",
-            payload=RADARR_MOVIE_DETAIL,
+            f"{BASE}/movie/lookup?term=tmdb:550",
+            payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
         result = await radarr_client.get_movie("550")
@@ -133,30 +130,20 @@ class TestRadarrGetMovie:
         assert result["tmdbId"] == 550
 
     @pytest.mark.asyncio
-    async def test_get_movie_fallback_search(self, aio_mock, radarr_client):
-        # Direct lookup returns 404 -> None
-        aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/550",
-            status=404,
-            body="Not found",
-        )
-        # Fallback search returns result in a list
+    async def test_get_movie_makes_one_request_to_lookup_term(self, aio_mock, radarr_client):
+        """No request goes to the movie/lookup/tmdb/ path, which Radarr does not have."""
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:550",
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        result = await radarr_client.get_movie("550")
-        assert result is not None
-        assert result["title"] == "Fight Club"
+        await radarr_client.get_movie("550")
+        assert [str(url) for _, url in aio_mock.requests] == [
+            f"{BASE}/movie/lookup?term=tmdb:550"
+        ]
 
     @pytest.mark.asyncio
     async def test_get_movie_not_found(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/movie/lookup/tmdb/999999",
-            status=404,
-            body="Not found",
-        )
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:999999",
             payload=[],
@@ -363,13 +350,7 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        # 2. Quality profiles check
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
-        # 3. POST movie
+        # 2. POST movie
         aio_mock.post(
             f"{BASE}/movie",
             payload={"id": 1, "title": "Fight Club"},
@@ -381,6 +362,24 @@ class TestRadarrAddMovie:
         assert "Fight Club" in message
 
     @pytest.mark.asyncio
+    async def test_add_movie_with_lookup_makes_no_lookup_request(self, aio_mock, radarr_client):
+        """A caller that holds the lookup result passes it on: only the POST goes out."""
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs.get("json", {}))
+            return CallbackResult(payload={"id": 1, "title": "Fight Club"}, status=200)
+
+        aio_mock.post(f"{BASE}/movie", callback=capture)
+        success, message = await radarr_client.add_movie(
+            550, "/movies", 1, lookup=RADARR_MOVIE_DETAIL
+        )
+        assert success is True
+        assert "Fight Club" in message
+        assert posted["tmdbId"] == 550
+        assert [method for method, _ in aio_mock.requests] == ["POST"]
+
+    @pytest.mark.asyncio
     async def test_add_movie_already_exists(self, aio_mock, radarr_client):
         # 1. Lookup
         aio_mock.get(
@@ -388,13 +387,7 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        # 2. Quality profiles
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
-        # 3. POST returns already-exists error
+        # 2. POST returns already-exists error
         aio_mock.post(
             f"{BASE}/movie",
             payload=[{"errorMessage": "This movie has already been added"}],
@@ -417,33 +410,11 @@ class TestRadarrAddMovie:
         assert "not found" in message.lower()
 
     @pytest.mark.asyncio
-    async def test_add_movie_invalid_quality_profile(self, aio_mock, radarr_client):
-        """Lines 166-167: invalid quality profile ID."""
-        aio_mock.get(
-            f"{BASE}/movie/lookup?term=tmdb:550",
-            payload=[RADARR_MOVIE_DETAIL],
-            status=200,
-        )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
-        success, message = await radarr_client.add_movie(550, "/movies", 999)
-        assert success is False
-        assert "Invalid quality profile" in message
-
-    @pytest.mark.asyncio
     async def test_add_movie_api_error_non_already(self, aio_mock, radarr_client):
         """Lines 202-203: error array with non-'already' message."""
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:550",
             payload=[RADARR_MOVIE_DETAIL],
-            status=200,
-        )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
             status=200,
         )
         aio_mock.post(
@@ -463,11 +434,6 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
         aio_mock.post(
             f"{BASE}/movie",
             body="not json",
@@ -485,11 +451,6 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
         aio_mock.post(
             f"{BASE}/movie",
             body="not json",
@@ -497,7 +458,7 @@ class TestRadarrAddMovie:
         )
         success, message = await radarr_client.add_movie(550, "/movies", 1)
         assert success is False
-        assert "Failed to add" in message
+        assert message == "Radarr returned HTTP 500"
 
     @pytest.mark.asyncio
     async def test_add_movie_client_error(self, aio_mock, radarr_client):
@@ -505,11 +466,6 @@ class TestRadarrAddMovie:
         aio_mock.get(
             f"{BASE}/movie/lookup?term=tmdb:550",
             payload=[RADARR_MOVIE_DETAIL],
-            status=200,
-        )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
             status=200,
         )
         aio_mock.post(
@@ -528,11 +484,6 @@ class TestRadarrAddMovie:
             payload=[RADARR_MOVIE_DETAIL],
             status=200,
         )
-        aio_mock.get(
-            f"{BASE}/qualityProfile",
-            payload=RADARR_QUALITY_PROFILES,
-            status=200,
-        )
         aio_mock.post(
             f"{BASE}/movie",
             exception=RuntimeError("unexpected"),
@@ -544,44 +495,11 @@ class TestRadarrAddMovie:
     async def test_add_movie_outer_exception(self, radarr_client):
         """Lines 223-225: outer Exception in add_movie."""
         with patch.object(radarr_client, "_make_request", side_effect=Exception("outer boom")):
-            success, message = await radarr_client.add_movie(550, "/movies", 1)
+            success, message = await radarr_client.add_movie(
+                550, "/movies", 1, lookup=RADARR_MOVIE_DETAIL
+            )
         assert success is False
         assert "outer boom" in message
-
-
-# ---------------------------------------------------------------------------
-# check_status
-# ---------------------------------------------------------------------------
-
-
-class TestRadarrCheckStatus:
-    @pytest.mark.asyncio
-    async def test_check_status_online(self, aio_mock, radarr_client):
-        aio_mock.get(
-            f"{BASE}/system/status",
-            payload=RADARR_SYSTEM_STATUS,
-            status=200,
-        )
-        result = await radarr_client.check_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_check_status_offline(self, aio_mock, radarr_client):
-        for _ in range(3):
-            aio_mock.get(
-                f"{BASE}/system/status",
-                exception=aiohttp.ClientError("connection refused"),
-            )
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            result = await radarr_client.check_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_check_status_exception(self, radarr_client):
-        """Lines 232-234: Exception in check_status."""
-        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
-            result = await radarr_client.check_status()
-        assert result is False
 
 
 # ---------------------------------------------------------------------------
@@ -708,3 +626,456 @@ class TestDeleteMovie:
         )
         result = await radarr_client.delete_movie(1)
         assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_calendar
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetCalendar:
+    @pytest.mark.asyncio
+    async def test_get_calendar_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of upcoming movies."""
+        calendar_data = [
+            {"id": 1, "title": "Movie One", "inCinemas": "2026-03-10T00:00:00Z"},
+            {"id": 2, "title": "Movie Two", "digitalRelease": "2026-03-15T00:00:00Z"},
+        ]
+        aio_mock.get(
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            payload=calendar_data,
+            status=200,
+        )
+        results = await radarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert len(results) == 2
+        assert results[0]["title"] == "Movie One"
+        assert results[1]["title"] == "Movie Two"
+
+    @pytest.mark.asyncio
+    async def test_get_calendar_empty(self, aio_mock, radarr_client):
+        """No upcoming movies returns empty list."""
+        aio_mock.get(
+            f"{BASE}/calendar?start=2026-03-01&end=2026-03-08",
+            payload=[],
+            status=200,
+        )
+        results = await radarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_calendar_exception(self, radarr_client):
+        """Exception during get_calendar returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_calendar("2026-03-01", "2026-03-08")
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_missing
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetMissing:
+    @pytest.mark.asyncio
+    async def test_get_missing_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of missing movie records."""
+        aio_mock.get(
+            f"{BASE}/wanted/missing?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload=RADARR_WANTED_MISSING,
+            status=200,
+        )
+        results = await radarr_client.get_missing()
+        assert len(results) == 2
+        assert results[0]["title"] == "Fight Club"
+        assert results[1]["title"] == "Pulp Fiction"
+
+    @pytest.mark.asyncio
+    async def test_get_missing_empty(self, aio_mock, radarr_client):
+        """No missing movies returns empty list."""
+        aio_mock.get(
+            f"{BASE}/wanted/missing?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await radarr_client.get_missing()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_missing_connection_error(self, aio_mock, radarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/wanted/missing?sortKey=title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await radarr_client.get_missing()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_missing_exception(self, radarr_client):
+        """Exception during get_missing returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_missing()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_cutoff_unmet
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetCutoffUnmet:
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of cutoff unmet movie records."""
+        aio_mock.get(
+            f"{BASE}/wanted/cutoff?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload=RADARR_WANTED_CUTOFF,
+            status=200,
+        )
+        results = await radarr_client.get_cutoff_unmet()
+        assert len(results) == 1
+        assert results[0]["title"] == "Inception"
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_empty(self, aio_mock, radarr_client):
+        """No cutoff unmet movies returns empty list."""
+        aio_mock.get(
+            f"{BASE}/wanted/cutoff?sortKey=title&sortDirection=ascending&pageSize=1000",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await radarr_client.get_cutoff_unmet()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_connection_error(self, aio_mock, radarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/wanted/cutoff?sortKey=title&sortDirection=ascending&pageSize=1000",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await radarr_client.get_cutoff_unmet()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_cutoff_unmet_exception(self, radarr_client):
+        """Exception during get_cutoff_unmet returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_cutoff_unmet()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# search_command
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrSearchCommand:
+    @pytest.mark.asyncio
+    async def test_search_command_success(self, aio_mock, radarr_client):
+        """POST command triggers search and returns True."""
+        aio_mock.post(
+            f"{BASE}/command",
+            payload={"id": 1, "name": "MoviesSearch", "status": "queued"},
+            status=201,
+        )
+        result = await radarr_client.search_command(1)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_search_command_failure(self, aio_mock, radarr_client):
+        """POST command returns error, returns False."""
+        for _ in range(3):
+            aio_mock.post(
+                f"{BASE}/command",
+                status=500,
+                body="Internal Server Error",
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await radarr_client.search_command(1)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_search_command_exception(self, radarr_client):
+        """Exception during search_command returns False."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            result = await radarr_client.search_command(1)
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_queue
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetQueue:
+    @pytest.mark.asyncio
+    async def test_get_queue_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of queue records."""
+        aio_mock.get(
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
+            payload=RADARR_QUEUE,
+            status=200,
+        )
+        results = await radarr_client.get_queue()
+        assert len(results) == 2
+        assert results[0]["title"] == "Fight Club"
+        assert results[1]["title"] == "Inception"
+
+    @pytest.mark.asyncio
+    async def test_get_queue_empty(self, aio_mock, radarr_client):
+        """No queue items returns empty list."""
+        aio_mock.get(
+            f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
+            payload={"page": 1, "pageSize": 1000, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await radarr_client.get_queue()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_queue_connection_error(self, aio_mock, radarr_client):
+        """Connection error exhausts retries, returns empty list."""
+        for _ in range(3):
+            aio_mock.get(
+                f"{BASE}/queue?sortKey=title&sortDirection=ascending&pageSize=1000&includeMovie=true",
+                exception=aiohttp.ClientError("refused"),
+            )
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await radarr_client.get_queue()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_queue_exception(self, radarr_client):
+        """Exception during get_queue returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_queue()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_disk_space
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetDiskSpace:
+    @pytest.mark.asyncio
+    async def test_get_disk_space_success(self, aio_mock, radarr_client):
+        """Returns list of drives with space info."""
+        aio_mock.get(
+            f"{BASE}/diskspace",
+            payload=RADARR_DISK_SPACE,
+            status=200,
+        )
+        results = await radarr_client.get_disk_space()
+        assert len(results) == 2
+        assert results[0]["path"] == "/movies"
+        assert results[0]["freeSpace"] == 200000000000
+        assert results[1]["path"] == "/tv"
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_empty(self, aio_mock, radarr_client):
+        """Empty response returns empty list."""
+        aio_mock.get(
+            f"{BASE}/diskspace",
+            payload=[],
+            status=200,
+        )
+        results = await radarr_client.get_disk_space()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_non_list_response(self, aio_mock, radarr_client):
+        """Non-list response (e.g. dict) returns empty list."""
+        aio_mock.get(
+            f"{BASE}/diskspace",
+            payload={"error": "unexpected format"},
+            status=200,
+        )
+        results = await radarr_client.get_disk_space()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_exception(self, radarr_client):
+        """Exception during get_disk_space returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_disk_space()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# get_history
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrGetHistory:
+    @pytest.mark.asyncio
+    async def test_get_history_success(self, aio_mock, radarr_client):
+        """Happy path: returns list of history records."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&includeMovie=true",
+            payload=RADARR_HISTORY,
+            status=200,
+        )
+        results = await radarr_client.get_history()
+        assert len(results) == 3
+        assert results[0]["movie"]["title"] == "Fight Club"
+        assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "name, wire", [
+            ("grabbed", 1),
+            ("downloadFolderImported", 3),
+            ("downloadFailed", 4),
+        ],
+    )
+    async def test_get_history_with_event_type(self, aio_mock, radarr_client, name, wire):
+        """Filter tabs send the spec's int event type."""
+        filtered = {
+            "page": 1, "pageSize": 20, "totalRecords": 1,
+            "records": [RADARR_HISTORY["records"][0]],
+        }
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&includeMovie=true&eventType={wire}",
+            payload=filtered,
+            status=200,
+        )
+        results = await radarr_client.get_history(event_type=name)
+        assert len(results) == 1
+        assert results[0]["eventType"] == "grabbed"
+
+    @pytest.mark.asyncio
+    async def test_get_history_unknown_event_type(self, aio_mock, radarr_client):
+        """An unknown event name is not sent: the call returns an empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&includeMovie=true&eventType=bogus",
+            payload={"records": [RADARR_HISTORY["records"][0]]},
+            status=200,
+        )
+        results = await radarr_client.get_history(event_type="bogus")
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_empty(self, aio_mock, radarr_client):
+        """Empty records returns empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&includeMovie=true",
+            payload={"page": 1, "pageSize": 20, "totalRecords": 0, "records": []},
+            status=200,
+        )
+        results = await radarr_client.get_history()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_error(self, radarr_client):
+        """Exception during get_history returns empty list."""
+        with patch.object(radarr_client, "_make_request", side_effect=Exception("boom")):
+            results = await radarr_client.get_history()
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_non_dict_response(self, aio_mock, radarr_client):
+        """Non-dict response (None) returns empty list."""
+        aio_mock.get(
+            f"{BASE}/history?sortKey=date&sortDirection=descending"
+            f"&page=1&pageSize=20&includeMovie=true",
+            payload="",
+            status=200,
+        )
+        with patch.object(radarr_client, "_request", return_value=None):
+            results = await radarr_client.get_history()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# add options, add errors and excluded quality profiles
+# ---------------------------------------------------------------------------
+
+
+class TestRadarrAddConfigAndErrors:
+    @pytest.mark.asyncio
+    async def test_add_timeout_returns_message(self, aio_mock, radarr_client):
+        """A timeout has an empty str(); the user must still see why it failed."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550", payload=[RADARR_MOVIE_DETAIL]
+        )
+        aio_mock.post(f"{BASE}/movie", exception=asyncio.TimeoutError())
+        success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is False
+        assert message == "Connection error: timeout"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("features,search", [({}, True), ({"search": False}, False)])
+    async def test_add_honors_features_search(self, aio_mock, radarr_client, monkeypatch, features, search):
+        monkeypatch.setitem(_mock_config._config["radarr"], "features", features)
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550", payload=[RADARR_MOVIE_DETAIL]
+        )
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs["json"])
+            return CallbackResult(payload={"id": 1}, status=201)
+
+        aio_mock.post(f"{BASE}/movie", callback=capture)
+        success, _ = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is True
+        assert posted["addOptions"]["searchForMovie"] is search
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("features,availability", [
+        ({}, None),
+        ({"minimumAvailability": "released"}, "released"),
+    ])
+    async def test_add_honors_minimum_availability(self, aio_mock, radarr_client, monkeypatch, features, availability):
+        """Without the key Radarr keeps its own default, as before."""
+        monkeypatch.setitem(_mock_config._config["radarr"], "features", features)
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550", payload=[RADARR_MOVIE_DETAIL]
+        )
+        posted = {}
+
+        def capture(url, **kwargs):
+            posted.update(kwargs["json"])
+            return CallbackResult(payload={"id": 1}, status=201)
+
+        aio_mock.post(f"{BASE}/movie", callback=capture)
+        success, _ = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is True
+        assert posted.get("minimumAvailability") == availability
+
+    @pytest.mark.asyncio
+    async def test_add_does_not_depend_on_quality_profile_fetch(self, aio_mock, radarr_client):
+        """A passing 503 on qualityProfile used to fail the add as 'Invalid quality profile'."""
+        aio_mock.get(
+            f"{BASE}/movie/lookup?term=tmdb:550", payload=[RADARR_MOVIE_DETAIL]
+        )
+        aio_mock.get(f"{BASE}/qualityProfile", status=503, repeat=True)
+        aio_mock.post(f"{BASE}/movie", payload={"id": 1}, status=201)
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            success, message = await radarr_client.add_movie(550, "/movies", 1)
+        assert success is True
+        assert "Successfully added" in message
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("excluded", [["Ultra-HD"], [2]])
+    async def test_get_quality_profiles_hides_excluded(self, aio_mock, radarr_client, monkeypatch, excluded):
+        """quality.excludedProfiles may list profile names or IDs."""
+        monkeypatch.setitem(
+            _mock_config._config["radarr"], "quality", {"excludedProfiles": excluded}
+        )
+        aio_mock.get(
+            f"{BASE}/qualityProfile",
+            payload=[{"id": 1, "name": "HD-1080p"}, {"id": 2, "name": "Ultra-HD"}],
+        )
+        profiles = await radarr_client.get_quality_profiles()
+        assert [p["id"] for p in profiles] == [1]

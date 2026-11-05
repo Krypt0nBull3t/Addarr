@@ -7,8 +7,13 @@ Description: Authentication handler module.
 This module handles user authentication through the bot.
 """
 
-import yaml
+import hashlib
+import hmac
+import secrets
+from typing import Optional
+
 from telegram import Update
+from telegram.error import TelegramError
 from telegram.ext import (
     CommandHandler,
     MessageHandler,
@@ -22,14 +27,52 @@ from functools import wraps
 from src.utils.chat import get_chat_name
 from src.utils.logger import get_logger, log_user_interaction
 from src.config.settings import config
-from src.definitions import CONFIG_PATH
+from src.utils.helpers import admin_only, is_admin, is_allowed
+from src.bot.commands import register_commands_for_chat
+from src.bot.keyboards import get_main_menu_keyboard
 from src.services.translation import TranslationService
+from src.services.rate_limit import rate_limit
 
 # Get logger instance
 logger = get_logger("addarr.auth")
 
 # States
 PASSWORD = 0
+
+
+async def _enforce_private_chat(update: Update) -> bool:
+    """Return True if the update should be blocked due to chat mode policy."""
+    chat_mode = config.get("security", {}).get("chatMode", "private_only")
+    # Fail closed: only the exact value allow_all lets group chats in
+    if chat_mode == "allow_all" or not update.effective_chat:
+        return False
+    if update.effective_chat.type == "private":
+        return False
+    translation = TranslationService()
+    msg = translation.get_text(
+        "PrivateChatOnly",
+        default="🔒 This bot only works in private chats."
+    )
+    if update.effective_message:
+        await update.effective_message.reply_text(msg)
+    return True
+
+
+async def _refuse(update: Update, text: str) -> None:
+    """Tell the user why a command or button press is refused."""
+    if update.callback_query:
+        # update.message is None for button presses; answer the press instead
+        await update.callback_query.answer(text, show_alert=True)
+    elif update.effective_message:
+        await update.effective_message.reply_text(text)
+
+
+async def _enforce_allowlist(update: Update) -> bool:
+    """Return True if the update should be blocked by the allowlist."""
+    if is_allowed(update.effective_user.id):
+        return False
+    await _refuse(update, TranslationService().get_text("NotAllowed"))
+    return True
 
 
 def require_auth(func):
@@ -39,14 +82,73 @@ def require_auth(func):
         if not update.effective_user:
             return
 
+        if await _enforce_private_chat(update):
+            return
+
+        if await _enforce_allowlist(update):
+            return
+
         if not AuthHandler.is_authenticated(update.effective_user.id):
             translation = TranslationService()
-            await update.message.reply_text(
-                translation.get_text("NotAuthorized", default="🔒 You need to authenticate first.\nUse /start to begin authentication.")
+            await _refuse(
+                update,
+                translation.get_text("NotAuthorized", default="🔒 You need to authenticate first.\nUse /auth to begin authentication.")
             )
             return
         return await func(self, update, context, *args, **kwargs)
     return wrapped
+
+
+def require_admin(service: Optional[str] = None):
+    """Decorator to refuse non-admins when admin mode applies.
+
+    Use below @require_auth. With a service name, only refuse when that
+    service also sets onlyAdmin.
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapped(self, update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+            if admin_only(service) and not is_admin(update.effective_user.id):
+                await _refuse(update, TranslationService().get_text("NotAdmin"))
+                return
+            return await func(self, update, context, *args, **kwargs)
+        return wrapped
+    return decorator
+
+
+# OWASP 2023 figure for PBKDF2-HMAC-SHA256
+PBKDF2_ITERATIONS = 600000
+_HASH_SCHEME = "pbkdf2_sha256"
+
+
+def _password_hash(password: str) -> str:
+    """Return a salted PBKDF2 value: pbkdf2_sha256$<iterations>$<salt hex>$<hash hex>."""
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), salt, PBKDF2_ITERATIONS
+    )
+    return f"{_HASH_SCHEME}${PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
+
+
+def _hash_matches(password: str, stored: Optional[str]) -> bool:
+    """Check the password against a stored value, using its salt and iterations.
+
+    A missing, old plain-SHA256 or malformed value is a mismatch, never an error.
+    An iteration count outside 1..10x the current one counts as malformed, so a
+    damaged config.yaml cannot block startup with a huge count.
+    """
+    try:
+        scheme, iterations, salt, digest = stored.split("$")
+        count = int(iterations)
+        if scheme != _HASH_SCHEME or not 1 <= count <= 10 * PBKDF2_ITERATIONS:
+            return False
+        expected = bytes.fromhex(digest)
+        actual = hashlib.pbkdf2_hmac(
+            "sha256", password.encode(), bytes.fromhex(salt), count
+        )
+    except (ValueError, AttributeError):
+        return False
+    return hmac.compare_digest(actual, expected)
 
 
 class AuthHandler:
@@ -56,32 +158,48 @@ class AuthHandler:
     _authenticated_users = set()
 
     def __init__(self):
-        self.password = config.get("telegram", {}).get("password", "")
+        password = config.get("telegram", {}).get("password")
+        # YAML loads `password: 123456` as an int
+        self.password = "" if password is None else str(password)
         self.translation = TranslationService()
         # Load authenticated users from config
         AuthHandler._authenticated_users = set(config.get("authenticated_users", []))
+        # A password change revokes everyone. A list saved without a hash (before
+        # this check existed) or with an old plain-SHA256 hash counts as changed:
+        # its users send /auth once. The derived value is kept for every later
+        # save, because one hash takes seconds on a small device and a save runs
+        # on the event loop.
+        stored = config.get("authenticated_users_hash")
+        if _hash_matches(self.password, stored):
+            self._stored_hash = stored
+        else:
+            self._stored_hash = _password_hash(self.password)
+            if AuthHandler._authenticated_users:
+                logger.warning(
+                    f"Password changed: revoking "
+                    f"{len(AuthHandler._authenticated_users)} authenticated user(s)"
+                )
+                AuthHandler._authenticated_users = set()
+                self._save_authenticated_users()
 
     @classmethod
     def is_authenticated(cls, user_id: int) -> bool:
         """Check if a user is authenticated"""
         return user_id in cls._authenticated_users
 
-    def _save_authenticated_users(self):
-        """Save authenticated users to config file"""
+    def _save_authenticated_users(self) -> bool:
+        """Save authenticated users to config file. Return False on failure."""
         try:
-            # Load current config
-            with open(CONFIG_PATH, 'r') as f:
-                current_config = yaml.safe_load(f)
-
-            # Update authenticated users
-            current_config["authenticated_users"] = list(AuthHandler._authenticated_users)
-
-            # Save updated config
-            with open(CONFIG_PATH, 'w') as f:
-                yaml.safe_dump(current_config, f, default_flow_style=False)
-
+            # Update the in-memory config too, so a later config.save() keeps them
+            config.update_nested(
+                "authenticated_users", sorted(AuthHandler._authenticated_users)
+            )
+            config.update_nested("authenticated_users_hash", self._stored_hash)
+            config.save()
+            return True
         except Exception as e:
             logger.error(f"Error saving authenticated users to config: {e}")
+            return False
 
     def get_handler(self):
         """Get the conversation handler for authentication"""
@@ -97,9 +215,16 @@ class AuthHandler:
             )
         ]
 
+    @rate_limit("auth")
     async def start_auth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start the authentication process"""
         if not update.effective_message or not update.effective_user:
+            return ConversationHandler.END
+
+        if await _enforce_private_chat(update):
+            return ConversationHandler.END
+
+        if await _enforce_allowlist(update):
             return ConversationHandler.END
 
         user = update.effective_user
@@ -133,28 +258,36 @@ class AuthHandler:
         chat = update.effective_message.chat
         message = update.effective_message
 
-        # Delete password message for security
-        await message.delete()
+        # Delete password message for security. Without delete rights (a group)
+        # Telegram refuses; still check the password.
+        try:
+            await message.delete()
+        except TelegramError as e:
+            logger.warning(f"Could not delete the password message: {e}")
 
-        if message.text == self.password:
+        if self.password and hmac.compare_digest(
+            (message.text or "").encode(), self.password.encode()
+        ):
             # Add user to authenticated users and save
             AuthHandler._authenticated_users.add(user.id)
-            self._save_authenticated_users()
+            saved = self._save_authenticated_users()
+            await register_commands_for_chat(context.bot, chat.id)
 
             log_user_interaction(logger, user, "auth_success")
 
             # Log successful authentication
             logger.info(Fore.GREEN + f"✅ User {user.username} ({user.id}) authenticated successfully")
 
-            # Show success message
+            # The user stays authorized for this run. A failed save means they
+            # must authenticate again after a restart, so do not show success.
             await chat.send_message(
-                self.translation.get_text("Chatid added")
+                self.translation.get_text("Chatid added" if saved else "AuthSaveFailed")
             )
 
-            # Trigger the start command to show the menu
-            await context.bot.send_message(
-                chat.id,
-                "/start"
+            # A bot never receives its own messages, so send the menu itself
+            await chat.send_message(
+                self.translation.get_text("mainMenu"),
+                reply_markup=get_main_menu_keyboard(),
             )
 
             return ConversationHandler.END

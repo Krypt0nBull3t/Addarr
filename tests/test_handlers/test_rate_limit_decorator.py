@@ -1,0 +1,384 @@
+"""
+Tests for the @rate_limit decorator from src/services/rate_limit.py.
+
+Uses the DummyHandler pattern (same as test_auth_handler.py) to test
+the decorator in isolation from real handlers.
+"""
+
+import pytest
+from unittest.mock import patch, MagicMock
+
+
+# ---------------------------------------------------------------------------
+# Basic behavior
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_rate_limit_allows_when_under_limit(
+    mock_ts_class, make_update, make_context
+):
+    """Handler body runs and returns its value when under limit."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.services.rate_limit import rate_limit
+
+    # Enable rate limiting
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {"enable": True, "limits": {}}
+
+        class DummyHandler:
+            @rate_limit("search")
+            async def guarded(self, update, context):
+                return "allowed"
+
+        handler = DummyHandler()
+        update = make_update(text="/movie")
+        context = make_context()
+
+        result = await handler.guarded(update, context)
+        assert result == "allowed"
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_rate_limit_blocks_when_over_limit(
+    mock_ts_class, make_update, make_context
+):
+    """Handler body does NOT run; reply_text called with rate limit message."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.services.rate_limit import rate_limit
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"search": {"maxRequests": 2, "windowSeconds": 60}},
+        }
+
+        class DummyHandler:
+            @rate_limit("search")
+            async def guarded(self, update, context):
+                return "allowed"
+
+        handler = DummyHandler()
+        update = make_update(text="/movie")
+        context = make_context()
+
+        # Exhaust limit (2 requests)
+        await handler.guarded(update, context)
+        await handler.guarded(update, context)
+
+        # Third should be blocked
+        result = await handler.guarded(update, context)
+        assert result is None
+        update.effective_message.reply_text.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_noop_when_disabled(make_update, make_context):
+    """When is_enabled is False, handler always runs regardless of limits."""
+    from src.services.rate_limit import rate_limit
+
+    # Default mock config has rateLimit.enable = False
+    class DummyHandler:
+        @rate_limit("search")
+        async def guarded(self, update, context):
+            return "allowed"
+
+    handler = DummyHandler()
+    update = make_update(text="/movie")
+    context = make_context()
+
+    # Should always pass even with many calls
+    for _ in range(20):
+        result = await handler.guarded(update, context)
+        assert result == "allowed"
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_rate_limit_returns_none_no_user(
+    mock_ts_class, make_update, make_context
+):
+    """When update.effective_user is None, returns None."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.services.rate_limit import rate_limit
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {"enable": True, "limits": {}}
+
+        class DummyHandler:
+            @rate_limit("search")
+            async def guarded(self, update, context):
+                return "allowed"
+
+        handler = DummyHandler()
+        update = make_update(text="/movie")
+        update.effective_user = None
+        context = make_context()
+
+        result = await handler.guarded(update, context)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Retry seconds in blocked response
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_rate_limit_shows_retry_seconds(
+    mock_ts_class, make_update, make_context
+):
+    """Blocked response passes retry_after seconds to translation."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.services.rate_limit import rate_limit
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"search": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+
+        class DummyHandler:
+            @rate_limit("search")
+            async def guarded(self, update, context):
+                return "allowed"
+
+        handler = DummyHandler()
+        update = make_update(text="/movie")
+        context = make_context()
+
+        # First allowed, second blocked
+        await handler.guarded(update, context)
+        await handler.guarded(update, context)
+
+        # TranslationService.get_text should have been called with seconds kwarg
+        mock_ts.get_text.assert_called()
+        call_kwargs = mock_ts.get_text.call_args
+        assert "seconds" in call_kwargs.kwargs
+        assert call_kwargs.kwargs["seconds"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Stacking with @require_auth
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_stacking_authenticated_and_under_limit(
+    mock_auth_ts_class, mock_rl_ts_class, make_update, make_context
+):
+    """@require_auth + @rate_limit: authenticated + under limit -> runs."""
+    mock_auth_ts = MagicMock()
+    mock_auth_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_auth_ts_class.return_value = mock_auth_ts
+
+    mock_rl_ts = MagicMock()
+    mock_rl_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_rl_ts_class.return_value = mock_rl_ts
+
+    from src.bot.handlers.auth import AuthHandler, require_auth
+    from src.services.rate_limit import rate_limit
+
+    AuthHandler._authenticated_users = {12345}
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {"enable": True, "limits": {}}
+
+        class DummyHandler:
+            @require_auth
+            @rate_limit("search")
+            async def guarded(self, update, context):
+                return "allowed"
+
+        handler = DummyHandler()
+        update = make_update(text="/movie")
+        context = make_context()
+
+        result = await handler.guarded(update, context)
+        assert result == "allowed"
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_stacking_authenticated_but_over_limit(
+    mock_auth_ts_class, mock_rl_ts_class, make_update, make_context
+):
+    """@require_auth + @rate_limit: authenticated + over limit -> rate limit msg."""
+    mock_auth_ts = MagicMock()
+    mock_auth_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_auth_ts_class.return_value = mock_auth_ts
+
+    mock_rl_ts = MagicMock()
+    mock_rl_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_rl_ts_class.return_value = mock_rl_ts
+
+    from src.bot.handlers.auth import AuthHandler, require_auth
+    from src.services.rate_limit import rate_limit
+
+    AuthHandler._authenticated_users = {12345}
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"search": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+
+        class DummyHandler:
+            @require_auth
+            @rate_limit("search")
+            async def guarded(self, update, context):
+                return "allowed"
+
+        handler = DummyHandler()
+        update = make_update(text="/movie")
+        context = make_context()
+
+        # First allowed
+        result = await handler.guarded(update, context)
+        assert result == "allowed"
+
+        # Second blocked by rate limit (not auth)
+        result = await handler.guarded(update, context)
+        assert result is None
+        update.effective_message.reply_text.assert_called()
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_stacking_not_authenticated(
+    mock_auth_ts_class, mock_rl_ts_class, make_update, make_context
+):
+    """@require_auth + @rate_limit: not authenticated -> auth message."""
+    mock_auth_ts = MagicMock()
+    mock_auth_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_auth_ts_class.return_value = mock_auth_ts
+
+    mock_rl_ts = MagicMock()
+    mock_rl_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_rl_ts_class.return_value = mock_rl_ts
+
+    from src.bot.handlers.auth import AuthHandler, require_auth
+    from src.services.rate_limit import rate_limit
+
+    AuthHandler._authenticated_users = set()  # Not authenticated
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {"enable": True, "limits": {}}
+
+        class DummyHandler:
+            @require_auth
+            @rate_limit("search")
+            async def guarded(self, update, context):
+                return "allowed"
+
+        handler = DummyHandler()
+        update = make_update(text="/movie")
+        context = make_context()
+
+        result = await handler.guarded(update, context)
+        assert result is None
+        # Auth message should be sent (via update.message.reply_text)
+        update.message.reply_text.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Auth attempts are always limited
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_auth_is_limited_when_rate_limiting_disabled(
+    mock_ts_class, make_update, make_context
+):
+    """Password guesses stay limited with rateLimit.enable false (audit item 14)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+
+    from src.services.rate_limit import rate_limit
+
+    # Default mock config: rateLimit.enable is false, auth allows 3 per 300 s
+    class DummyHandler:
+        @rate_limit("auth")
+        async def guarded(self, update, context):
+            return "allowed"
+
+    handler = DummyHandler()
+    update = make_update(text="/auth")
+
+    results = [await handler.guarded(update, make_context()) for _ in range(4)]
+
+    assert results == ["allowed", "allowed", "allowed", None]
+
+
+# ---------------------------------------------------------------------------
+# enforce_rate_limit (the check without the decorator)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_enforce_rate_limit_allows_then_refuses_with_reply(
+    mock_ts_class, make_update
+):
+    """True under the limit; False plus a reply once it is used up."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+
+    from src.services.rate_limit import enforce_rate_limit
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"modify": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        update = make_update(text="/movie")
+
+        assert await enforce_rate_limit(update, "modify") is True
+        update.effective_message.reply_text.assert_not_called()
+
+        assert await enforce_rate_limit(update, "modify") is False
+        update.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_enforce_rate_limit_true_when_disabled(make_update):
+    """Default mock config has rateLimit.enable false: never refuses."""
+    from src.services.rate_limit import enforce_rate_limit
+
+    update = make_update(text="/movie")
+
+    results = [await enforce_rate_limit(update, "modify") for _ in range(20)]
+
+    assert all(results)
+
+
+@pytest.mark.asyncio
+async def test_enforce_rate_limit_false_without_user(make_update):
+    """No effective user: refused, nothing sent."""
+    from src.services.rate_limit import enforce_rate_limit
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {"enable": True, "limits": {}}
+        update = make_update(text="/movie")
+        update.effective_user = None
+
+        assert await enforce_rate_limit(update, "modify") is False
+        update.effective_message.reply_text.assert_not_called()

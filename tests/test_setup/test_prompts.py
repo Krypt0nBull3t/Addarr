@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.setup.prompts import (
+    _prompt_chat_password,
     select_services,
     configure_language,
     configure_telegram,
@@ -138,6 +139,89 @@ class TestConfigureLanguage:
 # ---------------------------------------------------------------------------
 
 
+class TestPromptChatPassword:
+    """Tests for _prompt_chat_password() (#210)."""
+
+    @staticmethod
+    def _select(value):
+        return _mock_questionary_ask(value)
+
+    @pytest.mark.asyncio
+    async def test_generated_password_is_token_urlsafe_and_shown_once(self, capsys):
+        """Choosing the generated password returns a token_urlsafe(16) value and prints it."""
+        with patch("src.setup.prompts.questionary") as mock_q, \
+             patch("src.setup.prompts.secrets.token_urlsafe",
+                   return_value="proposed-value-xyz") as mock_token:
+            mock_q.select.return_value = self._select("generated")
+
+            result = await _prompt_chat_password()
+
+        mock_token.assert_called_once_with(16)
+        assert result == "proposed-value-xyz"
+        assert capsys.readouterr().out.count("proposed-value-xyz") == 1
+        mock_q.password.assert_not_called()
+        mock_q.text.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_typed_password_is_masked(self):
+        """A typed password is read with the masked prompt, never with a text prompt."""
+        with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.select.return_value = self._select("own")
+            mock_q.password.return_value = _mock_questionary_ask("a" * 12)
+
+            result = await _prompt_chat_password()
+
+        assert result == "a" * 12
+        mock_q.password.assert_called_once()
+        mock_q.text.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rejects_11_characters(self):
+        """A typed password of 11 characters is refused and asked again."""
+        ask = MagicMock()
+        ask.ask_async = AsyncMock(side_effect=["a" * 11, "b" * 12])
+        with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.select.return_value = self._select("own")
+            mock_q.password.return_value = ask
+
+            result = await _prompt_chat_password()
+
+        assert result == "b" * 12
+        assert ask.ask_async.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_accepts_12_characters(self):
+        """A typed password of exactly 12 characters is accepted."""
+        ask = _mock_questionary_ask("a" * 12)
+        with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.select.return_value = self._select("own")
+            mock_q.password.return_value = ask
+
+            result = await _prompt_chat_password()
+
+        assert result == "a" * 12
+        assert ask.ask_async.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_cancelled_choice_returns_none(self):
+        """A cancelled select (None) is returned and nothing is prompted."""
+        with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.select.return_value = self._select(None)
+
+            assert await _prompt_chat_password() is None
+
+        mock_q.password.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cancelled_typed_password_returns_none(self):
+        """A cancelled masked prompt (None) is returned, not measured."""
+        with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.select.return_value = self._select("own")
+            mock_q.password.return_value = _mock_questionary_ask(None)
+
+            assert await _prompt_chat_password() is None
+
+
 class TestConfigureTelegram:
     """Tests for configure_telegram()."""
 
@@ -145,17 +229,16 @@ class TestConfigureTelegram:
     async def test_returns_dict_with_token_and_password(self):
         """Returns dict with token and password keys."""
         with patch("src.setup.prompts.questionary") as mock_q:
-            mock_q.password.return_value = _mock_questionary_ask("my-token")
-            # password is called twice: token then password
+            mock_q.select.return_value = _mock_questionary_ask("own")
             password_mock = MagicMock()
             password_mock.ask_async = AsyncMock(
-                side_effect=["bot-token-123", "chat-password"]
+                side_effect=["bot-token-123", "chat-password-ok"]
             )
             mock_q.password.return_value = password_mock
 
             result = await configure_telegram()
 
-        assert result == {"token": "bot-token-123", "password": "chat-password"}
+        assert result == {"token": "bot-token-123", "password": "chat-password-ok"}
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +264,9 @@ class TestConfigureAccessControl:
                 side_effect=["111", "", "222", ""]
             )
             mock_q.text.return_value = text_mock
+            select_mock = MagicMock()
+            select_mock.ask_async = AsyncMock(return_value="private_only")
+            mock_q.select.return_value = select_mock
 
             result = await configure_access_control()
 
@@ -201,6 +287,9 @@ class TestConfigureAccessControl:
             text_mock = MagicMock()
             text_mock.ask_async = AsyncMock(side_effect=["abc", "111", ""])
             mock_q.text.return_value = text_mock
+            select_mock = MagicMock()
+            select_mock.ask_async = AsyncMock(return_value="private_only")
+            mock_q.select.return_value = select_mock
 
             result = await configure_access_control()
 
@@ -221,6 +310,9 @@ class TestConfigureAccessControl:
                 side_effect=["111", "", "xyz", "222", ""]
             )
             mock_q.text.return_value = text_mock
+            select_mock = MagicMock()
+            select_mock.ask_async = AsyncMock(return_value="private_only")
+            mock_q.select.return_value = select_mock
 
             result = await configure_access_control()
 
@@ -240,12 +332,58 @@ class TestConfigureAccessControl:
             text_mock = MagicMock()
             text_mock.ask_async = AsyncMock(side_effect=["111", ""])
             mock_q.text.return_value = text_mock
+            select_mock = MagicMock()
+            select_mock.ask_async = AsyncMock(return_value="private_only")
+            mock_q.select.return_value = select_mock
 
             result = await configure_access_control()
 
         assert result["security"]["enableAllowlist"] is False
         assert result["admins"] == [111]
         assert "allow_list" not in result
+
+    @staticmethod
+    def _wire(mock_q, chat_answer="private_only"):
+        """Wire questionary mocks for a run with no admin or allowed IDs."""
+        confirm_mock = MagicMock()
+        confirm_mock.ask_async = AsyncMock(side_effect=[False, False])
+        mock_q.confirm.return_value = confirm_mock
+        text_mock = MagicMock()
+        text_mock.ask_async = AsyncMock(side_effect=[""])
+        mock_q.text.return_value = text_mock
+        select_mock = MagicMock()
+        select_mock.ask_async = AsyncMock(return_value=chat_answer)
+        mock_q.select.return_value = select_mock
+
+    @pytest.mark.asyncio
+    async def test_chat_mode_select_offers_valid_values(self):
+        """chatMode is asked with a select over CHAT_MODES and stored."""
+        from src.definitions import CHAT_MODES
+        with patch("src.setup.prompts.questionary") as mock_q:
+            self._wire(mock_q, chat_answer="allow_all")
+            result = await configure_access_control()
+
+        assert mock_q.select.call_args.kwargs["choices"] == list(CHAT_MODES)
+        assert result["security"]["chatMode"] == "allow_all"
+
+    @pytest.mark.asyncio
+    async def test_chat_mode_default_is_current_value(self):
+        """The select defaults to the chatMode already in config."""
+        with patch("src.setup.prompts.questionary") as mock_q:
+            self._wire(mock_q)
+            await configure_access_control("allow_all")
+
+        assert mock_q.select.call_args.kwargs["default"] == "allow_all"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("current", ["private", "", None])
+    async def test_chat_mode_invalid_current_falls_back(self, current):
+        """An invalid or missing current chatMode defaults to private_only."""
+        with patch("src.setup.prompts.questionary") as mock_q:
+            self._wire(mock_q)
+            await configure_access_control(current)
+
+        assert mock_q.select.call_args.kwargs["default"] == "private_only"
 
 
 # ---------------------------------------------------------------------------
@@ -348,12 +486,12 @@ class TestConfigureArrFeatures:
         assert result["seasonFolder"] is True
 
     @pytest.mark.asyncio
-    async def test_lidarr_has_album_folder_and_monitor(self):
-        """Lidarr features include albumFolder and monitorOption."""
+    async def test_lidarr_has_monitor_option_and_no_album_folder(self):
+        """Lidarr features include monitorOption and no albumFolder."""
         with patch("src.setup.prompts.questionary") as mock_q:
-            # confirm: search=True, albumFolder=True
+            # confirm: search=True
             confirm_mock = MagicMock()
-            confirm_mock.ask_async = AsyncMock(side_effect=[True, True])
+            confirm_mock.ask_async = AsyncMock(side_effect=[True])
             mock_q.confirm.return_value = confirm_mock
             # select: monitorOption
             mock_q.select.return_value = _mock_questionary_ask("all")
@@ -361,7 +499,7 @@ class TestConfigureArrFeatures:
             result = await configure_arr_features("lidarr")
 
         assert result["search"] is True
-        assert result["albumFolder"] is True
+        assert "albumFolder" not in result
         assert result["monitorOption"] == "all"
 
 
@@ -378,16 +516,17 @@ class TestConfigureRequiredValue:
         """Configures telegram token and password."""
         config = {}
         with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.select.return_value = _mock_questionary_ask("own")
             password_mock = MagicMock()
             password_mock.ask_async = AsyncMock(
-                side_effect=["bot-token", "chat-pass"]
+                side_effect=["bot-token", "chat-pass-12345"]
             )
             mock_q.password.return_value = password_mock
 
             result = await configure_required_value(config, "telegram", "token")
 
         assert result["telegram"]["token"] == "bot-token"
-        assert result["telegram"]["password"] == "chat-pass"
+        assert result["telegram"]["password"] == "chat-pass-12345"
 
     @pytest.mark.asyncio
     async def test_telegram_token_existing_password(self):

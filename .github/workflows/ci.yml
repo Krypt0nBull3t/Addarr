@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -33,13 +33,30 @@ jobs:
       - name: Run flake8
         run: flake8 .
 
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-test.txt
+      - name: Run mypy
+        run: mypy src/
+
   validate-translations:
     name: Validate Translations
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -50,13 +67,13 @@ jobs:
       - name: Validate translation files
         run: python run.py --validate-i18n
 
-  test:
-    name: Test
+  unit-test:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -64,15 +81,69 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-test.txt
-      - name: Run tests with 100% coverage enforcement
-        run: pytest --cov=src --cov-report=term-missing --cov-report=html:coverage-html --cov-fail-under=100 --tb=short
+      - name: Run unit tests with 100% coverage enforcement
+        run: pytest tests/ --ignore=tests/integration --ignore=tests/test_architecture --cov=src --cov-report=term-missing --cov-report=html:coverage-html --cov-fail-under=100 --tb=short
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-report
           path: coverage-html/
           retention-days: 14
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-test.txt
+      - name: Run integration tests
+        run: pytest tests/integration --tb=short -v
+
+  architecture-test:
+    name: Architecture Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-test.txt
+      - name: Run architecture tests
+        run: pytest tests/test_architecture --tb=short -v
+
+  compatibility:
+    name: Compatibility (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-test.txt
+      - name: Run all tests
+        run: pytest tests/ --tb=short -v
 
   security:
     name: Dependency Audit
@@ -81,7 +152,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
@@ -90,13 +161,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Install pip-audit
-        run: pip install pip-audit
+        run: pip install --upgrade pip-audit setuptools
       - name: Run dependency audit
         run: pip-audit
 
   docker-build:
     name: Docker Build
-    needs: [test]
+    needs: [unit-test, integration-test, architecture-test, compatibility]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

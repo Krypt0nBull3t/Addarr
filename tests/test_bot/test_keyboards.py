@@ -5,7 +5,16 @@ from unittest.mock import patch
 from telegram import InlineKeyboardMarkup
 
 from src.bot.keyboards import (
-    get_confirmation_keyboard,
+    DELETE_PAGE_SIZE,
+    _build_pagination_row,
+    clamp_page,
+    get_downloads_error_keyboard,
+    get_delete_items_keyboard,
+    get_downloads_history_keyboard,
+    get_downloads_queue_keyboard,
+    get_history_items_keyboard,
+    get_history_empty_keyboard,
+    get_library_menu_keyboard,
     get_main_menu_keyboard,
     get_settings_keyboard,
     get_system_keyboard,
@@ -42,7 +51,9 @@ class TestMainMenuKeyboard:
             "menu_series",
             "menu_music",
             "menu_status",
+            "menu_upcoming",
             "menu_delete",
+            "menu_library",
             "menu_help",
             "menu_cancel",
         ]
@@ -50,6 +61,41 @@ class TestMainMenuKeyboard:
             assert value in callback_data_values, (
                 f"{value} not found in keyboard callback data"
             )
+
+
+class TestLibraryMenuKeyboard:
+    """Tests for get_library_menu_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_library_menu_returns_markup(self, mock_ts):
+        """Returns InlineKeyboardMarkup"""
+        _mock_translation(mock_ts)
+        result = get_library_menu_keyboard()
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_library_menu_has_media_buttons(self, mock_ts):
+        """Contains movie, series, music library buttons"""
+        _mock_translation(mock_ts)
+        result = get_library_menu_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "library_movie" in callbacks
+        assert "library_series" in callbacks
+        assert "library_music" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_library_menu_has_back_button(self, mock_ts):
+        """Contains back button to return to main menu"""
+        _mock_translation(mock_ts)
+        result = get_library_menu_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "menu_back" in callbacks
 
 
 class TestSystemKeyboard:
@@ -127,28 +173,6 @@ class TestSettingsKeyboard:
             assert value in callback_data_values, (
                 f"{value} not found in settings keyboard callback data"
             )
-
-
-class TestConfirmationKeyboard:
-    """Tests for get_confirmation_keyboard"""
-
-    @patch("src.bot.keyboards.TranslationService")
-    def test_confirmation_keyboard(self, mock_ts):
-        """get_confirmation_keyboard('add') has confirm_add and confirm_cancel"""
-        _mock_translation(mock_ts)
-
-        result = get_confirmation_keyboard("add")
-
-        assert isinstance(result, InlineKeyboardMarkup)
-
-        callback_data_values = [
-            button.callback_data
-            for row in result.inline_keyboard
-            for button in row
-        ]
-
-        assert "confirm_add" in callback_data_values
-        assert "confirm_cancel" in callback_data_values
 
 
 class TestYesNoKeyboard:
@@ -233,6 +257,51 @@ class TestLanguageKeyboard:
             for button in row
         ]
         assert "settings_back" in callback_data_values
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_dutch_flag_is_netherlands_not_belgium(self, mock_ts):
+        """Dutch language uses Netherlands flag, not Belgian flag (#166)."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_language_keyboard
+
+        result = get_language_keyboard()
+
+        nl_buttons = [
+            button
+            for row in result.inline_keyboard
+            for button in row
+            if button.callback_data == "lang_nl-be"
+        ]
+        assert len(nl_buttons) == 1
+        assert "\U0001f1f3\U0001f1f1" in nl_buttons[0].text  # 🇳🇱
+        assert "\U0001f1e7\U0001f1ea" not in nl_buttons[0].text  # 🇧🇪
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_all_language_flag_pairings(self, mock_ts):
+        """All 9 languages have correct flag-code pairings (#166)."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_language_keyboard
+
+        result = get_language_keyboard()
+
+        expected = {
+            "lang_de-de": "🇩🇪",
+            "lang_en-us": "🇺🇸",
+            "lang_es-es": "🇪🇸",
+            "lang_fr-fr": "🇫🇷",
+            "lang_it-it": "🇮🇹",
+            "lang_nl-be": "🇳🇱",
+            "lang_pl-pl": "🇵🇱",
+            "lang_pt-pt": "🇵🇹",
+            "lang_ru-ru": "🇷🇺",
+        }
+        for row in result.inline_keyboard:
+            for button in row:
+                if button.callback_data in expected:
+                    assert expected[button.callback_data] in button.text, (
+                        f"{button.callback_data}: expected {expected[button.callback_data]} "
+                        f"in '{button.text}'"
+                    )
 
 
 class TestServiceToggleKeyboardRemoved:
@@ -366,7 +435,7 @@ class TestSabnzbdSettingsKeyboard:
         assert "dl_sab_speed" in callback_data
 
     @patch("src.bot.keyboards.TranslationService")
-    def test_has_pause_resume_button(self, mock_ts):
+    def test_has_pause_button(self, mock_ts):
         _mock_translation(mock_ts)
         from src.bot.keyboards import get_sabnzbd_settings_keyboard
 
@@ -377,6 +446,20 @@ class TestSabnzbdSettingsKeyboard:
             for btn in row
         ]
         assert "dl_sab_pause" in callback_data
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_resume_button(self, mock_ts):
+        """Resume must be a separate button so dl_sab_resume callback is sent."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_sabnzbd_settings_keyboard
+
+        result = get_sabnzbd_settings_keyboard(enabled=True)
+        callback_data = [
+            btn.callback_data
+            for row in result.inline_keyboard
+            for btn in row
+        ]
+        assert "dl_sab_resume" in callback_data
 
     @patch("src.bot.keyboards.TranslationService")
     def test_has_back_button(self, mock_ts):
@@ -402,7 +485,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=False, allowlist_enabled=False,
-            admin_count=0, auth_count=1
+            admin_count=0, allow_count=1
         )
         callback_data = [
             btn.callback_data
@@ -418,7 +501,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=False, allowlist_enabled=False,
-            admin_count=0, auth_count=1
+            admin_count=0, allow_count=1
         )
         callback_data = [
             btn.callback_data
@@ -434,7 +517,7 @@ class TestUsersKeyboard:
 
         result = get_users_keyboard(
             admin_enabled=True, allowlist_enabled=True,
-            admin_count=2, auth_count=5
+            admin_count=2, allow_count=5
         )
         callback_data = [
             btn.callback_data
@@ -481,7 +564,49 @@ class TestQualityProfileKeyboard:
             for row in result.inline_keyboard
             for button in row
         ]
-        assert "settings_back" in callback_data_values
+        assert callback_data_values[-1] == "settings_radarr"
+        assert "settings_back" not in callback_data_values
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_current_profile_has_checkmark(self, mock_ts):
+        """Quality keyboard marks the current profile with a checkmark prefix."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_quality_profile_keyboard
+
+        profiles = [
+            {"id": 1, "name": "Any"},
+            {"id": 4, "name": "HD-1080p"},
+            {"id": 6, "name": "Ultra-HD"},
+        ]
+        result = get_quality_profile_keyboard(profiles, "radarr", current_profile_id=4)
+
+        button_texts = [
+            button.text
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert any("✅" in t and "HD-1080p" in t for t in button_texts)
+        assert not any("✅" in t and "Any" in t for t in button_texts)
+        assert not any("✅" in t and "Ultra-HD" in t for t in button_texts)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_current_profile_no_checkmark(self, mock_ts):
+        """Quality keyboard has no checkmarks when current_profile_id is None."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_quality_profile_keyboard
+
+        profiles = [
+            {"id": 1, "name": "Any"},
+            {"id": 4, "name": "HD-1080p"},
+        ]
+        result = get_quality_profile_keyboard(profiles, "radarr", current_profile_id=None)
+
+        button_texts = [
+            button.text
+            for row in result.inline_keyboard
+            for button in row
+        ]
+        assert not any("✅" in t for t in button_texts)
 
 
 class TestSettingsKeyboardBackButton:
@@ -897,6 +1022,190 @@ class TestAlbumSelectionKeyboard:
         assert "menu_cancel" in callbacks
 
 
+# ---------------------------------------------------------------------------
+# Calendar keyboards
+# ---------------------------------------------------------------------------
+
+
+class TestCalendarKeyboard:
+    """Tests for get_calendar_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=7)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_period_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_period_7" in callbacks
+        assert "cal_period_14" in callbacks
+        assert "cal_period_30" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_current_period_highlighted(self, mock_ts):
+        """Current period button should have a checkmark."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=14)
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "cal_period_14":
+                    assert "\u2705" in btn.text
+                elif btn.callback_data in ("cal_period_7", "cal_period_30"):
+                    assert "\u2705" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_keyboard
+
+        result = get_calendar_keyboard(days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_back" in callbacks
+
+
+class TestCalendarItemsKeyboard:
+    """Tests for get_calendar_items_keyboard"""
+
+    SAMPLE_ITEMS = [
+        {"type": "movie", "title": "Movie A",
+         "media_id": "100", "date": "2026-03-10", "date_label": "Cinema"},
+        {"type": "movie", "title": "Movie B",
+         "media_id": "200", "date": "2026-03-12", "date_label": "Digital"},
+        {"type": "episode", "title": "Pilot",
+         "media_id": "9000", "series_title": "New Show",
+         "date": "2026-03-15", "date_label": "Airing"},
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_item_buttons_present(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Movie A" in text_joined
+        assert "Movie B" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_add_buttons(self, mock_ts):
+        """The calendar has no add path: no item gets an Add button."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
+        buttons = [btn for row in result.inline_keyboard for btn in row]
+        assert not [
+            b for b in buttons if (b.callback_data or "").startswith("cal_add_")
+        ]
+        assert not [b for b in buttons if "Add" in b.text]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_when_items_exceed_page_size(self, mock_ts):
+        """Pagination buttons appear when items > page_size."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}",
+             "media_id": str(i), "date": "2026-03-10", "date_label": "Cinema"}
+            for i in range(8)
+        ]
+        result = get_calendar_items_keyboard(items, page=0, days=7, page_size=5)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_page_1" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_prev_button_on_page_1(self, mock_ts):
+        """Page 1 should have a Prev button pointing to page 0."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}",
+             "media_id": str(i), "date": "2026-03-10", "date_label": "Cinema"}
+            for i in range(8)
+        ]
+        result = get_calendar_items_keyboard(items, page=1, days=7, page_size=5)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_page_0" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_pagination_for_single_page(self, mock_ts):
+        """No pagination buttons when items fit in one page."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, days=7, page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert not any(cb.startswith("cal_page_") for cb in callbacks)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_period_refresh_back_buttons(self, mock_ts):
+        """Bottom row has period, refresh, and back buttons."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_calendar_items_keyboard
+
+        result = get_calendar_items_keyboard(self.SAMPLE_ITEMS, page=0, days=7)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "cal_period_7" in callbacks
+        assert "cal_refresh" in callbacks
+        assert "cal_back" in callbacks
+
+
 class TestListDetailKeyboard:
     """Tests for the list detail view keyboard."""
 
@@ -933,3 +1242,1284 @@ class TestListDetailKeyboard:
 
         cancel_btn = buttons[2][0]
         assert cancel_btn.callback_data == "select_cancel"
+
+
+class TestMissingEmptyKeyboard:
+    """Tests for get_missing_empty_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_empty_keyboard
+
+        result = get_missing_empty_keyboard()
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_empty_keyboard
+
+        result = get_missing_empty_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_empty_keyboard
+
+        result = get_missing_empty_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_back" in callbacks
+
+
+class TestMissingItemsKeyboard:
+    """Tests for get_missing_items_keyboard"""
+
+    SAMPLE_ITEMS = [
+        {"type": "movie", "title": "Fight Club", "series_title": None,
+         "internal_id": 1, "service": "radarr", "media_id": "550"},
+        {"type": "episode", "title": "Pilot", "series_title": "Breaking Bad",
+         "internal_id": 101, "service": "sonarr", "media_id": "81189"},
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_item_buttons_present(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Fight Club" in text_joined
+        assert "Pilot" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_episode_shows_series_title(self, mock_ts):
+        """Episode items show series_title - episode_title format."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Breaking Bad" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_search_buttons_per_item(self, mock_ts):
+        """Each item has a search button with service and ID."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_search_radarr_1" in callbacks
+        assert "missing_search_sonarr_101" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_filter_tabs_present(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_filter_all" in callbacks
+        assert "missing_filter_movie" in callbacks
+        assert "missing_filter_series" in callbacks
+        assert "missing_filter_cutoff" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_active_filter_highlighted(self, mock_ts):
+        """Active filter tab should have a checkmark."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="movie"
+        )
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "missing_filter_movie":
+                    assert "\u2713" in btn.text
+                elif btn.callback_data == "missing_filter_all":
+                    assert "\u2713" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_when_items_exceed_page_size(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}", "series_title": None,
+             "internal_id": i, "service": "radarr", "media_id": str(i)}
+            for i in range(8)
+        ]
+        result = get_missing_items_keyboard(
+            items, page=0, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_page_1" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_prev_on_page_1(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}", "series_title": None,
+             "internal_id": i, "service": "radarr", "media_id": str(i)}
+            for i in range(8)
+        ]
+        result = get_missing_items_keyboard(
+            items, page=1, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_page_0" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_pagination_for_single_page(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert not any(cb.startswith("missing_page_") for cb in callbacks)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_and_back_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        result = get_missing_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "missing_refresh" in callbacks
+        assert "missing_back" in callbacks
+
+
+class TestQueueEmptyKeyboard:
+    """Tests for get_queue_empty_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_empty_keyboard
+
+        result = get_queue_empty_keyboard()
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_empty_keyboard
+
+        result = get_queue_empty_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "queue_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_back_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_empty_keyboard
+
+        result = get_queue_empty_keyboard()
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "queue_back" in callbacks
+
+
+class TestQueueItemsKeyboard:
+    """Tests for get_queue_items_keyboard"""
+
+    SAMPLE_ITEMS = [
+        {"type": "movie", "title": "Fight Club", "year": 1999,
+         "series_title": None, "season": None, "episode": None,
+         "status": "downloading", "progress": 50,
+         "timeleft": "00:15:00", "protocol": "usenet",
+         "download_client": "SABnzbd",
+         "media_id": "550", "internal_id": 1, "service": "radarr"},
+        {"type": "episode", "title": "Pilot", "year": 2008,
+         "series_title": "Breaking Bad", "season": 1, "episode": 5,
+         "status": "downloading", "progress": 80,
+         "timeleft": "00:05:00", "protocol": "torrent",
+         "download_client": "qBittorrent",
+         "media_id": "81189", "internal_id": 101, "service": "sonarr"},
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_inline_keyboard_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_movie_shows_title_and_year(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Fight Club" in text_joined
+        assert "1999" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_episode_shows_series_and_season_episode(self, mock_ts):
+        """Episode items show series_title - SxxExx format."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Breaking Bad" in text_joined
+        assert "S01E05" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_episode_without_season_episode_numbers(self, mock_ts):
+        """Episode with None season/episode falls back to simple format."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        items = [
+            {"type": "episode", "title": "Special", "year": None,
+             "series_title": "Some Show", "season": None, "episode": None,
+             "status": "downloading", "progress": 10,
+             "timeleft": "", "protocol": "usenet",
+             "download_client": "SABnzbd",
+             "media_id": "1", "internal_id": 1, "service": "sonarr"},
+        ]
+        result = get_queue_items_keyboard(
+            items, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "Some Show" in text_joined
+        assert "Special" in text_joined
+        assert "S" not in text_joined.split("Some Show")[1].split("Special")[0] or "S0" not in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_album_no_year(self, mock_ts):
+        """Album item with no year shows just the title."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        items = [
+            {"type": "album", "title": "OK Computer", "year": None,
+             "series_title": None, "season": None, "episode": None,
+             "status": "downloading", "progress": 50,
+             "timeleft": "00:03:00", "protocol": "usenet",
+             "download_client": "SABnzbd",
+             "media_id": "", "internal_id": 301, "service": "lidarr"},
+        ]
+        result = get_queue_items_keyboard(
+            items, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "OK Computer" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_status_line_shows_progress(self, mock_ts):
+        """Each item has a status line with progress percentage."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "50%" in text_joined
+        assert "80%" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_status_line_shows_timeleft(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "00:15:00 remaining" in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_status_line_omits_zero_timeleft(self, mock_ts):
+        """When timeleft is 00:00:00, it should not appear."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        items = [
+            {"type": "movie", "title": "Done Movie", "year": 2024,
+             "series_title": None, "season": None, "episode": None,
+             "status": "completed", "progress": 100,
+             "timeleft": "00:00:00", "protocol": "usenet",
+             "download_client": "SABnzbd",
+             "media_id": "1", "internal_id": 1, "service": "radarr"},
+        ]
+        result = get_queue_items_keyboard(
+            items, page=0, active_filter="all"
+        )
+        button_texts = [
+            btn.text
+            for row in result.inline_keyboard for btn in row
+        ]
+        text_joined = " ".join(button_texts)
+        assert "remaining" not in text_joined
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_filter_tabs_present(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "queue_filter_all" in callbacks
+        assert "queue_filter_movie" in callbacks
+        assert "queue_filter_episode" in callbacks
+        assert "queue_filter_album" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_active_filter_highlighted(self, mock_ts):
+        """Active filter tab should have a checkmark."""
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="movie"
+        )
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "queue_filter_movie":
+                    assert "\u2713" in btn.text
+                elif btn.callback_data == "queue_filter_all":
+                    assert "\u2713" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_when_items_exceed_page_size(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}", "year": 2024,
+             "series_title": None, "season": None, "episode": None,
+             "status": "downloading", "progress": i * 10,
+             "timeleft": "00:10:00", "protocol": "usenet",
+             "download_client": "SABnzbd",
+             "media_id": str(i), "internal_id": i, "service": "radarr"}
+            for i in range(8)
+        ]
+        result = get_queue_items_keyboard(
+            items, page=0, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "queue_page_1" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_prev_on_page_1(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        items = [
+            {"type": "movie", "title": f"M{i}", "year": 2024,
+             "series_title": None, "season": None, "episode": None,
+             "status": "downloading", "progress": i * 10,
+             "timeleft": "00:10:00", "protocol": "usenet",
+             "download_client": "SABnzbd",
+             "media_id": str(i), "internal_id": i, "service": "radarr"}
+            for i in range(8)
+        ]
+        result = get_queue_items_keyboard(
+            items, page=1, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "queue_page_0" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_pagination_for_single_page(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all", page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert not any(cb.startswith("queue_page_") for cb in callbacks)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_and_back_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        result = get_queue_items_keyboard(
+            self.SAMPLE_ITEMS, page=0, active_filter="all"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "queue_refresh" in callbacks
+        assert "queue_back" in callbacks
+
+
+# ---------------------------------------------------------------------------
+# Downloads Queue Keyboard
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadsQueueKeyboard:
+    SAMPLE_ITEMS = [
+        {
+            "nzo_id": "nzo_abc",
+            "title": "Movie.2024.1080p",
+            "status": "Downloading",
+            "progress": 72,
+            "size": "4.2 GB",
+            "timeleft": "0:15:30",
+        },
+        {
+            "nzo_id": "nzo_def",
+            "title": "TV.Show.S03E05",
+            "status": "Queued",
+            "progress": 0,
+            "size": "1.1 GB",
+            "timeleft": "0:45:00",
+        },
+        {
+            "nzo_id": "nzo_ghi",
+            "title": "Another.Movie",
+            "status": "Paused",
+            "progress": 12,
+            "size": "3.5 GB",
+            "timeleft": "",
+        },
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_tab_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_queue" in callbacks
+        assert "dl_tab_history" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_per_item_pause_resume_buttons(self, mock_ts):
+        """Downloading/Queued items get pause button, Paused gets resume."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_pause_nzo_abc" in callbacks
+        assert "dl_pause_nzo_def" in callbacks
+        assert "dl_resume_nzo_ghi" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_pause_all_when_not_paused(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, paused=False
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_pauseall" in callbacks
+        assert "dl_resumeall" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_resume_all_when_paused(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, paused=True
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_resumeall" in callbacks
+        assert "dl_pauseall" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_on_second_page(self, mock_ts):
+        _mock_translation(mock_ts)
+        # Create 8 items to force 2 pages (page_size=5)
+        items = self.SAMPLE_ITEMS * 3  # 9 items
+        result = get_downloads_queue_keyboard(items, page=1)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_page_0" in callbacks  # Prev button
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_first_page_has_next(self, mock_ts):
+        _mock_translation(mock_ts)
+        items = self.SAMPLE_ITEMS * 3  # 9 items → 2 pages
+        result = get_downloads_queue_keyboard(items, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_page_1" in callbacks  # Next button
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_queue_has_tabs_and_refresh(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard([], page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_queue" in callbacks
+        assert "dl_tab_history" in callbacks
+        assert "dl_refresh" in callbacks
+
+
+# ---------------------------------------------------------------------------
+# Downloads History Keyboard
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadsHistoryKeyboard:
+    SAMPLE_ITEMS = [
+        {
+            "name": "Movie.2024",
+            "status": "Completed",
+            "size": "4.2 GB",
+            "download_time": 8100,
+        },
+        {
+            "name": "Failed.Download",
+            "status": "Failed",
+            "size": "0 B",
+            "download_time": 0,
+        },
+    ]
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_returns_markup(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(self.SAMPLE_ITEMS, page=0)
+        assert isinstance(result, InlineKeyboardMarkup)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_tab_buttons(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_queue" in callbacks
+        assert "dl_tab_history" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_has_refresh_button(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_pause_resume_buttons(self, mock_ts):
+        """History view should not have any pause/resume buttons."""
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert not any(cb.startswith("dl_pause") for cb in callbacks)
+        assert not any(cb.startswith("dl_resume") for cb in callbacks)
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_history_has_tabs_and_refresh(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard([], page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_queue" in callbacks
+        assert "dl_tab_history" in callbacks
+        assert "dl_refresh" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_first_page_has_next(self, mock_ts):
+        _mock_translation(mock_ts)
+        items = self.SAMPLE_ITEMS * 4  # 8 items
+        result = get_downloads_history_keyboard(items, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_page_1" in callbacks  # Next button
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_pagination_second_page_has_prev(self, mock_ts):
+        _mock_translation(mock_ts)
+        items = self.SAMPLE_ITEMS * 4  # 8 items → 2 pages
+        result = get_downloads_history_keyboard(items, page=1)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_page_0" in callbacks  # Prev button
+
+
+# ---------------------------------------------------------------------------
+# Downloads Queue Keyboard — Client Tab Support
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadsQueueKeyboardClientTabs:
+    SAMPLE_ITEMS = TestDownloadsQueueKeyboard.SAMPLE_ITEMS
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_client_tabs_when_client_none(self, mock_ts):
+        """client=None (single-client mode) shows no client tab row."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, client=None
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_client_sab" not in callbacks
+        assert "dl_client_tx" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_client_tabs_when_sabnzbd(self, mock_ts):
+        """client='sabnzbd' shows client tab row with SABnzbd checked."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, client="sabnzbd"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_client_sab" in callbacks
+        assert "dl_client_tx" in callbacks
+
+        # SABnzbd button should have checkmark
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "dl_client_sab":
+                    assert "\u2713" in btn.text
+                if btn.callback_data == "dl_client_tx":
+                    assert "\u2713" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_client_tabs_when_transmission(self, mock_ts):
+        """client='transmission' shows client tab row with Transmission checked."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, client="transmission"
+        )
+        for row in result.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == "dl_client_tx":
+                    assert "\u2713" in btn.text
+                if btn.callback_data == "dl_client_sab":
+                    assert "\u2713" not in btn.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_show_history_tab_false_hides_history(self, mock_ts):
+        """show_history_tab=False removes history tab button."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(
+            self.SAMPLE_ITEMS, page=0, show_history_tab=False
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_history" not in callbacks
+        assert "dl_tab_queue" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_show_history_tab_true_default(self, mock_ts):
+        """Default (show_history_tab=True) shows history tab."""
+        _mock_translation(mock_ts)
+        result = get_downloads_queue_keyboard(self.SAMPLE_ITEMS, page=0)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_tab_history" in callbacks
+
+
+class TestDownloadsHistoryKeyboardClientTabs:
+    SAMPLE_ITEMS = TestDownloadsHistoryKeyboard.SAMPLE_ITEMS
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_no_client_tabs_when_client_none(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(
+            self.SAMPLE_ITEMS, page=0, client=None
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_client_sab" not in callbacks
+        assert "dl_client_tx" not in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_client_tabs_when_sabnzbd(self, mock_ts):
+        _mock_translation(mock_ts)
+        result = get_downloads_history_keyboard(
+            self.SAMPLE_ITEMS, page=0, client="sabnzbd"
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "dl_client_sab" in callbacks
+        assert "dl_client_tx" in callbacks
+
+
+# ---------------------------------------------------------------------------
+# History keyboards
+# ---------------------------------------------------------------------------
+
+HISTORY_ITEMS = [
+    {
+        "type": "movie", "title": "Fight Club", "event_type": "grabbed",
+        "quality": "Bluray-1080p", "date": "2026-03-09T14:30:00Z",
+        "source_title": "Fight.Club.1999.1080p.BluRay", "service": "radarr",
+    },
+    {
+        "type": "episode", "title": "Breaking Bad", "event_type": "downloadFolderImported",
+        "quality": "HDTV-720p", "date": "2026-03-09T12:00:00Z",
+        "source_title": "Breaking.Bad.S01E01.720p", "service": "sonarr",
+    },
+    {
+        "type": "movie", "title": "Pulp Fiction", "event_type": "downloadFailed",
+        "quality": "Bluray-720p", "date": "2026-03-08T10:00:00Z",
+        "source_title": "Pulp.Fiction.1994.720p", "service": "radarr",
+    },
+    {
+        "type": "movie", "title": "Inception", "event_type": "grabbed",
+        "quality": "Bluray-1080p", "date": "2026-03-07T10:00:00Z",
+        "source_title": "Inception.2010.1080p", "service": "radarr",
+    },
+    {
+        "type": "episode", "title": "Severance", "event_type": "grabbed",
+        "quality": "WEBDL-1080p", "date": "2026-03-06T10:00:00Z",
+        "source_title": "Severance.S02E01.1080p", "service": "sonarr",
+    },
+    {
+        "type": "movie", "title": "The Matrix", "event_type": "grabbed",
+        "quality": "Bluray-1080p", "date": "2026-03-05T10:00:00Z",
+        "source_title": "The.Matrix.1999.1080p", "service": "radarr",
+    },
+]
+
+
+class TestHistoryItemsKeyboard:
+    @patch("src.bot.keyboards.TranslationService")
+    def test_with_items_pagination_present(self, mock_ts):
+        """6 items with page_size=5: pagination row should be present."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard(HISTORY_ITEMS, page=0, page_size=5)
+        assert isinstance(result, InlineKeyboardMarkup)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        # Pagination should exist (6 items, 5 per page = 2 pages)
+        assert "hist_page_1" in callbacks
+        # Filter tabs should exist
+        assert "hist_filter_all" in callbacks
+        assert "hist_filter_grabbed" in callbacks
+        # Action row
+        assert "hist_refresh" in callbacks
+        assert "hist_back" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_items_no_item_rows(self, mock_ts):
+        """0 items: no item rows, but filter tabs and action row present."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard([], page=0, page_size=5)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        # Filter tabs still present
+        assert "hist_filter_all" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_filter_active_highlight(self, mock_ts):
+        """Active filter starts with the check mark used on other screens."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard(
+            HISTORY_ITEMS, page=0, page_size=5, event_filter="grabbed"
+        )
+        filter_row = result.inline_keyboard[0]
+        grabbed_btn = [b for b in filter_row if "grabbed" in b.callback_data][0]
+        assert grabbed_btn.text.startswith("\u2713 ")
+        # "All" should NOT have the check mark
+        all_btn = [b for b in filter_row if b.callback_data == "hist_filter_all"][0]
+        assert not all_btn.text.startswith("\u2713 ")
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_refresh_button_is_labelled_refresh(self, mock_ts):
+        """The hist_refresh button says Refresh, not the Search key."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard(HISTORY_ITEMS, page=0, page_size=5)
+        refresh = [
+            btn for row in result.inline_keyboard for btn in row
+            if btn.callback_data == "hist_refresh"
+        ][0]
+        assert refresh.text == "\U0001f504 Refresh"
+        assert "Search" not in refresh.text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_title_truncation(self, mock_ts):
+        """Titles longer than 30 chars are truncated with ellipsis."""
+        _mock_translation(mock_ts)
+        long_item = {
+            "type": "movie", "title": "A" * 35, "event_type": "grabbed",
+            "quality": "HD", "date": "2026-03-09T14:30:00Z",
+            "source_title": "test", "service": "radarr",
+        }
+        result = get_history_items_keyboard([long_item], page=0, page_size=5)
+        item_row = result.inline_keyboard[1]
+        assert "..." in item_row[0].text
+        assert "A" * 27 in item_row[0].text
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_page_two_has_previous_button(self, mock_ts):
+        """Page > 0 shows Previous button."""
+        _mock_translation(mock_ts)
+        result = get_history_items_keyboard(
+            HISTORY_ITEMS, page=1, page_size=5
+        )
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "hist_page_0" in callbacks
+
+
+class TestHistoryEmptyKeyboard:
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_keyboard_buttons(self, mock_ts):
+        """Empty keyboard has refresh and back buttons."""
+        _mock_translation(mock_ts)
+        result = get_history_empty_keyboard()
+        assert isinstance(result, InlineKeyboardMarkup)
+        callbacks = [
+            btn.callback_data
+            for row in result.inline_keyboard for btn in row
+        ]
+        assert "hist_refresh" in callbacks
+        assert "hist_back" in callbacks
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_empty_refresh_button_is_labelled_refresh(self, mock_ts):
+        """The empty-state hist_refresh button says Refresh, not Search."""
+        _mock_translation(mock_ts)
+        result = get_history_empty_keyboard()
+        refresh = [
+            btn for row in result.inline_keyboard for btn in row
+            if btn.callback_data == "hist_refresh"
+        ][0]
+        assert refresh.text == "\U0001f504 Refresh"
+        assert "Search" not in refresh.text
+
+
+def _row_callbacks(row):
+    return [btn.callback_data for btn in row]
+
+
+class TestClampPage:
+    """Tests for clamp_page"""
+
+    def test_in_range_is_unchanged(self):
+        assert clamp_page(1, 3) == 1
+
+    def test_past_end_gives_last_page(self):
+        assert clamp_page(9, 3) == 2
+
+    def test_negative_gives_first_page(self):
+        assert clamp_page(-4, 3) == 0
+
+    def test_no_pages_gives_zero(self):
+        assert clamp_page(5, 0) == 0
+
+
+class TestDownloadsKeyboardButtonsCarryClient:
+    """Multi-client buttons name their client; single-client keep old data"""
+
+    ITEMS = [
+        {"nzo_id": "SABnzbd_nzo_abc", "title": "A", "status": "Downloading",
+         "progress": 1},
+        {"nzo_id": "SABnzbd_nzo_def", "title": "B", "status": "Paused",
+         "progress": 2},
+    ]
+
+    @staticmethod
+    def _callbacks(markup):
+        return [b.callback_data for row in markup.inline_keyboard for b in row]
+
+    def test_sabnzbd_buttons_name_sab(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(self.ITEMS, 0, client="sabnzbd")
+        )
+        assert "dl_pause_sab_SABnzbd_nzo_abc" in callbacks
+        assert "dl_resume_sab_SABnzbd_nzo_def" in callbacks
+        assert "dl_pauseall_sab" in callbacks
+
+    def test_transmission_buttons_name_tx(self):
+        items = [{"nzo_id": 7, "title": "T", "status": "Downloading",
+                  "progress": 1}]
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(
+                items, 0, paused=False, client="transmission",
+                show_history_tab=False,
+            )
+        )
+        assert "dl_pause_tx_7" in callbacks
+        assert "dl_pauseall_tx" in callbacks
+
+    def test_paused_queue_has_resume_all_with_client(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(
+                self.ITEMS, 0, paused=True, client="transmission"
+            )
+        )
+        assert "dl_resumeall_tx" in callbacks
+        assert "dl_pauseall_tx" not in callbacks
+
+    def test_single_client_keeps_old_data(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(self.ITEMS, 0)
+        )
+        assert "dl_pause_SABnzbd_nzo_abc" in callbacks
+        assert "dl_pauseall" in callbacks
+
+    def test_callback_data_fits_telegram_limit(self):
+        items = [{"nzo_id": "SABnzbd_nzo_" + "x" * 8, "title": "A",
+                  "status": "Downloading", "progress": 1}]
+        for client in ("sabnzbd", "transmission", None):
+            callbacks = self._callbacks(
+                get_downloads_queue_keyboard(items, 0, client=client)
+            )
+            assert all(len(c.encode()) <= 64 for c in callbacks)
+
+
+class TestDownloadsErrorKeyboard:
+    """Error view keyboard: client switcher (multi-client only) and Refresh"""
+
+    @staticmethod
+    def _callbacks(markup):
+        return [b.callback_data for row in markup.inline_keyboard for b in row]
+
+    def test_single_client_has_only_refresh(self):
+        assert self._callbacks(get_downloads_error_keyboard()) == ["dl_refresh"]
+
+    def test_multi_client_has_switcher_and_refresh(self):
+        callbacks = self._callbacks(get_downloads_error_keyboard("sabnzbd"))
+        assert callbacks == ["dl_client_sab", "dl_client_tx", "dl_refresh"]
+
+
+class TestDownloadsKeyboardsClampPage:
+    """A page past the last page shows the last page with its nav row"""
+
+    ITEMS = [
+        {"nzo_id": f"nzo_{i}", "title": f"T{i}", "status": "Queued",
+         "progress": 0, "name": f"N{i}", "size": "1 GB"}
+        for i in range(6)
+    ]
+
+    @staticmethod
+    def _buttons(result):
+        return [btn for row in result.inline_keyboard for btn in row]
+
+    def test_queue_keyboard_past_end_shows_last_page(self):
+        buttons = self._buttons(
+            get_downloads_queue_keyboard(self.ITEMS, page=9)
+        )
+        assert "2/2" in [b.text for b in buttons]
+        assert "dl_page_0" in [b.callback_data for b in buttons]
+        assert "dl_pause_nzo_5" in [b.callback_data for b in buttons]
+
+    def test_history_keyboard_past_end_shows_last_page(self):
+        buttons = self._buttons(
+            get_downloads_history_keyboard(self.ITEMS, page=9)
+        )
+        assert "2/2" in [b.text for b in buttons]
+        assert any("N5" in b.text for b in buttons)
+
+
+class TestPaginationRow:
+    """Tests for _build_pagination_row"""
+
+    def test_single_page_gives_no_row(self):
+        assert _build_pagination_row("x", 0, 1) == []
+
+    def test_no_pages_gives_no_row(self):
+        assert _build_pagination_row("x", 0, 0) == []
+
+    def test_middle_page_has_prev_and_next(self):
+        row = _build_pagination_row("x", 1, 3)
+        assert _row_callbacks(row) == ["x_0", "x_2"]
+
+    def test_first_page_has_only_next(self):
+        row = _build_pagination_row("x", 0, 3)
+        assert _row_callbacks(row) == ["x_1"]
+
+    def test_last_page_has_only_prev(self):
+        row = _build_pagination_row("x", 2, 3)
+        assert _row_callbacks(row) == ["x_1"]
+
+    def test_page_past_end_clamps_to_last(self):
+        row = _build_pagination_row("x", 99, 3)
+        assert _row_callbacks(row) == ["x_1"]
+
+    def test_negative_page_clamps_to_first(self):
+        row = _build_pagination_row("x", -5, 3)
+        assert _row_callbacks(row) == ["x_1"]
+
+
+def _items(count, prefix="Item"):
+    return [{"id": str(i), "title": f"{prefix} {i}"} for i in range(count)]
+
+
+def _delete_kb(items, media_type="movie", page=0):
+    ts = type("T", (), {"get_text": lambda self, key, **kw: key})()
+    result = get_delete_items_keyboard(items, media_type, page, ts)
+    assert isinstance(result, InlineKeyboardMarkup)
+    return result.inline_keyboard
+
+
+class TestDeleteItemsKeyboard:
+    """Tests for get_delete_items_keyboard"""
+
+    def test_150_movies_give_one_page_a_nav_row_and_cancel(self):
+        rows = _delete_kb(_items(150))
+
+        assert len(rows) == DELETE_PAGE_SIZE + 2
+        item_rows = rows[:DELETE_PAGE_SIZE]
+        assert [r[0].callback_data for r in item_rows] == [
+            f"delete_item_movie_{i}" for i in range(DELETE_PAGE_SIZE)
+        ]
+        assert _row_callbacks(rows[-2]) == ["delete_page_movie_1"]
+        assert rows[-1][0].callback_data == "delete_cancel"
+
+    def test_exactly_one_page_has_no_nav_row(self):
+        rows = _delete_kb(_items(DELETE_PAGE_SIZE))
+
+        assert len(rows) == DELETE_PAGE_SIZE + 1
+        assert rows[-1][0].callback_data == "delete_cancel"
+
+    def test_page_past_end_shows_last_page(self):
+        rows = _delete_kb(_items(25), page=9)
+
+        titles = [r[0].text for r in rows[:-2]]
+        assert titles == [f"Item {i}" for i in range(20, 25)]
+        assert _row_callbacks(rows[-2]) == ["delete_page_movie_1"]
+
+    def test_callback_data_names_the_type(self):
+        rows = _delete_kb(_items(2), media_type="series")
+
+        assert rows[0][0].callback_data == "delete_item_series_0"
+
+    def test_callback_data_stays_under_64_bytes(self):
+        items = [{"id": "9" * 10, "title": "Long"}] * 30
+        rows = _delete_kb(items, media_type="series", page=1)
+
+        for row in rows:
+            for btn in row:
+                assert len(btn.callback_data.encode()) <= 64
+
+
+class TestEmptyFilteredKeyboards:
+    """An empty item list still has its filter row and a Back button."""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_queue_keyboard_keeps_filter_row(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_queue_items_keyboard
+
+        rows = get_queue_items_keyboard([], 0, "album").inline_keyboard
+
+        assert rows[0][0].callback_data == "queue_filter_all"
+        assert rows[-1][-1].callback_data == "queue_back"
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_missing_keyboard_keeps_filter_row(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_missing_items_keyboard
+
+        rows = get_missing_items_keyboard([], 0, "episode").inline_keyboard
+
+        assert rows[0][0].callback_data == "missing_filter_all"
+        assert rows[-1][-1].callback_data == "missing_back"
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_history_keyboard_keeps_filter_row(self, mock_ts):
+        _mock_translation(mock_ts)
+
+        rows = get_history_items_keyboard(
+            [], 0, event_filter="grabbed"
+        ).inline_keyboard
+
+        assert rows[0][0].callback_data == "hist_filter_all"
+        assert rows[-1][-1].callback_data == "hist_back"
+
+
+class TestBackKeyboard:
+    """Tests for get_back_keyboard"""
+
+    @patch("src.bot.keyboards.TranslationService")
+    def test_single_back_button_with_callback(self, mock_ts):
+        _mock_translation(mock_ts)
+        from src.bot.keyboards import get_back_keyboard
+
+        rows = get_back_keyboard("bazarr_menu").inline_keyboard
+
+        assert len(rows) == 1 and len(rows[0]) == 1
+        assert rows[0][0].callback_data == "bazarr_menu"
+        assert "Back" in rows[0][0].text
+
+
+class TestWebhookPortKeyboard:
+    """Cancel keyboard of the webhook port prompt."""
+
+    def test_single_cancel_button(self):
+        from src.bot.keyboards import get_webhook_port_keyboard
+
+        keyboard = get_webhook_port_keyboard()
+
+        assert isinstance(keyboard, InlineKeyboardMarkup)
+        buttons = [b for row in keyboard.inline_keyboard for b in row]
+        assert [b.callback_data for b in buttons] == ["menu_cancel"]

@@ -6,10 +6,13 @@ import asyncio
 
 import aiohttp
 import pytest
-from aioresponses import aioresponses
+from aioresponses import CallbackResult, aioresponses
+from multidict import CIMultiDict, CIMultiDictProxy
 from unittest.mock import AsyncMock, MagicMock, patch
+from yarl import URL
 
 from src.services.health import HealthService, display_health_status
+from tests.fixtures.sample_data import RADARR_DISK_SPACE
 
 
 # ---------------------------------------------------------------------------
@@ -30,54 +33,86 @@ class TestHealthServiceSingleton:
 
 
 class TestDisplayHealthStatus:
-    def test_all_healthy(self, capsys):
-        results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
-                {"name": "Sonarr", "healthy": True, "status": "Online (v3.0.0)"},
-            ],
-            "download_clients": [
-                {"name": "SABnzbd", "healthy": True, "status": "Online (v3.5.0)"},
-            ],
-        }
-        result = display_health_status(results)
+    HEALTHY = {
+        "media_services": [
+            {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
+            {"name": "Sonarr", "healthy": True, "status": "Online (v3.0.0)"},
+        ],
+        "download_clients": [
+            {"name": "SABnzbd", "healthy": True, "status": "Online (v3.5.0)"},
+        ],
+    }
+    UNHEALTHY = {
+        "media_services": [
+            {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
+            {"name": "Sonarr", "healthy": False, "status": "Error: HTTP 500"},
+        ],
+        "download_clients": [],
+    }
+
+    @staticmethod
+    def _messages(log_method):
+        return [c.args[0] for c in log_method.call_args_list]
+
+    def test_all_healthy(self):
+        with patch("src.services.health.logger") as mock_logger:
+            result = display_health_status(self.HEALTHY)
+
         assert result is True
+        assert any(
+            "All services are healthy" in m
+            for m in self._messages(mock_logger.info)
+        )
+        mock_logger.error.assert_not_called()
 
-        output = capsys.readouterr().out
-        assert "All services are healthy" in output
+    def test_some_unhealthy(self):
+        with patch("src.services.health.logger") as mock_logger:
+            result = display_health_status(self.UNHEALTHY)
 
-    def test_some_unhealthy(self, capsys):
-        results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
-                {"name": "Sonarr", "healthy": False, "status": "Error: HTTP 500"},
-            ],
-            "download_clients": [],
-        }
-        result = display_health_status(results)
         assert result is False
+        assert any(
+            "Some services are not responding" in m
+            for m in self._messages(mock_logger.error)
+        )
 
-        output = capsys.readouterr().out
-        assert "Some services are not responding" in output
+    def test_service_status_lines_are_logged(self):
+        with patch("src.services.health.logger") as mock_logger:
+            display_health_status(self.UNHEALTHY)
 
-    def test_no_media_services(self, capsys):
+        logged = " ".join(
+            self._messages(mock_logger.info)
+            + self._messages(mock_logger.warning)
+        )
+        assert "Radarr" in logged and "Online (v4.7.0)" in logged
+        assert "Sonarr" in logged and "Error: HTTP 500" in logged
+
+    @pytest.mark.parametrize("results", [HEALTHY, UNHEALTHY])
+    def test_health_output_goes_to_logger_not_stdout(self, results, capsys):
+        with patch("src.services.health.logger"):
+            display_health_status(results)
+
+        assert capsys.readouterr().out == ""
+
+    def test_no_media_services(self):
         results = {
             "media_services": [],
             "download_clients": [
                 {"name": "SABnzbd", "healthy": True, "status": "Online"},
             ],
         }
-        result = display_health_status(results)
+        with patch("src.services.health.logger"):
+            result = display_health_status(results)
         assert result is True
 
-    def test_no_download_clients(self, capsys):
+    def test_no_download_clients(self):
         results = {
             "media_services": [
                 {"name": "Radarr", "healthy": True, "status": "Online"},
             ],
             "download_clients": [],
         }
-        result = display_health_status(results)
+        with patch("src.services.health.logger"):
+            result = display_health_status(results)
         assert result is True
 
 
@@ -279,7 +314,7 @@ class TestCheckSabnzbdHealth:
         with aioresponses() as m:
             m.get(
                 pattern,
-                payload={"version": "3.5.0"},
+                payload={"queue": {"version": "3.5.0", "slots": []}},
                 status=200,
             )
             healthy, status = await service.check_sabnzbd_health(
@@ -290,62 +325,37 @@ class TestCheckSabnzbdHealth:
         assert "v3.5.0" in status
 
     @pytest.mark.asyncio
-    async def test_check_sabnzbd_health_json_fail_valid_text(self):
-        """When JSON decode fails, fall back to text response."""
+    async def test_check_sabnzbd_health_wrong_api_key(self):
+        """SABnzbd skips the key check for mode=version, so the check must use a keyed mode."""
         service = HealthService()
         url = "http://localhost:8090/"
 
-        with patch(
-            "src.services.health.aiohttp.ClientSession"
-        ) as mock_session_cls:
-            mock_resp = AsyncMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(side_effect=Exception("JSON decode error"))
-            mock_resp.text = AsyncMock(return_value="3.5.0")
+        def sabnzbd_with_other_key(request_url, **kwargs):
+            if request_url.query.get("mode") in ("version", "auth"):
+                return CallbackResult(payload={"version": "4.3.2"})
+            return CallbackResult(status=403, body="API Key Incorrect")
 
-            mock_ctx = AsyncMock()
-            mock_ctx.get = MagicMock(return_value=AsyncMock(
-                __aenter__=AsyncMock(return_value=mock_resp),
-                __aexit__=AsyncMock(return_value=False),
-            ))
-            mock_session_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_ctx
-            )
-            mock_session_cls.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+        import re
+        pattern = re.compile(r"^http://localhost:8090/api\b.*$")
 
-            healthy, status = await service.check_sabnzbd_health(url, "key")
+        with aioresponses() as m:
+            m.get(pattern, callback=sabnzbd_with_other_key, repeat=True)
+            healthy, status = await service.check_sabnzbd_health(url, "wrong-key")
 
-        assert healthy is True
-        assert "v3.5.0" in status
+        assert healthy is False
+        assert "HTTP 403" in status
 
     @pytest.mark.asyncio
-    async def test_check_sabnzbd_health_json_fail_invalid_text(self):
-        """When JSON decode fails and text is too long, return error."""
+    async def test_check_sabnzbd_health_non_json_body(self):
+        """SABnzbd 3.x answers a wrong key with HTTP 200 and a plain-text body."""
         service = HealthService()
         url = "http://localhost:8090/"
 
-        with patch(
-            "src.services.health.aiohttp.ClientSession"
-        ) as mock_session_cls:
-            mock_resp = AsyncMock()
-            mock_resp.status = 200
-            mock_resp.json = AsyncMock(side_effect=Exception("JSON decode error"))
-            mock_resp.text = AsyncMock(return_value="A" * 50)
+        import re
+        pattern = re.compile(r"^http://localhost:8090/api\b.*$")
 
-            mock_ctx = AsyncMock()
-            mock_ctx.get = MagicMock(return_value=AsyncMock(
-                __aenter__=AsyncMock(return_value=mock_resp),
-                __aexit__=AsyncMock(return_value=False),
-            ))
-            mock_session_cls.return_value.__aenter__ = AsyncMock(
-                return_value=mock_ctx
-            )
-            mock_session_cls.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
-
+        with aioresponses() as m:
+            m.get(pattern, status=200, body="API Key Incorrect")
             healthy, status = await service.check_sabnzbd_health(url, "key")
 
         assert healthy is False
@@ -370,24 +380,128 @@ class TestCheckSabnzbdHealth:
         assert "HTTP 500" in status
 
     @pytest.mark.asyncio
-    async def test_check_sabnzbd_health_exception(self):
+    async def test_check_sabnzbd_health_error_hides_api_key(self):
+        """aiohttp errors carry the request URL, so /status shows only the error type (#197)."""
         service = HealthService()
         url = "http://localhost:8090/"
 
-        with patch(
-            "src.services.health.aiohttp.ClientSession"
-        ) as mock_session_cls:
-            mock_session_cls.return_value.__aenter__ = AsyncMock(
-                side_effect=Exception("Connection refused")
-            )
-            mock_session_cls.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+        import re
+        pattern = re.compile(r"^http://localhost:8090/api\b.*$")
+        keyed_url = URL("http://localhost:8090/api?apikey=secret&mode=queue")
+        error = aiohttp.TooManyRedirects(
+            aiohttp.RequestInfo(keyed_url, "GET", CIMultiDictProxy(CIMultiDict())), ()
+        )
+        assert "apikey=secret" in str(error)
 
-            healthy, status = await service.check_sabnzbd_health(url, "key")
+        with aioresponses() as m:
+            m.get(pattern, exception=error)
+            healthy, status = await service.check_sabnzbd_health(url, "secret")
 
         assert healthy is False
-        assert "Connection refused" in status
+        assert status == "Error: TooManyRedirects"
+        assert "secret" not in status
+
+
+# ---------------------------------------------------------------------------
+# check_bazarr_health
+# ---------------------------------------------------------------------------
+
+
+class TestCheckBazarrHealth:
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_success(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+        api_key = "test-key"
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                payload={
+                    "data": {"bazarr_version": "1.4.0"}
+                },
+                status=200,
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, api_key
+            )
+
+        assert healthy is True
+        assert "v1.4.0" in status
+
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_http_error(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                status=500,
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, "key"
+            )
+
+        assert healthy is False
+        assert "HTTP 500" in status
+
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_timeout(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+
+        import asyncio
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                exception=asyncio.TimeoutError(),
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, "key"
+            )
+
+        assert healthy is False
+        assert "timeout" in status.lower()
+
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_connection_error(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+
+        import aiohttp as _aiohttp
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                exception=_aiohttp.ClientConnectorError(
+                    connection_key=MagicMock(), os_error=OSError("refused")
+                ),
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, "key"
+            )
+
+        assert healthy is False
+        assert "Connection failed" in status
+
+    @pytest.mark.asyncio
+    async def test_check_bazarr_health_generic_exception(self):
+        service = HealthService()
+        url = "http://localhost:6767"
+
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:6767/api/system/status",
+                exception=RuntimeError("unexpected"),
+            )
+            healthy, status = await service.check_bazarr_health(
+                url, "key"
+            )
+
+        assert healthy is False
+        assert "unexpected" in status
 
 
 # ---------------------------------------------------------------------------
@@ -495,6 +609,11 @@ class TestRunHealthChecks:
             "check_service_health",
             new_callable=AsyncMock,
             return_value=(True, "Online (v4.7.0)"),
+        ), patch.object(
+            service,
+            "check_bazarr_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online (v1.4.0)"),
         ):
             results = await service.run_health_checks()
 
@@ -503,14 +622,41 @@ class TestRunHealthChecks:
         assert isinstance(results["media_services"], list)
         assert isinstance(results["download_clients"], list)
 
-        # With default mock config, radarr/sonarr/lidarr are enabled
+        # With default mock config, radarr/sonarr/lidarr/bazarr are enabled
         service_names = [s["name"] for s in results["media_services"]]
         assert "Radarr" in service_names
         assert "Sonarr" in service_names
         assert "Lidarr" in service_names
+        assert "Bazarr" in service_names
 
         for svc in results["media_services"]:
             assert svc["healthy"] is True
+
+    @pytest.mark.asyncio
+    async def test_run_health_checks_updates_status(self):
+        """A manual check updates the status, not only the periodic loop."""
+        service = HealthService()
+
+        with patch.object(
+            service,
+            "check_service_health",
+            new_callable=AsyncMock,
+            return_value=(False, "Error: HTTP 500"),
+        ), patch.object(
+            service,
+            "check_bazarr_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online (v1.4.0)"),
+        ):
+            await service.run_health_checks()
+
+        status = service.get_status()
+        assert status["last_check"] is not None
+        assert sorted(status["unhealthy_services"]) == [
+            "Lidarr: Error: HTTP 500",
+            "Radarr: Error: HTTP 500",
+            "Sonarr: Error: HTTP 500",
+        ]
 
     @pytest.mark.asyncio
     async def test_run_health_checks_sabnzbd_enabled(self):
@@ -821,24 +967,22 @@ class TestMonitorLoop:
         service._running = True
         service.interval = 0.01  # Very short interval
 
-        healthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online"},
-            ],
-            "download_clients": [],
-        }
-
         call_count = 0
 
-        async def _mock_run_health_checks():
+        async def _mock_bazarr_check(url, api_key):
             nonlocal call_count
             call_count += 1
             if call_count >= 2:
                 service._running = False
-            return healthy_results
+            return True, "Online"
 
         with patch.object(
-            service, "run_health_checks", side_effect=_mock_run_health_checks
+            service,
+            "check_service_health",
+            new_callable=AsyncMock,
+            return_value=(True, "Online"),
+        ), patch.object(
+            service, "check_bazarr_health", side_effect=_mock_bazarr_check
         ):
             await service._monitor_loop()
 
@@ -851,36 +995,43 @@ class TestMonitorLoop:
         service._running = True
         service.interval = 0.01
 
-        unhealthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": False, "status": "Error: HTTP 500"},
-            ],
-            "download_clients": [],
-        }
-        healthy_results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online"},
-            ],
-            "download_clients": [],
-        }
+        rounds = 0
+        unhealthy_seen = []
 
-        call_count = 0
+        async def _mock_service_check(url, api_key, service_type):
+            # Unhealthy in the first round, healthy after that
+            if rounds == 0:
+                return False, "Error: HTTP 500"
+            return True, "Online"
 
-        async def _mock_checks():
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return unhealthy_results
-            elif call_count == 2:
-                return healthy_results
-            else:
+        async def _mock_bazarr_check(url, api_key):
+            nonlocal rounds
+            rounds += 1
+            if rounds >= 3:
                 service._running = False
-                return healthy_results
+            return True, "Online"
 
-        with patch.object(service, "run_health_checks", side_effect=_mock_checks):
+        async def _record_unhealthy(current_unhealthy, alert_config):
+            unhealthy_seen.append(set(current_unhealthy))
+
+        with patch.object(
+            service, "check_service_health", side_effect=_mock_service_check
+        ), patch.object(
+            service, "check_bazarr_health", side_effect=_mock_bazarr_check
+        ), patch.object(
+            service, "_check_alerts", side_effect=_record_unhealthy
+        ), patch("src.services.health.config") as mock_config:
+            # Radarr, Bazarr, and alerts enabled; everything else off
+            mock_config.get.side_effect = lambda key, default=None: (
+                {"enable": True}
+                if key in ("health_alerts", "radarr", "bazarr")
+                else default
+            )
             await service._monitor_loop()
 
-        # After recovery, unhealthy should be empty
+        # Unhealthy in round 1, recovered in round 2
+        assert unhealthy_seen[0] == {"Radarr: Error: HTTP 500"}
+        assert unhealthy_seen[1] == set()
         assert len(service._unhealthy_services) == 0
 
     @pytest.mark.asyncio
@@ -904,3 +1055,452 @@ class TestMonitorLoop:
 
         # Should not crash -- the exception is caught and logged
         assert call_count >= 2
+
+
+# ---------------------------------------------------------------------------
+# _get_api_client
+# ---------------------------------------------------------------------------
+
+
+class TestGetApiClient:
+    def test_get_api_client_radarr(self):
+        """Returns a RadarrClient for 'radarr' key."""
+        service = HealthService()
+        with patch("src.services.health.RadarrClient") as MockRadarr:
+            mock_instance = MagicMock()
+            MockRadarr.return_value = mock_instance
+            client = service._get_api_client("radarr")
+        assert client is mock_instance
+
+    def test_get_api_client_sonarr(self):
+        """Returns a SonarrClient for 'sonarr' key."""
+        service = HealthService()
+        with patch("src.services.health.SonarrClient") as MockSonarr:
+            mock_instance = MagicMock()
+            MockSonarr.return_value = mock_instance
+            client = service._get_api_client("sonarr")
+        assert client is mock_instance
+
+    def test_get_api_client_lidarr(self):
+        """Returns a LidarrClient for 'lidarr' key."""
+        service = HealthService()
+        with patch("src.services.health.LidarrClient") as MockLidarr:
+            mock_instance = MagicMock()
+            MockLidarr.return_value = mock_instance
+            client = service._get_api_client("lidarr")
+        assert client is mock_instance
+
+    def test_get_api_client_unknown_returns_none(self):
+        """Returns None for unknown service key."""
+        service = HealthService()
+        client = service._get_api_client("unknown")
+        assert client is None
+
+
+# ---------------------------------------------------------------------------
+# get_disk_space
+# ---------------------------------------------------------------------------
+
+
+class TestGetDiskSpace:
+    @staticmethod
+    def _config_enabling(*enabled):
+        """Config mock where only the given *arr services are enabled."""
+        mock_config = MagicMock()
+        mock_config.get.side_effect = lambda key, default=None: (
+            {"enable": key in enabled}
+            if key in ("radarr", "sonarr", "lidarr")
+            else default
+        )
+        return mock_config
+
+    @staticmethod
+    def _client(drives=None, error=None):
+        client = AsyncMock()
+        if error:
+            client.get_disk_space.side_effect = error
+        else:
+            client.get_disk_space.return_value = drives
+        client.close = AsyncMock()
+        return client
+
+    @pytest.mark.asyncio
+    async def test_returns_drives_of_every_enabled_app(self):
+        """Radarr and Sonarr on different paths: both drives are returned."""
+        service = HealthService()
+        clients = {
+            "radarr": self._client([{"path": "/movies", "freeSpace": 1}]),
+            "sonarr": self._client([{"path": "/tv", "freeSpace": 2}]),
+        }
+
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("radarr", "sonarr"),
+        ), patch.object(
+            service, "_get_api_client", side_effect=clients.get
+        ):
+            results = await service.get_disk_space()
+
+        assert [d["path"] for d in results] == ["/movies", "/tv"]
+        for client in clients.values():
+            client.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_shared_path_appears_once(self):
+        """A path reported by two apps appears once; the first app wins."""
+        service = HealthService()
+        clients = {
+            "radarr": self._client([{"path": "/data", "freeSpace": 1}]),
+            "sonarr": self._client(
+                [{"path": "/data", "freeSpace": 2}, {"path": "/tv"}]
+            ),
+        }
+
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("radarr", "sonarr"),
+        ), patch.object(
+            service, "_get_api_client", side_effect=clients.get
+        ):
+            results = await service.get_disk_space()
+
+        assert [d["path"] for d in results] == ["/data", "/tv"]
+        assert results[0]["freeSpace"] == 1
+
+    @pytest.mark.asyncio
+    async def test_drive_without_path_is_kept(self):
+        """A drive entry with no path key is not dropped."""
+        service = HealthService()
+        client = self._client([{"label": "nopath"}, {"label": "other"}])
+
+        with patch(
+            "src.services.health.config", self._config_enabling("radarr")
+        ), patch.object(service, "_get_api_client", return_value=client):
+            results = await service.get_disk_space()
+
+        assert len(results) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_skips_disabled_services(self):
+        """Disabled services are not queried."""
+        service = HealthService()
+        client = self._client(RADARR_DISK_SPACE)
+
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("sonarr", "lidarr"),
+        ), patch.object(
+            service, "_get_api_client", return_value=client
+        ) as mock_get:
+            results = await service.get_disk_space()
+
+        assert [c.args[0] for c in mock_get.call_args_list] == [
+            "sonarr",
+            "lidarr",
+        ]
+        assert len(results) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_no_enabled_services(self):
+        """Returns empty list when no services are enabled."""
+        service = HealthService()
+
+        with patch("src.services.health.config") as mock_config:
+            mock_config.get.return_value = {"enable": False}
+            results = await service.get_disk_space()
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_continues_after_error(self):
+        """A failing app is skipped; the others still report."""
+        service = HealthService()
+        failing = self._client(error=Exception("connection refused"))
+        working = self._client(RADARR_DISK_SPACE)
+        clients = {"radarr": failing, "sonarr": working}
+
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("radarr", "sonarr"),
+        ), patch.object(
+            service, "_get_api_client", side_effect=clients.get
+        ):
+            results = await service.get_disk_space()
+
+        assert len(results) == 2
+        failing.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_get_disk_space_get_api_client_returns_none(self):
+        """Skips service when _get_api_client returns None."""
+        service = HealthService()
+        client = self._client(RADARR_DISK_SPACE)
+        clients = {"radarr": None, "sonarr": client}
+
+        with patch(
+            "src.services.health.config",
+            self._config_enabling("radarr", "sonarr"),
+        ), patch.object(
+            service, "_get_api_client", side_effect=clients.get
+        ):
+            results = await service.get_disk_space()
+
+        assert len(results) == 2
+
+
+# ---------------------------------------------------------------------------
+# Alert state initialization
+# ---------------------------------------------------------------------------
+
+
+class TestAlertStateInitialization:
+    def test_alert_state_attributes_initialized_empty(self):
+        """Alert tracking dicts/sets are empty after singleton reset."""
+        service = HealthService()
+        assert service._failure_counts == {}
+        assert service._down_since == {}
+        assert service._alerted_services == set()
+
+
+# ---------------------------------------------------------------------------
+# _check_alerts
+# ---------------------------------------------------------------------------
+
+
+class TestCheckAlerts:
+    ALERT_CONFIG = {"enable": True, "flap_threshold": 2}
+
+    @pytest.mark.asyncio
+    async def test_single_failure_does_not_alert(self):
+        """One failure is below default threshold (2) — no notification."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+
+        mock_notifier.notify_admin.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_threshold_reached_triggers_alert(self):
+        """Two consecutive failures triggers degradation alert."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+
+        mock_notifier.notify_admin.assert_called_once()
+        msg = mock_notifier.notify_admin.call_args[0][0]
+        assert "Radarr" in msg
+        assert "unreachable" in msg.lower() or "⚠️" in msg
+
+    @pytest.mark.asyncio
+    async def test_no_duplicate_alert_after_threshold(self):
+        """Once alerted, don't re-alert on subsequent failures."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+
+        # Only one alert, not two
+        mock_notifier.notify_admin.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_recovery_after_alert_sends_recovery_message(self):
+        """Service recovers after being alerted — sends recovery notification."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
+
+        # Two calls: one degradation, one recovery
+        assert mock_notifier.notify_admin.call_count == 2
+        recovery_msg = mock_notifier.notify_admin.call_args_list[1][0][0]
+        assert "Radarr" in recovery_msg
+        assert "back online" in recovery_msg.lower() or "✅" in recovery_msg
+
+    @pytest.mark.asyncio
+    async def test_recovery_before_threshold_sends_no_alerts(self):
+        """Service fails once then recovers — no alerts at all."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
+
+        mock_notifier.notify_admin.assert_not_called()
+        # State cleaned up
+        assert service._failure_counts == {}
+        assert service._down_since == {}
+
+    @pytest.mark.asyncio
+    async def test_recovery_cleans_up_state(self):
+        """After recovery, all tracking state for that service is cleared."""
+        service = HealthService()
+        mock_notifier = AsyncMock()
+
+        with patch(
+            "src.services.health.NotificationService"
+        ) as MockNS:
+            MockNS.return_value = mock_notifier
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(
+                {"Radarr: Error: HTTP 500"}, self.ALERT_CONFIG
+            )
+            await service._check_alerts(set(), self.ALERT_CONFIG)
+
+        assert "Radarr" not in service._failure_counts
+        assert "Radarr" not in service._down_since
+        assert "Radarr" not in service._alerted_services
+
+
+class TestAlertsDisabled:
+    @pytest.mark.asyncio
+    async def test_monitor_loop_skips_alerts_when_disabled(self):
+        """When health_alerts.enable is false, _check_alerts is not called."""
+        service = HealthService()
+        service._running = True
+        service.interval = 0.01
+
+        unhealthy_results = {
+            "media_services": [
+                {"name": "Radarr", "healthy": False, "status": "Error: HTTP 500"},
+            ],
+            "download_clients": [],
+        }
+
+        call_count = 0
+
+        async def _mock_checks():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 3:
+                service._running = False
+            return unhealthy_results
+
+        with patch.object(
+            service, "run_health_checks", side_effect=_mock_checks
+        ), patch(
+            "src.services.health.config"
+        ) as mock_config:
+            mock_config.get.side_effect = lambda key, default=None: (
+                {"enable": False}
+                if key == "health_alerts"
+                else default
+            )
+            with patch.object(
+                service, "_check_alerts", new_callable=AsyncMock
+            ) as mock_check:
+                await service._monitor_loop()
+
+        mock_check.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_monitor_loop_calls_alerts_when_enabled(self):
+        """When health_alerts.enable is true, _check_alerts is called."""
+        service = HealthService()
+        service._running = True
+        service.interval = 0.01
+
+        unhealthy_results = {
+            "media_services": [
+                {"name": "Radarr", "healthy": False, "status": "Error: HTTP 500"},
+            ],
+            "download_clients": [],
+        }
+
+        call_count = 0
+
+        async def _mock_checks():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                service._running = False
+            return unhealthy_results
+
+        with patch.object(
+            service, "run_health_checks", side_effect=_mock_checks
+        ), patch(
+            "src.services.health.config"
+        ) as mock_config:
+            mock_config.get.side_effect = lambda key, default=None: (
+                {"enable": True, "flap_threshold": 2}
+                if key == "health_alerts"
+                else default
+            )
+            with patch.object(
+                service, "_check_alerts", new_callable=AsyncMock
+            ) as mock_check:
+                await service._monitor_loop()
+
+        assert mock_check.call_count >= 1
+
+
+class TestFormatDuration:
+    def test_format_seconds(self):
+        service = HealthService()
+        assert service._format_duration(30) == "30 seconds"
+
+    def test_format_minutes(self):
+        service = HealthService()
+        assert service._format_duration(300) == "5 minutes"
+
+    def test_format_hours_and_minutes(self):
+        service = HealthService()
+        assert service._format_duration(5400) == "1 hour 30 minutes"
+
+    def test_format_exact_hour(self):
+        service = HealthService()
+        assert service._format_duration(3600) == "1 hour"
+
+    def test_format_one_minute(self):
+        service = HealthService()
+        assert service._format_duration(60) == "1 minute"
+
+    def test_format_multiple_hours(self):
+        service = HealthService()
+        assert service._format_duration(7200) == "2 hours"

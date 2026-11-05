@@ -10,8 +10,9 @@ all required keys are present and properly formatted.
 
 import yaml
 import re
+import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Set
+from typing import Dict, Any, List, Optional, Tuple, Set
 from colorama import Fore, init
 
 # Initialize colorama
@@ -28,7 +29,7 @@ def load_yaml(file_path: str) -> Dict[str, Any]:
         return {}
 
 
-def get_all_keys(data: Dict[str, Any], prefix: str = "", required_sections: Set[str] = None) -> List[str]:
+def get_all_keys(data: Dict[str, Any], prefix: str = "", required_sections: Optional[Set[str]] = None) -> List[str]:
     """Get all keys from nested dictionary
 
     Args:
@@ -92,7 +93,7 @@ def validate_translation(template_data: Dict[str, Any], translation_data: Dict[s
 
 def get_nested_value(data: Dict[str, Any], key: str) -> Any:
     """Get value from nested dictionary using dot notation key"""
-    current = data
+    current: Any = data
     for part in key.split('.'):
         if isinstance(current, dict):
             current = current.get(part)
@@ -121,8 +122,8 @@ def check_emoji_consistency(template_data: Dict[str, Any], translations: Dict[st
     return errors
 
 
-def main():
-    """Main validation function"""
+def main() -> int:
+    """Main validation function. Returns the exit code: 0 if valid, else 1."""
     print(f"{Fore.CYAN}🔍 Validating translation files...")
 
     # Load template
@@ -130,7 +131,7 @@ def main():
     template_data = load_yaml(template_path)
     if not template_data:
         print(f"{Fore.RED}❌ Failed to load template file")
-        return
+        return 1
 
     # Get all translation files
     translations_dir = Path("translations")
@@ -189,10 +190,12 @@ def main():
 
     if all_valid:
         print(f"\n{Fore.GREEN}✅ All translations are valid!")
-    else:
-        print(f"\n{Fore.YELLOW}⚠️ Some translations need attention")
-        print("Run this script again after fixing the issues")
+        return 0
+
+    print(f"\n{Fore.YELLOW}⚠️ Some translations need attention")
+    print("Run this script again after fixing the issues")
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

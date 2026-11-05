@@ -23,11 +23,6 @@ def mock_media_service():
     service.add_series_with_profile = AsyncMock(return_value=(True, "Success"))
     service.add_music = AsyncMock(return_value=(False, "Not found"))
     service.add_music_with_profile = AsyncMock(return_value=(True, "Success"))
-    service.get_radarr_status = AsyncMock(return_value=True)
-    service.get_sonarr_status = AsyncMock(return_value=True)
-    service.get_lidarr_status = AsyncMock(return_value=True)
-    service.get_transmission_status = AsyncMock(return_value=False)
-    service.get_sabnzbd_status = AsyncMock(return_value=False)
     service.get_artist_albums = AsyncMock(return_value=[])
     service.get_movies = AsyncMock(return_value=[])
     service.get_series = AsyncMock(return_value=[])
@@ -36,6 +31,10 @@ def mock_media_service():
     service.delete_movie = AsyncMock(return_value=True)
     service.delete_series = AsyncMock(return_value=True)
     service.delete_music = AsyncMock(return_value=True)
+    service.get_missing_media = AsyncMock(return_value=[])
+    service.get_cutoff_unmet_media = AsyncMock(return_value=[])
+    service.trigger_missing_search = AsyncMock(return_value=True)
+    service.get_queue_media = AsyncMock(return_value=[])
     service.radarr = MagicMock()
     service.sonarr = MagicMock()
     service.lidarr = MagicMock()
@@ -53,13 +52,14 @@ def mock_translation_service():
 
 
 @pytest.fixture
-def mock_notification_service():
-    """Mock NotificationService."""
-    service = MagicMock()
-    service.notify_admin = AsyncMock()
-    service.notify_user = AsyncMock()
-    service.notify_action = AsyncMock()
-    return service
+def admin_mode(mock_config):
+    """Admin mode on with admin user 1, so the default test user 12345 is no admin."""
+    mock_config._set("security", {
+        "enableAdmin": True, "enableAllowlist": False, "chatMode": "private_only",
+    })
+    mock_config._set("admins", [1])
+    with patch("src.utils.helpers.config", mock_config):
+        yield mock_config
 
 
 # ---------------------------------------------------------------------------
@@ -71,9 +71,9 @@ def mock_notification_service():
 def media_handler(mock_media_service, mock_translation_service):
     """Create a MediaHandler with patched services."""
     with (
-        patch("src.bot.handlers.media.MediaService") as mock_ms_class,
-        patch("src.bot.handlers.media.TranslationService") as mock_ts_class,
-        patch("src.bot.handlers.media.PreferencesService") as mock_ps_class,
+        patch("src.bot.handlers.media.handler.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.media.handler.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.media.handler.PreferencesService") as mock_ps_class,
     ):
         mock_ts_class.return_value = mock_translation_service
         mock_ms_class.return_value = mock_media_service
@@ -118,23 +118,18 @@ def delete_handler(mock_media_service, mock_translation_service):
 def start_handler(mock_media_service, mock_translation_service):
     """Create a StartHandler with patched services."""
     with (
-        patch("src.bot.handlers.start.MediaHandler") as mock_mh_class,
+        patch("src.bot.handlers.start.CalendarHandler") as mock_ch_class,
         patch("src.bot.handlers.start.HelpHandler") as mock_hh_class,
         patch("src.bot.handlers.start.SystemHandler") as mock_sh_class,
         patch("src.bot.handlers.start.TranslationService") as mock_ts_class,
         patch("src.bot.handlers.start.get_main_menu_keyboard") as mock_kbd,
+        patch("src.bot.handlers.start.get_library_menu_keyboard") as mock_lib_kbd,
     ):
         mock_ts_class.return_value = mock_translation_service
-        mock_media_handler = MagicMock()
-        mock_media_handler.handle_search = AsyncMock()
-        mock_media_handler.handle_selection = AsyncMock()
-        mock_media_handler.handle_navigation = AsyncMock()
-        mock_media_handler.handle_list_select = AsyncMock()
-        mock_media_handler.handle_list_back = AsyncMock()
-        mock_media_handler.handle_list_page = AsyncMock()
-        mock_media_handler.handle_view_toggle = AsyncMock()
-        mock_media_handler.cancel_search = AsyncMock()
-        mock_mh_class.return_value = mock_media_handler
+        mock_lib_kbd.return_value = MagicMock()
+        mock_calendar_handler = MagicMock()
+        mock_calendar_handler.show_upcoming = AsyncMock()
+        mock_ch_class.return_value = mock_calendar_handler
         mock_help_handler = MagicMock()
         mock_help_handler.show_help = AsyncMock()
         mock_hh_class.return_value = mock_help_handler
@@ -148,93 +143,12 @@ def start_handler(mock_media_service, mock_translation_service):
 
         AuthHandler._authenticated_users = {12345}
         handler = StartHandler()
-        handler._mock_media_handler = mock_media_handler
+        handler._mock_calendar_handler = mock_calendar_handler
         handler._mock_help_handler = mock_help_handler
         handler._mock_system_handler = mock_system_handler
         handler._mock_ts = mock_translation_service
         handler._mock_kbd = mock_kbd
-        yield handler
-
-
-@pytest.fixture
-def transmission_handler(mock_translation_service):
-    """Create a TransmissionHandler with patched services."""
-    with (
-        patch("src.bot.handlers.transmission.TransmissionService") as mock_ts_svc,
-        patch("src.bot.handlers.transmission.TranslationService") as mock_ts_class,
-    ):
-        mock_ts_class.return_value = mock_translation_service
-        mock_trans = MagicMock()
-        mock_trans.is_enabled.return_value = True
-        mock_trans.get_session = AsyncMock(return_value={"alt-speed-enabled": False})
-        mock_trans.toggle_turtle_mode = AsyncMock(return_value=True)
-        mock_ts_svc.return_value = mock_trans
-
-        from src.bot.handlers.transmission import TransmissionHandler
-        from src.bot.handlers.auth import AuthHandler
-
-        AuthHandler._authenticated_users = {12345}
-        handler = TransmissionHandler()
-        handler._mock_trans = mock_trans
-        handler._mock_ts = mock_translation_service
-        yield handler
-
-
-@pytest.fixture
-def sabnzbd_handler(mock_translation_service):
-    """Create a SABnzbdHandler with patched services."""
-    with (
-        patch("src.bot.handlers.sabnzbd.SABnzbdService") as mock_sab_svc,
-        patch("src.bot.handlers.sabnzbd.TranslationService") as mock_ts_class,
-    ):
-        mock_ts_class.return_value = mock_translation_service
-        mock_sab = MagicMock()
-        mock_sab.is_enabled.return_value = True
-        mock_sab.set_speed_limit = AsyncMock(return_value=True)
-        mock_sab_svc.return_value = mock_sab
-
-        from src.bot.handlers.sabnzbd import SABnzbdHandler
-        from src.bot.handlers.auth import AuthHandler
-
-        AuthHandler._authenticated_users = {12345}
-        handler = SABnzbdHandler()
-        handler._mock_sab = mock_sab
-        handler._mock_ts = mock_translation_service
-        yield handler
-
-
-@pytest.fixture
-def auth_handler():
-    """Create an AuthHandler with patched dependencies."""
-    with (
-        patch("src.bot.handlers.auth.TranslationService") as mock_ts_class,
-    ):
-        mock_ts = MagicMock()
-        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-        mock_ts_class.return_value = mock_ts
-
-        from src.bot.handlers.auth import AuthHandler
-
-        AuthHandler._authenticated_users = set()
-        handler = AuthHandler()
-        handler._mock_ts = mock_ts
-        yield handler
-
-
-@pytest.fixture
-def help_handler(mock_translation_service):
-    """Create a HelpHandler with patched services."""
-    with (
-        patch("src.bot.handlers.help.TranslationService") as mock_ts_class,
-    ):
-        mock_ts_class.return_value = mock_translation_service
-
-        from src.bot.handlers.help import HelpHandler
-        from src.bot.handlers.auth import AuthHandler
-
-        AuthHandler._authenticated_users = {12345}
-        handler = HelpHandler()
-        handler._mock_ts = mock_translation_service
+        handler._mock_lib_kbd = mock_lib_kbd
         yield handler
 
 
@@ -259,13 +173,15 @@ def library_handler(mock_media_service, mock_translation_service):
 
 
 @pytest.fixture
-def system_handler():
+def system_handler(mock_translation_service):
     """Create a SystemHandler with patched services."""
     with (
         patch("src.bot.handlers.system.health_service") as mock_health,
         patch("src.bot.handlers.system.get_system_keyboard") as mock_kbd,
         patch("src.bot.handlers.system.get_main_menu_keyboard") as mock_menu_kbd,
+        patch("src.bot.handlers.system.TranslationService") as mock_ts_class,
     ):
+        mock_ts_class.return_value = mock_translation_service
         mock_health.get_status.return_value = {
             "running": True,
             "last_check": None,
@@ -286,6 +202,7 @@ def system_handler():
         handler._mock_health = mock_health
         handler._mock_kbd = mock_kbd
         handler._mock_menu_kbd = mock_menu_kbd
+        handler._mock_ts = mock_translation_service
         yield handler
 
 
@@ -339,6 +256,184 @@ def settings_handler(mock_media_service, mock_translation_service):
         handler._mock_trans = mock_trans
         handler._mock_sab = mock_sab
         yield handler
+
+
+@pytest.fixture
+def calendar_handler(mock_media_service, mock_translation_service):
+    """Create a CalendarHandler with patched services."""
+    with (
+        patch("src.bot.handlers.calendar.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.calendar.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.calendar.get_calendar_keyboard") as mock_cal_kbd,
+        patch("src.bot.handlers.calendar.get_calendar_items_keyboard") as mock_items_kbd,
+        patch("src.bot.handlers.calendar.get_main_menu_keyboard") as mock_menu_kbd,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        mock_media_service.get_upcoming = AsyncMock(return_value=[])
+        mock_media_service.add_movie_with_profile = AsyncMock(
+            return_value=(True, "Added!")
+        )
+        mock_media_service.add_series_with_profile = AsyncMock(
+            return_value=(True, "Added!")
+        )
+        mock_media_service.radarr = MagicMock()
+        mock_media_service.radarr.get_root_folders = AsyncMock(
+            return_value=["/movies"]
+        )
+        mock_media_service.radarr.get_quality_profiles = AsyncMock(
+            return_value=[{"id": 1, "name": "HD"}]
+        )
+        mock_media_service.sonarr = MagicMock()
+        mock_media_service.sonarr.get_root_folders = AsyncMock(
+            return_value=["/tv"]
+        )
+        mock_media_service.sonarr.get_quality_profiles = AsyncMock(
+            return_value=[{"id": 1, "name": "HD"}]
+        )
+        mock_cal_kbd.return_value = MagicMock()
+        mock_items_kbd.return_value = MagicMock()
+        mock_menu_kbd.return_value = MagicMock()
+
+        from src.bot.handlers.calendar import CalendarHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = CalendarHandler()
+        handler._mock_service = mock_media_service
+        handler._mock_ts = mock_translation_service
+        handler._mock_cal_kbd = mock_cal_kbd
+        handler._mock_items_kbd = mock_items_kbd
+        handler._mock_menu_kbd = mock_menu_kbd
+        yield handler
+
+
+@pytest.fixture
+def missing_handler(mock_media_service, mock_translation_service):
+    """Create a MissingHandler with patched services."""
+    with (
+        patch("src.bot.handlers.missing.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.missing.TranslationService") as mock_ts_class,
+        patch(
+            "src.bot.handlers.missing.get_missing_items_keyboard"
+        ) as mock_items_kbd,
+        patch(
+            "src.bot.handlers.missing.get_missing_empty_keyboard"
+        ) as mock_empty_kbd,
+        patch("src.bot.handlers.missing.get_main_menu_keyboard") as mock_menu_kbd,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        mock_media_service.get_missing_media = AsyncMock(return_value=[])
+        mock_media_service.get_cutoff_unmet_media = AsyncMock(return_value=[])
+        mock_media_service.trigger_missing_search = AsyncMock(return_value=True)
+        mock_items_kbd.return_value = MagicMock()
+        mock_empty_kbd.return_value = MagicMock()
+        mock_menu_kbd.return_value = MagicMock()
+
+        from src.bot.handlers.missing import MissingHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = MissingHandler()
+        handler._mock_service = mock_media_service
+        handler._mock_ts = mock_translation_service
+        handler._mock_items_kbd = mock_items_kbd
+        handler._mock_empty_kbd = mock_empty_kbd
+        handler._mock_menu_kbd = mock_menu_kbd
+        yield handler
+
+
+@pytest.fixture
+def queue_handler(mock_media_service, mock_translation_service):
+    """Create a QueueHandler with patched services."""
+    with (
+        patch("src.bot.handlers.queue.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.queue.TranslationService") as mock_ts_class,
+        patch(
+            "src.bot.handlers.queue.get_queue_items_keyboard"
+        ) as mock_items_kbd,
+        patch(
+            "src.bot.handlers.queue.get_queue_empty_keyboard"
+        ) as mock_empty_kbd,
+        patch("src.bot.handlers.queue.get_main_menu_keyboard") as mock_menu_kbd,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        mock_media_service.get_queue_media = AsyncMock(return_value=[])
+        mock_items_kbd.return_value = MagicMock()
+        mock_empty_kbd.return_value = MagicMock()
+        mock_menu_kbd.return_value = MagicMock()
+
+        from src.bot.handlers.queue import QueueHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = QueueHandler()
+        handler._mock_service = mock_media_service
+        handler._mock_ts = mock_translation_service
+        handler._mock_items_kbd = mock_items_kbd
+        handler._mock_empty_kbd = mock_empty_kbd
+        handler._mock_menu_kbd = mock_menu_kbd
+        yield handler
+
+
+@pytest.fixture
+def history_handler(mock_media_service, mock_translation_service):
+    """Create a HistoryHandler with patched services."""
+    with (
+        patch("src.bot.handlers.history.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.history.TranslationService") as mock_ts_class,
+        patch(
+            "src.bot.handlers.history.get_history_items_keyboard"
+        ) as mock_items_kbd,
+        patch(
+            "src.bot.handlers.history.get_history_empty_keyboard"
+        ) as mock_empty_kbd,
+        patch("src.bot.handlers.history.get_main_menu_keyboard") as mock_menu_kbd,
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        mock_media_service.get_history = AsyncMock(return_value=[])
+        mock_items_kbd.return_value = MagicMock()
+        mock_empty_kbd.return_value = MagicMock()
+        mock_menu_kbd.return_value = MagicMock()
+
+        from src.bot.handlers.history import HistoryHandler
+        from src.bot.handlers.auth import AuthHandler
+
+        AuthHandler._authenticated_users = {12345}
+        handler = HistoryHandler()
+        handler._mock_service = mock_media_service
+        handler._mock_ts = mock_translation_service
+        handler._mock_items_kbd = mock_items_kbd
+        handler._mock_empty_kbd = mock_empty_kbd
+        handler._mock_menu_kbd = mock_menu_kbd
+        yield handler
+
+
+@pytest.fixture
+def unchanged_edit():
+    """Make a query's edit_text fail as Telegram does for identical text.
+
+    Returns a function that wires the query and returns a list that records
+    the order of answer() and edit_text() calls.
+    """
+    from telegram.error import BadRequest
+
+    def _wire(query):
+        calls = []
+        query.answer.side_effect = lambda *args, **kwargs: calls.append("answer")
+
+        def _edit(*args, **kwargs):
+            calls.append("edit")
+            raise BadRequest("Message is not modified: specified new message "
+                             "content and reply markup are exactly the same")
+
+        query.message.edit_text.side_effect = _edit
+        return calls
+
+    return _wire
 
 
 @pytest.fixture

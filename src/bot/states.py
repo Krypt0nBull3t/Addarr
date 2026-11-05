@@ -9,13 +9,6 @@ Description: Conversation states for the bot handlers
 class States:
     """States for conversation handlers"""
 
-    # Media states
-    SEARCHING = 1
-    SELECTING = 2
-    QUALITY_SELECT = 3
-    SEASON_SELECT = 4
-    ALBUM_SELECT = 5
-
     # Settings states
     SETTINGS_MENU = "settings_menu"
     SETTINGS_LANGUAGE = "settings_language"
@@ -24,8 +17,10 @@ class States:
     SETTINGS_DOWNLOADS = "settings_downloads"
     SETTINGS_USERS = "settings_users"
 
-    # Auth states
-    PASSWORD = 0
+    # Webhook wizard states
+    WEBHOOK_MENU = "webhook_menu"
+    WEBHOOK_EVENTS = "webhook_events"
+    WEBHOOK_CHANGE_PORT = "webhook_change_port"
 
-    # General states
-    END = "end"
+    # Bazarr states
+    BAZARR_SEARCH = "bazarr_search"

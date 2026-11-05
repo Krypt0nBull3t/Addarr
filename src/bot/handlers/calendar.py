@@ -1,0 +1,146 @@
+"""
+Filename: calendar.py
+Author: Addarr Contributors
+Created Date: 2026-03-03
+Description: Calendar/upcoming releases handler module.
+"""
+
+from telegram import Update
+from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
+
+from src.utils.logger import get_logger, log_user_interaction
+from src.bot.handlers.auth import require_auth
+from src.bot.keyboards import (
+    get_calendar_keyboard,
+    get_calendar_items_keyboard,
+    get_main_menu_keyboard,
+)
+from src.services.media import MediaService
+from src.services.rate_limit import rate_limit
+from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
+
+logger = get_logger("addarr.calendar")
+
+
+class CalendarHandler:
+    """Handler for upcoming releases calendar"""
+
+    def __init__(self):
+        self.media_service = MediaService()
+        self.translation = TranslationService()
+
+    def get_handler(self):
+        """Get calendar command handlers"""
+        return [
+            CommandHandler("upcoming", self.show_upcoming),
+            CallbackQueryHandler(
+                self.handle_calendar_action, pattern="^cal_"
+            ),
+        ]
+
+    @require_auth
+    @rate_limit("modify")
+    async def show_upcoming(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Show upcoming releases with inline keyboard."""
+        if not update.effective_user:  # pragma: no cover
+            return
+
+        log_user_interaction(logger, update.effective_user, "/upcoming")
+
+        days = context.user_data.setdefault("cal_days", 7)
+
+        items = await self.media_service.get_upcoming(days)
+        context.user_data["cal_items"] = items
+
+        text, keyboard = self._build_response(items, days)
+
+        if update.callback_query:
+            await update.callback_query.message.edit_text(
+                text, reply_markup=keyboard
+            )
+        else:
+            await update.message.reply_text(text, reply_markup=keyboard)
+
+    @require_auth
+    async def handle_calendar_action(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle calendar callback button presses."""
+        if not update.callback_query:
+            return
+
+        query = update.callback_query
+        data = query.data
+
+        log_user_interaction(logger, query.from_user, data)
+
+        if data.startswith("cal_period_"):
+            await self._handle_period(query, context)
+        elif data.startswith("cal_page_"):
+            await self._handle_page(query, context)
+        elif data == "cal_refresh":
+            await self._handle_refresh(query, context)
+        elif data == "cal_back":
+            await self._handle_back(query)
+        else:
+            await query.answer()
+
+    async def _fetch_and_display(self, query, context, days):
+        """Fetch calendar data, cache it, and update the message."""
+        context.user_data["cal_days"] = days
+        items = await self.media_service.get_upcoming(days)
+        context.user_data["cal_items"] = items
+
+        text, keyboard = self._build_response(items, days)
+        await query.answer()
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
+
+    async def _handle_period(self, query, context):
+        """Change the calendar period and re-fetch."""
+        days = int(query.data.split("_")[-1])
+        await self._fetch_and_display(query, context, days)
+
+    async def _handle_page(self, query, context):
+        """Show a different page of cached calendar items."""
+        page = int(query.data.split("_")[-1])
+        items = context.user_data.get("cal_items", [])
+        days = context.user_data.get("cal_days", 7)
+
+        text, keyboard = self._build_response(items, days, page)
+        await query.message.edit_text(text, reply_markup=keyboard)
+        await query.answer()
+
+    async def _handle_refresh(self, query, context):
+        """Clear cache and re-fetch calendar data."""
+        days = context.user_data.get("cal_days", 7)
+        await self._fetch_and_display(query, context, days)
+
+    async def _handle_back(self, query):
+        """Return to the main menu."""
+        await query.message.edit_text(
+            "\U0001f3e0 Main Menu",
+            reply_markup=get_main_menu_keyboard(),
+        )
+        await query.answer()
+
+    def _build_response(self, items, days, page=0):
+        """Build calendar text and keyboard from items."""
+        if items:
+            title = self.translation.get_text("CalendarTitle")
+            text = (
+                f"\U0001f4c5 {title}\n\n"
+                f"{len(items)} releases \u2014 {days} days"
+            )
+            keyboard = get_calendar_items_keyboard(items, page, days)
+        else:
+            text = (
+                f"\U0001f4c5 {self.translation.get_text('CalendarTitle')}"
+                f"\n\n{self.translation.get_text('CalendarEmpty')}"
+            )
+            keyboard = get_calendar_keyboard(days)
+        return text, keyboard

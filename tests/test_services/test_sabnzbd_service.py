@@ -6,10 +6,12 @@ SABnzbdService() will raise ValueError. Tests that need a working service
 use the enabled_sabnzbd_config fixture.
 """
 
+import logging
 import re
 
 import pytest
 from aioresponses import aioresponses
+from unittest.mock import patch
 
 from tests.conftest import _mock_config
 
@@ -17,17 +19,6 @@ from tests.conftest import _mock_config
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-SABNZBD_QUEUE = {
-    "queue": {
-        "slots": [
-            {"status": "Downloading", "filename": "test.nzb"},
-        ],
-        "noofslots": 3,
-        "speed": "5.2 MB/s",
-        "size": "1.2 GB",
-    }
-}
 
 # Pattern to match SABnzbd API URLs regardless of query param ordering
 SABNZBD_API_PATTERN = re.compile(r"^http://localhost:8090//api\?.*$")
@@ -104,96 +95,6 @@ class TestSABnzbdServiceInit:
             assert service.is_enabled() is False
         finally:
             _mock_config._config["sabnzbd"]["server"] = original_server
-
-
-# ---------------------------------------------------------------------------
-# get_status
-# ---------------------------------------------------------------------------
-
-
-class TestGetStatus:
-    @pytest.mark.asyncio
-    async def test_get_status_success(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                payload=SABNZBD_QUEUE,
-                status=200,
-            )
-            status = await sabnzbd_service.get_status()
-
-        assert status["active"] == 1
-        assert status["queued"] == 3
-        assert status["speed"] == "5.2 MB/s"
-        assert status["size"] == "1.2 GB"
-
-    @pytest.mark.asyncio
-    async def test_get_status_http_error(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                status=500,
-            )
-            status = await sabnzbd_service.get_status()
-
-        assert status["active"] == 0
-        assert status["queued"] == 0
-        assert status["speed"] == "0 KB/s"
-
-    @pytest.mark.asyncio
-    async def test_get_status_error(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                exception=Exception("Connection refused"),
-            )
-            status = await sabnzbd_service.get_status()
-
-        assert status["active"] == 0
-        assert status["queued"] == 0
-
-
-# ---------------------------------------------------------------------------
-# add_nzb
-# ---------------------------------------------------------------------------
-
-
-class TestAddNzb:
-    @pytest.mark.asyncio
-    async def test_add_nzb_success(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                payload={"status": True, "nzo_ids": ["SABnzbd_nzo_abc"]},
-                status=200,
-            )
-            result = await sabnzbd_service.add_nzb(
-                "http://example.com/test.nzb", name="test", category="movies"
-            )
-
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_add_nzb_http_error(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                status=500,
-            )
-            result = await sabnzbd_service.add_nzb("http://example.com/test.nzb")
-
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_add_nzb_failure(self, sabnzbd_service):
-        with aioresponses() as m:
-            m.get(
-                SABNZBD_API_PATTERN,
-                exception=Exception("Connection refused"),
-            )
-            result = await sabnzbd_service.add_nzb("http://example.com/test.nzb")
-
-        assert result is False
 
 
 # ---------------------------------------------------------------------------
@@ -303,6 +204,252 @@ class TestResumeQueue:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# pause_item
+# ---------------------------------------------------------------------------
+
+
+class TestPauseItem:
+    @pytest.mark.asyncio
+    async def test_pause_item_success(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload={"status": True}, status=200)
+            result = await sabnzbd_service.pause_item("SABnzbd_nzo_abc123")
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_pause_item_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, status=500)
+            result = await sabnzbd_service.pause_item("SABnzbd_nzo_abc123")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_pause_item_connection_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                exception=Exception("Connection refused"),
+            )
+            result = await sabnzbd_service.pause_item("SABnzbd_nzo_abc123")
+
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# resume_item
+# ---------------------------------------------------------------------------
+
+
+class TestResumeItem:
+    @pytest.mark.asyncio
+    async def test_resume_item_success(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload={"status": True}, status=200)
+            result = await sabnzbd_service.resume_item("SABnzbd_nzo_abc123")
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_resume_item_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, status=500)
+            result = await sabnzbd_service.resume_item("SABnzbd_nzo_abc123")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_resume_item_connection_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                exception=Exception("Connection refused"),
+            )
+            result = await sabnzbd_service.resume_item("SABnzbd_nzo_abc123")
+
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# get_queue_details
+# ---------------------------------------------------------------------------
+
+
+SABNZBD_QUEUE_DETAILED = {
+    "queue": {
+        "status": "Downloading",
+        "paused": False,
+        "speed": "5.2 MB/s",
+        "size": "9.9 GB",
+        "sizeleft": "1.2 GB",
+        "noofslots": 3,
+        "slots": [
+            {
+                "nzo_id": "SABnzbd_nzo_abc",
+                "filename": "Movie.Name.2024.1080p",
+                "status": "Downloading",
+                "percentage": "72",
+                "size": "4.2 GB",
+                "timeleft": "0:15:30",
+            },
+            {
+                "nzo_id": "SABnzbd_nzo_def",
+                "filename": "TV.Show.S03E05",
+                "status": "Queued",
+                "percentage": "0",
+                "size": "1.1 GB",
+                "timeleft": "0:45:00",
+            },
+            {
+                "nzo_id": "SABnzbd_nzo_ghi",
+                "filename": "Another.Movie",
+                "status": "Paused",
+                "percentage": "12",
+                "size": "3.5 GB",
+                "timeleft": "",
+            },
+        ],
+    }
+}
+
+
+class TestGetQueueDetails:
+    @pytest.mark.asyncio
+    async def test_get_queue_details_success(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                payload=SABNZBD_QUEUE_DETAILED,
+                status=200,
+            )
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result["paused"] is False
+        assert result["speed"] == "5.2 MB/s"
+        assert result["size_remaining"] == "1.2 GB"
+        assert result["items_count"] == 3
+        assert len(result["items"]) == 3
+
+        item = result["items"][0]
+        assert item["nzo_id"] == "SABnzbd_nzo_abc"
+        assert item["title"] == "Movie.Name.2024.1080p"
+        assert item["status"] == "Downloading"
+        assert item["progress"] == 72
+        assert item["size"] == "4.2 GB"
+        assert item["timeleft"] == "0:15:30"
+
+        paused_item = result["items"][2]
+        assert paused_item["status"] == "Paused"
+        assert paused_item["progress"] == 12
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_size_remaining_uses_sizeleft(
+        self, sabnzbd_service
+    ):
+        queue = {
+            "queue": {
+                "paused": False,
+                "speed": "1 MB/s",
+                "size": "10 GB",
+                "sizeleft": "2.5 GB",
+                "noofslots": 0,
+                "slots": [],
+            }
+        }
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload=queue, status=200)
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result["size_remaining"] == "2.5 GB"
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_empty(self, sabnzbd_service):
+        empty_queue = {
+            "queue": {
+                "slots": [],
+                "noofslots": 0,
+                "speed": "0 KB/s",
+                "size": "0 MB",
+                "paused": False,
+            }
+        }
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                payload=empty_queue,
+                status=200,
+            )
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result["items_count"] == 0
+        assert result["items"] == []
+        assert result["paused"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_invalid_percentage(self, sabnzbd_service):
+        bad_queue = {
+            "queue": {
+                "paused": False,
+                "speed": "1 MB/s",
+                "size": "500 MB",
+                "noofslots": 1,
+                "slots": [{
+                    "nzo_id": "nzo_bad",
+                    "filename": "Bad.Percentage",
+                    "status": "Downloading",
+                    "percentage": "not-a-number",
+                    "size": "1 GB",
+                    "timeleft": "1:00:00",
+                }],
+            }
+        }
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload=bad_queue, status=200)
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result["items"][0]["progress"] == 0
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_http_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, status=500)
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_none_on_wrong_api_key(
+        self, sabnzbd_service
+    ):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                payload={"status": False, "error": "API Key Incorrect"},
+                status=200,
+            )
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_connection_error(self, sabnzbd_service):
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                exception=Exception("Connection refused"),
+            )
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# get_history
+# ---------------------------------------------------------------------------
+
+
 SABNZBD_HISTORY_RESPONSE = {
     "history": {
         "noofslots": 2,
@@ -361,3 +508,54 @@ class TestGetHistory:
             result = await sabnzbd_service.get_history()
 
         assert result == {"total": 0, "items": []}
+
+
+# ---------------------------------------------------------------------------
+# request timeout
+# ---------------------------------------------------------------------------
+
+
+EVERY_REQUEST = [
+    pytest.param(lambda s: s.set_speed_limit(50), id="set_speed_limit"),
+    pytest.param(lambda s: s.pause_queue(), id="pause_queue"),
+    pytest.param(lambda s: s.resume_queue(), id="resume_queue"),
+    pytest.param(lambda s: s.pause_item("nzo_1"), id="pause_item"),
+    pytest.param(lambda s: s.resume_item("nzo_1"), id="resume_item"),
+    pytest.param(lambda s: s.get_queue_details(), id="get_queue_details"),
+    pytest.param(lambda s: s.get_history(), id="get_history"),
+]
+
+
+class TestRequestTimeout:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("call", EVERY_REQUEST)
+    async def test_every_request_has_10s_timeout(self, sabnzbd_service, call):
+        """Without a timeout a hung SABnzbd blocks the bot for aiohttp's 300 s default."""
+        with patch(
+            "src.services.sabnzbd.aiohttp.ClientSession", side_effect=RuntimeError
+        ) as session_cls:
+            await call(sabnzbd_service)
+        assert session_cls.call_args.kwargs["timeout"].total == 10
+
+
+# ---------------------------------------------------------------------------
+# API key never reaches the log (#197)
+# ---------------------------------------------------------------------------
+
+
+class TestNoApiKeyInLogs:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("call", EVERY_REQUEST)
+    async def test_error_log_hides_api_key(self, sabnzbd_service, call, caplog):
+        """A ContentTypeError carries the request URL with apikey=, so only its type is logged."""
+        with aioresponses() as m:
+            m.get(
+                SABNZBD_API_PATTERN,
+                status=200,
+                body="<html>Login</html>",
+                content_type="text/html",
+            )
+            await call(sabnzbd_service)
+
+        assert any(r.levelno == logging.ERROR for r in caplog.records)
+        assert not any(sabnzbd_service.api_key in r.getMessage() for r in caplog.records)

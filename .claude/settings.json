@@ -1,0 +1,109 @@
+{
+  "env": {
+    "PYTHONIOENCODING": "utf-8",
+    "GRAPHIFY_BACKEND": "none"
+  },
+  "permissions": {
+    "allow": [
+      "mcp__qmd__query",
+      "mcp__qmd__get"
+    ],
+    "ask": [
+      "Edit(./.claude/hooks/**)",
+      "Edit(./scripts/cloud-setup.sh)",
+      "Edit(./.claude/settings*.json)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git *push* --force*)",
+      "Bash(git *push* -f*)",
+      "Bash(git *push* +*)",
+      "Bash(git *push* --mirror*)",
+      "Bash(git *push* --delete*)",
+      "Bash(git *push* -d *)",
+      "Bash(*with-suite-lock.sh *git *push* --force*)",
+      "Bash(*with-suite-lock.sh *git *push* -f*)",
+      "Bash(*with-suite-lock.sh *git *push* +*)",
+      "Bash(*with-suite-lock.sh *git *push* --mirror*)",
+      "Bash(*with-suite-lock.sh *git *push* --delete*)",
+      "Bash(*with-suite-lock.sh *git *push* -d *)",
+      "Bash(git *clean *-*f*)",
+      "Bash(git *reset *--hard*)",
+      "Bash(gh auth token:*)",
+      "Bash(gh auth status *-t*)",
+      "Bash(gh auth status *-at*)",
+      "Bash(gh repo delete:*)",
+      "Bash(gh api *DELETE*)",
+      "Bash(sudo *)",
+      "Bash(rm *-r*)",
+      "Bash(rm *-R*)",
+      "Bash(rm *-fr*)",
+      "Bash(rm *-fR*)",
+      "Bash(/bin/rm *)",
+      "Bash(/usr/bin/rm *)",
+      "Read(./config.yaml*)",
+      "Edit(./config.yaml*)",
+      "Read(./backup/**)",
+      "Read(./.env*)",
+      "Read(./chatid.txt)",
+      "Read(./admin.txt)",
+      "Read(./allowlist.txt)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.ssh/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/cloud-setup.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit-check.sh\"",
+            "timeout": 30,
+            "statusMessage": "Checking edited file..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v graphify >/dev/null 2>&1 || exit 0; graphify hook-guard search",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v graphify >/dev/null 2>&1 || exit 0; graphify hook-guard read",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "context7@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
+  }
+}

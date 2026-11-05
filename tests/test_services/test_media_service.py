@@ -3,7 +3,7 @@ Tests for src/services/media.py -- MediaService singleton.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from src.services.media import MediaService
 
@@ -14,6 +14,7 @@ from src.services.media import MediaService
 
 SAMPLE_MOVIE = {
     "tmdbId": 550,
+    "imdbId": "tt0137523",
     "title": "Fight Club",
     "year": 1999,
     "overview": "An insomniac office worker...",
@@ -27,6 +28,7 @@ SAMPLE_MOVIE = {
 
 SAMPLE_SERIES = {
     "tvdbId": 81189,
+    "imdbId": "tt0903747",
     "title": "Breaking Bad",
     "year": 2008,
     "overview": "A high school chemistry teacher...",
@@ -40,6 +42,21 @@ SAMPLE_SERIES = {
     "seasons": [{"seasonNumber": 1}, {"seasonNumber": 2}],
 }
 
+SAMPLE_SERIES_NO_IMDB = {
+    "tvdbId": 295759,
+    "title": "Severance",
+    "year": 2022,
+    "overview": "Mark leads a team...",
+    "images": [],
+    "ratings": {},
+    "genres": ["Drama"],
+    "network": "Apple TV+",
+    "studio": "Apple",
+    "status": "continuing",
+    "runtime": 55,
+    "seasons": [{"seasonNumber": 1}],
+}
+
 SAMPLE_ARTIST = {
     "foreignArtistId": "some-mbid-123",
     "artistName": "Radiohead",
@@ -47,7 +64,6 @@ SAMPLE_ARTIST = {
     "images": [],
     "ratings": {"value": 9.1},
     "genres": ["Alternative Rock"],
-    "statistics": {"yearStart": 1985},
     "artistType": "Group",
     "status": "active",
 }
@@ -68,36 +84,6 @@ SAMPLE_ALBUM = {
     "genres": ["Alternative Rock"],
     "albumType": "Album",
 }
-
-SAMPLE_ALBUM_WITH_TRACKS = {
-    "foreignAlbumId": "album-id-abc",
-    "title": "OK Computer",
-    "artist": {
-        "foreignArtistId": "some-mbid-123",
-        "artistName": "Radiohead",
-    },
-    "images": [
-        {"coverType": "cover", "remoteUrl": "https://example.com/okcomputer.jpg"}
-    ],
-    "releaseDate": "1997-05-21T00:00:00Z",
-    "overview": "Third studio album...",
-    "ratings": {"value": 9.5},
-    "genres": ["Alternative Rock"],
-    "albumType": "Album",
-    "media": [
-        {
-            "mediumNumber": 1,
-            "mediumName": "",
-            "mediumFormat": "CD",
-            "tracks": [
-                {"trackNumber": "1", "title": "Airbag"},
-                {"trackNumber": "2", "title": "Paranoid Android"},
-                {"trackNumber": "3", "title": "Subterranean Homesick Alien"},
-            ],
-        }
-    ],
-}
-
 
 # ---------------------------------------------------------------------------
 # Singleton
@@ -146,155 +132,6 @@ class TestInitializeClients:
 
 
 # ---------------------------------------------------------------------------
-# __init__ download clients
-# ---------------------------------------------------------------------------
-
-
-class TestInitDownloadClients:
-    def test_transmission_enabled(self):
-        import sys
-        import types
-
-        mock_client = MagicMock()
-        mock_trans_module = types.ModuleType("src.api.transmission")
-        mock_trans_module.TransmissionClient = MagicMock(return_value=mock_client)
-
-        with patch(
-            "src.services.media.config"
-        ) as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": True} if key == "transmission"
-                else default
-            )
-            with patch(
-                "src.services.media.RadarrClient"
-            ), patch(
-                "src.services.media.SonarrClient"
-            ), patch(
-                "src.services.media.LidarrClient"
-            ), patch.dict(sys.modules, {"src.api.transmission": mock_trans_module}):
-                MediaService._instance = None
-                MediaService._radarr = None
-                MediaService._sonarr = None
-                MediaService._lidarr = None
-                service = MediaService()
-                assert service.transmission is mock_client
-
-    def test_transmission_import_error(self):
-        """When TransmissionClient can't be imported, transmission stays None."""
-        # The real src.api.transmission module has TransmissionAPI, not TransmissionClient.
-        # So with the real module in sys.modules, the import in media.py will fail
-        # with ImportError. We simulate this by making the module raise ImportError.
-        import sys
-        import types
-
-        types.ModuleType("src.api.transmission")
-        # Don't add TransmissionClient attribute - import will fail
-
-        with patch(
-            "src.services.media.config"
-        ) as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": True} if key == "transmission"
-                else default
-            )
-            with patch(
-                "src.services.media.RadarrClient"
-            ), patch(
-                "src.services.media.SonarrClient"
-            ), patch(
-                "src.services.media.LidarrClient"
-            ):
-                # Remove the module from sys.modules so the import triggers fresh
-                saved = sys.modules.pop("src.api.transmission", None)
-                # Patch __import__ to raise ImportError for this module
-                real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
-
-                def _import(name, *args, **kwargs):
-                    if name == "src.api.transmission":
-                        raise ImportError("No module")
-                    return real_import(name, *args, **kwargs)
-
-                with patch("builtins.__import__", side_effect=_import):
-                    MediaService._instance = None
-                    MediaService._radarr = None
-                    MediaService._sonarr = None
-                    MediaService._lidarr = None
-                    service = MediaService()
-                    assert service.transmission is None
-
-                if saved is not None:
-                    sys.modules["src.api.transmission"] = saved
-
-    def test_sabnzbd_enabled(self):
-        import sys
-        import types
-
-        mock_client = MagicMock()
-        mock_sab_module = types.ModuleType("src.api.sabnzbd")
-        mock_sab_module.SabnzbdClient = MagicMock(return_value=mock_client)
-
-        with patch(
-            "src.services.media.config"
-        ) as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": True} if key == "sabnzbd"
-                else {"enable": False} if key == "transmission"
-                else default
-            )
-            with patch(
-                "src.services.media.RadarrClient"
-            ), patch(
-                "src.services.media.SonarrClient"
-            ), patch(
-                "src.services.media.LidarrClient"
-            ), patch.dict(sys.modules, {"src.api.sabnzbd": mock_sab_module}):
-                MediaService._instance = None
-                MediaService._radarr = None
-                MediaService._sonarr = None
-                MediaService._lidarr = None
-                service = MediaService()
-                assert service.sabnzbd is mock_client
-
-    def test_sabnzbd_import_error(self):
-        import sys
-
-        with patch(
-            "src.services.media.config"
-        ) as mock_config:
-            mock_config.get.side_effect = lambda key, default=None: (
-                {"enable": True} if key == "sabnzbd"
-                else {"enable": False} if key == "transmission"
-                else default
-            )
-            with patch(
-                "src.services.media.RadarrClient"
-            ), patch(
-                "src.services.media.SonarrClient"
-            ), patch(
-                "src.services.media.LidarrClient"
-            ):
-                saved = sys.modules.pop("src.api.sabnzbd", None)
-                real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
-
-                def _import(name, *args, **kwargs):
-                    if name == "src.api.sabnzbd":
-                        raise ImportError("No module")
-                    return real_import(name, *args, **kwargs)
-
-                with patch("builtins.__import__", side_effect=_import):
-                    MediaService._instance = None
-                    MediaService._radarr = None
-                    MediaService._sonarr = None
-                    MediaService._lidarr = None
-                    service = MediaService()
-                    assert service.sabnzbd is None
-
-                if saved is not None:
-                    sys.modules["src.api.sabnzbd"] = saved
-
-
-# ---------------------------------------------------------------------------
 # search_movies
 # ---------------------------------------------------------------------------
 
@@ -312,6 +149,46 @@ class TestSearchMovies:
         assert results[0]["title"] == "Fight Club (1999)"
         assert results[0]["id"] == "550"
         mock_radarr_client.search.assert_awaited_once_with("fight club")
+
+    @pytest.mark.asyncio
+    async def test_search_movies_remote_poster_is_used_as_is(self, mock_radarr_client):
+        """remotePoster is a full URL: no second prefix when images has no poster."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        url = "https://image.tmdb.org/t/p/original/abc123.jpg"
+        mock_radarr_client.search.return_value = [{**SAMPLE_MOVIE, "remotePoster": url}]
+
+        results = await service.search_movies("fight club")
+
+        assert results[0]["poster"] == url
+
+    @pytest.mark.asyncio
+    async def test_search_movies_external_ids(self, mock_radarr_client):
+        """Normalized movie results include external_ids with imdb and tmdb."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.search.return_value = [SAMPLE_MOVIE]
+
+        results = await service.search_movies("fight club")
+
+        assert results[0]["external_ids"] == {
+            "imdb": "tt0137523",
+            "tmdb": 550,
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_movies_external_ids_no_imdb(self, mock_radarr_client):
+        """Movie without imdbId gets None for imdb external_id."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        movie_no_imdb = {**SAMPLE_MOVIE}
+        del movie_no_imdb["imdbId"]
+        mock_radarr_client.search.return_value = [movie_no_imdb]
+
+        results = await service.search_movies("fight club")
+
+        assert results[0]["external_ids"]["imdb"] is None
+        assert results[0]["external_ids"]["tmdb"] == 550
 
     @pytest.mark.asyncio
     async def test_search_movies_radarr_disabled(self):
@@ -351,6 +228,69 @@ class TestSearchSeries:
         mock_sonarr_client.search.assert_awaited_once_with("breaking bad")
 
     @pytest.mark.asyncio
+    async def test_search_series_reads_rating_value_and_has_no_studio(self, mock_sonarr_client):
+        """Sonarr sends ratings.value and ratings.votes, and no studio."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        series = {**SAMPLE_SERIES, "ratings": {"votes": 120, "value": 8.1}}
+        series.pop("studio")
+        mock_sonarr_client.search.return_value = [series]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["ratings"] == {"value": 8.1, "votes": 120}
+        assert "studio" not in results[0]
+        assert results[0]["network"] == "AMC"
+
+    @pytest.mark.asyncio
+    async def test_search_series_rating_missing_is_na(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search.return_value = [SAMPLE_SERIES]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["ratings"] == {"value": "N/A", "votes": 0}
+
+    @pytest.mark.asyncio
+    async def test_search_series_remote_poster_is_used_as_is(self, mock_sonarr_client):
+        """remotePoster is a full URL: no second prefix when images has no poster."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        url = "https://artworks.thetvdb.com/banners/posters/81189-1.jpg"
+        mock_sonarr_client.search.return_value = [{**SAMPLE_SERIES, "remotePoster": url}]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["poster"] == url
+
+    @pytest.mark.asyncio
+    async def test_search_series_external_ids(self, mock_sonarr_client):
+        """Normalized series results include external_ids with tvdb and imdb."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search.return_value = [SAMPLE_SERIES]
+
+        results = await service.search_series("breaking bad")
+
+        assert results[0]["external_ids"] == {
+            "tvdb": 81189,
+            "imdb": "tt0903747",
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_series_external_ids_no_imdb(self, mock_sonarr_client):
+        """Series without imdbId gets None for imdb external_id."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search.return_value = [SAMPLE_SERIES_NO_IMDB]
+
+        results = await service.search_series("severance")
+
+        assert results[0]["external_ids"]["tvdb"] == 295759
+        assert results[0]["external_ids"]["imdb"] is None
+
+    @pytest.mark.asyncio
     async def test_search_series_disabled(self):
         service = MediaService()
         MediaService._sonarr = None
@@ -386,6 +326,46 @@ class TestSearchMusic:
         assert results[0]["title"] == "Radiohead"
         assert results[0]["id"] == "some-mbid-123"
         mock_lidarr_client.search.assert_awaited_once_with("radiohead")
+
+    @pytest.mark.asyncio
+    async def test_search_music_artist_external_ids(self, mock_lidarr_client):
+        """Normalized artist results include musicbrainz external_id."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["external_ids"] == {
+            "musicbrainz": "some-mbid-123",
+        }
+
+    @pytest.mark.asyncio
+    async def test_search_music_artist_genres_stay_a_list(self, mock_lidarr_client):
+        """Artist genres stay a list, so the caption does not split them into letters."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["genres"] == ["Alternative Rock"]
+
+    @pytest.mark.asyncio
+    async def test_search_music_album_external_ids(self, mock_lidarr_client):
+        """Normalized album results include musicbrainz external_id."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = []
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
+
+        results = await service.search_music("ok computer")
+
+        albums = [r for r in results if r.get("music_type") == "album"]
+        assert len(albums) == 1
+        assert albums[0]["external_ids"] == {
+            "musicbrainz": "album-id-abc",
+        }
 
     @pytest.mark.asyncio
     async def test_search_music_disabled(self):
@@ -502,7 +482,22 @@ class TestAddMovieWithProfile:
 
         assert success is True
         assert message == "Added successfully"
-        mock_radarr_client.add_movie.assert_awaited_once_with(550, "/movies", 1)
+        mock_radarr_client.add_movie.assert_awaited_once_with(
+            550, "/movies", 1, lookup=None
+        )
+
+    @pytest.mark.asyncio
+    async def test_add_movie_with_profile_passes_lookup_on(self, mock_radarr_client):
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+
+        await service.add_movie_with_profile(
+            "550", 1, "/movies", lookup=SAMPLE_MOVIE
+        )
+
+        mock_radarr_client.add_movie.assert_awaited_once_with(
+            550, "/movies", 1, lookup=SAMPLE_MOVIE
+        )
 
     @pytest.mark.asyncio
     async def test_add_movie_with_profile_failure(self, mock_radarr_client):
@@ -556,9 +551,6 @@ class TestAddSeries:
             {"id": 1, "name": "HD-1080p"}
         ]
         mock_sonarr_client.get_series.return_value = SAMPLE_SERIES
-        mock_sonarr_client.get_seasons.return_value = [
-            {"seasonNumber": 1}, {"seasonNumber": 2}
-        ]
 
         result = await service.add_series("81189")
 
@@ -566,6 +558,29 @@ class TestAddSeries:
         assert result["type"] == "quality_selection"
         assert result["series"] == SAMPLE_SERIES
         assert len(result["seasons"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_add_series_makes_one_lookup_request(self):
+        """One series add: one lookup, none to the missing series/lookup/tvdb/ path."""
+        from aioresponses import aioresponses
+        from src.api.sonarr import SonarrClient
+
+        base = "http://localhost:8989/api/v3"
+        client = SonarrClient()
+        service = MediaService()
+        MediaService._sonarr = client
+        try:
+            with aioresponses() as mocked:
+                mocked.get(f"{base}/rootFolder", payload=[{"path": "/tv"}])
+                mocked.get(f"{base}/qualityProfile", payload=[{"id": 1, "name": "HD"}])
+                mocked.get(f"{base}/series/lookup?term=tvdb:81189", payload=[SAMPLE_SERIES])
+                result = await service.add_series("81189")
+                lookups = [str(url) for _, url in mocked.requests if "lookup" in str(url)]
+        finally:
+            await client.close()
+
+        assert result["series"] == SAMPLE_SERIES
+        assert lookups == [f"{base}/series/lookup?term=tvdb:81189"]
 
     @pytest.mark.asyncio
     async def test_add_series_no_root_folders(self, mock_sonarr_client):
@@ -610,8 +625,7 @@ class TestAddSeries:
         mock_sonarr_client.get_quality_profiles.return_value = [
             {"id": 1, "name": "HD-1080p"}
         ]
-        mock_sonarr_client.get_series.return_value = SAMPLE_SERIES
-        mock_sonarr_client.get_seasons.return_value = []
+        mock_sonarr_client.get_series.return_value = {**SAMPLE_SERIES, "seasons": []}
 
         result = await service.add_series("81189")
 
@@ -646,9 +660,6 @@ class TestAddSeriesWithProfile:
     async def test_add_series_with_profile_success(self, mock_sonarr_client):
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.return_value = [
-            {"seasonNumber": 1}, {"seasonNumber": 2}
-        ]
         mock_sonarr_client.add_series.return_value = (True, "Added successfully")
 
         success, message = await service.add_series_with_profile(
@@ -659,32 +670,52 @@ class TestAddSeriesWithProfile:
         assert message == "Added successfully"
 
     @pytest.mark.asyncio
-    async def test_add_series_with_profile_selected_seasons(self, mock_sonarr_client):
+    async def test_add_series_with_profile_passes_seasons_through(self, mock_sonarr_client):
+        """The handler's season dicts reach Sonarr unchanged, without a re-fetch."""
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.return_value = [
-            {"seasonNumber": 1}, {"seasonNumber": 2}, {"seasonNumber": 3}
-        ]
         mock_sonarr_client.add_series.return_value = (True, "Added")
+        seasons = [
+            {"seasonNumber": 1, "monitored": True},
+            {"seasonNumber": 2, "monitored": False},
+        ]
 
         success, message = await service.add_series_with_profile(
-            "81189", profile_id=1, root_folder="/tv", selected_seasons=[1, 3]
+            "81189", 1, "/tv", seasons
         )
 
         assert success is True
-        # Verify the season_data was constructed correctly
-        call_args = mock_sonarr_client.add_series.call_args
-        season_data = call_args[0][3]  # 4th positional arg
-        monitored_seasons = [s for s in season_data if s["monitored"]]
-        unmonitored_seasons = [s for s in season_data if not s["monitored"]]
-        assert len(monitored_seasons) == 2  # seasons 1 and 3
-        assert len(unmonitored_seasons) == 1  # season 2
+        assert mock_sonarr_client.add_series.call_args[0] == (81189, "/tv", 1, seasons)
+
+    @pytest.mark.asyncio
+    async def test_add_series_with_profile_forwards_monitor(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.add_series.return_value = (True, "Added")
+
+        await service.add_series_with_profile("81189", 1, "/tv", [], monitor="future")
+
+        mock_sonarr_client.add_series.assert_awaited_once_with(
+            81189, "/tv", 1, [], monitor="future", lookup=None
+        )
+
+    @pytest.mark.asyncio
+    async def test_add_series_with_profile_passes_lookup_on(self, mock_sonarr_client):
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+
+        await service.add_series_with_profile(
+            "81189", 1, "/tv", [], lookup=SAMPLE_SERIES
+        )
+
+        mock_sonarr_client.add_series.assert_awaited_once_with(
+            81189, "/tv", 1, [], monitor=None, lookup=SAMPLE_SERIES
+        )
 
     @pytest.mark.asyncio
     async def test_add_series_with_profile_failure(self, mock_sonarr_client):
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.return_value = [{"seasonNumber": 1}]
         mock_sonarr_client.add_series.return_value = (False, "Already exists")
 
         success, message = await service.add_series_with_profile(
@@ -698,7 +729,7 @@ class TestAddSeriesWithProfile:
     async def test_add_series_with_profile_exception(self, mock_sonarr_client):
         service = MediaService()
         MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.get_seasons.side_effect = Exception("API error")
+        mock_sonarr_client.add_series.side_effect = Exception("API error")
 
         success, message = await service.add_series_with_profile(
             "81189", profile_id=1, root_folder="/tv"
@@ -848,147 +879,6 @@ class TestAddMusicWithProfile:
             await service.add_music_with_profile(
                 "some-mbid-123", profile_id=1, root_folder="/music"
             )
-
-
-# ---------------------------------------------------------------------------
-# Status checks
-# ---------------------------------------------------------------------------
-
-
-class TestStatusChecks:
-    @pytest.mark.asyncio
-    async def test_get_radarr_status(self, mock_radarr_client):
-        service = MediaService()
-        MediaService._radarr = mock_radarr_client
-        mock_radarr_client.check_status.return_value = True
-
-        result = await service.get_radarr_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_radarr_status_disabled(self):
-        service = MediaService()
-        MediaService._radarr = None
-
-        result = await service.get_radarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_radarr_status_exception(self, mock_radarr_client):
-        service = MediaService()
-        MediaService._radarr = mock_radarr_client
-        mock_radarr_client.check_status.side_effect = Exception("fail")
-
-        result = await service.get_radarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_sonarr_status(self, mock_sonarr_client):
-        service = MediaService()
-        MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.check_status.return_value = True
-
-        result = await service.get_sonarr_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_sonarr_status_disabled(self):
-        service = MediaService()
-        MediaService._sonarr = None
-
-        result = await service.get_sonarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_sonarr_status_exception(self, mock_sonarr_client):
-        service = MediaService()
-        MediaService._sonarr = mock_sonarr_client
-        mock_sonarr_client.check_status.side_effect = Exception("fail")
-
-        result = await service.get_sonarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_lidarr_status(self, mock_lidarr_client):
-        service = MediaService()
-        MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.check_status.return_value = True
-
-        result = await service.get_lidarr_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_lidarr_status_disabled(self):
-        service = MediaService()
-        MediaService._lidarr = None
-
-        result = await service.get_lidarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_lidarr_status_exception(self, mock_lidarr_client):
-        service = MediaService()
-        MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.check_status.side_effect = Exception("fail")
-
-        result = await service.get_lidarr_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_transmission_status_enabled(self):
-        service = MediaService()
-        mock_client = AsyncMock()
-        mock_client.check_status.return_value = True
-        service.transmission = mock_client
-
-        result = await service.get_transmission_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_transmission_status_disabled(self):
-        service = MediaService()
-        service.transmission = None
-
-        result = await service.get_transmission_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_transmission_status_exception(self):
-        service = MediaService()
-        mock_client = AsyncMock()
-        mock_client.check_status.side_effect = Exception("fail")
-        service.transmission = mock_client
-
-        result = await service.get_transmission_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_sabnzbd_status_enabled(self):
-        service = MediaService()
-        mock_client = AsyncMock()
-        mock_client.check_status.return_value = True
-        service.sabnzbd = mock_client
-
-        result = await service.get_sabnzbd_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_get_sabnzbd_status_disabled(self):
-        service = MediaService()
-        service.sabnzbd = None
-
-        result = await service.get_sabnzbd_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_get_sabnzbd_status_exception(self):
-        service = MediaService()
-        mock_client = AsyncMock()
-        mock_client.check_status.side_effect = Exception("fail")
-        service.sabnzbd = mock_client
-
-        result = await service.get_sabnzbd_status()
-        assert result is False
 
 
 # ---------------------------------------------------------------------------
@@ -1340,7 +1230,7 @@ class TestDeleteMusicService:
 
 
 # ---------------------------------------------------------------------------
-# search_music — combined artist + album + song search
+# search_music — combined artist + album search
 # ---------------------------------------------------------------------------
 
 
@@ -1375,35 +1265,59 @@ class TestSearchMusicCombined:
         assert results[0]["artist_id"] == "some-mbid-123"
 
     @pytest.mark.asyncio
-    async def test_song_results_from_track_data(self, mock_lidarr_client):
-        """Song results extracted when album track data matches query."""
+    async def test_artist_without_images_has_no_poster(self, mock_lidarr_client):
+        """No poster or cover image: poster is None, not a guessed URL."""
         service = MediaService()
         MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.search.return_value = []
-        mock_lidarr_client.search_albums.return_value = [
-            SAMPLE_ALBUM_WITH_TRACKS
-        ]
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+        mock_lidarr_client.search_albums.return_value = []
 
-        results = await service.search_music("paranoid android")
+        results = await service.search_music("radiohead")
 
-        songs = [r for r in results if r["music_type"] == "song"]
-        assert len(songs) == 1
-        assert songs[0]["title"] == "Paranoid Android"
-        assert songs[0]["album_id"] == "album-id-abc"
-        assert songs[0]["artist_id"] == "some-mbid-123"
+        assert results[0]["poster"] is None
 
     @pytest.mark.asyncio
-    async def test_no_song_when_no_track_data(self, mock_lidarr_client):
-        """No song results when album has no media/track data."""
+    async def test_artist_uses_poster_image_url(self, mock_lidarr_client):
+        """A poster or cover image remoteUrl is used as the poster."""
         service = MediaService()
         MediaService._lidarr = mock_lidarr_client
-        mock_lidarr_client.search.return_value = []
-        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
+        artist = {
+            **SAMPLE_ARTIST,
+            "images": [
+                {"coverType": "fanart", "remoteUrl": "https://example.com/fan.jpg"},
+                {"coverType": "Poster", "remoteUrl": "https://example.com/p.jpg"},
+            ],
+        }
+        mock_lidarr_client.search.return_value = [artist]
+        mock_lidarr_client.search_albums.return_value = []
 
-        results = await service.search_music("paranoid android")
+        results = await service.search_music("radiohead")
 
-        songs = [r for r in results if r["music_type"] == "song"]
-        assert len(songs) == 0
+        assert results[0]["poster"] == "https://example.com/p.jpg"
+
+    @pytest.mark.asyncio
+    async def test_artist_result_has_no_year_key(self, mock_lidarr_client):
+        """Lidarr has no artist year field, so the result carries no year."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
+        mock_lidarr_client.search_albums.return_value = []
+
+        results = await service.search_music("radiohead")
+
+        assert "year" not in results[0]
+
+    @pytest.mark.asyncio
+    async def test_artist_with_null_images_has_no_poster(self, mock_lidarr_client):
+        """Lidarr may send images: null; that is no poster, not an error."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.search.return_value = [{**SAMPLE_ARTIST, "images": None}]
+        mock_lidarr_client.search_albums.return_value = []
+
+        results = await service.search_music("radiohead")
+
+        assert results[0]["poster"] is None
 
     @pytest.mark.asyncio
     async def test_albums_without_foreign_id_skipped(self, mock_lidarr_client):
@@ -1468,26 +1382,15 @@ class TestSearchMusicCombined:
 
     @pytest.mark.asyncio
     async def test_result_ordering(self, mock_lidarr_client):
-        """Results ordered: artists first, then albums, then songs."""
+        """Results ordered: artists first, then albums."""
         service = MediaService()
         MediaService._lidarr = mock_lidarr_client
         mock_lidarr_client.search.return_value = [SAMPLE_ARTIST]
-        mock_lidarr_client.search_albums.return_value = [
-            SAMPLE_ALBUM_WITH_TRACKS
-        ]
+        mock_lidarr_client.search_albums.return_value = [SAMPLE_ALBUM]
 
         results = await service.search_music("radiohead")
 
-        types = [r["music_type"] for r in results]
-        # Artists before albums; songs (if any) after albums
-        artist_idx = [i for i, t in enumerate(types) if t == "artist"]
-        album_idx = [i for i, t in enumerate(types) if t == "album"]
-        song_idx = [i for i, t in enumerate(types) if t == "song"]
-
-        if artist_idx and album_idx:
-            assert max(artist_idx) < min(album_idx)
-        if album_idx and song_idx:
-            assert max(album_idx) < min(song_idx)
+        assert [r["music_type"] for r in results] == ["artist", "album"]
 
 
 # ---------------------------------------------------------------------------
@@ -1595,7 +1498,7 @@ class TestGetArtistAlbums:
             },
         ]
 
-        albums = await service.get_artist_albums("some-mbid-123")
+        albums = await service.get_artist_albums("some-mbid-123", "Radiohead")
 
         assert len(albums) == 2
         assert albums[0]["album_id"] == "album-id-abc"
@@ -1605,13 +1508,45 @@ class TestGetArtistAlbums:
         assert albums[1]["title"] == "Kid A"
 
     @pytest.mark.asyncio
+    async def test_searches_by_artist_name_and_keeps_only_picked_artist(
+        self, mock_lidarr_client
+    ):
+        """album/lookup gets the name, not the MBID; other artists' albums are dropped."""
+        service = MediaService()
+        MediaService._lidarr = mock_lidarr_client
+        other_album = {
+            "foreignAlbumId": "album-id-other",
+            "title": "Radio Head",
+            "artist": {
+                "foreignArtistId": "other-mbid-456",
+                "artistName": "Radio Head Tribute",
+            },
+            "releaseDate": "2010-01-01T00:00:00Z",
+        }
+        no_artist_album = {"foreignAlbumId": "album-id-orphan", "title": "Orphan"}
+        null_artist_album = {
+            "foreignAlbumId": "album-id-null", "title": "Null", "artist": None
+        }
+        mock_lidarr_client.search_albums.return_value = [
+            other_album,
+            SAMPLE_ALBUM,
+            no_artist_album,
+            null_artist_album,
+        ]
+
+        albums = await service.get_artist_albums("some-mbid-123", "Radiohead")
+
+        mock_lidarr_client.search_albums.assert_awaited_once_with("Radiohead")
+        assert [a["album_id"] for a in albums] == ["album-id-abc"]
+
+    @pytest.mark.asyncio
     async def test_returns_empty_on_exception(self, mock_lidarr_client):
         """get_artist_albums returns [] on exception."""
         service = MediaService()
         MediaService._lidarr = mock_lidarr_client
         mock_lidarr_client.search_albums.side_effect = Exception("API error")
 
-        albums = await service.get_artist_albums("some-mbid-123")
+        albums = await service.get_artist_albums("some-mbid-123", "Radiohead")
 
         assert albums == []
 
@@ -1621,6 +1556,982 @@ class TestGetArtistAlbums:
         service = MediaService()
         MediaService._lidarr = None
 
-        albums = await service.get_artist_albums("some-mbid-123")
+        albums = await service.get_artist_albums("some-mbid-123", "Radiohead")
 
         assert albums == []
+
+
+# ---------------------------------------------------------------------------
+# get_upcoming — calendar aggregation
+# ---------------------------------------------------------------------------
+
+
+# Sample Radarr calendar data
+RADARR_CALENDAR_MOVIE_CINEMA = {
+    "id": 1,
+    "title": "Movie A",
+    "tmdbId": 100,
+    "year": 2026,
+    "inCinemas": "2026-03-10T00:00:00Z",
+    "digitalRelease": "2026-04-10T00:00:00Z",
+    "physicalRelease": "2026-05-10T00:00:00Z",
+}
+
+RADARR_CALENDAR_MOVIE_DIGITAL = {
+    "id": 2,
+    "title": "Movie B",
+    "tmdbId": 200,
+    "year": 2026,
+    "digitalRelease": "2026-03-15T00:00:00Z",
+}
+
+RADARR_CALENDAR_MOVIE_NO_ID = {
+    "title": "Movie C",
+    "tmdbId": 300,
+    "year": 2026,
+    "physicalRelease": "2026-03-05T00:00:00Z",
+}
+
+# Sample Sonarr calendar data
+SONARR_CALENDAR_EPISODE = {
+    "id": 501,
+    "title": "Pilot",
+    "airDateUtc": "2026-03-08T20:00:00Z",
+    "seasonNumber": 1,
+    "episodeNumber": 1,
+    "series": {"title": "New Show", "tvdbId": 9000, "id": 10},
+}
+
+SONARR_CALENDAR_EPISODE_NO_ID = {
+    "title": "Unmonitored Ep",
+    "airDateUtc": "2026-03-12T20:00:00Z",
+    "seasonNumber": 2,
+    "episodeNumber": 5,
+    "series": {"title": "Another Show", "tvdbId": 9001},
+}
+
+
+class TestGetUpcoming:
+    @pytest.mark.asyncio
+    async def test_both_services_combined_sorted(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Both services enabled — returns combined, date-sorted list."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_DIGITAL,  # 2026-03-15
+        ]
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,  # 2026-03-08
+        ]
+
+        results = await service.get_upcoming(days=14)
+
+        assert len(results) == 2
+        # Sonarr episode (03-08) should come before Radarr movie (03-15)
+        assert results[0]["type"] == "episode"
+        assert results[0]["title"] == "Pilot"
+        assert results[1]["type"] == "movie"
+        assert results[1]["title"] == "Movie B"
+
+    @pytest.mark.asyncio
+    async def test_only_radarr_enabled(self, mock_radarr_client):
+        """Only Radarr enabled — returns only movies."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_CINEMA,
+        ]
+
+        results = await service.get_upcoming(days=7)
+
+        assert len(results) == 1
+        assert results[0]["type"] == "movie"
+        assert results[0]["title"] == "Movie A"
+
+    @pytest.mark.asyncio
+    async def test_only_sonarr_enabled(self, mock_sonarr_client):
+        """Only Sonarr enabled — returns only episodes."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,
+        ]
+
+        results = await service.get_upcoming(days=7)
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+        assert results[0]["series_title"] == "New Show"
+
+    @pytest.mark.asyncio
+    async def test_neither_enabled(self):
+        """Neither enabled — returns empty list."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+
+        results = await service.get_upcoming(days=7)
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_radarr_movie_date_selection_earliest(
+        self, mock_radarr_client
+    ):
+        """Picks earliest of inCinemas/digitalRelease/physicalRelease."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_CINEMA,
+        ]
+
+        results = await service.get_upcoming(days=30)
+
+        assert results[0]["date"] == "2026-03-10"
+        assert results[0]["date_label"] == "Cinema"
+
+    @pytest.mark.asyncio
+    async def test_radarr_movie_digital_only(self, mock_radarr_client):
+        """Movie with only digitalRelease uses that date."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_DIGITAL,
+        ]
+
+        results = await service.get_upcoming(days=30)
+
+        assert results[0]["date"] == "2026-03-15"
+        assert results[0]["date_label"] == "Digital"
+
+    @pytest.mark.asyncio
+    async def test_items_have_no_in_library_flag(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Calendar items carry no in_library flag (the calendar has no add path)."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_CINEMA, RADARR_CALENDAR_MOVIE_NO_ID,
+        ]
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE, SONARR_CALENDAR_EPISODE_NO_ID,
+        ]
+
+        results = await service.get_upcoming(days=30)
+
+        assert len(results) == 4
+        assert all("in_library" not in r for r in results)
+
+    @pytest.mark.asyncio
+    async def test_api_error_one_service_still_returns_other(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """API error on one service still returns results from the other."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_calendar.side_effect = Exception("Radarr down")
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,
+        ]
+
+        results = await service.get_upcoming(days=7)
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+
+    @pytest.mark.asyncio
+    async def test_radarr_movie_no_dates(self, mock_radarr_client):
+        """Movie with no date fields gets empty date and Unknown label."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            {"title": "No Dates", "tmdbId": 999, "year": 2026},
+        ]
+
+        results = await service.get_upcoming(days=7)
+
+        assert results[0]["date"] == ""
+        assert results[0]["date_label"] == "Unknown"
+
+    @pytest.mark.asyncio
+    async def test_normalized_schema_movie(self, mock_radarr_client):
+        """Movie items have all expected schema fields."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_calendar.return_value = [
+            RADARR_CALENDAR_MOVIE_CINEMA,
+        ]
+
+        results = await service.get_upcoming(days=30)
+        item = results[0]
+
+        assert item["type"] == "movie"
+        assert item["title"] == "Movie A"
+        assert item["series_title"] is None
+        assert item["date"] == "2026-03-10"
+        assert item["date_label"] == "Cinema"
+        assert item["year"] == 2026
+        assert item["season"] is None
+        assert item["episode"] is None
+        assert item["media_id"] == "100"
+        assert item["internal_id"] == 1
+
+    @pytest.mark.asyncio
+    async def test_normalized_schema_episode(self, mock_sonarr_client):
+        """Episode items have all expected schema fields."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_calendar.return_value = [
+            SONARR_CALENDAR_EPISODE,
+        ]
+
+        results = await service.get_upcoming(days=30)
+        item = results[0]
+
+        assert item["type"] == "episode"
+        assert item["title"] == "Pilot"
+        assert item["series_title"] == "New Show"
+        assert item["date"] == "2026-03-08"
+        assert item["date_label"] == "Airing"
+        assert item["year"] is None
+        assert item["season"] == 1
+        assert item["episode"] == 1
+        assert item["media_id"] == "9000"
+        assert item["internal_id"] == 10
+
+
+# ---------------------------------------------------------------------------
+# Missing/Wanted — sample data
+# ---------------------------------------------------------------------------
+
+RADARR_MISSING_MOVIE_1 = {
+    "id": 1,
+    "title": "Fight Club",
+    "year": 1999,
+    "tmdbId": 550,
+    "monitored": True,
+}
+
+RADARR_MISSING_MOVIE_2 = {
+    "id": 2,
+    "title": "Pulp Fiction",
+    "year": 1994,
+    "tmdbId": 680,
+    "monitored": True,
+}
+
+RADARR_CUTOFF_MOVIE = {
+    "id": 3,
+    "title": "Inception",
+    "year": 2010,
+    "tmdbId": 27205,
+    "monitored": True,
+}
+
+SONARR_MISSING_EPISODE_1 = {
+    "id": 101,
+    "seriesId": 42,
+    "seasonNumber": 1,
+    "episodeNumber": 5,
+    "title": "Pilot",
+    "monitored": True,
+    "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+}
+
+SONARR_MISSING_EPISODE_2 = {
+    "id": 102,
+    "seriesId": 42,
+    "seasonNumber": 1,
+    "episodeNumber": 6,
+    "title": "Crazy Handful of Nothin'",
+    "monitored": True,
+    "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+}
+
+SONARR_CUTOFF_EPISODE = {
+    "id": 201,
+    "seriesId": 50,
+    "seasonNumber": 2,
+    "episodeNumber": 1,
+    "title": "Hello, Ms. Cobel",
+    "monitored": True,
+    "series": {"id": 50, "title": "Severance", "year": 2022, "tvdbId": 295759},
+}
+
+
+# ---------------------------------------------------------------------------
+# _normalize_radarr_missing / _normalize_sonarr_missing
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizeRadarrMissing:
+    def test_standard_movie(self):
+        """Standard Radarr missing movie normalizes to unified schema."""
+        result = MediaService._normalize_radarr_missing(RADARR_MISSING_MOVIE_1)
+
+        assert result["type"] == "movie"
+        assert result["title"] == "Fight Club"
+        assert result["series_title"] is None
+        assert result["year"] == 1999
+        assert result["season"] is None
+        assert result["episode"] is None
+        assert result["media_id"] == "550"
+        assert result["internal_id"] == 1
+        assert result["service"] == "radarr"
+
+    def test_missing_fields(self):
+        """Movie with missing optional fields gets safe defaults."""
+        movie = {"id": 99, "monitored": True}
+        result = MediaService._normalize_radarr_missing(movie)
+
+        assert result["type"] == "movie"
+        assert result["title"] == ""
+        assert result["year"] is None
+        assert result["media_id"] == ""
+        assert result["internal_id"] == 99
+        assert result["service"] == "radarr"
+
+
+class TestNormalizeSonarrMissing:
+    def test_episode_with_full_info(self):
+        """Sonarr missing episode with full series info normalizes correctly."""
+        result = MediaService._normalize_sonarr_missing(SONARR_MISSING_EPISODE_1)
+
+        assert result["type"] == "episode"
+        assert result["title"] == "Pilot"
+        assert result["series_title"] == "Breaking Bad"
+        assert result["year"] == 2008
+        assert result["season"] == 1
+        assert result["episode"] == 5
+        assert result["media_id"] == "81189"
+        assert result["internal_id"] == 101
+        assert result["service"] == "sonarr"
+
+    def test_missing_season_episode(self):
+        """Episode with missing season/episode numbers gets None defaults."""
+        ep = {
+            "id": 999,
+            "title": "Unknown Episode",
+            "monitored": True,
+            "series": {"id": 1, "title": "Some Show"},
+        }
+        result = MediaService._normalize_sonarr_missing(ep)
+
+        assert result["type"] == "episode"
+        assert result["title"] == "Unknown Episode"
+        assert result["series_title"] == "Some Show"
+        assert result["season"] is None
+        assert result["episode"] is None
+        assert result["media_id"] == ""
+        assert result["internal_id"] == 999
+        assert result["service"] == "sonarr"
+
+
+# ---------------------------------------------------------------------------
+# get_missing_media
+# ---------------------------------------------------------------------------
+
+
+class TestGetMissingMedia:
+    @pytest.mark.asyncio
+    async def test_both_services_merged_sorted(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Both services enabled — returns combined, title-sorted list."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_missing.return_value = [
+            RADARR_MISSING_MOVIE_1,
+            RADARR_MISSING_MOVIE_2,
+        ]
+        mock_sonarr_client.get_missing.return_value = [
+            SONARR_MISSING_EPISODE_1,
+        ]
+
+        results = await service.get_missing_media()
+
+        assert len(results) == 3
+        # All items should have service tags
+        services = {r["service"] for r in results}
+        assert services == {"radarr", "sonarr"}
+        # Sorted by title
+        titles = [r["title"] for r in results]
+        assert titles == sorted(titles, key=str.lower)
+
+    @pytest.mark.asyncio
+    async def test_radarr_only(self, mock_radarr_client):
+        """Only Radarr enabled — returns only movies."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_missing.return_value = [
+            RADARR_MISSING_MOVIE_1,
+        ]
+
+        results = await service.get_missing_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "movie"
+        assert results[0]["service"] == "radarr"
+
+    @pytest.mark.asyncio
+    async def test_sonarr_only(self, mock_sonarr_client):
+        """Only Sonarr enabled — returns only episodes."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_missing.return_value = [
+            SONARR_MISSING_EPISODE_1,
+        ]
+
+        results = await service.get_missing_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+        assert results[0]["service"] == "sonarr"
+
+    @pytest.mark.asyncio
+    async def test_no_services_enabled(self):
+        """Neither enabled — returns empty list."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+
+        results = await service.get_missing_media()
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_one_service_errors(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Error from one service — still returns results from the other."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_missing.side_effect = Exception("Radarr down")
+        mock_sonarr_client.get_missing.return_value = [
+            SONARR_MISSING_EPISODE_1,
+        ]
+
+        results = await service.get_missing_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+
+
+# ---------------------------------------------------------------------------
+# get_cutoff_unmet_media
+# ---------------------------------------------------------------------------
+
+
+class TestGetCutoffUnmetMedia:
+    @pytest.mark.asyncio
+    async def test_both_services(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Both services return cutoff unmet items — merged and sorted."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_cutoff_unmet.return_value = [
+            RADARR_CUTOFF_MOVIE,
+        ]
+        mock_sonarr_client.get_cutoff_unmet.return_value = [
+            SONARR_CUTOFF_EPISODE,
+        ]
+
+        results = await service.get_cutoff_unmet_media()
+
+        assert len(results) == 2
+        services = {r["service"] for r in results}
+        assert services == {"radarr", "sonarr"}
+
+    @pytest.mark.asyncio
+    async def test_one_service_only(self, mock_radarr_client):
+        """Only one service has cutoff unmet items."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_cutoff_unmet.return_value = [
+            RADARR_CUTOFF_MOVIE,
+        ]
+
+        results = await service.get_cutoff_unmet_media()
+
+        assert len(results) == 1
+        assert results[0]["title"] == "Inception"
+
+    @pytest.mark.asyncio
+    async def test_error_returns_other(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Error from one service — still returns results from the other."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_cutoff_unmet.side_effect = Exception("down")
+        mock_sonarr_client.get_cutoff_unmet.return_value = [
+            SONARR_CUTOFF_EPISODE,
+        ]
+
+        results = await service.get_cutoff_unmet_media()
+
+        assert len(results) == 1
+        assert results[0]["service"] == "sonarr"
+
+
+# ---------------------------------------------------------------------------
+# trigger_missing_search
+# ---------------------------------------------------------------------------
+
+
+class TestTriggerMissingSearch:
+    @pytest.mark.asyncio
+    async def test_radarr_dispatch(self, mock_radarr_client):
+        """Dispatches search to Radarr for service='radarr'."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.search_command.return_value = True
+
+        result = await service.trigger_missing_search("radarr", 1)
+
+        assert result is True
+        mock_radarr_client.search_command.assert_awaited_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_sonarr_dispatch(self, mock_sonarr_client):
+        """Dispatches search to Sonarr for service='sonarr'."""
+        service = MediaService()
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.search_command.return_value = True
+
+        result = await service.trigger_missing_search("sonarr", 101)
+
+        assert result is True
+        mock_sonarr_client.search_command.assert_awaited_once_with(101)
+
+    @pytest.mark.asyncio
+    async def test_unavailable_service(self):
+        """Returns False when the requested service is not enabled."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+
+        result = await service.trigger_missing_search("radarr", 1)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_exception(self, mock_radarr_client):
+        """Returns False on exception from client."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        mock_radarr_client.search_command.side_effect = Exception("boom")
+
+        result = await service.trigger_missing_search("radarr", 1)
+
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Queue normalizers
+# ---------------------------------------------------------------------------
+
+RADARR_QUEUE_ITEM = {
+    "id": 1, "movieId": 10, "title": "Fight Club",
+    "status": "downloading", "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "protocol": "usenet", "size": 1500000000, "sizeleft": 750000000,
+    "timeleft": "00:15:00", "downloadClient": "SABnzbd",
+    "movie": {"id": 10, "title": "Fight Club", "year": 1999, "tmdbId": 550},
+}
+
+SONARR_QUEUE_ITEM = {
+    "id": 101, "seriesId": 42, "episodeId": 201, "title": "Pilot",
+    "status": "downloading", "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "protocol": "torrent", "size": 500000000, "sizeleft": 100000000,
+    "timeleft": "00:05:00", "downloadClient": "qBittorrent",
+    "series": {"id": 42, "title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+    "episode": {"id": 201, "seasonNumber": 1, "episodeNumber": 5, "title": "Pilot"},
+}
+
+LIDARR_QUEUE_ITEM = {
+    "id": 301, "artistId": 5, "albumId": 20, "title": "OK Computer",
+    "status": "downloading", "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "protocol": "usenet", "size": 300000000, "sizeleft": 150000000,
+    "timeleft": "00:03:00", "downloadClient": "SABnzbd",
+}
+
+
+class TestNormalizeRadarrQueue:
+    def test_standard_item(self):
+        """Standard Radarr queue item normalizes to unified schema."""
+        result = MediaService._normalize_radarr_queue(RADARR_QUEUE_ITEM)
+
+        assert result["type"] == "movie"
+        assert result["title"] == "Fight Club"
+        assert result["year"] == 1999
+        assert result["series_title"] is None
+        assert result["status"] == "downloading"
+        assert result["progress"] == 50
+        assert result["timeleft"] == "00:15:00"
+        assert result["protocol"] == "usenet"
+        assert result["download_client"] == "SABnzbd"
+        assert result["media_id"] == "550"
+        assert result["internal_id"] == 1
+        assert result["service"] == "radarr"
+
+    def test_missing_fields(self):
+        """Item with missing movie/size defaults safely."""
+        item = {"id": 99, "status": "queued"}
+        result = MediaService._normalize_radarr_queue(item)
+
+        assert result["type"] == "movie"
+        assert result["title"] == ""
+        assert result["year"] is None
+        assert result["progress"] == 0
+        assert result["protocol"] == ""
+        assert result["download_client"] == ""
+        assert result["internal_id"] == 99
+        assert result["service"] == "radarr"
+
+
+class TestNormalizeSonarrQueue:
+    def test_standard_item(self):
+        """Standard Sonarr queue item normalizes to unified schema."""
+        result = MediaService._normalize_sonarr_queue(SONARR_QUEUE_ITEM)
+
+        assert result["type"] == "episode"
+        assert result["title"] == "Pilot"
+        assert result["series_title"] == "Breaking Bad"
+        assert result["year"] == 2008
+        assert result["season"] == 1
+        assert result["episode"] == 5
+        assert result["status"] == "downloading"
+        assert result["progress"] == 80
+        assert result["timeleft"] == "00:05:00"
+        assert result["protocol"] == "torrent"
+        assert result["download_client"] == "qBittorrent"
+        assert result["media_id"] == "81189"
+        assert result["internal_id"] == 101
+        assert result["service"] == "sonarr"
+
+    def test_missing_fields(self):
+        """Item with missing episode/series defaults safely."""
+        item = {"id": 999, "status": "queued"}
+        result = MediaService._normalize_sonarr_queue(item)
+
+        assert result["type"] == "episode"
+        assert result["title"] == ""
+        assert result["series_title"] is None
+        assert result["season"] is None
+        assert result["episode"] is None
+        assert result["progress"] == 0
+        assert result["internal_id"] == 999
+        assert result["service"] == "sonarr"
+
+
+class TestNormalizeLidarrQueue:
+    def test_standard_item(self):
+        """Standard Lidarr queue item normalizes to unified schema."""
+        result = MediaService._normalize_lidarr_queue(LIDARR_QUEUE_ITEM)
+
+        assert result["type"] == "album"
+        assert result["title"] == "OK Computer"
+        assert result["year"] is None
+        assert result["status"] == "downloading"
+        assert result["progress"] == 50
+        assert result["timeleft"] == "00:03:00"
+        assert result["protocol"] == "usenet"
+        assert result["download_client"] == "SABnzbd"
+        assert result["internal_id"] == 301
+        assert result["service"] == "lidarr"
+
+    def test_missing_fields(self):
+        """Item with missing size/title defaults safely."""
+        item = {"id": 500}
+        result = MediaService._normalize_lidarr_queue(item)
+
+        assert result["type"] == "album"
+        assert result["title"] == ""
+        assert result["progress"] == 0
+        assert result["protocol"] == ""
+        assert result["internal_id"] == 500
+        assert result["service"] == "lidarr"
+
+
+# ---------------------------------------------------------------------------
+# get_queue_media
+# ---------------------------------------------------------------------------
+
+
+class TestGetQueueMedia:
+    @pytest.mark.asyncio
+    async def test_all_services_merged_sorted(
+        self, mock_radarr_client, mock_sonarr_client, mock_lidarr_client
+    ):
+        """All three services enabled — returns combined, title-sorted list."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        MediaService._lidarr = mock_lidarr_client
+        mock_radarr_client.get_queue.return_value = [RADARR_QUEUE_ITEM]
+        mock_sonarr_client.get_queue.return_value = [SONARR_QUEUE_ITEM]
+        mock_lidarr_client.get_queue.return_value = [LIDARR_QUEUE_ITEM]
+
+        results = await service.get_queue_media()
+
+        assert len(results) == 3
+        services = {r["service"] for r in results}
+        assert services == {"radarr", "sonarr", "lidarr"}
+        titles = [r["title"] for r in results]
+        assert titles == sorted(titles, key=str.lower)
+
+    @pytest.mark.asyncio
+    async def test_radarr_only(self, mock_radarr_client):
+        """Only Radarr enabled — returns only movies."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        MediaService._lidarr = None
+        mock_radarr_client.get_queue.return_value = [RADARR_QUEUE_ITEM]
+
+        results = await service.get_queue_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "movie"
+        assert results[0]["service"] == "radarr"
+
+    @pytest.mark.asyncio
+    async def test_no_services_enabled(self):
+        """No services enabled — returns empty list."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+        MediaService._lidarr = None
+
+        results = await service.get_queue_media()
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_one_service_errors(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Error from one service — still returns results from the other."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        MediaService._lidarr = None
+        mock_radarr_client.get_queue.side_effect = Exception("Radarr down")
+        mock_sonarr_client.get_queue.return_value = [SONARR_QUEUE_ITEM]
+
+        results = await service.get_queue_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+
+    @pytest.mark.asyncio
+    async def test_lidarr_included(self, mock_lidarr_client):
+        """Lidarr items appear with type 'album'."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+        MediaService._lidarr = mock_lidarr_client
+        mock_lidarr_client.get_queue.return_value = [LIDARR_QUEUE_ITEM]
+
+        results = await service.get_queue_media()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "album"
+        assert results[0]["service"] == "lidarr"
+
+
+# ---------------------------------------------------------------------------
+# get_history
+# ---------------------------------------------------------------------------
+
+RADARR_HISTORY_RECORD = {
+    "id": 1, "movieId": 10,
+    "sourceTitle": "Fight.Club.1999.1080p.BluRay",
+    "quality": {"quality": {"name": "Bluray-1080p"}},
+    "date": "2026-03-09T14:30:00Z",
+    "eventType": "grabbed",
+    "data": {"indexer": "NZBgeek"},
+    "movie": {"title": "Fight Club", "year": 1999, "tmdbId": 550},
+}
+
+SONARR_HISTORY_RECORD = {
+    "id": 101, "seriesId": 42, "episodeId": 201,
+    "sourceTitle": "Breaking.Bad.S01E01.720p",
+    "quality": {"quality": {"name": "HDTV-720p"}},
+    "date": "2026-03-09T12:00:00Z",
+    "eventType": "grabbed",
+    "data": {"indexer": "NZBgeek"},
+    "series": {"title": "Breaking Bad", "year": 2008, "tvdbId": 81189},
+    "episode": {"title": "Pilot", "seasonNumber": 1, "episodeNumber": 1},
+}
+
+
+class TestGetHistory:
+    @pytest.mark.asyncio
+    async def test_both_services_merged_sorted_desc(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Both services return items — merged and sorted by date descending."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_history.return_value = [RADARR_HISTORY_RECORD]
+        mock_sonarr_client.get_history.return_value = [SONARR_HISTORY_RECORD]
+
+        results = await service.get_history()
+
+        assert len(results) == 2
+        # Radarr (14:30) should come before Sonarr (12:00) — newest first
+        assert results[0]["service"] == "radarr"
+        assert results[0]["title"] == "Fight Club"
+        assert results[1]["service"] == "sonarr"
+        assert results[1]["title"] == "Breaking Bad"
+
+    @pytest.mark.asyncio
+    async def test_radarr_only(self, mock_radarr_client):
+        """Only Radarr enabled — returns only movie items."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = None
+        mock_radarr_client.get_history.return_value = [RADARR_HISTORY_RECORD]
+
+        results = await service.get_history()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "movie"
+
+    @pytest.mark.asyncio
+    async def test_sonarr_only(self, mock_sonarr_client):
+        """Only Sonarr enabled — returns only episode items."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = mock_sonarr_client
+        mock_sonarr_client.get_history.return_value = [SONARR_HISTORY_RECORD]
+
+        results = await service.get_history()
+
+        assert len(results) == 1
+        assert results[0]["type"] == "episode"
+
+    @pytest.mark.asyncio
+    async def test_no_services(self):
+        """Neither enabled — returns empty list."""
+        service = MediaService()
+        MediaService._radarr = None
+        MediaService._sonarr = None
+
+        results = await service.get_history()
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_one_exception_partial_result(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """One service raises — other still returns results."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+        mock_radarr_client.get_history.side_effect = Exception("Radarr down")
+        mock_sonarr_client.get_history.return_value = [SONARR_HISTORY_RECORD]
+
+        results = await service.get_history()
+
+        assert len(results) == 1
+        assert results[0]["service"] == "sonarr"
+
+    @pytest.mark.asyncio
+    async def test_event_type_passthrough(
+        self, mock_radarr_client, mock_sonarr_client
+    ):
+        """Event type parameter passed through to both clients."""
+        service = MediaService()
+        MediaService._radarr = mock_radarr_client
+        MediaService._sonarr = mock_sonarr_client
+
+        await service.get_history(event_type="grabbed")
+
+        mock_radarr_client.get_history.assert_called_once_with(
+            1, 20, "grabbed"
+        )
+        mock_sonarr_client.get_history.assert_called_once_with(
+            1, 20, "grabbed"
+        )
+
+    @pytest.mark.asyncio
+    async def test_normalize_radarr_history(self):
+        """Radarr normalizer produces correct schema."""
+        result = MediaService._normalize_radarr_history(RADARR_HISTORY_RECORD)
+
+        assert result["type"] == "movie"
+        assert result["title"] == "Fight Club"
+        assert result["episode_title"] is None
+        assert result["season"] is None
+        assert result["episode"] is None
+        assert result["date"] == "2026-03-09T14:30:00Z"
+        assert result["event_type"] == "grabbed"
+        assert result["quality"] == "Bluray-1080p"
+        assert result["source_title"] == "Fight.Club.1999.1080p.BluRay"
+        assert result["service"] == "radarr"
+
+    @pytest.mark.asyncio
+    async def test_normalize_sonarr_history(self):
+        """Sonarr normalizer produces correct schema."""
+        result = MediaService._normalize_sonarr_history(SONARR_HISTORY_RECORD)
+
+        assert result["type"] == "episode"
+        assert result["title"] == "Breaking Bad"
+        assert result["episode_title"] == "Pilot"
+        assert result["season"] == 1
+        assert result["episode"] == 1
+        assert result["date"] == "2026-03-09T12:00:00Z"
+        assert result["event_type"] == "grabbed"
+        assert result["quality"] == "HDTV-720p"
+        assert result["source_title"] == "Breaking.Bad.S01E01.720p"
+        assert result["service"] == "sonarr"
+
+
+# ---------------------------------------------------------------------------
+# close
+# ---------------------------------------------------------------------------
+
+
+class TestClose:
+    @pytest.mark.asyncio
+    async def test_close_closes_configured_clients_and_skips_none(self):
+        service = MediaService()  # also creates the sonarr and lidarr clients
+        radarr, lidarr = AsyncMock(), AsyncMock()
+
+        with (
+            patch.object(MediaService, "_radarr", radarr),
+            patch.object(MediaService, "_sonarr", None),
+            patch.object(MediaService, "_lidarr", lidarr),
+        ):
+            await service.close()
+
+        radarr.close.assert_awaited_once()
+        lidarr.close.assert_awaited_once()

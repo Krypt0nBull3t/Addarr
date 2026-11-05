@@ -1,7 +1,8 @@
 """Tests for src/bot/handlers/settings.py"""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ConversationHandler
 
 from src.bot.states import States
@@ -199,6 +200,22 @@ class TestServiceFlow:
         settings_handler._mock_cfg.save.assert_called_once()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("enabled_now", [True, False])
+    async def test_handle_service_toggle_reply_has_restart_notice(
+        self, settings_handler, make_update, make_context, enabled_now
+    ):
+        """The toggle reply tells the user a restart is needed"""
+        settings_handler._mock_cfg.get.side_effect = lambda k, d=None: (
+            {"enable": enabled_now} if k == "radarr" else d
+        )
+        update = make_update(callback_data="svc_toggle_radarr")
+
+        await settings_handler.handle_service_toggle(update, make_context())
+
+        text = update.callback_query.message.edit_text.call_args.args[0]
+        assert "Settings.ServiceRestartNotice" in text
+
+    @pytest.mark.asyncio
     async def test_handle_service_back_returns_to_menu(
         self, settings_handler, make_update, make_context
     ):
@@ -274,6 +291,33 @@ class TestQualityFlow:
             "radarr.quality.defaultProfileId", 4
         )
         settings_handler._mock_cfg.save.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_quality_select_resolves_profile_name(
+        self, settings_handler, make_update, make_context
+    ):
+        """Quality select reads profile name from reply_markup buttons."""
+        callback_data = "setquality_radarr_4"
+        update = make_update(callback_data=callback_data)
+        context = make_context()
+
+        # Make translation return the default kwarg so we can see profile_name
+        settings_handler.translation.get_text = MagicMock(
+            side_effect=lambda key, **kw: kw.get("default", key)
+        )
+
+        # Attach real InlineKeyboardMarkup with a matching button
+        update.callback_query.message.reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ HD-1080p", callback_data=callback_data)],
+            [InlineKeyboardButton("Ultra-HD", callback_data="setquality_radarr_7")],
+        ])
+
+        result = await settings_handler.handle_quality_select(update, context)
+
+        assert result == States.SETTINGS_MENU
+        # Confirmation message should contain the resolved profile name
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "HD-1080p" in call_args.args[0]
 
     @pytest.mark.asyncio
     async def test_handle_quality_api_error(
@@ -376,10 +420,10 @@ class TestDownloadsFlow:
     """Downloads sub-menu flow tests"""
 
     @pytest.mark.asyncio
-    async def test_handle_downloads_menu_shows_keyboard(
+    async def test_handle_downloads_menu_no_clients(
         self, settings_handler, make_update, make_context
     ):
-        """Clicking settings_downloads shows downloads keyboard"""
+        """Downloads menu shows empty state when no clients configured"""
         update = make_update(callback_data="settings_downloads")
         context = make_context()
 
@@ -388,9 +432,39 @@ class TestDownloadsFlow:
         )
 
         assert result == States.SETTINGS_DOWNLOADS
-        update.callback_query.message.edit_text.assert_called_once()
         call_args = update.callback_query.message.edit_text.call_args
-        assert call_args.kwargs.get("reply_markup") is not None
+        assert "No download clients configured" in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_handle_downloads_menu_with_enabled_client(
+        self, settings_handler, make_update, make_context
+    ):
+        """Downloads menu shows short header when a client is enabled"""
+        original_side_effect = settings_handler._mock_cfg.get.side_effect
+        enabled_config = {
+            "transmission": {"enable": True},
+            "sabnzbd": {"enable": False},
+        }
+
+        def config_get(k, d=None):
+            if k in enabled_config:
+                return enabled_config[k]
+            return original_side_effect(k, d)
+
+        settings_handler._mock_cfg.get = MagicMock(side_effect=config_get)
+
+        update = make_update(callback_data="settings_downloads")
+        context = make_context()
+
+        result = await settings_handler.handle_downloads_menu(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        text = call_args.args[0]
+        assert "Downloads" in text
+        assert "No download clients configured" not in text
 
     @pytest.mark.asyncio
     async def test_handle_transmission_settings(
@@ -609,6 +683,60 @@ class TestUsersFlow:
         settings_handler._mock_cfg.save.assert_called_once()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("allow_list", [[], None])
+    @pytest.mark.parametrize("handler_name,callback_data", [
+        ("handle_users_menu", "settings_users"),
+        ("handle_users_toggle", "usr_toggle_allowlist"),
+    ])
+    async def test_allowlist_count_uses_allow_list(
+        self, settings_handler, make_update, make_context,
+        handler_name, callback_data, allow_list
+    ):
+        """The Allowlist count is len(allow_list), not len(authenticated_users)"""
+        data = {
+            "authenticated_users": [1, 2, 3, 4, 5],
+            "allow_list": allow_list,
+            "admins": [],
+            "security": {},
+        }
+        settings_handler._mock_cfg.get.side_effect = (
+            lambda k, d=None: data.get(k, d)
+        )
+        update = make_update(callback_data=callback_data)
+
+        with patch(
+            "src.bot.handlers.settings.get_users_keyboard"
+        ) as mock_keyboard:
+            await getattr(settings_handler, handler_name)(
+                update, make_context()
+            )
+
+        assert mock_keyboard.call_args.args[3] == 0
+
+    @pytest.mark.asyncio
+    async def test_allowlist_count_counts_entries(
+        self, settings_handler, make_update, make_context
+    ):
+        """With 2 allow_list entries the Allowlist count is 2"""
+        data = {
+            "authenticated_users": [1, 2, 3, 4, 5],
+            "allow_list": [10, 20],
+            "admins": [],
+            "security": {},
+        }
+        settings_handler._mock_cfg.get.side_effect = (
+            lambda k, d=None: data.get(k, d)
+        )
+        update = make_update(callback_data="settings_users")
+
+        with patch(
+            "src.bot.handlers.settings.get_users_keyboard"
+        ) as mock_keyboard:
+            await settings_handler.handle_users_menu(update, make_context())
+
+        assert mock_keyboard.call_args.args[3] == 2
+
+    @pytest.mark.asyncio
     async def test_handle_users_back(
         self, settings_handler, make_update, make_context
     ):
@@ -658,6 +786,152 @@ class TestSabnzbdInitError:
             handler = SettingsHandler()
             assert handler.sabnzbd_service is not None
             assert handler.sabnzbd_service.is_enabled() is False
+
+
+class TestQualityErrorHandling:
+    """Error handling in quality profile selection"""
+
+    @pytest.mark.asyncio
+    async def test_handle_quality_select_malformed_callback_data(
+        self, settings_handler, make_update, make_context
+    ):
+        """Malformed callback_data (non-int profile id) shows error message"""
+        update = make_update(callback_data="setquality_radarr_notanint")
+        context = make_context()
+
+        result = await settings_handler.handle_quality_select(update, context)
+
+        assert result == States.SETTINGS_MENU
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+        settings_handler._mock_cfg.save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_handle_quality_select_config_save_error(
+        self, settings_handler, make_update, make_context
+    ):
+        """Config save failure shows error message"""
+        settings_handler._mock_cfg.save.side_effect = Exception("Disk full")
+        update = make_update(callback_data="setquality_radarr_4")
+        context = make_context()
+
+        result = await settings_handler.handle_quality_select(update, context)
+
+        assert result == States.SETTINGS_MENU
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+
+
+class TestSabnzbdPauseResumeErrorHandling:
+    """Error handling in SABnzbd pause/resume"""
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_pause_unchanged_message(
+        self, settings_handler, make_update, make_context, unchanged_edit
+    ):
+        """A second Pause leaves the message unchanged and does not raise"""
+        update = make_update(callback_data="dl_sab_pause")
+        unchanged_edit(update.callback_query)
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        update.callback_query.answer.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_pause_service_error(
+        self, settings_handler, make_update, make_context
+    ):
+        """Service exception during pause shows error message"""
+        settings_handler._mock_sab.pause_queue = AsyncMock(
+            side_effect=Exception("Connection refused")
+        )
+        update = make_update(callback_data="dl_sab_pause")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_handle_sabnzbd_resume_service_error(
+        self, settings_handler, make_update, make_context
+    ):
+        """Service exception during resume shows error message"""
+        settings_handler._mock_sab.resume_queue = AsyncMock(
+            side_effect=Exception("Timeout")
+        )
+        update = make_update(callback_data="dl_sab_resume")
+        context = make_context()
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, context
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "❌" in call_args.args[0]
+
+
+class TestSabnzbdActionReturnsFalse:
+    """A False result from the SABnzbd service shows an error, not success"""
+
+    @pytest.mark.asyncio
+    async def test_speed_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.set_speed_limit = AsyncMock(
+            return_value=False
+        )
+        update = make_update(callback_data="dl_sab_speed_25")
+
+        result = await settings_handler.handle_sabnzbd_speed(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Speed limit set" not in call_args.args[0]
+        assert call_args.kwargs.get("reply_markup") is not None
+
+    @pytest.mark.asyncio
+    async def test_pause_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.pause_queue = AsyncMock(return_value=False)
+        update = make_update(callback_data="dl_sab_pause")
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Queue paused" not in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_resume_false_shows_error(
+        self, settings_handler, make_update, make_context
+    ):
+        settings_handler._mock_sab.resume_queue = AsyncMock(return_value=False)
+        update = make_update(callback_data="dl_sab_resume")
+
+        result = await settings_handler.handle_sabnzbd_pause_resume(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_DOWNLOADS
+        call_args = update.callback_query.message.edit_text.call_args
+        assert "could not complete" in call_args.args[0]
+        assert "Queue resumed" not in call_args.args[0]
 
 
 class TestDownloadsEdgeCases:
@@ -735,6 +1009,50 @@ class TestMisc:
         assert result == ConversationHandler.END
 
     @pytest.mark.asyncio
+    async def test_back_from_settings_shows_main_menu_before_end(
+        self, settings_handler, make_update, make_context
+    ):
+        """Back from settings leaves the main menu keyboard on the message"""
+        from src.bot.keyboards import get_main_menu_keyboard
+
+        update = make_update(callback_data="settings_back")
+
+        await settings_handler.handle_back(update, make_context())
+
+        call = update.callback_query.message.edit_text.call_args
+        assert "Main Menu" in call.args[0]
+        assert (
+            call.kwargs["reply_markup"].to_dict()
+            == get_main_menu_keyboard().to_dict()
+        )
+
+    @pytest.mark.asyncio
+    async def test_sab_speed_back_callback_is_sab_menu(
+        self, settings_handler, make_update, make_context
+    ):
+        """Back from the SAB speed screen goes to the SABnzbd settings"""
+        update = make_update(callback_data="dl_sab_speed")
+
+        await settings_handler.handle_sabnzbd_speed(update, make_context())
+
+        markup = update.callback_query.message.edit_text.call_args.kwargs[
+            "reply_markup"
+        ]
+        assert markup.inline_keyboard[-1][0].callback_data == "dl_sabnzbd"
+
+    def test_quality_state_routes_service_menu_back(self, settings_handler):
+        """The quality state routes settings_<service> to the service menu"""
+        conversation = settings_handler.get_handler()[0]
+        handlers = conversation.states[States.SETTINGS_QUALITY]
+
+        routed = [
+            h for h in handlers
+            if h.callback == settings_handler.handle_service_menu
+            and h.pattern.match("settings_radarr")
+        ]
+        assert len(routed) == 1
+
+    @pytest.mark.asyncio
     async def test_handle_cancel_callback(
         self, settings_handler, make_update, make_context
     ):
@@ -759,3 +1077,89 @@ class TestMisc:
 
         assert result == ConversationHandler.END
         update.message.reply_text.assert_called_once()
+
+
+@pytest.fixture
+def real_admin_settings_handler(
+    mock_media_service, mock_translation_service, mock_config
+):
+    """SettingsHandler with the real is_admin and a patched config (no is_admin mock)."""
+    from src.bot.handlers.auth import AuthHandler
+
+    with (
+        patch("src.bot.handlers.settings.TranslationService") as mock_ts_class,
+        patch("src.bot.handlers.settings.MediaService") as mock_ms_class,
+        patch("src.bot.handlers.settings.TransmissionService"),
+        patch("src.bot.handlers.settings.SABnzbdService"),
+        patch("src.bot.handlers.settings.config", mock_config),
+        patch("src.utils.helpers.config", mock_config),
+    ):
+        mock_ts_class.return_value = mock_translation_service
+        mock_ms_class.return_value = mock_media_service
+        AuthHandler._authenticated_users = {12345}
+
+        from src.bot.handlers.settings import SettingsHandler
+
+        handler = SettingsHandler()
+        handler._config = mock_config
+        yield handler
+
+
+class TestAdminCheck:
+    """/settings uses the shared admin check (src.utils.helpers.is_admin)"""
+
+    @pytest.mark.asyncio
+    async def test_settings_admins_none_does_not_raise(
+        self, real_admin_settings_handler, make_update, make_context
+    ):
+        """`admins:` with no value is no admin and raises no TypeError"""
+        real_admin_settings_handler._config._set("admins", None)
+        update = make_update(text="/settings")
+
+        result = await real_admin_settings_handler.handle_settings(
+            update, make_context()
+        )
+
+        assert result == ConversationHandler.END
+
+    @pytest.mark.asyncio
+    async def test_settings_quoted_admin_id_is_admin(
+        self, real_admin_settings_handler, make_update, make_context
+    ):
+        """An admin id written as a quoted string still counts"""
+        real_admin_settings_handler._config._set("admins", ["12345"])
+        update = make_update(text="/settings")
+
+        result = await real_admin_settings_handler.handle_settings(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_MENU
+
+    @pytest.mark.asyncio
+    async def test_users_menu_admins_none_does_not_raise(
+        self, real_admin_settings_handler, make_update, make_context
+    ):
+        """The Users menu counts admins from an empty `admins:` as 0"""
+        real_admin_settings_handler._config._set("admins", None)
+        update = make_update(callback_data="settings_users")
+
+        result = await real_admin_settings_handler.handle_users_menu(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_USERS
+
+    @pytest.mark.asyncio
+    async def test_users_toggle_admins_none_does_not_raise(
+        self, real_admin_settings_handler, make_update, make_context
+    ):
+        """Toggling a flag with an empty `admins:` raises no TypeError"""
+        real_admin_settings_handler._config._set("admins", None)
+        update = make_update(callback_data="usr_toggle_admin")
+
+        result = await real_admin_settings_handler.handle_users_toggle(
+            update, make_context()
+        )
+
+        assert result == States.SETTINGS_USERS

@@ -20,20 +20,22 @@ config.get("sabnzbd", {}).get("auth", {}).get("apikey")
 ## Enable Check Pattern
 
 ```python
-if config.get("service_key", {}).get("enable", False):
+if config.get("<service_key>", {}).get("enable", False):
     # Service is enabled, safe to access deeper config
-    client = ServiceClient()
+    client = <Name>Client()
 ```
 
-## Direct Access (When Key is Guaranteed)
+## Bracket Access Is Banned
 
-BaseApiClient uses direct indexing because it's only called for enabled services:
+`test_no_config_bracket_access_in_business_logic` bans `config[...]` everywhere in `src/` except `src/setup/`, `src/api/base.py` and `src/config/settings.py`. Use `config.get(key, default)` everywhere else.
+
+The only example of allowed bracket access is `BaseApiClient` in `src/api/base.py`. It indexes directly because it's only built for enabled services:
 
 ```python
-# In BaseApiClient.__init__
-self.config = config[service_name]          # e.g., config["radarr"]
-server = self.config["server"]              # guaranteed to exist
-api_key = self.config["auth"]["apikey"]     # guaranteed to exist
+# In BaseApiClient
+self.config = config[service_name]          # __init__, e.g. config["radarr"]
+server_config = self.config["server"]       # _build_base_url
+api_key = self.config["auth"]["apikey"]     # _get_headers
 ```
 
 ## URL Construction
@@ -41,7 +43,7 @@ api_key = self.config["auth"]["apikey"]     # guaranteed to exist
 Standard pattern used by all services/clients:
 
 ```python
-server_config = config.get("service_key", {}).get("server", {})
+server_config = config.get("<service_key>", {}).get("server", {})
 protocol = "https" if server_config.get("ssl", False) else "http"
 addr = server_config.get("addr")
 port = server_config.get("port")
@@ -63,66 +65,21 @@ config.save()
 
 ## Config Structure Reference
 
-```yaml
-telegram:
-  token: "bot_token"
-
-language: "en-us"
-
-security:
-  enableAdmin: false
-  enableAllowlist: false
-
-radarr:                    # Same structure for sonarr, lidarr
-  enable: true
-  server:
-    ssl: false
-    addr: "localhost"
-    port: 7878
-    path: ""
-  auth:
-    apikey: "abc123"
-  paths:
-    excludedRootFolders: []
-    narrowRootFolderNames: false
-
-transmission:
-  enable: false
-  server:
-    ssl: false
-    addr: "localhost"
-    port: 9091
-    path: "/transmission"
-  auth:
-    username: ""
-    password: ""
-
-sabnzbd:
-  enable: false
-  server:
-    ssl: false
-    addr: "localhost"
-    port: 8080
-    path: "/sabnzbd"
-  auth:
-    apikey: "xyz789"
-```
+Read `config_example.yaml` for the config structure; do not copy it here. It is the template, and `Config._validate_config` checks `config.yaml` against it at startup. A new config key goes in `config_example.yaml` too.
 
 ## Path Constants
 
 Defined in `src/definitions.py`:
 
 | Constant | Value |
-|----------|-------|
+|-|-|
 | `ROOT_DIR` | Project root |
 | `CONFIG_PATH` | `config.yaml` |
 | `CONFIG_EXAMPLE_PATH` | `config_example.yaml` |
 | `TRANSLATIONS_PATH` | `translations/` |
-| `CHATID_PATH` | `chatid.txt` |
 | `LOG_PATH` | `logs/addarr.log` |
-| `ADMIN_PATH` | `admin.txt` |
-| `ALLOWLIST_PATH` | `allowlist.txt` |
 | `DATA_PATH` | `data/` |
-| `PREFERENCES_PATH` | `user_preferences.json` |
+| `PREFERENCES_PATH` | `data/user_preferences.json` |
+| `LEGACY_PREFERENCES_PATH` | `user_preferences.json` (read only when the `data/` file does not exist) |
 
-Helper functions: `is_admin(user_id)`, `is_allowed_user(user_id)`, `get_admins()`, `get_allowed_users()`
+`src/definitions.py` holds constants only, no functions. For access checks use `src/utils/helpers.py`: `is_admin(user_id)`, `is_allowed(user_id)`, `admin_only(service)`, or the `@require_admin(service)` decorator in `src/bot/handlers/auth.py`.

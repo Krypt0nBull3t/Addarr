@@ -13,7 +13,7 @@ Common mistakes when building Telegram bot handlers in Addarr.
 async def handle_action(self, update, context):
     query = update.callback_query
     action = query.data.replace("prefix_", "")
-    await query.message.edit_text("Done!")
+    await query.edit_message_text("Done!")
 ```
 
 **Instead**, always acknowledge first:
@@ -24,7 +24,7 @@ async def handle_action(self, update, context):
     query = update.callback_query
     await query.answer()  # Always first
     action = query.data.replace("prefix_", "")
-    await query.message.edit_text("Done!")
+    await query.edit_message_text("Done!")
 ```
 
 **Why**: Telegram requires callback queries to be answered within a timeout. Without `answer()`, users see a perpetual loading spinner on the button.
@@ -50,7 +50,7 @@ async def handle_callback(self, update, context):
 async def handle_callback(self, update, context):
     query = update.callback_query
     await query.answer()
-    await query.message.edit_text("Result", reply_markup=keyboard)
+    await query.edit_message_text("Result", reply_markup=keyboard)
 ```
 
 **Why**: Callback queries come from inline keyboard button presses. The user expects the message to update, not a new message to appear. Use `edit_text` or `edit_caption` (for photo messages).
@@ -63,17 +63,16 @@ async def handle_callback(self, update, context):
 
 ```python
 # BAD - crashes with BadRequest if message has a photo
-await query.message.edit_text(text=new_text, reply_markup=keyboard)
+await query.edit_message_text(text=new_text, reply_markup=keyboard)
 ```
 
-**Instead**, check for photos:
+**Instead**, use `send_response`, which checks for photos:
 
 ```python
 # GOOD
-if query.message.photo:
-    await query.message.edit_caption(caption=new_text, reply_markup=keyboard)
-else:
-    await query.message.edit_text(text=new_text, reply_markup=keyboard)
+from src.bot.handlers.media.formatters import send_response
+
+await send_response(query.message, new_text, keyboard)
 ```
 
 **Why**: Messages with images use `caption` not `text`. Calling `edit_text` on a photo message raises `telegram.error.BadRequest`. The media handler's card view sends photos, so any handler that edits those messages must handle both cases.
@@ -102,7 +101,7 @@ async def handle_search(self, update, context):
     if results:
         context.user_data["results"] = results
         await update.message.reply_text("Found!")
-        return States.SELECTING
+        return SELECTING  # from src.bot.handlers.media.dispatch
     await update.message.reply_text("Nothing found.")
     return ConversationHandler.END
 ```
@@ -211,7 +210,51 @@ async def handle_command(self, update, context):
     await update.message.reply_text("Welcome!")
 ```
 
-**Why**: `@require_auth` checks if the user's ID is in the authenticated users set. Without it, unauthenticated users can access bot features. Note: `@require_auth` accesses `update.message.reply_text()` which only works for command handlers and message handlers, not bare callback queries from unauthenticated sessions.
+**Why**: `@require_auth` checks if the user's ID is in the authenticated users set. Without it, unauthenticated users can access bot features. It works on button presses too: `_refuse` in `src/bot/handlers/auth.py` answers a refused callback query with an alert (`show_alert=True`).
+
+Every entry point needs `@require_auth`: `CommandHandler` callbacks, `ConversationHandler` `entry_points`, and standalone `CallbackQueryHandler` callbacks. Only `AuthHandler.start_auth` is exempt. It is listed in `AUTH_ALLOWLIST` in `tests/test_architecture/test_conventions.py`, and `test_handler_entry_points_have_require_auth` fails on any other entry point without the decorator.
+
+---
+
+## Acting on a Stale Keyboard
+
+**Don't** let a button act on whatever selection is newest. Starting a second search inside the same conversation leaves the first keyboard on screen, and its buttons still match the same pattern:
+
+```python
+# BAD - a tap on an older quality keyboard picks a profile for the newest selection
+profile_id = int(query.data.replace("quality_", ""))
+context.user_data["selected_profile_id"] = profile_id
+```
+
+**Instead**, store the keyboard's message id when you draw it and ignore callbacks from any other message:
+
+```python
+# GOOD - handle_selection stores it after the edit
+context.user_data["quality_message_id"] = query.message.message_id
+
+# GOOD - handle_quality_selection, right after query.answer()
+if query.message.message_id != context.user_data.get("quality_message_id"):
+    return QUALITY_SELECT
+```
+
+**Why**: `callback_data` carries a profile id, not the selection it was drawn for. Without the check, a Radarr profile id can reach a Sonarr add. Return the current state so the conversation stays open. Ignore the cancel button of a stale keyboard too.
+
+---
+
+## Rate-Limiting Picker Taps Instead of the Add
+
+**Don't** put `@rate_limit("modify")` on the picker or toggle callbacks of an add flow. `modify` allows 5 calls per 60 s, and one album add (result tap, quality tap, album toggles, confirm) can use them all.
+
+**Instead**, check the limit once, just before each add request:
+
+```python
+# GOOD - outside the try, so a refusal is not swallowed
+if not await enforce_rate_limit(update, "modify"):
+    return None
+success, message = await self.media_service.add_series_with_profile(...)
+```
+
+**Why**: `enforce_rate_limit` (`src/services/rate_limit.py`) counts one call and replies with the wait time when the limit is used up. Returning `None` keeps the conversation state, so the user can tap Confirm again after the wait. Every call to an `add_*_with_profile` method needs this check.
 
 ---
 
@@ -228,3 +271,25 @@ ConversationHandler(
 ```
 
 **Why**: PTB warns because `per_message=False` means callback queries from different messages can be handled by the same conversation. This is the intended behavior in Addarr — the warning confirms the setting is active. Issue #67 confirmed this is safe to ignore.
+
+---
+
+## Acting on an Item From user_data at Tap Time
+
+**Don't** let a button that acts on one item read its target from `context.user_data`:
+
+```python
+# BAD - callback_data has only an id; the type comes from user_data when the user taps
+callback_data=f"delete_item_{item['id']}"
+media_type = context.user_data.get("delete_type")
+```
+
+**Instead**, put the item's type and id in `callback_data` (64 bytes max) and read the target from it:
+
+```python
+# GOOD
+callback_data=f"delete_item_{media_type}_{item['id']}"
+_, _, media_type, item_id = query.data.split("_")  # check item_id with isdigit()
+```
+
+**Why**: A user can have several lists open. A tap on an older list then acts on whatever the newest list stored, and Radarr and Sonarr ids collide, so it deleted a different item (issue #196). This applies to buttons that act on one item (delete, confirm, select). Conversation flows keep their step state in `user_data` by design (the media flow does); that is fine.

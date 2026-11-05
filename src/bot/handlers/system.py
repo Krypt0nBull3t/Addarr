@@ -6,17 +6,67 @@ Description: System command handler module.
 """
 
 from telegram import Update
+from telegram.helpers import escape_markdown
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
+from src.utils.helpers import format_bytes
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import get_system_keyboard, get_main_menu_keyboard
 from src.services.health import health_service
+from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
 
 logger = get_logger("addarr.system")
+
+LOW_SPACE_THRESHOLD = 10  # percent free
+
+
+def _md(text):
+    """Escape text for Telegram's legacy Markdown so _ and * stay literal."""
+    return escape_markdown(str(text), version=1)
+
+
+def _format_usage_bar(percent_used, width=10):
+    """Build a text progress bar for disk usage."""
+    filled = round(width * percent_used / 100)
+    empty = width - filled
+    return "█" * filled + "░" * empty
+
+
+def _build_disk_space_text(drives, translation):
+    """Build formatted disk space text from a list of drive dicts."""
+    if not drives:
+        return translation.get_text("DiskSpaceNone", default="No disk space data available.")
+
+    text = "💾 *Disk Space*\n\n"
+    for drive in drives:
+        path = drive.get("path", "Unknown")
+        free = drive.get("freeSpace", 0)
+        total = drive.get("totalSpace", 0)
+
+        if total > 0:
+            used = total - free
+            percent_used = round(used / total * 100, 1)
+            percent_free = round(free / total * 100, 1)
+        else:
+            percent_used = 0
+            percent_free = 100
+
+        bar = _format_usage_bar(percent_used)
+        warning = " ⚠️" if percent_free < LOW_SPACE_THRESHOLD else ""
+
+        text += f"📁 `{path}`{warning}\n"
+        text += f"  {bar} {percent_used}%\n"
+        text += f"  {format_bytes(free)} free / {format_bytes(total)} total\n\n"
+
+    return text
 
 
 class SystemHandler:
     """Handler for system-related commands"""
+
+    def __init__(self):
+        self.translation = TranslationService()
 
     def get_handler(self):
         """Get system command handlers"""
@@ -40,11 +90,13 @@ class SystemHandler:
             await update.callback_query.message.edit_text(
                 status_text,
                 reply_markup=keyboard,
+                parse_mode="Markdown",
             )
         else:
             await update.message.reply_text(
                 status_text,
                 reply_markup=keyboard,
+                parse_mode="Markdown",
             )
 
     @require_auth
@@ -62,46 +114,76 @@ class SystemHandler:
             await self._handle_refresh(query)
         elif action == "details":
             await self._handle_details(query)
+        elif action == "diskspace":
+            await self._handle_diskspace(query)
         elif action == "back":
             await self._handle_back(query)
         else:
-            await query.answer("Unknown action")
-
-    async def _handle_refresh(self, query):
-        """Re-run health checks and update the status display."""
-        try:
-            await health_service.run_health_checks()
+            logger.warning(f"Unknown system action received: {action}")
+            await query.answer(self.translation.get_text("UnknownAction"))
             status_text = self._build_status_text()
             await query.message.edit_text(
                 status_text,
                 reply_markup=get_system_keyboard(),
+                parse_mode="Markdown",
             )
-            await query.answer("Status refreshed")
+
+    async def _handle_refresh(self, query):
+        """Re-run health checks and update the status display."""
+        await query.answer(self.translation.get_text("StatusRefreshed"))
+        try:
+            await health_service.run_health_checks()
+            status_text = self._build_status_text()
+            await edit_text_ignoring_unmodified(
+                query.message,
+                status_text,
+                reply_markup=get_system_keyboard(),
+                parse_mode="Markdown",
+            )
         except Exception as e:
             logger.error(f"Error refreshing status: {e}")
             await query.message.edit_text(
-                "❌ Error refreshing status. Please try again.",
+                self.translation.get_text("StatusRefreshError"),
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer("Refresh failed")
 
     async def _handle_details(self, query):
         """Show detailed per-service health information."""
+        await query.answer()
         try:
             results = await health_service.run_health_checks()
             details_text = self._build_details_text(results)
-            await query.message.edit_text(
+            await edit_text_ignoring_unmodified(
+                query.message,
                 details_text,
                 reply_markup=get_system_keyboard(),
+                parse_mode="Markdown",
             )
-            await query.answer()
         except Exception as e:
             logger.error(f"Error getting service details: {e}")
             await query.message.edit_text(
-                "❌ Error retrieving service details. Please try again.",
+                self.translation.get_text("StatusDetailsError"),
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer("Details failed")
+
+    async def _handle_diskspace(self, query):
+        """Show disk space information from every enabled *arr service."""
+        await query.answer()
+        try:
+            drives = await health_service.get_disk_space()
+            text = _build_disk_space_text(drives, self.translation)
+            await edit_text_ignoring_unmodified(
+                query.message,
+                text,
+                reply_markup=get_system_keyboard(),
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.error(f"Error getting disk space: {e}")
+            await query.message.edit_text(
+                self.translation.get_text("DiskSpaceError", default="Error retrieving disk space."),
+                reply_markup=get_system_keyboard(),
+            )
 
     async def _handle_back(self, query):
         """Return to the main menu."""
@@ -130,7 +212,7 @@ class SystemHandler:
         if unhealthy:
             text += "❌ Unhealthy:\n"
             for service in unhealthy:
-                text += f"  • {service}\n"
+                text += f"  • {_md(service)}\n"
         else:
             text += "✅ All services healthy\n"
 
@@ -150,13 +232,13 @@ class SystemHandler:
             text += "🎬 *Media Services*\n"
             for svc in media:
                 icon = "✅" if svc["healthy"] else "❌"
-                text += f"  {icon} {svc['name']}: {svc['status']}\n"
+                text += f"  {icon} {_md(svc['name'])}: {_md(svc['status'])}\n"
             text += "\n"
 
         if clients:
             text += "📥 *Download Clients*\n"
             for cl in clients:
                 icon = "✅" if cl["healthy"] else "❌"
-                text += f"  {icon} {cl['name']}: {cl['status']}\n"
+                text += f"  {icon} {_md(cl['name'])}: {_md(cl['status'])}\n"
 
         return text

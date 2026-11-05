@@ -10,7 +10,6 @@ Can be used by both the main application and setup script.
 
 from colorama import Fore, Style
 import platform
-from src.config.settings import config
 
 
 def get_splash_screen() -> str:
@@ -60,6 +59,9 @@ def show_version():
 
 def show_welcome_screen():
     """Show the main application welcome screen with system info and commands"""
+    # Imported here so the setup wizard can use this module without loading config.yaml
+    from src.config.settings import config
+
     # System information
     python_version = platform.python_version()
     system_info = platform.platform()
@@ -111,23 +113,3 @@ def show_welcome_screen():
     print(f"\n{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
     print(f"{Fore.GREEN}🚀 Starting bot...{Style.RESET_ALL}")
     print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
-
-
-def show_token_help():
-    """Show help information for Telegram bot token configuration"""
-    print(f"\n{Fore.RED}❌ Invalid Telegram Bot Token!")
-    print(f"\n{Fore.YELLOW}How to fix this:")
-    print("1. Get a valid token from @BotFather on Telegram:")
-    print("   • Open Telegram and search for @BotFather")
-    print("   • Send /newbot to create a new bot")
-    print("   • Follow the instructions to get your token")
-    print("\n2. Update your config.yaml:")
-    print("   • Open config.yaml in a text editor")
-    print("   • Find the 'telegram' section")
-    print("   • Update the token value")
-    print("\nExample config.yaml:")
-    print(f"{Fore.CYAN}telegram:")
-    print("  token: \"123456789:ABCdefGHIjklMNOpqrsTUVwxyz\"  # Replace with your token")
-    print(f"\n{Fore.YELLOW}Or run the setup wizard:")
-    print(f"{Fore.CYAN}python run.py --setup")
-    print(f"\n{Fore.YELLOW}Need help? Visit: https://github.com/cyneric/addarr/wiki")

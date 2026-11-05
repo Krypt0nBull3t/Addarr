@@ -7,8 +7,15 @@ Description: Keyboard layouts module.
 This module provides centralized keyboard layouts for the bot.
 """
 
+from typing import Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from src.services.translation import TranslationService
+
+_MEDIA_TYPE_EMOJI = {
+    "movie": "\U0001f3ac",
+    "episode": "\U0001f4fa",
+    "album": "\U0001f3b5",
+}
 
 
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
@@ -37,8 +44,18 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
+                f"📅 {translation.get_text('Upcoming')}",
+                callback_data="menu_upcoming"
+            ),
+            InlineKeyboardButton(
                 f"🗑 {translation.get_text('Delete')}",
                 callback_data="menu_delete"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"\U0001f4da {translation.get_text('Library')}",
+                callback_data="menu_library"
             ),
         ],
         [
@@ -61,6 +78,36 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_library_menu_keyboard() -> InlineKeyboardMarkup:
+    """Get the library sub-menu keyboard"""
+    translation = TranslationService()
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                f"\U0001f3ac {translation.get_text('Movie')}",
+                callback_data="library_movie"
+            ),
+            InlineKeyboardButton(
+                f"\U0001f4fa {translation.get_text('Series')}",
+                callback_data="library_series"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"\U0001f3b5 {translation.get_text('Music')}",
+                callback_data="library_music"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"\u25c0\ufe0f {translation.get_text('Back')}",
+                callback_data="menu_back"
+            ),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_system_keyboard() -> InlineKeyboardMarkup:
     """Get system status keyboard with action buttons"""
     translation = TranslationService()
@@ -71,6 +118,11 @@ def get_system_keyboard() -> InlineKeyboardMarkup:
             ),
             InlineKeyboardButton(
                 "📋 Details", callback_data="system_details"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "💾 Disk Space", callback_data="system_diskspace"
             ),
         ],
         [
@@ -120,7 +172,7 @@ def get_language_keyboard() -> InlineKeyboardMarkup:
         ("🇪🇸 Español", "es-es"),
         ("🇫🇷 Français", "fr-fr"),
         ("🇮🇹 Italiano", "it-it"),
-        ("🇧🇪 Nederlands", "nl-be"),
+        ("🇳🇱 Nederlands", "nl-be"),
         ("🇵🇱 Polski", "pl-pl"),
         ("🇵🇹 Português", "pt-pt"),
         ("🇷🇺 Русский", "ru-ru"),
@@ -216,9 +268,10 @@ def get_sabnzbd_settings_keyboard(
         [InlineKeyboardButton(
             "⚡ Speed Limit", callback_data="dl_sab_speed"
         )],
-        [InlineKeyboardButton(
-            "⏸ Pause / ▶️ Resume", callback_data="dl_sab_pause"
-        )],
+        [
+            InlineKeyboardButton("⏸ Pause", callback_data="dl_sab_pause"),
+            InlineKeyboardButton("▶️ Resume", callback_data="dl_sab_resume"),
+        ],
         [InlineKeyboardButton(
             f"◀️ {translation.get_text('Back')}",
             callback_data="dl_back"
@@ -229,7 +282,7 @@ def get_sabnzbd_settings_keyboard(
 
 def get_users_keyboard(
     admin_enabled: bool, allowlist_enabled: bool,
-    admin_count: int, auth_count: int,
+    admin_count: int, allow_count: int,
 ) -> InlineKeyboardMarkup:
     """Get users sub-menu keyboard"""
     translation = TranslationService()
@@ -241,7 +294,7 @@ def get_users_keyboard(
             callback_data="usr_toggle_admin"
         )],
         [InlineKeyboardButton(
-            f"{allowlist_status} Allowlist ({auth_count} users)",
+            f"{allowlist_status} Allowlist ({allow_count} users)",
             callback_data="usr_toggle_allowlist"
         )],
         [InlineKeyboardButton(
@@ -254,13 +307,15 @@ def get_users_keyboard(
 
 def get_quality_profile_keyboard(
     profiles: list, service: str,
+    current_profile_id: Optional[int] = None,
 ) -> InlineKeyboardMarkup:
     """Get quality profile selection keyboard"""
     keyboard = []
     for profile in profiles:
+        prefix = "✅ " if profile["id"] == current_profile_id else ""
         keyboard.append([
             InlineKeyboardButton(
-                profile["name"],
+                f"{prefix}{profile['name']}",
                 callback_data=f"setquality_{service}_{profile['id']}"
             )
         ])
@@ -268,27 +323,9 @@ def get_quality_profile_keyboard(
     keyboard.append([
         InlineKeyboardButton(
             f"◀️ {translation.get_text('Back')}",
-            callback_data="settings_back"
+            callback_data=f"settings_{service}"
         )
     ])
-    return InlineKeyboardMarkup(keyboard)
-
-
-def get_confirmation_keyboard(action: str) -> InlineKeyboardMarkup:
-    """Get confirmation keyboard"""
-    translation = TranslationService()
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                f"✅ {translation.get_text('Add')}",
-                callback_data=f"confirm_{action}"
-            ),
-            InlineKeyboardButton(
-                f"❌ {translation.get_text('Stop')}",
-                callback_data="confirm_cancel"
-            )
-        ]
-    ]
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -471,6 +508,661 @@ def get_album_selection_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
+def _build_period_row(days: int, translation) -> list:
+    """Build the calendar period button row.
+
+    Args:
+        days: Currently selected period (7, 14, or 30).
+        translation: TranslationService instance.
+    """
+    periods = [
+        (7, translation.get_text("CalendarDays7", default="7 days")),
+        (14, translation.get_text("CalendarDays14", default="14 days")),
+        (30, translation.get_text("CalendarDays30", default="30 days")),
+    ]
+    row = []
+    for period_days, label in periods:
+        text = f"\u2705 {label}" if period_days == days else label
+        row.append(
+            InlineKeyboardButton(text, callback_data=f"cal_period_{period_days}")
+        )
+    return row
+
+
+def get_calendar_keyboard(days: int) -> InlineKeyboardMarkup:
+    """Get calendar period/navigation keyboard.
+
+    Args:
+        days: Currently selected period (7, 14, or 30).
+    """
+    translation = TranslationService()
+    keyboard = [
+        _build_period_row(days, translation),
+        [InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="cal_refresh"
+        )],
+        [InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="cal_back"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_calendar_items_keyboard(
+    items: list, page: int, days: int, page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    """Get paginated calendar items keyboard.
+
+    Args:
+        items: Full list of normalized calendar items.
+        page: Current page (0-indexed).
+        days: Currently selected period for period buttons.
+        page_size: Number of items per page.
+    """
+    translation = TranslationService()
+
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    keyboard = []
+
+    # Item buttons
+    for item in page_items:
+        emoji = _MEDIA_TYPE_EMOJI.get(item["type"], "\U0001f3ac")
+        title = item["title"]
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{emoji} {title}", callback_data="cal_noop"
+            )
+        ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev", callback_data=f"cal_page_{page - 1}"
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"{page + 1}/{total_pages}", callback_data="cal_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f", callback_data=f"cal_page_{page + 1}"
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Period / refresh / back row
+    keyboard.append(_build_period_row(days, translation))
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="cal_refresh"
+        ),
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="cal_back"
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_missing_empty_keyboard() -> InlineKeyboardMarkup:
+    """Get keyboard for empty missing/wanted state (refresh + back)."""
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="missing_refresh"
+        )],
+        [InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="missing_back"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_missing_items_keyboard(
+    items: list, page: int, active_filter: str, page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    """Get paginated missing/wanted items keyboard.
+
+    Args:
+        items: Full list of normalized missing items.
+        page: Current page (0-indexed).
+        active_filter: Currently active filter tab.
+        page_size: Number of items per page.
+    """
+    translation = TranslationService()
+
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    keyboard = []
+
+    # Filter tabs
+    keyboard.append(_build_missing_filter_row(active_filter, translation))
+
+    # Item buttons
+    for item in page_items:
+        emoji = _MEDIA_TYPE_EMOJI.get(item["type"], "\U0001f3ac")
+        title = item["title"]
+        series = item.get("series_title")
+        label = f"{emoji} {series} - {title}" if series else f"{emoji} {title}"
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="missing_noop")
+        ])
+        # Search button per item
+        keyboard.append([
+            InlineKeyboardButton(
+                f"\U0001f50d {translation.get_text('MissingSearchNow')}",
+                callback_data=(
+                    f"missing_search_{item['service']}_{item['internal_id']}"
+                ),
+            )
+        ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev",
+                    callback_data=f"missing_page_{page - 1}",
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"{page + 1}/{total_pages}", callback_data="missing_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f",
+                    callback_data=f"missing_page_{page + 1}",
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Refresh / back row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="missing_refresh"
+        ),
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="missing_back",
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def _build_missing_filter_row(active_filter, translation):
+    """Build filter tab row for missing keyboard."""
+    filters = [
+        ("all", "\U0001f4cb All", "missing_filter_all"),
+        ("movie", "\U0001f3ac Movies", "missing_filter_movie"),
+        ("episode", "\U0001f4fa Series", "missing_filter_series"),
+        ("cutoff", "\u26a0\ufe0f Cutoff", "missing_filter_cutoff"),
+    ]
+    row = []
+    for key, label, cb_data in filters:
+        marker = "\u2713 " if key == active_filter else ""
+        row.append(
+            InlineKeyboardButton(f"{marker}{label}", callback_data=cb_data)
+        )
+    return row
+
+
+def get_queue_empty_keyboard() -> InlineKeyboardMarkup:
+    """Get keyboard for empty queue state (refresh + back)."""
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="queue_refresh"
+        )],
+        [InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="queue_back"
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_queue_items_keyboard(
+    items: list, page: int, active_filter: str, page_size: int = 5,
+) -> InlineKeyboardMarkup:
+    """Get paginated queue items keyboard.
+
+    Args:
+        items: Full list of normalized queue items.
+        page: Current page (0-indexed).
+        active_filter: Currently active filter tab.
+        page_size: Number of items per page.
+    """
+    translation = TranslationService()
+
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    keyboard = []
+
+    # Filter tabs
+    keyboard.append(_build_queue_filter_row(active_filter, translation))
+
+    # Item buttons
+    for item in page_items:
+        emoji = _MEDIA_TYPE_EMOJI.get(item["type"], "\U0001f3ac")
+        title = item["title"]
+        series = item.get("series_title")
+        year = item.get("year")
+
+        if series:
+            season = item.get("season")
+            episode = item.get("episode")
+            if season is not None and episode is not None:
+                label = f"{emoji} {series} - S{season:02d}E{episode:02d} {title}"
+            else:
+                label = f"{emoji} {series} - {title}"
+        elif year:
+            label = f"{emoji} {title} ({year})"
+        else:
+            label = f"{emoji} {title}"
+
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="queue_noop")
+        ])
+
+        # Status line per item
+        progress = item.get("progress", 0)
+        timeleft = item.get("timeleft", "")
+        protocol = item.get("protocol", "")
+        status_parts = [f"{progress}%"]
+        if timeleft and timeleft != "00:00:00":
+            status_parts.append(f"{timeleft} remaining")
+        if protocol:
+            status_parts.append(protocol)
+        status_text = " \u2022 ".join(status_parts)
+        keyboard.append([
+            InlineKeyboardButton(status_text, callback_data="queue_noop")
+        ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "\u25c0\ufe0f Prev",
+                    callback_data=f"queue_page_{page - 1}",
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                f"{page + 1}/{total_pages}", callback_data="queue_noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    "Next \u25b6\ufe0f",
+                    callback_data=f"queue_page_{page + 1}",
+                )
+            )
+        keyboard.append(nav_row)
+
+    # Refresh / back row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="queue_refresh"
+        ),
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data="queue_back",
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def _build_queue_filter_row(active_filter, translation):
+    """Build filter tab row for queue keyboard."""
+    filters = [
+        ("all", "\U0001f4cb All", "queue_filter_all"),
+        ("movie", "\U0001f3ac Movies", "queue_filter_movie"),
+        ("episode", "\U0001f4fa Series", "queue_filter_episode"),
+        ("album", "\U0001f3b5 Music", "queue_filter_album"),
+    ]
+    row = []
+    for key, label, cb_data in filters:
+        marker = "\u2713 " if key == active_filter else ""
+        row.append(
+            InlineKeyboardButton(f"{marker}{label}", callback_data=cb_data)
+        )
+    return row
+
+
+DL_PAGE_SIZE = 5
+
+
+def clamp_page(page: int, total_pages: int) -> int:
+    """Clamp a 0-indexed page into 0..total_pages-1 (0 when there are no pages)."""
+    return min(max(page, 0), max(total_pages, 1) - 1)
+
+
+def _build_dl_pagination_row(page: int, total_pages: int) -> list:
+    """Build pagination nav row for downloads keyboards."""
+    if total_pages <= 1:
+        return []
+    nav_row = []
+    if page > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                "\u25c0\ufe0f Prev", callback_data=f"dl_page_{page - 1}"
+            )
+        )
+    nav_row.append(
+        InlineKeyboardButton(
+            f"{page + 1}/{total_pages}", callback_data="dl_noop"
+        )
+    )
+    if page < total_pages - 1:
+        nav_row.append(
+            InlineKeyboardButton(
+                "Next \u25b6\ufe0f", callback_data=f"dl_page_{page + 1}"
+            )
+        )
+    return nav_row
+
+
+def _build_pagination_row(prefix: str, page: int, total_pages: int) -> list:
+    """Build a Prev/Next row; the page is clamped into 0..total_pages-1.
+
+    Buttons carry ``f"{prefix}_{page}"``. One page or none gives no row.
+    """
+    if total_pages <= 1:
+        return []
+    page = clamp_page(page, total_pages)
+    nav_row = []
+    if page > 0:
+        nav_row.append(
+            InlineKeyboardButton(
+                "◀️ Prev", callback_data=f"{prefix}_{page - 1}"
+            )
+        )
+    if page < total_pages - 1:
+        nav_row.append(
+            InlineKeyboardButton(
+                "Next ▶️", callback_data=f"{prefix}_{page + 1}"
+            )
+        )
+    return nav_row
+
+
+DELETE_PAGE_SIZE = 10
+
+
+def get_delete_items_keyboard(
+    items: list, media_type: str, page: int, translation
+) -> InlineKeyboardMarkup:
+    """Get one page of the /delete item list.
+
+    Every callback carries the media type, so a button acts on the type it
+    was drawn for, whatever other /delete lists are open.
+    """
+    total_pages = max(1, -(-len(items) // DELETE_PAGE_SIZE))
+    page = min(max(page, 0), total_pages - 1)
+    start = page * DELETE_PAGE_SIZE
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                item["title"],
+                callback_data=f"delete_item_{media_type}_{item['id']}"
+            )
+        ]
+        for item in items[start:start + DELETE_PAGE_SIZE]
+    ]
+    nav_row = _build_pagination_row(
+        f"delete_page_{media_type}", page, total_pages
+    )
+    if nav_row:
+        keyboard.append(nav_row)
+    keyboard.append([
+        InlineKeyboardButton(
+            f"❌ {translation.get_text('StopDelete')}",
+            callback_data="delete_cancel"
+        )
+    ])
+    return InlineKeyboardMarkup(keyboard)
+
+
+# Short client codes in downloads callback_data (64-byte limit)
+DL_CLIENT_CODES = {"sabnzbd": "sab", "transmission": "tx"}
+
+
+def _build_dl_client_tab_row(client: str) -> list:
+    """Build client switcher row for multi-client downloads keyboards."""
+    sab_mark = "\u2713 " if client == "sabnzbd" else ""
+    tx_mark = "\u2713 " if client == "transmission" else ""
+    return [
+        InlineKeyboardButton(
+            f"{sab_mark}SABnzbd", callback_data="dl_client_sab"
+        ),
+        InlineKeyboardButton(
+            f"{tx_mark}Transmission", callback_data="dl_client_tx"
+        ),
+    ]
+
+
+def get_downloads_queue_keyboard(
+    items: list, page: int, paused: bool = False,
+    page_size: int = DL_PAGE_SIZE,
+    client: Optional[str] = None, show_history_tab: bool = True,
+) -> InlineKeyboardMarkup:
+    """Get keyboard for downloads queue view.
+
+    Args:
+        items: List of queue item dicts with nzo_id, title, status, progress.
+        page: Current page (0-indexed).
+        paused: Whether the entire queue is paused.
+        page_size: Number of items per page.
+        client: Active client name ('sabnzbd'/'transmission') or None for single-client.
+        show_history_tab: Whether to show the History tab (False for Transmission-only).
+    """
+    keyboard = []
+
+    total_pages = max(1, -(-len(items) // page_size))
+    page = clamp_page(page, total_pages)
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    # Multi-client mode: each action button names the client it was drawn for
+    code = DL_CLIENT_CODES.get(client or "")
+    item_tag = f"{code}_" if code else ""
+    all_tag = f"_{code}" if code else ""
+
+    for item in page_items:
+        nzo_id = item.get("nzo_id", "")
+        title = item.get("title", "")
+        status = item.get("status", "")
+        progress = item.get("progress", 0)
+
+        status_icon = "\u2b07\ufe0f" if status == "Downloading" else (
+            "\u23f8" if status == "Paused" else "\u23f3"
+        )
+        label = f"{status_icon} {title} — {progress}%"
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="dl_noop")
+        ])
+
+        if status == "Paused":
+            keyboard.append([
+                InlineKeyboardButton(
+                    "\u25b6\ufe0f Resume",
+                    callback_data=f"dl_resume_{item_tag}{nzo_id}"
+                )
+            ])
+        else:
+            keyboard.append([
+                InlineKeyboardButton(
+                    "\u23f8 Pause",
+                    callback_data=f"dl_pause_{item_tag}{nzo_id}"
+                )
+            ])
+
+    # Pagination row
+    nav_row = _build_dl_pagination_row(page, total_pages)
+    if nav_row:
+        keyboard.append(nav_row)
+
+    # Client tab row (multi-client mode only)
+    if client is not None:
+        keyboard.append(_build_dl_client_tab_row(client))
+
+    # Tab row
+    tab_row = [
+        InlineKeyboardButton(
+            "\u2713 \U0001f4cb Queue", callback_data="dl_tab_queue"
+        ),
+    ]
+    if show_history_tab:
+        tab_row.append(
+            InlineKeyboardButton(
+                "\U0001f4dc History", callback_data="dl_tab_history"
+            )
+        )
+    keyboard.append(tab_row)
+
+    # Action row
+    action_row = []
+    if paused:
+        action_row.append(
+            InlineKeyboardButton(
+                "\u25b6\ufe0f Resume All",
+                callback_data=f"dl_resumeall{all_tag}",
+            )
+        )
+    else:
+        action_row.append(
+            InlineKeyboardButton(
+                "\u23f8 Pause All", callback_data=f"dl_pauseall{all_tag}"
+            )
+        )
+    action_row.append(
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="dl_refresh"
+        )
+    )
+    keyboard.append(action_row)
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_downloads_history_keyboard(
+    items: list, page: int, page_size: int = DL_PAGE_SIZE,
+    client: Optional[str] = None,
+) -> InlineKeyboardMarkup:
+    """Get keyboard for downloads history view.
+
+    Args:
+        items: List of history item dicts with name, status, size.
+        page: Current page (0-indexed).
+        page_size: Number of items per page.
+        client: Active client name ('sabnzbd'/'transmission') or None for single-client.
+    """
+    keyboard = []
+
+    total_pages = max(1, -(-len(items) // page_size))
+    page = clamp_page(page, total_pages)
+    start = page * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    for item in page_items:
+        name = item.get("name", "")
+        status = item.get("status", "")
+        size = item.get("size", "")
+
+        icon = "\u2705" if status == "Completed" else "\u274c"
+        label = f"{icon} {name} \u2014 {size}"
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="dl_noop")
+        ])
+
+    # Pagination row
+    nav_row = _build_dl_pagination_row(page, total_pages)
+    if nav_row:
+        keyboard.append(nav_row)
+
+    # Client tab row (multi-client mode only)
+    if client is not None:
+        keyboard.append(_build_dl_client_tab_row(client))
+
+    # Tab row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f4cb Queue", callback_data="dl_tab_queue"
+        ),
+        InlineKeyboardButton(
+            "\u2713 \U0001f4dc History", callback_data="dl_tab_history"
+        ),
+    ])
+
+    # Action row (refresh only — no pause/resume in history)
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="dl_refresh"
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_back_keyboard(callback_data: str) -> InlineKeyboardMarkup:
+    """Get a keyboard with one Back button that sends callback_data."""
+    translation = TranslationService()
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data=callback_data,
+        )
+    ]])
+
+
+def get_downloads_error_keyboard(
+    client: Optional[str] = None,
+) -> InlineKeyboardMarkup:
+    """Keyboard for the downloads error view: client switcher and Refresh.
+
+    Args:
+        client: Active client name ('sabnzbd'/'transmission') or None for single-client.
+    """
+    keyboard = []
+    if client is not None:
+        keyboard.append(_build_dl_client_tab_row(client))
+    keyboard.append([
+        InlineKeyboardButton("\U0001f504 Refresh", callback_data="dl_refresh")
+    ])
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: str = "No") -> InlineKeyboardMarkup:
     """Create a Yes/No inline keyboard
 
@@ -488,4 +1180,204 @@ def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: st
             InlineKeyboardButton(no_text, callback_data=f"{callback_prefix}_no")
         ]
     ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+# ---------------------------------------------------------------------------
+# History keyboards
+# ---------------------------------------------------------------------------
+
+_HISTORY_EVENT_EMOJI = {
+    "grabbed": "\U0001f4e5",
+    "downloadFolderImported": "\u2705",
+    "downloadFailed": "\u274c",
+    "movieFileDeleted": "\U0001f5d1",
+    "episodeFileDeleted": "\U0001f5d1",
+    "movieFileRenamed": "\U0001f4dd",
+    "episodeFileRenamed": "\U0001f4dd",
+}
+
+
+def get_history_items_keyboard(
+    items: list, page: int = 0, page_size: int = 5,
+    event_filter: Optional[str] = None,
+) -> InlineKeyboardMarkup:
+    """Paginated history items keyboard with filter tabs."""
+    translation = TranslationService()
+    total_pages = max(1, -(-len(items) // page_size))
+    start = page * page_size
+    page_items = items[start:start + page_size]
+
+    keyboard = []
+
+    # Filter tabs row
+    filters = [
+        ("HistoryAll", None),
+        ("HistoryGrabbed", "grabbed"),
+        ("HistoryImported", "downloadFolderImported"),
+        ("HistoryFailed", "downloadFailed"),
+    ]
+    filter_row = []
+    for label_key, filter_val in filters:
+        prefix = "\u2713 " if event_filter == filter_val else ""
+        cb = f"hist_filter_{filter_val}" if filter_val else "hist_filter_all"
+        filter_row.append(
+            InlineKeyboardButton(
+                f"{prefix}{translation.get_text(label_key)}",
+                callback_data=cb,
+            )
+        )
+    keyboard.append(filter_row)
+
+    # Item rows
+    for item in page_items:
+        emoji = _HISTORY_EVENT_EMOJI.get(item.get("event_type"), "\u2753")
+        type_emoji = _MEDIA_TYPE_EMOJI.get(item.get("type"), "")
+        title = item.get("title", "")
+        if len(title) > 30:
+            title = title[:27] + "..."
+        quality = item.get("quality", "")
+        date_str = item.get("date", "")[:10]
+
+        label = f"{emoji} {type_emoji} {title} [{quality}] {date_str}"
+        keyboard.append([
+            InlineKeyboardButton(label, callback_data="hist_noop")
+        ])
+
+    # Pagination row
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(InlineKeyboardButton(
+                f"\u25c0\ufe0f {translation.get_text('Previous')}",
+                callback_data=f"hist_page_{page - 1}",
+            ))
+        nav_row.append(InlineKeyboardButton(
+            f"{page + 1}/{total_pages}",
+            callback_data="hist_noop",
+        ))
+        if page < total_pages - 1:
+            nav_row.append(InlineKeyboardButton(
+                f"{translation.get_text('Next')} \u25b6\ufe0f",
+                callback_data=f"hist_page_{page + 1}",
+            ))
+        keyboard.append(nav_row)
+
+    # Action row
+    keyboard.append([
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="hist_refresh",
+        ),
+        InlineKeyboardButton(
+            "\u25c0\ufe0f " + translation.get_text("Back"),
+            callback_data="hist_back",
+        ),
+    ])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_history_empty_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard for empty history state."""
+    translation = TranslationService()
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "\U0001f504 Refresh", callback_data="hist_refresh",
+        ),
+        InlineKeyboardButton(
+            "\u25c0\ufe0f " + translation.get_text("Back"),
+            callback_data="hist_back",
+        ),
+    ]])
+
+
+# ---------------------------------------------------------------------------
+# Webhook wizard keyboards
+# ---------------------------------------------------------------------------
+
+
+def get_webhook_menu_keyboard(
+    radarr_configured: bool,
+    sonarr_configured: bool,
+    lidarr_configured: bool,
+) -> InlineKeyboardMarkup:
+    """Main webhook settings menu keyboard."""
+    translation = TranslationService()
+
+    def _svc_label(name: str, configured: bool) -> str:
+        key = "WebhookServiceConfigured" if configured else "WebhookServiceNotConfigured"
+        return translation.get_text(key, service=name)
+
+    keyboard = [
+        [InlineKeyboardButton(
+            _svc_label("Radarr", radarr_configured),
+            callback_data="wh_setup_radarr",
+        )],
+        [InlineKeyboardButton(
+            _svc_label("Sonarr", sonarr_configured),
+            callback_data="wh_setup_sonarr",
+        )],
+        [InlineKeyboardButton(
+            _svc_label("Lidarr", lidarr_configured),
+            callback_data="wh_setup_lidarr",
+        )],
+        [
+            InlineKeyboardButton(
+                translation.get_text("WebhookEvents"),
+                callback_data="wh_events",
+            ),
+            InlineKeyboardButton(
+                translation.get_text("WebhookChangePort"),
+                callback_data="wh_port",
+            ),
+        ],
+        [InlineKeyboardButton(
+            translation.get_text("WebhookClose"),
+            callback_data="wh_close",
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_webhook_service_keyboard(service: str) -> InlineKeyboardMarkup:
+    """Keyboard for a configured service (regenerate secret, back)."""
+    translation = TranslationService()
+    keyboard = [
+        [InlineKeyboardButton(
+            translation.get_text("WebhookRegenerateSecret"),
+            callback_data=f"wh_regen_{service}",
+        )],
+        [InlineKeyboardButton(
+            translation.get_text("Back"),
+            callback_data="wh_back",
+        )],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def get_webhook_port_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard of the webhook port prompt: a single Cancel button."""
+    translation = TranslationService()
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"\u274c {translation.get_text('Cancel')}",
+            callback_data="menu_cancel",
+        ),
+    ]])
+
+
+def get_webhook_events_keyboard(events: dict) -> InlineKeyboardMarkup:
+    """Keyboard showing event type toggles."""
+    translation = TranslationService()
+    keyboard = []
+    for event_key, enabled in events.items():
+        icon = "\u2705" if enabled else "\U0001f515"
+        keyboard.append([InlineKeyboardButton(
+            f"{icon} {event_key}",
+            callback_data=f"wh_toggle_{event_key}",
+        )])
+    keyboard.append([InlineKeyboardButton(
+        translation.get_text("Back"),
+        callback_data="wh_back",
+    )])
     return InlineKeyboardMarkup(keyboard)

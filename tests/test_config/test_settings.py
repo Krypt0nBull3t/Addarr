@@ -6,10 +6,11 @@ level. Instead, we test:
 2. The real Config._get_missing_keys logic by extracting it
 3. Language validation logic
 4. update_nested and save methods
+5. _apply_default_key and non-interactive config defaults (#166)
 """
 
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 
 
 class TestMockConfig:
@@ -301,71 +302,413 @@ class TestSave:
         cfg = MockConfig()
         cfg.save()  # should not raise
 
-    def test_save_writes_yaml(self):
-        """Config.save() writes _config via yaml.dump after backup."""
-        import yaml
+
+class TestApplyDefaultKey:
+    """Test _apply_default_key logic for non-interactive (Docker) config defaults.
+
+    Since we can't instantiate the real Config (triggers file I/O), we extract
+    and test the _apply_default_key algorithm directly.
+    """
+
+    @staticmethod
+    def _apply_default_key(config, key, example_config):
+        """Extracted from src.config.settings.Config._apply_default_key."""
+        parts = key.split('.')
+        default = example_config
+        for part in parts:
+            if isinstance(default, dict):
+                default = default.get(part)
+            else:
+                default = None
+                break
+        current = config
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+        current[parts[-1]] = default
+
+    def test_top_level_key(self):
+        config = {}
+        example = {"language": "en-us"}
+        self._apply_default_key(config, "language", example)
+        assert config["language"] == "en-us"
+
+    def test_nested_key(self):
+        config = {"radarr": {}}
+        example = {"radarr": {"quality": {"defaultProfileId": 1}}}
+        self._apply_default_key(config, "radarr.quality.defaultProfileId", example)
+        assert config["radarr"]["quality"]["defaultProfileId"] == 1
+
+    def test_creates_intermediate_dicts(self):
+        config = {}
+        example = {"a": {"b": {"c": 42}}}
+        self._apply_default_key(config, "a.b.c", example)
+        assert config["a"]["b"]["c"] == 42
+
+    def test_does_not_overwrite_siblings(self):
+        config = {"radarr": {"enable": True}}
+        example = {"radarr": {"enable": True, "quality": {"defaultProfileId": 1}}}
+        self._apply_default_key(config, "radarr.quality.defaultProfileId", example)
+        assert config["radarr"]["enable"] is True
+        assert config["radarr"]["quality"]["defaultProfileId"] == 1
+
+    def test_missing_key_in_example_sets_none(self):
+        config = {}
+        example = {"a": "value"}
+        self._apply_default_key(config, "nonexistent", example)
+        assert config["nonexistent"] is None
+
+    def test_boolean_default(self):
+        config = {}
+        example = {"radarr": {"enable": False}}
+        self._apply_default_key(config, "radarr.enable", example)
+        assert config["radarr"]["enable"] is False
+
+    def test_list_default(self):
+        config = {}
+        example = {"telegram": {"chat_id": [123, 456]}}
+        self._apply_default_key(config, "telegram.chat_id", example)
+        assert config["telegram"]["chat_id"] == [123, 456]
+
+
+class TestNonInteractiveValidation:
+    """Test that _validate_config applies defaults in non-interactive mode.
+
+    Simulates the Docker path: _is_interactive() returns False, missing keys
+    get defaults from example config.
+    """
+
+    @staticmethod
+    def _simulate_non_interactive_validate(config, example_config, missing_keys):
+        """Simulate the non-interactive branch of _validate_config."""
+        from tests.test_config.test_settings import TestApplyDefaultKey
+        for key in missing_keys:
+            TestApplyDefaultKey._apply_default_key(config, key, example_config)
+
+    def test_applies_all_missing_defaults(self):
+        config = {"language": "en-us"}
+        example = {
+            "language": "en-us",
+            "radarr": {"enable": False, "quality": {"defaultProfileId": 1}},
+        }
+        missing = ["radarr", "radarr.enable", "radarr.quality.defaultProfileId"]
+        self._simulate_non_interactive_validate(config, example, missing)
+        assert config["radarr"]["enable"] is False
+        assert config["radarr"]["quality"]["defaultProfileId"] == 1
+
+    def test_no_error_raised(self):
+        """Non-interactive mode should not raise ConfigurationError."""
+        config = {}
+        example = {"language": "en-us"}
+        missing = ["language"]
+        # Should not raise
+        self._simulate_non_interactive_validate(config, example, missing)
+        assert config["language"] == "en-us"
+
+
+# ---------------------------------------------------------------------------
+# Real-module tests (issue #198). load_settings runs the real settings.py.
+# ---------------------------------------------------------------------------
+
+
+class TestRealSettingsLoader:
+    """The loader runs the real src/config/settings.py, not a copy."""
+
+    def test_loads_valid_config(self, load_settings, valid_config_text):
+        result = load_settings(valid_config_text)
+        assert result.error is None
+        assert result.config is not None
+
+    def test_missing_file_gives_error(self, load_settings):
+        result = load_settings(None)
+        assert isinstance(result.error, result.module.ConfigurationError)
+
+    def test_module_is_not_the_mock(self, load_settings, valid_config_text):
         import sys
+        result = load_settings(valid_config_text)
+        assert result.module is not sys.modules["src.config.settings"]
 
-        # Get the mock settings module from sys.modules
-        settings_mod = sys.modules["src.config.settings"]
 
-        # Add necessary attributes for save() to work
-        settings_mod.create_backup = lambda: None
-        settings_mod.CONFIG_PATH = "/tmp/fake_config.yaml"
-        settings_mod.yaml = yaml
+def _mutate(text, change):
+    """Parse the YAML text, let ``change`` edit the dict, dump it again."""
+    import yaml
+    data = yaml.safe_load(text)
+    change(data)
+    return yaml.safe_dump(data)
 
-        # Add a real save method to MockConfig for this test
-        from tests.conftest import MockConfig
-        cfg = MockConfig()
-        cfg._config = {"language": "en-us", "telegram": {"token": "t"}}
 
-        m = mock_open()
-        with (
-            patch.object(settings_mod, "create_backup") as mock_backup,
-            patch("builtins.open", m),
-        ):
-            # Call save using the real implementation logic
-            settings_mod.create_backup()
-            with open(settings_mod.CONFIG_PATH, 'w') as f:
-                yaml.dump(cfg._config, f, default_flow_style=False)
+class TestRealSettingsEmptyConfig:
+    """F024: empty file or empty section gives a clear error (#198)."""
 
-            mock_backup.assert_called_once()
-            handle = m()
-            written = "".join(
-                c.args[0] for c in handle.write.call_args_list
-            )
-            assert "language" in written
+    def _assert_backup_error(self, result):
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "backup/" in str(result.error)
 
-    def test_save_creates_backup_first(self):
-        """save() must call create_backup() before writing the file."""
+    def test_empty_file_raises_configuration_error(self, load_settings):
+        self._assert_backup_error(load_settings(""))
+
+    def test_empty_section_raises_configuration_error(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d.update(health_alerts=None))
+        result = load_settings(text)
+        self._assert_backup_error(result)
+        assert "health_alerts" in str(result.error)
+
+    def test_empty_security_section_raises_configuration_error(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d.update(security=None))
+        result = load_settings(text)
+        self._assert_backup_error(result)
+        assert "security" in str(result.error)
+
+    def test_none_leaf_is_still_valid(self, load_settings, valid_config_text):
+        # radarr.auth.apikey is None in the example and radarr is disabled
+        result = load_settings(valid_config_text)
+        assert result.error is None
+        assert result.config["radarr"]["auth"]["apikey"] is None
+
+
+class TestRealSettingsMissingSection:
+    """F020: a missing section is copied from the example, not prompted (#198)."""
+
+    @staticmethod
+    def _example():
         import yaml
-        import sys
+        from src.definitions import CONFIG_EXAMPLE_PATH
+        with open(CONFIG_EXAMPLE_PATH, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
 
-        settings_mod = sys.modules["src.config.settings"]
-        settings_mod.create_backup = lambda: None
-        settings_mod.CONFIG_PATH = "/tmp/fake_config.yaml"
+    def _without_bazarr(self, text):
+        return _mutate(text, lambda d: d.pop("bazarr"))
 
-        call_order = []
+    def test_missing_section_is_copied_not_prompted(
+        self, load_settings, valid_config_text
+    ):
+        result = load_settings(
+            self._without_bazarr(valid_config_text), interactive=True
+        )
+        assert result.error is None
+        assert result.config["bazarr"] == self._example()["bazarr"]
+        result.q["text"].assert_not_called()
 
-        def track_backup():
-            call_order.append("backup")
+    def test_missing_leaf_is_still_prompted(self, load_settings, valid_config_text):
+        text = _mutate(valid_config_text, lambda d: d["webhooks"].pop("port"))
+        result = load_settings(text, interactive=True)
+        assert result.error is None
+        message = result.q["text"].call_args.args[0]
+        assert "webhooks.port" in message
+        assert result.config["webhooks"]["port"] == "typed"
 
-        m = mock_open()
-        original_open = m
+    def test_saved_file_has_section(self, load_settings, valid_config_text):
+        import yaml
+        from src.definitions import CONFIG_PATH
+        result = load_settings(
+            self._without_bazarr(valid_config_text), interactive=True
+        )
+        saved = yaml.safe_load(result.written[CONFIG_PATH])
+        assert saved["bazarr"] == self._example()["bazarr"]
 
-        def track_open(*args, **kwargs):
-            call_order.append("open")
-            return original_open(*args, **kwargs)
 
-        with (
-            patch.object(settings_mod, "create_backup",
-                         side_effect=track_backup),
-            patch("builtins.open", side_effect=track_open),
+class TestRealSettingsSave:
+    """F030, F031: save() writes once and keeps the comments in config.yaml."""
+
+    @staticmethod
+    def _commented(text):
+        quoted = text.replace("password: test-pass", 'password: "test-pass"')
+        return "# keep me\n" + quoted
+
+    def test_save_keeps_old_file_when_dump_fails(
+        self, load_settings, valid_config_text, tmp_path
+    ):
+        result = load_settings(valid_config_text)
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("old: content\n")
+        result.module.CONFIG_PATH = str(config_file)
+
+        with patch.object(
+            result.module._yaml, "dump", side_effect=RuntimeError("boom")
         ):
-            # Simulate save() order: backup first, then open
-            settings_mod.create_backup()
-            with open(settings_mod.CONFIG_PATH, 'w') as f:
-                yaml.dump({"language": "en-us"}, f, default_flow_style=False)
+            with pytest.raises(RuntimeError):
+                result.config.save()
 
-            assert call_order[0] == "backup"
-            assert call_order[1] == "open"
+        assert config_file.read_text() == "old: content\n"
+
+    def test_save_keeps_comments_and_quotes(
+        self, load_settings, valid_config_text, tmp_path
+    ):
+        result = load_settings(self._commented(valid_config_text))
+        config_file = tmp_path / "config.yaml"
+        result.module.CONFIG_PATH = str(config_file)
+
+        result.config.update_nested("language", "nl-be")
+        result.config.save()
+
+        saved = config_file.read_text()
+        assert "# keep me" in saved
+        assert 'password: "test-pass"' in saved
+        assert "language: nl-be" in saved
+        assert "%YAML" not in saved
+
+    def test_yaml_1_1_booleans_still_load_as_booleans(
+        self, load_settings, valid_config_text
+    ):
+        """`enable: no` stays False, as PyYAML read it (YAML 1.2 makes it a string)."""
+        start = valid_config_text.index("\nradarr:")
+        flipped = (
+            valid_config_text[:start]
+            + valid_config_text[start:].replace("enable: false", "enable: no", 1)
+        )
+        assert "enable: no" in flipped
+        result = load_settings(flipped)
+        assert result.error is None
+        assert result.config["radarr"]["enable"] is False
+
+    def test_startup_prompt_write_keeps_comment(
+        self, load_settings, valid_config_text
+    ):
+        from src.definitions import CONFIG_PATH
+        text = self._commented(
+            _mutate(valid_config_text, lambda d: d.pop("bazarr"))
+        )
+        result = load_settings(text, interactive=True)
+        assert "# keep me" in result.written[CONFIG_PATH]
+
+
+_VALIDATED_SERVICES = ("radarr", "sonarr", "lidarr", "sabnzbd", "bazarr")
+
+
+def _enable(data, service, *, apikey="key", port=1234, addr="localhost"):
+    """Enable a service with explicit server and auth values."""
+    data[service]["enable"] = True
+    data[service]["server"]["addr"] = addr
+    data[service]["server"]["port"] = port
+    data[service]["auth"]["apikey"] = apikey
+
+
+class TestRealSettingsStartupValidation:
+    """F025: startup runs the token, API key, port and address checks (#198)."""
+
+    @staticmethod
+    def _load(load_settings, valid_config_text, change):
+        return load_settings(_mutate(valid_config_text, change))
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    @pytest.mark.parametrize("apikey", ["", None, "   "])
+    def test_enabled_service_without_apikey_raises(
+        self, load_settings, valid_config_text, service, apikey
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, service, apikey=apikey),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert service in str(result.error)
+        assert "API key" in str(result.error)
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    @pytest.mark.parametrize("port", [0, 65536, None])
+    def test_enabled_service_with_bad_port_raises(
+        self, load_settings, valid_config_text, service, port
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, service, port=port),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert f"Invalid port for {service}" in str(result.error)
+
+    def test_string_port_is_rejected(self, load_settings, valid_config_text):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, "radarr", port="7878"),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+
+    @pytest.mark.parametrize("token", ["", None])
+    def test_empty_token_raises(self, load_settings, valid_config_text, token):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: d["telegram"].update(token=token),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "token" in str(result.error)
+
+    @pytest.mark.parametrize("service", _VALIDATED_SERVICES)
+    def test_disabled_service_is_not_checked(
+        self, load_settings, valid_config_text, service
+    ):
+        def change(d):
+            _enable(d, service, apikey="", port=0)
+            d[service]["enable"] = False
+
+        result = self._load(load_settings, valid_config_text, change)
+        assert result.error is None
+
+    def test_transmission_needs_no_apikey(self, load_settings, valid_config_text):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: d["transmission"].update(enable=True),
+        )
+        assert result.error is None
+
+    def test_enabled_bazarr_with_empty_addr_raises(
+        self, load_settings, valid_config_text
+    ):
+        result = self._load(
+            load_settings, valid_config_text,
+            lambda d: _enable(d, "bazarr", addr=""),
+        )
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "bazarr" in str(result.error)
+
+    def test_valid_enabled_services_load(self, load_settings, valid_config_text):
+        def change(d):
+            for service in _VALIDATED_SERVICES:
+                _enable(d, service)
+
+        assert self._load(load_settings, valid_config_text, change).error is None
+
+
+class TestRealSettingsChatMode:
+    """F023: chatMode is validated and prompted with a select (#198)."""
+
+    @pytest.mark.parametrize("mode", ["private", "", "Private_Only", None])
+    def test_invalid_chat_mode_raises(self, load_settings, valid_config_text, mode):
+        text = _mutate(
+            valid_config_text, lambda d: d["security"].update(chatMode=mode)
+        )
+        result = load_settings(text)
+        assert isinstance(result.error, result.module.ConfigurationError)
+        assert "chatMode" in str(result.error)
+        assert "private_only" in str(result.error)
+
+    @pytest.mark.parametrize("mode", ["private_only", "allow_all"])
+    def test_valid_chat_modes_load(self, load_settings, valid_config_text, mode):
+        text = _mutate(
+            valid_config_text, lambda d: d["security"].update(chatMode=mode)
+        )
+        result = load_settings(text)
+        assert result.error is None
+        assert result.config["security"]["chatMode"] == mode
+
+    def test_missing_chat_mode_uses_select(self, load_settings, valid_config_text):
+        from src.definitions import CHAT_MODES
+        text = _mutate(valid_config_text, lambda d: d["security"].pop("chatMode"))
+        result = load_settings(text, interactive=True, select_answer="allow_all")
+        assert result.error is None
+        select = result.q["select"]
+        select.assert_called_once()
+        assert select.call_args.kwargs["choices"] == list(CHAT_MODES)
+        result.q["text"].assert_not_called()
+        assert result.config["security"]["chatMode"] == "allow_all"
+
+    def test_missing_chat_mode_non_interactive_gets_default(
+        self, load_settings, valid_config_text
+    ):
+        text = _mutate(valid_config_text, lambda d: d["security"].pop("chatMode"))
+        result = load_settings(text, interactive=False)
+        assert result.error is None
+        assert result.config["security"]["chatMode"] == "private_only"

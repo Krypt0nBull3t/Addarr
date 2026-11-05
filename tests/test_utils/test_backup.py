@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from src.utils.backup import create_backup, restore_backup, list_backups
+from src.utils.backup import create_backup
 
 
 class TestCreateBackup:
@@ -49,95 +49,91 @@ class TestCreateBackup:
         assert result is None
 
 
-class TestRestoreBackup:
-    """Tests for restore_backup."""
+def _stamps(count):
+    """`count` consecutive datetimes, one second apart."""
+    import datetime
 
-    def test_restore_backup_success(self, tmp_path):
-        """Restores a backup to CONFIG_PATH and returns True."""
-        # Set up a current config
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("current: true\n")
-
-        # Set up a backup file
-        backup_file = tmp_path / "backup_config.yaml"
-        backup_file.write_text("restored: true\n")
-
-        with patch("src.utils.backup.CONFIG_PATH", str(config_file)):
-            result = restore_backup(str(backup_file))
-
-        assert result is True
-        assert config_file.read_text() == "restored: true\n"
-
-    def test_restore_backup_no_file(self, tmp_path):
-        """Returns False when the backup file does not exist."""
-        missing = str(tmp_path / "nonexistent_backup.yaml")
-        config_file = str(tmp_path / "config.yaml")
-
-        with patch("src.utils.backup.CONFIG_PATH", config_file):
-            result = restore_backup(missing)
-
-        assert result is False
-
-    def test_restore_backup_prints_current_backup(self, tmp_path):
-        """Prints current backup path when create_backup succeeds."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("old: true\n")
-        backup_file = tmp_path / "backup_config.yaml"
-        backup_file.write_text("restored: true\n")
-
-        with (
-            patch("src.utils.backup.CONFIG_PATH", str(config_file)),
-            patch("src.utils.backup.create_backup", return_value="/fake/backup.yaml"),
-        ):
-            result = restore_backup(str(backup_file))
-
-        assert result is True
-
-    def test_restore_backup_exception(self, tmp_path):
-        """Returns False when an exception occurs during restore."""
-        backup_file = tmp_path / "backup.yaml"
-        backup_file.write_text("content")
-
-        with (
-            patch("src.utils.backup.CONFIG_PATH", str(tmp_path / "config.yaml")),
-            patch("src.utils.backup.create_backup", return_value=None),
-            patch("shutil.copy2", side_effect=PermissionError("denied")),
-        ):
-            result = restore_backup(str(backup_file))
-
-        assert result is False
+    return [datetime.datetime(2026, 1, 1, 0, 0, i) for i in range(count)]
 
 
-class TestListBackups:
-    """Tests for list_backups."""
+def _make_backups(source, count):
+    """Run create_backup `count` times with one-second-apart timestamps."""
+    with patch("src.utils.backup.datetime") as mock_dt:
+        mock_dt.datetime.now.side_effect = _stamps(count)
+        return [create_backup(str(source)) for _ in range(count)]
 
-    def test_list_backups_empty(self, tmp_path):
-        """Returns an empty list when no backup directory exists."""
-        config_file = tmp_path / "config.yaml"
-        with patch("src.utils.backup.CONFIG_PATH", str(config_file)):
-            result = list_backups()
 
-        assert result == []
+class TestBackupRetentionAndMode:
+    """Backups keep their newest 10 and stay private (F013)."""
 
-    def test_list_backups_sorted(self, tmp_path):
-        """Returns backup filenames sorted in reverse order."""
-        # Create a backup directory next to the config path
+    def test_backups_are_pruned_to_newest_ten(self, tmp_path):
+        """11 backups leave the newest 10; the oldest is gone."""
+        source = tmp_path / "config.yaml"
+        source.write_text("telegram:\n  token: test\n")
+
+        _make_backups(source, 11)
+
+        names = sorted(p.name for p in (tmp_path / "backup").glob("config_*.yaml"))
+        assert len(names) == 10
+        assert "config_20260101_000000.yaml" not in names
+        assert "config_20260101_000010.yaml" in names
+
+    def test_backups_are_owner_only(self, tmp_path):
+        """A backup has mode 0o600 even when the source is 0o644."""
+        import os
+        import stat
+
+        source = tmp_path / "config.yaml"
+        source.write_text("telegram:\n  token: test\n")
+        os.chmod(source, 0o644)
+
+        result = _make_backups(source, 1)[0]
+
+        assert stat.S_IMODE(os.stat(result).st_mode) == 0o600
+
+    def test_new_backup_dir_is_owner_only(self, tmp_path):
+        """A newly created backup/ folder has mode 0o700."""
+        import os
+        import stat
+
+        source = tmp_path / "config.yaml"
+        source.write_text("x: 1\n")
+
+        _make_backups(source, 1)
+
+        mode = stat.S_IMODE(os.stat(tmp_path / "backup").st_mode)
+        assert mode == 0o700
+
+    def test_prune_keeps_unrelated_files(self, tmp_path):
+        """Prune deletes only config_<date>_<time>.yaml files."""
+        source = tmp_path / "config.yaml"
+        source.write_text("x: 1\n")
         backup_dir = tmp_path / "backup"
         backup_dir.mkdir()
+        other = backup_dir / "config_example_20260101_000000.yaml"
+        notes = backup_dir / "notes.txt"
+        other.write_text("other")
+        notes.write_text("notes")
 
-        # Create some backup files
-        (backup_dir / "config_20240101_120000.yaml").write_text("a")
-        (backup_dir / "config_20240201_120000.yaml").write_text("b")
-        (backup_dir / "config_20240301_120000.yaml").write_text("c")
-        # Add a non-yaml file that should be excluded
-        (backup_dir / "notes.txt").write_text("ignore me")
+        _make_backups(source, 11)
 
-        config_file = tmp_path / "config.yaml"
-        with patch("src.utils.backup.CONFIG_PATH", str(config_file)):
-            result = list_backups()
+        assert other.exists()
+        assert notes.exists()
 
-        assert len(result) == 3
-        # Verify reverse-sorted order (newest first)
-        assert result[0] == "config_20240301_120000.yaml"
-        assert result[1] == "config_20240201_120000.yaml"
-        assert result[2] == "config_20240101_120000.yaml"
+    def test_fewer_than_ten_backups_delete_nothing(self, tmp_path):
+        """Nothing is pruned below the limit."""
+        source = tmp_path / "config.yaml"
+        source.write_text("x: 1\n")
+
+        _make_backups(source, 3)
+
+        assert len(list((tmp_path / "backup").glob("config_*.yaml"))) == 3
+
+
+def test_dockerignore_lists_backup_dir():
+    """backup/ holds secrets, so the Docker build must not copy it."""
+    from pathlib import Path
+
+    text = (Path(__file__).parents[2] / ".dockerignore").read_text()
+
+    assert "backup/" in text.splitlines()

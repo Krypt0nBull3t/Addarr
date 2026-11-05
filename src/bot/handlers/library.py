@@ -12,8 +12,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
 from src.services.media import MediaService
+from src.bot.keyboards import get_back_keyboard
 from src.services.translation import TranslationService
 from src.bot.handlers.auth import require_auth
+from src.services.rate_limit import rate_limit
 
 logger = get_logger("addarr.library")
 
@@ -41,24 +43,90 @@ class LibraryHandler:
             CommandHandler("allSeries", self.handle_all_series),
             CommandHandler("allMusic", self.handle_all_music),
             CallbackQueryHandler(
+                self.handle_library_selection, pattern="^library_"
+            ),
+            CallbackQueryHandler(
                 self.handle_page_navigation, pattern="^lib_"
             ),
         ]
 
     @require_auth
+    @rate_limit("search")
     async def handle_all_movies(self, update, context):
         """Handle /allMovies command."""
         await self._fetch_and_show(update, context, "m")
 
     @require_auth
+    @rate_limit("search")
     async def handle_all_series(self, update, context):
         """Handle /allSeries command."""
         await self._fetch_and_show(update, context, "s")
 
     @require_auth
+    @rate_limit("search")
     async def handle_all_music(self, update, context):
         """Handle /allMusic command."""
         await self._fetch_and_show(update, context, "a")
+
+    @require_auth
+    @rate_limit("search")
+    async def handle_library_selection(self, update, context):
+        """Handle library sub-menu callback (library_{type})."""
+        if not update.callback_query:
+            return
+
+        query = update.callback_query
+        await query.answer()
+
+        type_map = {"movie": "m", "series": "s", "music": "a"}
+        action = query.data.replace("library_", "")
+        media_type = type_map.get(action)
+
+        if not media_type:
+            return
+
+        type_info = MEDIA_TYPES[media_type]
+        log_user_interaction(
+            logger, query.from_user,
+            f"library_{type_info['label']}"
+        )
+
+        try:
+            method = getattr(self.media_service, type_info["service_method"])
+            items = await method()
+        except ValueError:
+            await query.message.edit_text(
+                self.translation.get_text(
+                    "LibraryNotEnabled", subject=type_info["label"]
+                ),
+                reply_markup=get_back_keyboard("menu_library"),
+            )
+            return
+        except Exception:
+            logger.error(
+                f"Error fetching {type_info['label']} library",
+                exc_info=True,
+            )
+            await query.message.edit_text(
+                self.translation.get_text("LibraryError"),
+                reply_markup=get_back_keyboard("menu_library"),
+            )
+            return
+
+        if not items:
+            await query.message.edit_text(
+                self.translation.get_text(
+                    "LibraryEmpty", subject=type_info["label"]
+                ),
+                reply_markup=get_back_keyboard("menu_library"),
+            )
+            return
+
+        items = sorted(items, key=lambda x: x.get("title", "").lower())
+        context.user_data[f"library_{media_type}"] = items
+
+        text, reply_markup = self._build_page_message(items, 0, media_type)
+        await query.message.edit_text(text, reply_markup=reply_markup)
 
     async def _fetch_and_show(self, update, context, media_type):
         """Fetch library items and show paginated list."""
@@ -147,9 +215,11 @@ class LibraryHandler:
                 )
             )
 
-        reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
-        return text, reply_markup
+        rows = [buttons] if buttons else []
+        rows.extend(get_back_keyboard("menu_library").inline_keyboard)
+        return text, InlineKeyboardMarkup(rows)
 
+    @require_auth
     async def handle_page_navigation(self, update, context):
         """Handle pagination callback queries (lib_{type}_{page})."""
         if not update.callback_query:
@@ -176,7 +246,8 @@ class LibraryHandler:
 
         if not items:
             await query.message.edit_text(
-                self.translation.get_text("LibraryExpired")
+                self.translation.get_text("LibraryExpired"),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
 

@@ -154,13 +154,31 @@ class TestBaseApiClient:
 
     def test_parse_error_response_plain_text(self, client):
         result = client._parse_error_response("Internal Server Error")
-        assert result == "Internal Server Error"
+        assert result is None
 
     def test_parse_error_response_invalid_json(self, client):
-        """JSONDecodeError falls through to return raw text."""
+        """JSONDecodeError falls through: no message, never the raw text."""
         # Must start with "[" to enter the JSON parsing branch
         result = client._parse_error_response("[not valid json")
-        assert result == "[not valid json"
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_make_request_html_error_body_not_returned(self, client, caplog):
+        """A proxy error page must not reach the user; the body goes to the log, truncated."""
+        body = "<html><body><h1>502 Bad Gateway</h1>" + "x" * 600 + "SECRET-TAIL</body></html>"
+        with aioresponses() as m:
+            m.get(
+                "http://localhost:7878/api/v3/movie",
+                body=body,
+                status=502,
+                content_type="text/html",
+            )
+            success, data, error = await client._make_request("movie", max_retries=0)
+
+        assert success is False
+        assert error == "Radarr returned HTTP 502"
+        assert body[:500] in caplog.text
+        assert "SECRET-TAIL" not in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -364,44 +382,15 @@ class TestBaseApiClientRequest:
                 result = await client._request("system/status")
         assert result is None
 
-
-# ---------------------------------------------------------------------------
-# BaseApiClient -- check_status
-# ---------------------------------------------------------------------------
-
-
-class TestBaseApiClientCheckStatus:
     @pytest.mark.asyncio
-    async def test_check_status_success(self, client):
-        """check_status returns True when API responds 200."""
+    async def test_request_returns_none_on_unexpected_exception(self, client):
         with aioresponses() as m:
             m.get(
                 "http://localhost:7878/api/v3/system/status",
-                payload={"status": "ok"},
-                status=200,
+                exception=RuntimeError("unexpected"),
             )
-            result = await client.check_status()
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_check_status_failure(self, client):
-        """check_status returns False when all retries fail."""
-        with aioresponses() as m:
-            for _ in range(3):
-                m.get(
-                    "http://localhost:7878/api/v3/system/status",
-                    exception=aiohttp.ClientError("refused"),
-                )
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await client.check_status()
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_check_status_exception(self, client):
-        """check_status catches unexpected exceptions and returns False."""
-        with patch.object(client, "_make_request", side_effect=Exception("boom")):
-            result = await client.check_status()
-        assert result is False
+            result = await client._request("system/status")
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -567,15 +556,15 @@ class TestBaseApiClientRetry:
         assert data == {"ok": True}
 
     @pytest.mark.asyncio
-    async def test_retry_on_timeout_error_then_success(self, client):
-        """asyncio.TimeoutError triggers retry; second attempt succeeds."""
+    async def test_no_retry_on_timeout_error(self, client):
+        """A timeout already took the full timeout; retrying would multiply the wait."""
         with aioresponses() as m:
             m.get(URL, exception=asyncio.TimeoutError())
             m.get(URL, payload={"ok": True}, status=200)
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 success, data, error = await client._make_request("system/status")
-        assert success is True
-        assert data == {"ok": True}
+        assert success is False
+        assert error == "Connection error: timeout"
 
     @pytest.mark.asyncio
     async def test_no_retry_on_400(self, client):
@@ -584,7 +573,7 @@ class TestBaseApiClientRetry:
             m.get(URL, status=400, body="Bad Request")
             success, data, error = await client._make_request("system/status")
         assert success is False
-        assert "Bad Request" in error
+        assert error == "Radarr returned HTTP 400"
 
     @pytest.mark.asyncio
     async def test_no_retry_on_404(self, client):
@@ -593,7 +582,7 @@ class TestBaseApiClientRetry:
             m.get(URL, status=404, body="Not Found")
             success, data, error = await client._make_request("system/status")
         assert success is False
-        assert "Not Found" in error
+        assert error == "Radarr returned HTTP 404"
 
     @pytest.mark.asyncio
     async def test_all_retries_exhausted_5xx(self, client):
@@ -605,18 +594,7 @@ class TestBaseApiClientRetry:
                 success, data, error = await client._make_request("system/status")
         assert success is False
         assert data is None
-        assert "Service Unavailable" in error
-
-    @pytest.mark.asyncio
-    async def test_all_retries_exhausted_connection_error(self, client):
-        """All 3 attempts fail with ClientError — returns connection error."""
-        with aioresponses() as m:
-            for _ in range(3):
-                m.get(URL, exception=aiohttp.ClientError("refused"))
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                success, data, error = await client._make_request("system/status")
-        assert success is False
-        assert "Connection error:" in error
+        assert error == "Radarr returned HTTP 503"
 
     @pytest.mark.asyncio
     async def test_respects_max_retries_setting(self, client):
@@ -629,7 +607,7 @@ class TestBaseApiClientRetry:
                     "system/status", max_retries=1
                 )
         assert success is False
-        assert "Internal Server Error" in error
+        assert error == "Radarr returned HTTP 500"
 
     @pytest.mark.asyncio
     async def test_retry_disabled_when_max_retries_zero(self, client):
@@ -640,7 +618,7 @@ class TestBaseApiClientRetry:
                 "system/status", max_retries=0
             )
         assert success is False
-        assert "Internal Server Error" in error
+        assert error == "Radarr returned HTTP 500"
 
     @pytest.mark.asyncio
     async def test_per_request_max_retries_override(self, client):
@@ -667,12 +645,3 @@ class TestBaseApiClientRetry:
         assert mock_sleep.call_count == 2
         assert mock_sleep.call_args_list[0][0][0] == 1.0
         assert mock_sleep.call_args_list[1][0][0] == 2.0
-
-    @pytest.mark.asyncio
-    async def test_no_retry_on_generic_exception(self, client):
-        """Generic Exception (not ClientError/TimeoutError) should NOT retry."""
-        with aioresponses() as m:
-            m.get(URL, exception=RuntimeError("unexpected"))
-            success, data, error = await client._make_request("system/status")
-        assert success is False
-        assert "Unexpected error:" in error

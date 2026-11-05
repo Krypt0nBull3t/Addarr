@@ -12,6 +12,8 @@ from typing import List
 
 
 from src.services.transmission import transmission_service
+from src.services.translation import TranslationService
+from src.bot.handlers.auth import require_admin, require_auth
 from src.utils.logger import get_logger
 from src.bot.keyboards import get_yes_no_keyboard
 
@@ -24,6 +26,7 @@ class TransmissionHandler:
     def __init__(self):
         """Initialize the handler"""
         self.service = transmission_service
+        self.translation = TranslationService()
 
     def get_handler(self) -> List:
         """Get the command and callback handlers
@@ -36,6 +39,8 @@ class TransmissionHandler:
             CallbackQueryHandler(self.handle_callback, pattern=r"^transmission_.*")
         ]
 
+    @require_auth
+    @require_admin("transmission")
     async def transmission_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /transmission command
 
@@ -43,8 +48,7 @@ class TransmissionHandler:
         """
         if not self.service.is_enabled():
             await update.message.reply_text(
-                "❌ Transmission integration is not enabled.\n"
-                "Enable it in config.yaml to use this feature."
+                self.translation.get_text("TransmissionNotEnabled")
             )
             return
 
@@ -52,7 +56,10 @@ class TransmissionHandler:
 
         if not status["connected"]:
             await update.message.reply_text(
-                f"❌ Cannot connect to Transmission:\n{status.get('error', 'Unknown error')}"
+                self.translation.get_text(
+                    "TransmissionConnectionError",
+                    error=status.get("error", "Unknown error"),
+                )
             )
             return
 
@@ -78,6 +85,8 @@ class TransmissionHandler:
             parse_mode=ParseMode.MARKDOWN
         )
 
+    @require_auth
+    @require_admin("transmission")
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle callback queries for Transmission commands"""
         query = update.callback_query
@@ -92,7 +101,7 @@ class TransmissionHandler:
                 new_state = "enabled 🐢" if not current_state else "disabled 🚀"
                 message = f"✅ Turtle Mode {new_state}"
             else:
-                message = "❌ Failed to toggle Turtle Mode"
+                message = self.translation.get_text("TransmissionToggleFailed")
 
             # Update the message
             await query.edit_message_text(

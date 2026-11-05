@@ -8,13 +8,30 @@ module into sys.modules so all `from src.config.settings import config`
 statements get our mock instead.
 """
 
+import atexit
+import hashlib
+import inspect
 import os
+import shutil
 import sys
+import tempfile
 import types
 from copy import deepcopy
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
+import aioresponses.core
 import pytest
+
+# shortcut: aioresponses 0.7.9 builds ClientResponse without the stream_writer
+# argument that aiohttp 3.14 requires; remove once aioresponses supports 3.14.
+if "stream_writer" in inspect.signature(aiohttp.ClientResponse.__init__).parameters:
+    class _CompatClientResponse(aiohttp.ClientResponse):
+        def __init__(self, *args, **kwargs):
+            kwargs.setdefault("stream_writer", types.SimpleNamespace(output_size=0))
+            super().__init__(*args, **kwargs)
+
+    aioresponses.core.ClientResponse = _CompatClientResponse  # type: ignore[misc]
 
 # ---------------------------------------------------------------------------
 # 1. Mock config -- injected into sys.modules BEFORE any src imports
@@ -29,7 +46,6 @@ MOCK_CONFIG_DATA = {
         "features": {"search": True, "minimumAvailability": "announced"},
         "paths": {"excludedRootFolders": [], "narrowRootFolderNames": True},
         "quality": {"excludedProfiles": []},
-        "tags": {"default": ["telegram"], "addRequesterIdTag": True},
         "adminRestrictions": False,
     },
     "sonarr": {
@@ -39,23 +55,20 @@ MOCK_CONFIG_DATA = {
         "features": {"search": True, "seasonFolder": True},
         "paths": {"excludedRootFolders": [], "narrowRootFolderNames": True},
         "quality": {"excludedProfiles": []},
-        "tags": {"default": ["telegram"], "addRequesterIdTag": True},
         "adminRestrictions": False,
     },
     "lidarr": {
         "enable": True,
         "server": {"addr": "localhost", "port": 8686, "path": "/", "ssl": False},
         "auth": {"apikey": "test-lidarr-key", "username": None, "password": None},
-        "features": {"search": True, "albumFolder": True, "monitorOption": "all"},
+        "features": {"search": True, "monitorOption": "all"},
         "paths": {"excludedRootFolders": [], "narrowRootFolderNames": True},
         "quality": {"excludedProfiles": []},
-        "tags": {"default": ["telegram"], "addRequesterIdTag": True},
         "adminRestrictions": False,
         "metadataProfileId": 1,
     },
     "transmission": {
         "enable": False, "onlyAdmin": True, "host": "localhost",
-        "port": 9091, "ssl": False,
         "authentication": False, "username": None, "password": None,
     },
     "sabnzbd": {
@@ -63,16 +76,50 @@ MOCK_CONFIG_DATA = {
         "server": {"addr": "localhost", "port": 8090, "path": "/", "ssl": False},
         "auth": {"apikey": "test-sabnzbd-key"},
     },
+    "bazarr": {
+        "enable": True,
+        "server": {"addr": "localhost", "port": 6767, "path": "/", "ssl": False},
+        "auth": {"apikey": "test-bazarr-key"},
+    },
     "entrypoints": {
         "auth": "auth", "help": "help", "add": "start",
         "allSeries": "allSeries", "allMovies": "allMovies", "allMusic": "allMusic",
         "transmission": "transmission", "sabnzbd": "sabnzbd",
     },
-    "security": {"enableAdmin": False, "enableAllowlist": False},
+    "security": {"enableAdmin": False, "enableAllowlist": False, "chatMode": "private_only"},
     "language": "en-us",
     "logging": {"toConsole": False, "debug": False, "adminNotifyId": None},
     "admins": [], "allow_list": [], "chat_id": [],
     "authenticated_users": [12345],
+    # PBKDF2 value (1000 iterations, fixed salt) of the default password "test-pass",
+    # so the list survives AuthHandler(); the check reads the count from the string
+    "authenticated_users_hash": "pbkdf2_sha256$1000$%s$%s" % (
+        bytes(16).hex(),
+        hashlib.pbkdf2_hmac("sha256", b"test-pass", bytes(16), 1000).hex(),
+    ),
+    "rateLimit": {
+        "enable": False,
+        "limits": {
+            "search": {"maxRequests": 10, "windowSeconds": 60},
+            "modify": {"maxRequests": 5, "windowSeconds": 60},
+            "auth": {"maxRequests": 3, "windowSeconds": 300},
+        },
+    },
+    "webhooks": {
+        "enable": False,
+        "port": 8080,
+        "host": "0.0.0.0",
+        "radarr_secret": None,
+        "sonarr_secret": None,
+        "lidarr_secret": None,
+        "events": {
+            "grab": True,
+            "download": True,
+            "upgrade": True,
+            "health": True,
+            "failure": True,
+        },
+    },
     "enableAllowlist": False, "logToConsole": False, "debugLogging": False,
 }
 
@@ -175,12 +222,26 @@ _src_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src")
 if "src" not in sys.modules:
     _src_mod = types.ModuleType("src")
     _src_mod.__path__ = [_src_dir]
+    _src_mod.__version__ = "0.9.0"
     sys.modules["src"] = _src_mod
+else:
+    # Ensure __version__ is available even if src was already imported
+    if not hasattr(sys.modules["src"], "__version__"):
+        sys.modules["src"].__version__ = "0.9.0"
 if "src.config" not in sys.modules:
     _config_mod = types.ModuleType("src.config")
     _config_mod.__path__ = [os.path.join(_src_dir, "config")]
     _config_mod.settings = _settings_mod
     sys.modules["src.config"] = _config_mod
+
+# Redirect log files before src.utils.logger is imported: it binds LOG_PATH
+# and ERROR_LOG_PATH at import, so tests never write the repo's logs/ dir.
+_log_dir = tempfile.mkdtemp(prefix="addarr-test-logs-")
+atexit.register(shutil.rmtree, _log_dir, ignore_errors=True)
+import src.definitions as _definitions  # noqa: E402
+
+_definitions.LOG_PATH = os.path.join(_log_dir, "addarr.log")
+_definitions.ERROR_LOG_PATH = os.path.join(_log_dir, "error.log")
 
 # ---------------------------------------------------------------------------
 # 2. Singleton reset fixture
@@ -197,18 +258,22 @@ def reset_singletons():
     from src.services.health import HealthService
     from src.services.translation import TranslationService
     from src.services.notification import NotificationService
-    from src.services.scheduler import JobScheduler
     from src.services.transmission import TransmissionService
     from src.services.sabnzbd import SABnzbdService
+    from src.services.bazarr import BazarrService
     from src.services.preferences import PreferencesService
+    from src.services.rate_limit import RateLimitService
+    from src.services.webhook import WebhookService
     from src.bot.handlers.auth import AuthHandler
 
     # Reset singletons
-    JobScheduler._instance = None
-
     TransmissionService._instance = None
 
     SABnzbdService._instance = None
+
+    BazarrService._instance = None
+    BazarrService._client = None
+    BazarrService._config = {}
 
     MediaService._instance = None
     MediaService._radarr = None
@@ -225,6 +290,14 @@ def reset_singletons():
 
     PreferencesService._instance = None
     PreferencesService._preferences = {}
+
+    RateLimitService._instance = None
+    RateLimitService._records = {}
+
+    WebhookService._instance = None
+    WebhookService._enabled = False
+    WebhookService._running = False
+    WebhookService._runner = None
 
     AuthHandler._authenticated_users = set()
 
@@ -250,6 +323,15 @@ def mock_translation():
     """Mock TranslationService to return keys as text (identity function)."""
     with patch("src.services.translation.TranslationService._load_translations"):
         yield
+
+
+@pytest.fixture(autouse=True)
+def fast_pbkdf2(monkeypatch):
+    """Use a small PBKDF2 count so hashing the chat password costs nothing in tests.
+
+    tests/test_handlers/test_auth_handler.py reads the real constant from the source.
+    """
+    monkeypatch.setattr("src.bot.handlers.auth.PBKDF2_ITERATIONS", 1000)
 
 
 # ---------------------------------------------------------------------------
@@ -320,22 +402,31 @@ def make_callback_query(make_user, make_message):
 @pytest.fixture
 def make_update(make_user, make_message, make_callback_query):
     """Factory fixture for creating mock Telegram Update objects."""
-    def _make_update(text=None, callback_data=None, user=None):
+    def _make_update(text=None, callback_data=None, user=None, chat_type=None):
         update = MagicMock()
         _user = user or make_user()
         update.effective_user = _user
 
         if callback_data is not None:
             # Callback query update
-            msg = make_message(user=_user)
+            chat_title = "Group" if chat_type and chat_type != "private" else None
+            msg = make_message(user=_user, chat_title=chat_title)
+            if chat_type:
+                msg.chat.type = chat_type
             query = make_callback_query(data=callback_data, user=_user,
                                         message=msg)
             update.callback_query = query
             update.message = None
             update.effective_message = msg
+            update.effective_chat = msg.chat
         else:
             # Text message update
-            msg = make_message(text=text or "test", user=_user)
+            chat_title = "Group" if chat_type and chat_type != "private" else None
+            msg = make_message(
+                text=text or "test", user=_user, chat_title=chat_title
+            )
+            if chat_type:
+                msg.chat.type = chat_type
             update.message = msg
             update.callback_query = None
             update.effective_message = msg

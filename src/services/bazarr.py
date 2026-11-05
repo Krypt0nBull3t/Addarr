@@ -1,0 +1,80 @@
+"""
+Filename: bazarr.py
+Author: Christian Blank (https://github.com/Cyneric)
+Created Date: 2024-11-08
+Description: Bazarr service for Addarr. Handles business logic for subtitle operations.
+"""
+
+from typing import Any, Dict, List, Optional
+from ..api.bazarr import BazarrClient
+from ..config.settings import config
+from ..utils.logger import get_logger
+
+logger = get_logger("addarr.services.bazarr")
+
+
+class BazarrService:
+    """Service class for Bazarr subtitle operations."""
+
+    _instance: Optional["BazarrService"] = None
+    _client: Optional[BazarrClient] = None
+    _config: Dict[str, Any] = {}
+
+    def __new__(cls):
+        """Ensure only one instance of BazarrService exists."""
+        if cls._instance is None:
+            cls._instance = super(BazarrService, cls).__new__(cls)
+            cls._initialize()
+        return cls._instance
+
+    @classmethod
+    def _initialize(cls):
+        """Initialize service state on first instantiation."""
+        cls._client = None
+        cls._config = config.get("bazarr", {})
+
+    @property
+    def client(self) -> Optional[BazarrClient]:
+        """Get or create Bazarr API client."""
+        if not self._client and self._config.get("enable"):
+            try:
+                self._client = BazarrClient()
+            except Exception as e:
+                logger.error(
+                    f"Failed to initialize Bazarr client: {str(e)}"
+                )
+                return None
+        return self._client
+
+    async def close(self) -> None:
+        """Close the aiohttp session of the API client."""
+        if self._client is not None:
+            await self._client.close()
+
+    def is_enabled(self) -> bool:
+        """Check if Bazarr is enabled in config."""
+        return bool(self._config.get("enable"))
+
+    async def search(self, term: str) -> List[Dict]:
+        """Search movies by title in Bazarr."""
+        if not self.client:
+            return []
+        return await self.client.search(term)
+
+    async def get_movies(self) -> List[Dict]:
+        """Get all movies with subtitle info."""
+        if not self.client:
+            return []
+        return await self.client.get_movies()
+
+    async def get_wanted_movies(self) -> List[Dict]:
+        """Get movies missing subtitles."""
+        if not self.client:
+            return []
+        return await self.client.get_wanted_movies()
+
+    async def get_wanted_episodes(self) -> List[Dict]:
+        """Get episodes missing subtitles."""
+        if not self.client:
+            return []
+        return await self.client.get_wanted_episodes()

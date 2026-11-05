@@ -11,53 +11,20 @@ class States:
     SELECTING = 2
 
     # New states (use unique values)
-    MY_FEATURE_MENU = "my_feature_menu"
-    MY_FEATURE_ACTION = "my_feature_action"
+    <FEATURE>_MENU = "<feature>_menu"
+    <FEATURE>_ACTION = "<feature>_action"
 ```
 
 **Convention:**
-- Media flow states: integers (`1, 2, 3, 4`)
-- Other flow states: descriptive strings (`"settings_menu"`, `"my_feature_menu"`)
+- Media flow states: integers `1` to `5` (`SEARCHING` to `ALBUM_SELECT`); auth uses `PASSWORD = 0`
+- Other flow states: descriptive strings (`"settings_menu"`, `"<feature>_menu"`)
 - Never reuse state values across different ConversationHandlers
 
 ## Step 2: Add Translation Keys
 
-Add to all `translations/addarr.*.yml` files. At minimum, `addarr.en-us.yml`:
+Add keys with `@i18n-key` (template plus all 9 locales). It covers key naming, `%{name}` placeholders and validation.
 
-```yaml
-en-us:
-  # PascalCase for simple terms
-  MyFeature: "My Feature"
-  MyFeaturePrompt: "🔍 Choose an option:"
-
-  # Dotted path for nested context
-  MyFeature.Success: "✅ Done!"
-  MyFeature.Error: "❌ Something went wrong"
-
-  # Variable interpolation with %{name}
-  MyFeature.Added: "Added %{title} successfully"
-```
-
-**Naming rules:**
-- PascalCase for keys: `MyFeature`, `SearchResults`
-- Dotted paths for grouping: `Settings.LanguageChanged`
-- Variables: `%{variable_name}`
-- Emojis in the value, not the key
-
-## Step 3: Export Handler
-
-Add to `src/bot/handlers/__init__.py`:
-
-```python
-from .my_feature import MyFeatureHandler
-
-__all__ = [
-    # existing...
-    "MyFeatureHandler",
-]
-```
-
-## Step 4: Register in main.py
+## Step 3: Register in main.py
 
 Add to `src/main.py:AddarrBot._add_handlers()`:
 
@@ -66,43 +33,50 @@ def _add_handlers(self):
     # ... existing handlers in order ...
 
     # Add new handler (respect registration order)
-    my_feature = MyFeatureHandler()
-    for handler in my_feature.get_handler():
+    <feature>_handler = <Feature>Handler()
+    for handler in <feature>_handler.get_handler():
         self.application.add_handler(handler)
 ```
 
-**Registration order matters.** PTB matches the first matching handler. Current order:
+**Registration order matters.** PTB matches the first matching handler. Current order (from `src/main.py:_add_handlers()`):
 
-1. StartHandler
-2. AuthHandler
-3. MediaHandler
-4. SettingsHandler
+1. AuthHandler
+2. MediaHandler
+3. SettingsHandler
+4. WebhooksHandler
 5. DeleteHandler
 6. LibraryHandler
-7. TransmissionHandler *(conditional)*
-8. SabnzbdHandler *(conditional)*
-9. HelpHandler
-10. PreferencesHandler
-11. SystemHandler
+7. CalendarHandler
+8. MissingHandler
+9. QueueHandler
+10. HistoryHandler
+11. TransmissionHandler *(conditional on transmission.enable)*
+12. SabnzbdHandler *(conditional on sabnzbd.enable)*
+13. BazarrHandler *(conditional on bazarr.enable)*
+14. DownloadsHandler
+15. HelpHandler
+16. PreferencesHandler
+17. SystemHandler
+18. StartHandler *(last: its `menu_cancel` must not take Cancel taps from an open conversation)*
 
 **Placement rules:**
-- Handlers with unique command names (`/myfeature`) can go anywhere
+- Handlers with unique command names (`/<feature>`) can go anywhere
 - Handlers that share callback prefixes with existing handlers must go after the handler that should take priority
 - Conditional handlers (config-gated) follow this pattern:
 
 ```python
-if config.get("my_service", {}).get("enable", False):
-    my_feature = MyFeatureHandler()
-    for handler in my_feature.get_handler():
+if config.get("<service>", {}).get("enable", False):
+    <feature>_handler = <Feature>Handler()
+    for handler in <feature>_handler.get_handler():
         self.application.add_handler(handler)
 ```
 
-## Step 5: Import in main.py
+## Step 4: Import in main.py
 
-Add the import at the top of `src/main.py`:
+Add the import at the top of `src/main.py`. It imports every handler from its own module, not from `src/bot/handlers/__init__.py`:
 
 ```python
-from src.bot.handlers.my_feature import MyFeatureHandler
+from src.bot.handlers.<feature> import <Feature>Handler
 ```
 
 ## Conversation Flow Design

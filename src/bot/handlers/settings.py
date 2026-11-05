@@ -21,6 +21,7 @@ from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
+    get_main_menu_keyboard,
     get_settings_keyboard,
     get_language_keyboard,
     get_quality_profile_keyboard,
@@ -34,9 +35,12 @@ from src.services.media import MediaService
 from src.services.transmission import TransmissionService
 from src.services.sabnzbd import SABnzbdService
 from src.services.translation import TranslationService
-from src.definitions import is_admin
+from src.utils.chat import edit_text_ignoring_unmodified
+from src.utils.helpers import is_admin
 
 logger = get_logger("addarr.settings")
+
+SAB_ACTION_ERROR = "❌ SABnzbd error — could not complete action"
 
 
 class SettingsHandler:
@@ -112,6 +116,10 @@ class SettingsHandler:
                             pattern="^setquality_"
                         ),
                         CallbackQueryHandler(
+                            self.handle_service_menu,
+                            pattern="^settings_(radarr|sonarr|lidarr)$"
+                        ),
+                        CallbackQueryHandler(
                             self.handle_settings_from_callback,
                             pattern="^settings_back$"
                         ),
@@ -171,6 +179,7 @@ class SettingsHandler:
                 name="settings_conversation",
                 persistent=False,
                 per_message=False,
+                allow_reentry=True,
             )
         ]
 
@@ -342,8 +351,12 @@ class SettingsHandler:
                 service=service,
             )
 
+        notice = self.translation.get_text(
+            "Settings.ServiceRestartNotice",
+            default="Restart the bot for this to take effect.",
+        )
         await query.message.edit_text(
-            f"✅ {text}", reply_markup=get_settings_keyboard()
+            f"✅ {text}\n{notice}", reply_markup=get_settings_keyboard()
         )
         return States.SETTINGS_MENU
 
@@ -379,7 +392,12 @@ class SettingsHandler:
                 )
                 return States.SETTINGS_MENU
 
-            keyboard = get_quality_profile_keyboard(profiles, service)
+            current_id = config.get(service, {}).get(
+                "quality", {}
+            ).get("defaultProfileId")
+            keyboard = get_quality_profile_keyboard(
+                profiles, service, current_id
+            )
             await query.message.edit_text(
                 f"🎯 Select default quality profile for {service.title()}:",
                 reply_markup=keyboard,
@@ -400,25 +418,44 @@ class SettingsHandler:
         query = update.callback_query
         await query.answer()
 
-        # Parse: setquality_{service}_{id}
-        parts = query.data.split("_")
-        service = parts[1]
-        profile_id = int(parts[2])
+        try:
+            # Parse: setquality_{service}_{id}
+            parts = query.data.split("_")
+            service = parts[1]
+            profile_id = int(parts[2])
 
-        config.update_nested(
-            f"{service}.quality.defaultProfileId", profile_id
-        )
-        config.save()
+            # Look up profile name from the keyboard buttons
+            profile_name = str(profile_id)
+            if query.message and query.message.reply_markup:
+                for row in query.message.reply_markup.inline_keyboard:
+                    for btn in row:
+                        if btn.callback_data == query.data:
+                            profile_name = btn.text.lstrip("✅ ")
+                            break
 
-        text = self.translation.get_text(
-            "Settings.QualityProfileSet",
-            default=f"Default quality profile set to {profile_id} for {service}",
-            profile=str(profile_id),
-            service=service,
-        )
-        await query.message.edit_text(
-            f"✅ {text}", reply_markup=get_settings_keyboard()
-        )
+            config.update_nested(
+                f"{service}.quality.defaultProfileId", profile_id
+            )
+            config.save()
+
+            text = self.translation.get_text(
+                "Settings.QualityProfileSet",
+                default=(
+                    f"Default quality profile for {service.title()} "
+                    f"set to: {profile_name}"
+                ),
+                profile=profile_name,
+                service=service,
+            )
+            await query.message.edit_text(
+                f"✅ {text}", reply_markup=get_settings_keyboard()
+            )
+        except Exception as e:
+            logger.error(f"Error saving quality profile ({query.data}): {e}")
+            await query.message.edit_text(
+                "❌ Error saving quality profile.",
+                reply_markup=get_settings_keyboard(),
+            )
         return States.SETTINGS_MENU
 
     # -- Downloads flow --
@@ -432,10 +469,18 @@ class SettingsHandler:
         trans_enabled = config.get("transmission", {}).get("enable", False)
         sab_enabled = config.get("sabnzbd", {}).get("enable", False)
 
+        if not trans_enabled and not sab_enabled:
+            text = (
+                "📥 Downloads\n\n"
+                "No download clients configured.\n"
+                "Enable Transmission or SABnzbd in config.yaml to "
+                "manage downloads here."
+            )
+        else:
+            text = "📥 Downloads"
+
         keyboard = get_downloads_keyboard(trans_enabled, sab_enabled)
-        await query.message.edit_text(
-            "📥 Downloads", reply_markup=keyboard
-        )
+        await query.message.edit_text(text, reply_markup=keyboard)
         return States.SETTINGS_DOWNLOADS
 
     async def handle_transmission_settings(
@@ -563,7 +608,7 @@ class SettingsHandler:
                 [
                     InlineKeyboardButton(
                         f"◀️ {self.translation.get_text('Back')}",
-                        callback_data="dl_back"
+                        callback_data="dl_sabnzbd"
                     ),
                 ],
             ]
@@ -573,12 +618,14 @@ class SettingsHandler:
             )
         else:
             speed = int(query.data.replace("dl_sab_speed_", ""))
-            if self.sabnzbd_service.is_enabled():
-                await self.sabnzbd_service.set_speed_limit(speed)
+            ok = (
+                self.sabnzbd_service.is_enabled()
+                and await self.sabnzbd_service.set_speed_limit(speed)
+            )
             enabled = config.get("sabnzbd", {}).get("enable", False)
             keyboard = get_sabnzbd_settings_keyboard(enabled)
             await query.message.edit_text(
-                f"✅ Speed limit set to {speed}%",
+                f"✅ Speed limit set to {speed}%" if ok else SAB_ACTION_ERROR,
                 reply_markup=keyboard,
             )
         return States.SETTINGS_DOWNLOADS
@@ -590,18 +637,27 @@ class SettingsHandler:
         query = update.callback_query
         await query.answer()
 
-        if query.data == "dl_sab_pause" and self.sabnzbd_service.is_enabled():
-            await self.sabnzbd_service.pause_queue()
-            text = "⏸ Queue paused"
-        elif query.data == "dl_sab_resume" and self.sabnzbd_service.is_enabled():
-            await self.sabnzbd_service.resume_queue()
-            text = "▶️ Queue resumed"
-        else:
-            text = "❌ SABnzbd not available"
+        try:
+            if query.data == "dl_sab_pause" and self.sabnzbd_service.is_enabled():
+                ok = await self.sabnzbd_service.pause_queue()
+                text = "⏸ Queue paused" if ok else SAB_ACTION_ERROR
+            elif (
+                query.data == "dl_sab_resume"
+                and self.sabnzbd_service.is_enabled()
+            ):
+                ok = await self.sabnzbd_service.resume_queue()
+                text = "▶️ Queue resumed" if ok else SAB_ACTION_ERROR
+            else:
+                text = "❌ SABnzbd not available"
+        except Exception as e:
+            logger.error(f"Error during SABnzbd pause/resume ({query.data}): {e}")
+            text = SAB_ACTION_ERROR
 
         enabled = config.get("sabnzbd", {}).get("enable", False)
         keyboard = get_sabnzbd_settings_keyboard(enabled)
-        await query.message.edit_text(text, reply_markup=keyboard)
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
         return States.SETTINGS_DOWNLOADS
 
     # -- Users flow --
@@ -615,11 +671,11 @@ class SettingsHandler:
         security = config.get("security", {})
         admin_enabled = security.get("enableAdmin", False)
         allowlist_enabled = security.get("enableAllowlist", False)
-        admin_count = len(config.get("admins", []))
-        auth_count = len(config.get("authenticated_users", []))
+        admin_count = len(config.get("admins") or [])
+        allow_count = len(config.get("allow_list") or [])
 
         keyboard = get_users_keyboard(
-            admin_enabled, allowlist_enabled, admin_count, auth_count
+            admin_enabled, allowlist_enabled, admin_count, allow_count
         )
         await query.message.edit_text(
             "👥 Users", reply_markup=keyboard
@@ -655,8 +711,8 @@ class SettingsHandler:
             reply_markup=get_users_keyboard(
                 config.get("security", {}).get("enableAdmin", False),
                 config.get("security", {}).get("enableAllowlist", False),
-                len(config.get("admins", [])),
-                len(config.get("authenticated_users", [])),
+                len(config.get("admins") or []),
+                len(config.get("allow_list") or []),
             ),
         )
         return States.SETTINGS_USERS
@@ -669,7 +725,8 @@ class SettingsHandler:
         query = update.callback_query
         await query.answer()
         await query.message.edit_text(
-            self.translation.get_text("End", default="Done.")
+            "\U0001f3e0 Main Menu",
+            reply_markup=get_main_menu_keyboard(),
         )
         return ConversationHandler.END
 

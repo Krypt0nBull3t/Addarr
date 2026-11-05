@@ -34,13 +34,6 @@ function Test-Command {
     }
 }
 
-# Check for admin rights
-$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    Write-Host "Please run this script as Administrator" -ForegroundColor $colors.Red
-    exit 1
-}
-
 # Check requirements
 Test-Command "python"
 Test-Command "git"
@@ -58,7 +51,7 @@ if (Test-Path $INSTALL_DIR) {
 # Clone repository
 Write-Host "`nCloning repository..." -ForegroundColor $colors.Blue
 try {
-    git clone https://github.com/cyneric/addarr.git $INSTALL_DIR
+    git clone https://github.com/Krypt0nBull3t/Addarr.git $INSTALL_DIR
 } catch {
     Write-Host "Failed to clone repository" -ForegroundColor $colors.Red
     exit 1
@@ -98,74 +91,68 @@ if ($userPath -notlike "*$env:LOCALAPPDATA\Microsoft\WindowsApps*") {
     )
 }
 
-# Ask about Windows service installation
-Write-Host "`nWould you like to install Addarr as a Windows service? [y/N]" -ForegroundColor $colors.Yellow
-$installService = Read-Host
-if ($installService -eq 'y' -or $installService -eq 'Y') {
-    # Create service wrapper script
-    $serviceWrapper = "$INSTALL_DIR\service-wrapper.ps1"
-@"
-`$env:PATH = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-Set-Location "$INSTALL_DIR"
-& "$INSTALL_DIR\venv\Scripts\activate.ps1"
-python "$INSTALL_DIR\run.py"
-"@ | Out-File -FilePath $serviceWrapper -Encoding UTF8
+# Warn about an older Addarr service (earlier versions of this script installed one)
+$olderService = Get-Service -Name Addarr -ErrorAction SilentlyContinue
+if ($olderService) {
+    Write-Host "`nAn older Addarr Windows service exists. It runs with SYSTEM rights and will not start after this install." -ForegroundColor $colors.Yellow
+    Write-Host "Remove it from an Administrator PowerShell:" -ForegroundColor $colors.Yellow
+    Write-Host "sc.exe stop Addarr"
+    Write-Host "sc.exe delete Addarr"
+}
 
-    # Create service using NSSM (Non-Sucking Service Manager)
-    Write-Host "`nDownloading NSSM (Service Manager)..." -ForegroundColor $colors.Blue
-    $nssmUrl = "https://nssm.cc/release/nssm-2.24.zip"
-    $nssmZip = "$env:TEMP\nssm.zip"
-    $nssmPath = "$INSTALL_DIR\tools"
-    
-    # Download and extract NSSM
-    Invoke-WebRequest -Uri $nssmUrl -OutFile $nssmZip
-    Expand-Archive -Path $nssmZip -DestinationPath $nssmPath -Force
-    Copy-Item "$nssmPath\nssm-2.24\win64\nssm.exe" "$nssmPath\nssm.exe"
-    Remove-Item -Path $nssmZip
-    Remove-Item -Path "$nssmPath\nssm-2.24" -Recurse
+# Ask about starting Addarr at logon
+$taskInstalled = $false
+Write-Host "`nWould you like Addarr to start automatically when you log on? [y/N]" -ForegroundColor $colors.Yellow
+$autoStart = Read-Host
+if ($autoStart -eq 'y' -or $autoStart -eq 'Y') {
+    # Setup writes config.yaml, and the bot cannot start without it
+    Write-Host "`nRunning setup..." -ForegroundColor $colors.Blue
+    & "$INSTALL_DIR\venv\Scripts\python.exe" "$INSTALL_DIR\run.py" --setup
 
-    # Install the service
-    $nssm = "$nssmPath\nssm.exe"
-    & $nssm install Addarr "powershell.exe" "-ExecutionPolicy Bypass -NoProfile -File `"$serviceWrapper`""
-    & $nssm set Addarr DisplayName "Addarr Media Bot"
-    & $nssm set Addarr Description "Telegram bot for media management through Radarr, Sonarr, and Lidarr"
-    & $nssm set Addarr ObjectName LocalSystem
-    & $nssm set Addarr Start SERVICE_AUTO_START
-    
-    # Ask about starting at boot
-    Write-Host "`nWould you like Addarr to start automatically at boot? [y/N]" -ForegroundColor $colors.Yellow
-    $startBoot = Read-Host
-    if ($startBoot -eq 'y' -or $startBoot -eq 'Y') {
-        & $nssm set Addarr Start SERVICE_AUTO_START
-        Write-Host "✓ Addarr will start automatically at boot" -ForegroundColor $colors.Green
+    if (-not (Test-Path "$INSTALL_DIR\config.yaml")) {
+        Write-Host "`nSetup did not create config.yaml, so the logon task is not installed." -ForegroundColor $colors.Red
+        Write-Host "Run 'addarr --setup', then run this installer again."
     } else {
-        & $nssm set Addarr Start SERVICE_DEMAND_START
-    }
+        # The task runs as the installing user without elevation
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $python = "$INSTALL_DIR\venv\Scripts\python.exe"
+        $action = New-ScheduledTaskAction -Execute $python -Argument "`"$INSTALL_DIR\run.py`"" -WorkingDirectory $INSTALL_DIR
+        $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity
+        $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
+        $settings = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
-    # Ask about starting now
-    Write-Host "`nWould you like to start Addarr now? [y/N]" -ForegroundColor $colors.Yellow
-    $startNow = Read-Host
-    if ($startNow -eq 'y' -or $startNow -eq 'Y') {
-        Start-Service Addarr
-        Write-Host "✓ Addarr service started" -ForegroundColor $colors.Green
-        Write-Host "`nYou can manage the service with:" -ForegroundColor $colors.Blue
-        Write-Host "Start-Service Addarr"
-        Write-Host "Stop-Service Addarr"
-        Write-Host "Restart-Service Addarr"
-        Write-Host "Get-Service Addarr"
+        # Replace the task of an earlier install
+        Unregister-ScheduledTask -TaskName Addarr -Confirm:$false -ErrorAction SilentlyContinue
+        Register-ScheduledTask -TaskName Addarr -Description "Telegram bot for media management through Radarr, Sonarr, and Lidarr" -Action $action -Trigger $trigger -Principal $principal -Settings $settings | Out-Null
+        $taskInstalled = $true
+        Write-Host "✓ Addarr will start when $identity logs on" -ForegroundColor $colors.Green
+
+        # Ask about starting now
+        Write-Host "`nWould you like to start Addarr now? [y/N]" -ForegroundColor $colors.Yellow
+        $startNow = Read-Host
+        if ($startNow -eq 'y' -or $startNow -eq 'Y') {
+            Start-ScheduledTask -TaskName Addarr
+            Write-Host "✓ Addarr started" -ForegroundColor $colors.Green
+        }
+        Write-Host "`nYou can manage the task with:" -ForegroundColor $colors.Blue
+        Write-Host "Start-ScheduledTask -TaskName Addarr"
+        Write-Host "Stop-ScheduledTask -TaskName Addarr"
+        Write-Host "Get-ScheduledTask -TaskName Addarr"
     }
 }
 
 Write-Host "`nInstallation complete!" -ForegroundColor $colors.Green
-Write-Host "`nTo get started:" -ForegroundColor $colors.Yellow
-Write-Host "1. Run initial setup:" -NoNewline
-Write-Host " addarr (on first run, setup wizard will start automatically)" -ForegroundColor $colors.Blue
-if ($installService -ne 'y' -and $installService -ne 'Y') {
+if ($taskInstalled) {
+    Write-Host "`nSetup is done. Addarr starts automatically when you log on." -ForegroundColor $colors.Yellow
+} else {
+    Write-Host "`nTo get started:" -ForegroundColor $colors.Yellow
+    Write-Host "1. Run initial setup:" -NoNewline
+    Write-Host " addarr (on first run, setup wizard will start automatically)" -ForegroundColor $colors.Blue
     Write-Host "2. Start the bot:" -NoNewline
     Write-Host " addarr" -ForegroundColor $colors.Blue
 }
 Write-Host "`nFor more information, visit: " -NoNewline
-Write-Host "https://github.com/cyneric/addarr/wiki" -ForegroundColor $colors.Blue
+Write-Host "https://github.com/Krypt0nBull3t/Addarr/wiki" -ForegroundColor $colors.Blue
 
 # Refresh environment variables in current session
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")

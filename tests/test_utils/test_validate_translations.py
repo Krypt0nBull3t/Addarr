@@ -152,12 +152,15 @@ class TestCheckEmojiConsistency:
 
 
 class TestMain:
-    """Tests for the main() validation function."""
+    """Tests for the main() validation function.
+
+    main() returns the process exit code: 0 when valid, 1 on any problem.
+    """
 
     def test_template_load_failure(self):
         """Exits early when template file fails to load."""
         with patch("src.utils.validate_translations.load_yaml", return_value={}):
-            main()  # should not raise
+            assert main() == 1
 
     def test_valid_translations(self, tmp_path):
         """All translations valid, prints success."""
@@ -180,7 +183,7 @@ class TestMain:
             mock_translations_dir.glob.return_value = [
                 Path("translations/addarr.en.yml")
             ]
-            main()
+            assert main() == 0
 
     def test_missing_keys(self, tmp_path):
         """Reports missing keys in translation."""
@@ -199,7 +202,7 @@ class TestMain:
             mock_translations_dir.glob.return_value = [
                 Path("translations/addarr.en.yml")
             ]
-            main()
+            assert main() == 1
 
     def test_extra_keys(self, tmp_path):
         """Reports extra keys in translation."""
@@ -218,7 +221,7 @@ class TestMain:
             mock_translations_dir.glob.return_value = [
                 Path("translations/addarr.en.yml")
             ]
-            main()
+            assert main() == 1
 
     def test_format_errors(self, tmp_path):
         """Reports format placeholder mismatches."""
@@ -237,7 +240,7 @@ class TestMain:
             mock_translations_dir.glob.return_value = [
                 Path("translations/addarr.en.yml")
             ]
-            main()
+            assert main() == 1
 
     def test_translation_load_failure(self):
         """Marks invalid and continues when a translation file fails to load."""
@@ -255,7 +258,7 @@ class TestMain:
             mock_translations_dir.glob.return_value = [
                 Path("translations/addarr.en.yml")
             ]
-            main()
+            assert main() == 1
 
     def test_skips_template_file(self):
         """Skips the template file itself."""
@@ -275,7 +278,7 @@ class TestMain:
                 Path("translations/addarr.template.yml"),
                 Path("translations/addarr.de.yml"),
             ]
-            main()
+            assert main() == 0
 
     def test_emoji_consistency_errors(self):
         """Reports emoji consistency issues."""
@@ -294,7 +297,7 @@ class TestMain:
             mock_translations_dir.glob.return_value = [
                 Path("translations/addarr.de.yml")
             ]
-            main()
+            assert main() == 1
 
     def test_no_translation_files(self):
         """All valid when no translation files exist."""
@@ -307,4 +310,4 @@ class TestMain:
             mock_translations_dir = MagicMock()
             mock_path_cls.return_value = mock_translations_dir
             mock_translations_dir.glob.return_value = []
-            main()
+            assert main() == 0

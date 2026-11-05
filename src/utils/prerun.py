@@ -11,8 +11,8 @@ colorama initialization, and other startup requirements.
 import sys
 import os
 import subprocess
-import json
-from typing import List, Set
+from importlib import metadata
+from typing import List, Optional, Set
 
 
 class ColorHandler:
@@ -54,6 +54,7 @@ class PreRunChecker:
         self.colors = ColorHandler()
         self.root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.config_path = os.path.join(self.root_dir, "config.yaml")
+        self.requirements_path = os.path.join(self.root_dir, "requirements.txt")
 
     def check_config_exists(self) -> bool:
         """Check if config exists and handle setup if needed"""
@@ -83,8 +84,10 @@ class PreRunChecker:
                 print(f"{self.colors.Fore.RED}Please answer with 'y' or 'n'")
         return True
 
-    def parse_requirements(self, filename: str = "requirements.txt") -> List[str]:
-        """Parse requirements.txt file"""
+    def parse_requirements(self, filename: Optional[str] = None) -> List[str]:
+        """Parse requirements.txt file (default: the one in the project root)"""
+        if filename is None:
+            filename = self.requirements_path
         # Core dependencies needed for basic functionality
         core_deps = [
             'colorama',
@@ -101,8 +104,7 @@ class PreRunChecker:
                     # Skip empty lines and comments
                     if not line or line.startswith('#'):
                         continue
-                    # Remove version specifiers and comments
-                    package = line.split('>=')[0].split('<=')[0].split('==')[0].split('#')[0].strip()
+                    package = line.split('>=')[0].split('<=')[0].split('==')[0].split('#')[0].split('[')[0].strip()
                     if package:
                         requirements.append(package.lower())  # Convert to lowercase
         except FileNotFoundError:
@@ -111,20 +113,14 @@ class PreRunChecker:
         return list(set(requirements + core_deps))  # Combine and deduplicate
 
     def get_installed_packages(self) -> Set[str]:
-        """Get list of installed packages using pip list"""
+        """Get installed package names from the package metadata (no pip needed)"""
         try:
-            # Run pip list in JSON format
-            result = subprocess.run(
-                [sys.executable, '-m', 'pip', 'list', '--format=json'],
-                capture_output=True,
-                text=True
-            )
-            packages = json.loads(result.stdout)
-
-            # Create a set with multiple variations of package names
             installed = set()
-            for pkg in packages:
-                name = pkg['name'].lower()
+            for dist in metadata.distributions():
+                name = dist.metadata["Name"]
+                if not name:
+                    continue
+                name = name.lower()
                 installed.add(name)
                 installed.add(name.replace('-', '_'))  # Add underscore version
                 installed.add(name.replace('_', '-'))  # Add hyphen version
@@ -162,7 +158,7 @@ class PreRunChecker:
                 if response in ['y', 'yes']:
                     try:
                         print(f"\n{self.colors.Fore.CYAN}Installing dependencies...")
-                        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'])
+                        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', self.requirements_path])
                         print(f"{self.colors.Fore.GREEN}✅ Dependencies installed successfully!")
 
                         # Reload colorama if it was just installed

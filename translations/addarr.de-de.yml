@@ -13,6 +13,7 @@ de-de:
     Services: "Dienste"
     ServiceEnabled: "%{service} aktiviert"
     ServiceDisabled: "%{service} deaktiviert"
+    ServiceRestartNotice: "Starte den Bot neu, damit die Änderung wirksam wird."
     QualityProfile: "Standard-Qualitätsprofil"
     QualityProfileSet: "Standard-Qualitätsprofil für %{service} auf %{profile} gesetzt"
     AdminOnly: "Einstellungen sind nur für Administratoren verfügbar."
@@ -47,10 +48,12 @@ de-de:
   Previous: Zurück
 
   # Library listing
-  LibraryEmpty: "📭 No %{subject} found in your library."
-  LibraryNotEnabled: "❌ %{subject} is not enabled or configured."
-  LibraryError: "❌ Error loading library. Please try again later."
-  LibraryExpired: "⏳ Session expired. Please run the command again."
+  LibraryEmpty: "📭 Keine %{subject} in deiner Bibliothek gefunden."
+  LibraryNotEnabled: "❌ %{subject} ist nicht aktiviert oder konfiguriert."
+  LibraryError: "❌ Fehler beim Laden der Bibliothek. Bitte versuche es später erneut."
+  LibraryExpired: "⏳ Sitzung abgelaufen. Bitte führe den Befehl erneut aus."
+  Library: "Bibliothek"
+  LibraryPrompt: "📚 Wähle eine Bibliothek zum Durchsuchen:"
 
   # Common messages
   Start chatting: "🤖 Starte einen Chat mit Addarr auf Telegram. Das erste Mal wenn du \"start\" verwendest wirst du gebeten dein Password einzugeben."
@@ -58,13 +61,15 @@ de-de:
   Title: "🔍 Gib einen Suchbegriff ein:"
   What is this?: "❓ Wonach möchtest du suchen?"
   NotAuthorized: "🔒 Du musst dich zuerst authentifizieren.\nBenutze /auth um die Authentifizierung zu starten."
+  PrivateChatOnly: "🔒 Dieser Bot funktioniert nur in privaten Chats. Bitte schreibe mir direkt."
+  NotAllowed: "⛔ Du darfst diesen Bot nicht benutzen."
   mainMenu: "🏠 Hauptmenü - Wähle eine Aktion aus."
 
   messages:
     CancelHint: "(Benutze /cancel zum Abbrechen)"
     Add: "✅ Ja, %{subject} hinzufügen"
     This: "❓ Willst du %{subjectWithArticle} hinzufügen?"
-    ThisDelete: "❓ Möchten sie %{subjectWithArticle} wirklich löschen?"
+    ThisDelete: "❓ Möchten sie %{subjectWithArticle} wirklich löschen: %{title}? Die Dateien auf dem Datenträger werden auch gelöscht."
     AddFailed: "❌ Oops, das Hinzufügen von %{subjectWithArticle} ist fehlgeschlagen. Probiere es doch nochmal."
     DeleteFailed: "❌ Oops, das Löschen von %{subjectWithArticle} ist fehlgeschlagen. Probiere es doch nochmal."
     AddSuccess: "✅ %{subjectWithArticle} wurde erfolgreich hinzugefügt 🙂"
@@ -92,12 +97,12 @@ de-de:
   ConfirmSelection: "✅ Auswahl bestätigen"
 
   # Album selection
-  AlbumMonitorAll: "💿 All Albums"
-  AlbumMonitorPick: "🎯 Pick Specific Albums"
+  AlbumMonitorAll: "💿 Alle Alben"
+  AlbumMonitorPick: "🎯 Bestimmte Alben auswählen"
   AllAlbums: "💿 Alle Alben"
-  AlbumSelectPrompt: "🎵 Select albums to monitor"
-  AlbumConfirm: "✅ Confirm album selection"
-  FutureAlbums: "🔄 Future Albums"
+  AlbumSelectPrompt: "🎵 Alben zum Überwachen auswählen"
+  AlbumConfirm: "✅ Albumauswahl bestätigen"
+  FutureAlbums: "🔄 Zukünftige Alben"
 
   # Quality selection
   SelectQuality: "🎯 Wähle ein Qualitätsprofil"
@@ -106,6 +111,7 @@ de-de:
   Authorize: "🔐 Dieser Chat muss zuerst autorisiert werden. Bitte gib dein Password ein."
   Wrong password: "❌ Das Password ist nicht korrekt. Probiere es erneut..."
   Chatid added: "✅ Dieser Chat wurde zur autorisierten Liste hinzugefügt. Du kannst den Bot nun benutzen.\nBefehle müssen erneut ausgeführt werden."
+  AuthSaveFailed: "Du bist vorerst autorisiert, aber der Bot konnte das nicht speichern. Nach einem Neustart musst du dich erneut authentifizieren. Bitte den Admin zu prüfen, ob config.yaml beschreibbar ist."
   NotAdmin: "⛔ Du musst ein Administrator sein, um diesen Befehl zu benutzen."
   Chatid already allowed: "ℹ️ Dieser Chat ist bereits autorisiert."
   
@@ -130,33 +136,52 @@ de-de:
     ChangedTo25: "✅ Auf 25% limitiert"
     ChangedTo100: "✅ Kein Geschwindigkeitslimit"
     Error: "❌ Bei der Änderung des Geschwindigkeitslimits ist ein Fehler aufgetreten"
-  
-  # Help text
-  HelpText: "❓ Möchtest du diesen Text erneut sehen? Benutze /%{help}.
 
-    🚀 Basis-Befehle:
-    • Zur Authentifizierung benutze /%{authenticate}
-    • Um Medien hinzuzufügen benutze /%{add}
-    • Um Medien zu löschen, benutze /%{delete}
-    • Um Medien direkt hinzuzufügen benutze /%{movie}, /%{serie} oder /%{music}
+  # Bazarr
+  BazarrNotEnabled: "❌ The Bazarr subtitle function is not activated.\nEnable it in config.yaml to use this feature."
+  BazarrMenu: "🎭 Subtitle Management - Choose an action:"
+  BazarrSearchButton: "🔍 Search Subtitles"
+  BazarrWantedMoviesButton: "🎬 Wanted Movies"
+  BazarrWantedEpisodesButton: "📺 Wanted Episodes"
+  BazarrCancelButton: "❌ Cancel"
+  BazarrSearchPrompt: "🎭 Enter a movie title to search for subtitles:"
+  BazarrNoResults: "❌ No subtitle results found."
+  BazarrWantedEmpty: "✅ No media is missing subtitles."
+  BazarrCancelled: "👍 Subtitle operation cancelled."
 
-    📊 Status-Befehle:
-    • Um alle verfügbaren Serien in Sonarr anzuzeigen benutze /%{allSeries}
-    • Um alle verfügbaren Filme in Radarr anzuzeigen benutze /%{allMovies}
-    • Um alle verfügbaren Künstler in Lidarr anzuzeigen benutze /%{allMusic}
-
-    ⚙️ System-Befehle:
-    • Um die Up- und Download Geschwindigkeit von Transmission umzuschalten benutze /%{transmission}
-    • Um die Up- und Download Geschwindigkeit von SABnzbd umzuschalten benutze /%{sabnzbd}
-
-    🛠️ Admin-Befehle:
-    • python run.py --setup - Setup-Assistent ausführen
-    • python run.py --configure - Dienste hinzufügen/bearbeiten
-    • python run.py --check - Konfigurationsstatus anzeigen
-    • python run.py --validate-i18n - Übersetzungsdateien validieren
-    • python run.py --backup - Konfiguration sichern
-    • python run.py --reset - Konfiguration zurücksetzen
-    • python run.py --help - Alle Befehle anzeigen"
+  # Help sections
+  HelpHeader: "🤖 *Available Commands:*"
+  HelpBasicCommands: |
+    🚀 /start - Start the bot
+    🔐 /auth - Authenticate with password
+    ❓ /help - Show this help message
+    📊 /status - Check system status
+    ⚙️ /settings - Manage settings
+    🗑️ /delete - Delete media
+    👤 /preferences - Manage preferences
+    🔔 /webhooks - Manage webhook notifications
+  HelpMediaMovies: |
+    🎬 /movie - Search and add movies
+    🎬 /allmovies - Show all movies
+  HelpMediaSeries: |
+    📺 /series - Search and add TV shows
+    📺 /allseries - Show all series
+  HelpMediaMusic: |
+    🎵 /music - Search and add music
+    🎵 /allmusic - Show all music
+  HelpCalendar: |
+    📅 /upcoming - Browse upcoming releases
+    🔍 /missing - Browse missing media
+  HelpQueue: "⏳ /queue - Browse download queue"
+  HelpHistory: "📜 /history - Browse recent activity"
+  HelpDownloads: "📦 /downloads - Download queue"
+  HelpDownloadTransmission: "📡 /transmission - Manage Transmission"
+  HelpDownloadSabnzbd: "📥 /sabnzbd - Manage SABnzbd"
+  HelpSubtitlesBazarr: "🎭 /subtitles - Manage subtitles (Bazarr)"
+  HelpVersion: "🔄 Version: %(version)s"
+  HelpFooter: |
+    📖 Wiki: https://github.com/Krypt0nBull3t/Addarr/wiki
+    🐞 Issues: https://github.com/Krypt0nBull3t/Addarr/issues
 
   # Error messages
   Error:
@@ -200,3 +225,144 @@ de-de:
     AddFailed: "❌ Fehler beim Hinzufügen des %{subjectWithArticle} %{title} des Benutzers %{first_name} mit der chat_id %{chat_id}."
     Exist: "ℹ️ Das %{subjectWithArticle} %{title}, das der Benutzer %{first_name} mit chat_id %{chat_id} hinzufügen wollte, existiert bereits."
     Delete: "🗑️ Der Benutzer %{first_name} mit chat_id %{chat_id} hat eine neue Löschung initiiert."
+  # Bot command descriptions (for Telegram /menu)
+  CommandStart: "Bot starten"
+  CommandAuth: "Mit Passwort authentifizieren"
+  CommandHelp: "Verfügbare Befehle anzeigen"
+  CommandStatus: "Systemstatus prüfen"
+  CommandSettings: "Bot-Einstellungen verwalten"
+  CommandPreferences: "Einstellungen verwalten"
+  CommandDelete: "Medien aus der Bibliothek löschen"
+  CommandMovie: "Filme suchen und hinzufügen"
+  CommandSeries: "Serien suchen und hinzufügen"
+  CommandMusic: "Musik suchen und hinzufügen"
+  CommandAllMovies: "Alle Filme auflisten"
+  CommandAllSeries: "Alle Serien auflisten"
+  CommandAllMusic: "Alle Musik auflisten"
+  CommandTransmission: "Transmission verwalten"
+  CommandSabnzbd: "SABnzbd verwalten"
+  CommandSubtitles: "Manage subtitles"
+  CommandDownloads: "Download-Warteschlange"
+
+  # Downloads dashboard
+  DownloadsTitle: "Downloads"
+  DownloadsEmpty: "Keine Elemente in der Download-Warteschlange."
+  DownloadsHistoryTitle: "Download-Verlauf"
+  DownloadsHistoryEmpty: "Kein Download-Verlauf verfügbar."
+  DownloadsSpeed: "Geschwindigkeit"
+  DownloadsRemaining: "Verbleibend"
+  DownloadsItems: "Elemente"
+  DownloadsPaused: "Warteschlange pausiert"
+  DownloadsResumed: "Warteschlange fortgesetzt"
+  DownloadsItemPaused: "Element pausiert."
+  DownloadsItemResumed: "Element fortgesetzt."
+  DownloadsPauseError: "Fehler beim Pausieren des Elements."
+  DownloadsResumeError: "Fehler beim Fortsetzen des Elements."
+  DownloadsFetchError: "Der Download-Client ist nicht erreichbar. Prüfe, ob er läuft und ob der API-Schlüssel stimmt."
+  DownloadsNotEnabled: "Keine Download-Clients aktiviert."
+  DownloadsClientSabnzbd: "SABnzbd"
+  DownloadsClientTransmission: "Transmission"
+
+  # Rate limiting
+  RateLimitExceeded: "Langsam! Bitte warte %(seconds)s Sekunden, bevor du es erneut versuchst."
+
+  # Calendar / Upcoming releases
+  Upcoming: "📅 Demnächst"
+  CommandUpcoming: "Kommende Veröffentlichungen durchsuchen"
+  CalendarTitle: "📅 Kommende Veröffentlichungen"
+  CalendarEmpty: "Keine kommenden Veröffentlichungen gefunden."
+  CalendarMovie: "🎬 Film"
+  CalendarEpisode: "📺 Episode"
+  CalendarCinema: "Kino"
+  CalendarDigital: "Digital"
+  CalendarPhysical: "Physisch"
+  CalendarAiring: "Ausstrahlung"
+  CalendarDays7: "7 Tage"
+  CalendarDays14: "14 Tage"
+  CalendarDays30: "30 Tage"
+  CalendarAlreadyInLibrary: "Bereits in deiner Bibliothek."
+
+  # Missing / Wanted media
+  Missing: "📭 Fehlend"
+  CommandMissing: "Fehlende/gewünschte Medien durchsuchen"
+  MissingTitle: "📭 Fehlend / Gewünscht"
+  MissingEmpty: "Keine fehlenden Medien gefunden."
+  MissingSearching: "🔍 Suche läuft..."
+  MissingSearchSuccess: "✅ Suche ausgelöst!"
+  MissingSearchFailed: "❌ Suche fehlgeschlagen."
+  MissingSearchNow: "Jetzt suchen"
+
+  # Download queue
+  Queue: "📥 Warteschlange"
+  CommandQueue: "Download-Warteschlange durchsuchen"
+  QueueTitle: "📥 Download-Warteschlange"
+  QueueEmpty: "Keine Elemente in der Download-Warteschlange."
+
+  History: "📜 Verlauf"
+  CommandHistory: "Letzte Aktivitäten anzeigen"
+  HistoryTitle: "📜 Letzte Aktivitäten"
+  HistoryEmpty: "Keine aktuellen Aktivitäten gefunden."
+  HistoryGrabbed: "Geholt"
+  HistoryImported: "Importiert"
+  HistoryFailed: "Fehlgeschlagen"
+  HistoryAll: "Alle"
+
+  # Handler error and status messages
+  SearchError: "❌ An error occurred while searching.\nPlease try again later."
+  SearchInvalidType: "❌ Invalid search type"
+  SearchNoResults: "❌ No %(search_type)s found matching '%(query)s'"
+  SelectionNotFound: "❌ Selection not found.\nPlease try your search again."
+  SelectionDataNotFound: "❌ Selection data not found.\nPlease try your search again."
+  SelectionProcessError: "❌ An error occurred while processing your selection.\nPlease try again."
+  MediaAddError: "❌ An error occurred: %(error)s"
+  InvalidMediaType: "❌ Invalid media type"
+  DisplayResultError: "❌ Error displaying result. Please try your search again."
+  ArtistAddError: "❌ An error occurred while adding the artist."
+  AlbumFetchError: "❌ An error occurred while fetching albums."
+  MediaListError: "❌ Error getting media list"
+  MediaTypeNotFound: "❌ Media type not found"
+  ItemDetailsError: "❌ Error getting item details"
+  ItemDataNotFound: "❌ Item data not found"
+  StatusRefreshed: "Status refreshed"
+  StatusRefreshError: "❌ Error refreshing status. Please try again."
+  StatusDetailsError: "❌ Error retrieving service details. Please try again."
+  DiskSpaceError: "❌ Error retrieving disk space. Please try again."
+  DiskSpaceNone: "No disk space data available."
+  UnknownAction: "Unknown action"
+  UnknownMediaType: "Unknown media type"
+  TransmissionNotEnabled: "❌ Transmission integration is not enabled.\nEnable it in config.yaml to use this feature."
+  TransmissionConnectionError: "❌ Cannot connect to Transmission:\n%(error)s"
+  TransmissionToggleFailed: "❌ Failed to toggle Turtle Mode"
+
+  # Webhook notifications
+  WebhookGrab: "🔔 Grabbing: %{title}\nQuality: %{quality}\nService: %{source}"
+  WebhookDownload: "✅ Downloaded: %{title}\nQuality: %{quality}\nService: %{source}"
+  WebhookUpgrade: "⬆️ Upgraded: %{title}\nQuality: %{quality}\nService: %{source}"
+  WebhookHealthIssue: "⚠️ Health Issue (%{source}): %{message}"
+  WebhookHealthRestored: "✅ Health Restored (%{source}): %{message}"
+  WebhookFailure: "❌ Failed: %{title}\nService: %{source}\nReason: %{message}"
+  WebhookTest: "🧪 Test notification from %{source}"
+  WebhookUnknown: "ℹ️ %{source} event: %{title}"
+
+  # Webhook wizard UI
+  CommandWebhooks: "Manage webhook notifications"
+  WebhookNotAdmin: "⛔ You need to be an admin to manage webhooks."
+  WebhookMenuTitle: "🔔 Webhook Settings"
+  WebhookNotEnabled: "❌ Webhooks are not enabled in config.yaml."
+  WebhookServerRunning: "✅ Webhook server is running on port %{port}"
+  WebhookServerStopped: "⏹️ Webhook server is not running"
+  WebhookSetupService: "🔧 Setup %{service}"
+  WebhookServiceConfigured: "✅ %{service}: configured"
+  WebhookServiceNotConfigured: "⚙️ %{service}: not configured"
+  WebhookSecretGenerated: "🔑 Secret generated for %{service}.\n\nAdd this webhook URL to %{service}:\n%{url}\n\nSecret (X-Api-Secret header): %{secret}"
+  WebhookSecretExisting: "🔑 Geheimnis für %{service} (bereits eingerichtet).\n\nWebhook-URL in %{service}:\n%{url}\n\nGeheimnis (X-Api-Secret-Header): %{secret}\n\nMit der Schaltfläche zum Neuerzeugen erstellst du ein neues Geheimnis. Das alte funktioniert dann nicht mehr."
+  WebhookSecretRegenerated: "🔑 Secret regenerated for %{service}.\n\nUpdate your webhook URL in %{service}:\n%{url}\n\nNew secret (X-Api-Secret header): %{secret}"
+  WebhookPortPrompt: "🔢 Enter the webhook server port (1024-65535):"
+  WebhookPortInvalid: "❌ Invalid port. Please enter a number between 1024 and 65535."
+  WebhookPortSaved: "✅ Webhook port set to %{port}.\n⚠️ Restart the bot for this to take effect."
+  WebhookEventEnabled: "✅ %{event} notifications enabled"
+  WebhookEventDisabled: "🔕 %{event} notifications disabled"
+  WebhookClose: "Done"
+  WebhookEvents: "📋 Event Toggles"
+  WebhookChangePort: "🔢 Change Port"
+  WebhookRegenerateSecret: "🔄 Regenerate Secret"

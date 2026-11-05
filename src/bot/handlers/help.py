@@ -7,12 +7,14 @@ Description: Help handler module.
 This module provides help and command information to users.
 """
 
-from telegram import Update
+from telegram import LinkPreviewOptions, Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
-from src.bot.keyboards import get_main_menu_keyboard
+from src.bot.keyboards import get_back_keyboard, get_main_menu_keyboard
+from src.config.settings import config
 from src.services.translation import TranslationService
+from src import __version__
 
 logger = get_logger("addarr.help")
 
@@ -30,6 +32,48 @@ class HelpHandler:
             CallbackQueryHandler(self.handle_back, pattern="^menu_back$")
         ]
 
+    def _build_help_text(self):
+        """Build help text from translations, filtered by enabled services."""
+        t = self.translation
+        sections = [t.get_text("HelpHeader"), "", t.get_text("HelpBasicCommands")]
+
+        radarr = config.get("radarr", {}).get("enable")
+        sonarr = config.get("sonarr", {}).get("enable")
+        lidarr = config.get("lidarr", {}).get("enable")
+        transmission = config.get("transmission", {}).get("enable", False)
+        sabnzbd = config.get("sabnzbd", {}).get("enable", False)
+
+        if radarr:
+            sections.append(t.get_text("HelpMediaMovies"))
+        if sonarr:
+            sections.append(t.get_text("HelpMediaSeries"))
+        if lidarr:
+            sections.append(t.get_text("HelpMediaMusic"))
+
+        # Same gates as build_authenticated_commands() in src/bot/commands.py
+        if radarr or sonarr:
+            sections.append(t.get_text("HelpCalendar"))
+        if radarr or sonarr or lidarr:
+            sections.append(t.get_text("HelpQueue"))
+        if radarr or sonarr:
+            sections.append(t.get_text("HelpHistory"))
+
+        if transmission:
+            sections.append(t.get_text("HelpDownloadTransmission"))
+        if sabnzbd:
+            sections.append(t.get_text("HelpDownloadSabnzbd"))
+        if transmission or sabnzbd:
+            sections.append(t.get_text("HelpDownloads"))
+
+        if config.get("bazarr", {}).get("enable", False):
+            sections.append(t.get_text("HelpSubtitlesBazarr"))
+
+        sections.append("")
+        sections.append(t.get_text("HelpVersion", version=__version__))
+        sections.append(t.get_text("HelpFooter"))
+
+        return "\n".join(sections)
+
     @require_auth
     async def show_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show help message with available commands"""
@@ -39,44 +83,20 @@ class HelpHandler:
         user = update.effective_user
         log_user_interaction(logger, user, "/help")
 
-        help_text = (
-            "🤖 *Available Commands:*\n\n"
-            "🎬 */movie* - Search and add movies\n"
-            "📺 */series* - Search and add TV shows\n"
-            "🎵 */music* - Search and add music\n\n"
+        help_text = self._build_help_text()
 
-            "🚫 */cancel* - Cancel current action\n"
-            "❌ */delete* - Delete media\n"
-            "📊 */status* - Check system status\n"
-            "⚙️ */settings* - Manage settings\n\n"
-
-            "🚀 */allSeries* - Show all series\n"
-            "🎬 */allMovies* - Show all movies\n"
-            "🎵 */allMusic* - Show all music\n\n"
-
-            "❓ */help* - Show this help message\n\n"
-
-
-            "📖 Wiki: https://github.com/Cyneric/addarr/wiki\n"
-            "🐞 Issues: https://github.com/Cyneric/addarr/issues\n"
-            "🔗 Repository: https://github.com/Cyneric/addarr\n\n"
-
-            "👨‍💻 Author: Christian Blank (https://github.com/Cyneric)\n\n"
-            "🔄 Version: 0.1.0\n"
-        )
-
-        # Handle both direct commands and callback queries
         if update.callback_query:
             await update.callback_query.message.edit_text(
                 help_text,
                 parse_mode='Markdown',
-                disable_web_page_preview=True,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
+                reply_markup=get_back_keyboard("menu_back"),
             )
         else:
             await update.message.reply_text(
                 help_text,
                 parse_mode='Markdown',
-                disable_web_page_preview=True,
+                link_preview_options=LinkPreviewOptions(is_disabled=True),
             )
 
     @require_auth

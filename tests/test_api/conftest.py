@@ -1,7 +1,7 @@
 import pytest
 from aioresponses import aioresponses
 
-_CLIENT_FIXTURES = ("radarr_client", "sonarr_client", "lidarr_client")
+_CLIENT_FIXTURES = ("radarr_client", "sonarr_client", "lidarr_client", "bazarr_client")
 
 
 @pytest.fixture(autouse=True)
@@ -19,26 +19,6 @@ def aio_mock():
     """Provide aioresponses mock for async HTTP requests."""
     with aioresponses() as m:
         yield m
-
-
-@pytest.fixture
-def radarr_url():
-    return "http://localhost:7878"
-
-
-@pytest.fixture
-def sonarr_url():
-    return "http://localhost:8989"
-
-
-@pytest.fixture
-def lidarr_url():
-    return "http://localhost:8686"
-
-
-@pytest.fixture
-def sabnzbd_url():
-    return "http://localhost:8090"
 
 
 @pytest.fixture
@@ -60,14 +40,9 @@ def lidarr_client():
 
 
 @pytest.fixture
-def sabnzbd_client():
-    from src.api.sabnzbd import SabnzbdClient
-    return SabnzbdClient()
-
-
-@pytest.fixture
-def transmission_url():
-    return "http://localhost:9091"
+def bazarr_client():
+    from src.api.bazarr import BazarrClient
+    return BazarrClient()
 
 
 @pytest.fixture

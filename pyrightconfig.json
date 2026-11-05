@@ -1,0 +1,17 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "include": ["src", "tests"],
+  "ignore": ["src/setup"],
+  "reportOptionalMemberAccess": "none",
+  "reportOptionalSubscript": "none",
+  "executionEnvironments": [
+    {
+      "root": "src/bot/handlers",
+      "extraPaths": ["."],
+      "reportAttributeAccessIssue": "none",
+      "reportArgumentType": "none"
+    },
+    { "root": "." }
+  ]
+}

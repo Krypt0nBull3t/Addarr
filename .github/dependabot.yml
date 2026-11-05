@@ -5,6 +5,13 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "development"
+    ignore:
+      # pytestarch 5 needs Python 3.11; the CI compatibility matrix runs 3.10
+      - dependency-name: "pytestarch"
+        versions: [">=5"]
+      # flake8 7.5 needs Python 3.11 too
+      - dependency-name: "flake8"
+        versions: [">=7.5"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

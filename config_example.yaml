@@ -30,12 +30,10 @@ radarr:
     narrowRootFolderNames: true
   quality:
     excludedProfiles: []
-  tags:
-    default: ["telegram"]
-    addRequesterIdTag: true
-  adminRestrictions: false
+  adminRestrictions: false  # Only admins can search and add movies (works without enableAdmin)
 
 # Sonarr Configuration (TV Shows)
+# Sonarr v4 is required (Sonarr v3 is not supported)
 sonarr:
   enable: false  # Set to true to enable Sonarr
   server:
@@ -55,10 +53,7 @@ sonarr:
     narrowRootFolderNames: true
   quality:
     excludedProfiles: []
-  tags:
-    default: ["telegram"]
-    addRequesterIdTag: true
-  adminRestrictions: false
+  adminRestrictions: false  # Only admins can search and add series (works without enableAdmin)
 
 # Lidarr Configuration (Music)
 lidarr:
@@ -74,18 +69,49 @@ lidarr:
     password:  # Optional: Basic auth password
   features:
     search: true  # Enable automatic searching when adding media
-    albumFolder: true  # Organize tracks in album folders
     monitorOption: all  # Options: all, future, missing, none
   paths:
     excludedRootFolders: []
     narrowRootFolderNames: true
   quality:
     excludedProfiles: []
-  tags:
-    default: ["telegram"]
-    addRequesterIdTag: true
-  adminRestrictions: false
+  adminRestrictions: false  # Only admins can search and add music (works without enableAdmin)
   metadataProfileId: 1
+
+# Bazarr Configuration (Subtitles — Optional)
+bazarr:
+  enable: false  # Set to true to enable Bazarr
+  server:
+    addr: localhost
+    port: 6767
+    path: /
+    ssl: false
+  auth:
+    apikey:  # Your Bazarr API key (required if enabled)
+
+# Webhook Notifications (Optional)
+# Receives events from *arr services for download lifecycle notifications
+webhooks:
+  enable: false  # Set to true to enable webhook receiver
+  # The server speaks plain HTTP (no TLS) on this TCP port. The *arr apps must
+  # reach it: open the port in your firewall, or publish it if Addarr runs in Docker.
+  port: 8080
+  # Address the server binds to. 127.0.0.1 accepts connections from this machine
+  # only. If your *arr apps run on another host, set host: 0.0.0.0 (all
+  # interfaces) and keep the port off the public internet.
+  host: 127.0.0.1
+  # Per-service webhook secrets (each *arr app must send it in the X-Api-Secret header).
+  # A service without a secret has its webhooks rejected (401).
+  radarr_secret:
+  sonarr_secret:
+  lidarr_secret:
+  # Event types to notify on (all enabled by default)
+  events:
+    grab: true
+    download: true
+    upgrade: true
+    health: true
+    failure: true
 
 # Download Clients Configuration (Optional)
 # ---------------------------------------
@@ -93,7 +119,7 @@ lidarr:
 # Transmission Configuration (Optional)
 transmission:
   enable: false  # Set to true to enable Transmission
-  onlyAdmin: true  # Restrict to admin users only
+  onlyAdmin: true  # Restrict to admins (only when security.enableAdmin is true)
   host: localhost
   authentication: false
   username:  # Required if authentication is true
@@ -102,7 +128,7 @@ transmission:
 # SABnzbd Configuration (Optional)
 sabnzbd:
   enable: false  # Set to true to enable SABnzbd
-  onlyAdmin: true  # Restrict to admin users only
+  onlyAdmin: true  # Restrict to admins (only when security.enableAdmin is true)
   server:
     addr: localhost
     port: 8090
@@ -134,8 +160,23 @@ entrypoints:
 
 # Security Configuration
 security:
-  enableAdmin: false  # Enable admin features
-  enableAllowlist: false  # Enable allowlist restriction
+  enableAdmin: false  # Admin mode: only admins can delete media and control download clients that set onlyAdmin
+  enableAllowlist: false  # Only users in allow_list (and admins) can use the bot
+  chatMode: private_only  # Options: private_only (reject group chats), allow_all (no restriction)
+
+# Rate Limiting Configuration
+rateLimit:
+  enable: false  # Set to true to enable rate limiting
+  limits:
+    search:
+      maxRequests: 10  # Max search requests per window
+      windowSeconds: 60  # Window duration in seconds
+    modify:
+      maxRequests: 5  # Max add/delete requests per window
+      windowSeconds: 60
+    auth:
+      maxRequests: 3  # Max auth attempts per window
+      windowSeconds: 300  # 5 minutes
 
 # Localization
 language: en-us  # Available: de-de, en-us, es-es, fr-fr, it-it, nl-be, pl-pl, pt-pt, ru-ru
@@ -145,6 +186,12 @@ logging:
   toConsole: true  # Enable console logging
   debug: false  # Enable debug logging
   adminNotifyId:  # Telegram chat ID for admin notifications (optional)
+
+# Health Alert Configuration (Optional)
+# Sends Telegram notifications when services go down or recover
+health_alerts:
+  enable: false  # Master toggle for health alerts (requires adminNotifyId)
+  flap_threshold: 2  # Consecutive failures before alerting (prevents flap noise)
 
 # Access Control
 admins: []  # List of admin Telegram user IDs

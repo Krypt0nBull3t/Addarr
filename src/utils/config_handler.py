@@ -13,9 +13,11 @@ This module handles all configuration file operations including:
 
 import os
 import shutil
-from datetime import datetime
 from ruamel.yaml import YAML
 from typing import Any, Dict, List
+
+from src.utils.backup import create_backup
+from src.utils.prerun import ColorHandler
 
 # Initialize YAML handler
 yaml = YAML()
@@ -41,7 +43,7 @@ class ConfigHandler:
         try:
             # Create backup if config exists
             if os.path.exists(self.config_path):
-                self.create_backup()
+                create_backup(self.config_path)
 
             # Copy example config while preserving formatting and comments
             shutil.copy2(self.config_example_path, self.config_path)
@@ -52,27 +54,12 @@ class ConfigHandler:
             print(f"{self.colors.Fore.RED}Error creating config: {str(e)}")
             return False
 
-    def create_backup(self) -> str:
-        """Create a backup of current config
-
-        Returns:
-            str: Path to backup file
-        """
-        if os.path.exists(self.config_path):
-            backup_dir = os.path.join(self.root_dir, "backup")
-            os.makedirs(backup_dir, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = os.path.join(backup_dir, f"config_{timestamp}.yaml")
-            shutil.copy2(self.config_path, backup_path)
-            print(f"{self.colors.Fore.YELLOW}Created backup at: {backup_path}")
-            return backup_path
-        return ""
-
     def load_config(self) -> Dict[str, Any]:
         """Load config while preserving comments and structure"""
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
-                return yaml.load(f)
+                # An empty file loads as None; {} lets --setup repair it
+                return yaml.load(f) or {}
         except Exception as e:
             print(f"{self.colors.Fore.RED}Error loading config: {e}")
             return {}
@@ -88,7 +75,7 @@ class ConfigHandler:
         """
         try:
             # Create backup before saving
-            self.create_backup()
+            create_backup(self.config_path)
 
             # Save with preserved formatting
             with open(self.config_path, 'w', encoding='utf-8') as f:
@@ -113,5 +100,6 @@ class ConfigHandler:
         current[path[-1]] = value
 
 
-# Create global instance (without colors - will be set by PreRunChecker)
-config_handler = ConfigHandler(None)
+# Create global instance. Its own ColorHandler keeps `--setup` working, because
+# run.py skips the pre-run checks (which set colors) for it.
+config_handler = ConfigHandler(ColorHandler())

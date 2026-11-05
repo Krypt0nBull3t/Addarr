@@ -1,5 +1,5 @@
 """
-Tests for src/bot/handlers/media.py - MediaHandler with full conversation flow.
+Tests for src/bot/handlers/media/ - MediaHandler with full conversation flow.
 
 MediaHandler.__init__ creates MediaService() and TranslationService().
 handle_movie/series/music set context.user_data["search_type"] and return SEARCHING.
@@ -11,6 +11,13 @@ cancel_search returns ConversationHandler.END.
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from telegram.ext import ConversationHandler
+
+from src.bot.handlers.media.formatters import (
+    build_result_caption,
+    show_result,
+    show_list,
+    show_list_detail,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -61,40 +68,47 @@ async def test_handle_media_no_message_returns_end(
     assert result == ConversationHandler.END
 
 
-@pytest.mark.parametrize("media_type,handler_method,service", [
-    ("movie", "handle_movie", "radarr"),
-    ("series", "handle_series", "sonarr"),
-    ("music", "handle_music", "lidarr"),
+@pytest.mark.parametrize("search_type,service,search_method", [
+    ("movie", "radarr", "search_movies"),
+    ("series", "sonarr", "search_series"),
+    ("music", "lidarr", "search_music"),
 ])
 @pytest.mark.asyncio
-async def test_handle_media_admin_restriction_denies_non_admin(
-    media_handler, make_update, make_context, make_user,
-    media_type, handler_method, service
+async def test_handle_search_admin_restriction_denies_non_admin(
+    media_handler, make_update, make_context, mock_config,
+    search_type, service, search_method
 ):
-    """When adminRestrictions is True, non-admin users get denied."""
-    from src.config.settings import config
-    original = config._config[service].get("adminRestrictions", False)
-    config._config[service]["adminRestrictions"] = True
-    try:
-        # User 99999 is NOT in admins list
-        user = make_user(user_id=99999)
-        update = make_update(text=f"/{media_type}", user=user)
-        context = make_context()
+    """adminRestrictions refuses non-admins at the search step (audit item 6).
 
-        # Ensure the user is authenticated but not admin
-        from src.bot.handlers.auth import AuthHandler
-        AuthHandler._authenticated_users.add(99999)
+    /movie, the menu button and the /start menu all reach handle_search.
+    """
+    mock_config._config[service]["adminRestrictions"] = True
+    update = make_update(text="Some Title")
+    context = make_context(user_data={"search_type": search_type})
 
-        method = getattr(media_handler, handler_method)
-        result = await method(update, context)
+    with patch("src.bot.handlers.media.handler.config", mock_config):
+        result = await media_handler.handle_search(update, context)
 
-        assert result == ConversationHandler.END
-        # Should have replied with a restriction message
-        update.message.reply_text.assert_called_once()
-        call_args = update.message.reply_text.call_args
-        assert "admin" in call_args[0][0].lower() or "restricted" in call_args[0][0].lower()
-    finally:
-        config._config[service]["adminRestrictions"] = original
+    assert result == ConversationHandler.END
+    update.message.reply_text.assert_called_once_with("NotAdmin")
+    getattr(media_handler._mock_service, search_method).assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_search_admin_restriction_allows_admin(
+    media_handler, make_update, make_context, mock_config
+):
+    """Admins still search when adminRestrictions is on."""
+    mock_config._config["radarr"]["adminRestrictions"] = True
+    mock_config._set("admins", [12345])
+    update = make_update(text="Some Title")
+    context = make_context(user_data={"search_type": "movie"})
+
+    with patch("src.bot.handlers.media.handler.config", mock_config), \
+         patch("src.utils.helpers.config", mock_config):
+        await media_handler.handle_search(update, context)
+
+    media_handler._mock_service.search_movies.assert_awaited_once_with("Some Title")
 
 
 # ---------------------------------------------------------------------------
@@ -103,8 +117,32 @@ async def test_handle_media_admin_restriction_denies_non_admin(
 
 
 @pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_handle_search_refuses_once_search_limit_is_used_up(
+    mock_rl_ts_class, media_handler, make_update, make_context
+):
+    """F063: every path to a search, the menu buttons included, is limited."""
+    mock_rl_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    media_handler._mock_service.search_movies = AsyncMock(return_value=[])
+    context = make_context(user_data={"search_type": "movie"})
+
+    with patch("src.services.rate_limit.config") as mock_cfg:
+        mock_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"search": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        await media_handler.handle_search(make_update(text="matrix"), context)
+        refused = make_update(text="matrix")
+        result = await media_handler.handle_search(refused, context)
+
+    media_handler._mock_service.search_movies.assert_awaited_once_with("matrix")
+    assert result is None
+    refused.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_search_no_results(media_handler, make_update, make_context):
-    """Empty search results replies with not-found message and returns END."""
+    """Empty search results replies with translated no-results message and returns END."""
     media_handler._mock_service.search_movies = AsyncMock(return_value=[])
 
     update = make_update(text="Nonexistent Movie")
@@ -114,6 +152,9 @@ async def test_handle_search_no_results(media_handler, make_update, make_context
 
     assert result == ConversationHandler.END
     update.message.reply_text.assert_called_once()
+    media_handler._mock_ts.get_text.assert_any_call(
+        "SearchNoResults", search_type="movie", query="Nonexistent Movie"
+    )
 
 
 @pytest.mark.asyncio
@@ -128,7 +169,7 @@ async def test_handle_search_with_results(media_handler, make_update, make_conte
     update = make_update(text="Test Movie")
     context = make_context(user_data={"search_type": "movie"})
 
-    with patch.object(media_handler, "_show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
         result = await media_handler.handle_search(update, context)
 
     assert result == SELECTING
@@ -155,7 +196,7 @@ async def test_handle_search_dispatches_by_type(
     update = make_update(text="Test")
     context = make_context(user_data={"search_type": search_type})
 
-    with patch.object(media_handler, "_show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
         result = await media_handler.handle_search(update, context)
 
     assert result == SELECTING
@@ -164,18 +205,19 @@ async def test_handle_search_dispatches_by_type(
 
 @pytest.mark.asyncio
 async def test_handle_search_invalid_type(media_handler, make_update, make_context):
-    """handle_search with invalid search_type returns END."""
+    """handle_search with invalid search_type replies with translated error and returns END."""
     update = make_update(text="Test")
     context = make_context(user_data={"search_type": "invalid"})
 
     result = await media_handler.handle_search(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SearchInvalidType")
 
 
 @pytest.mark.asyncio
 async def test_handle_search_exception(media_handler, make_update, make_context):
-    """handle_search returns END on exception."""
+    """handle_search returns END on exception and uses translated error."""
     media_handler._mock_service.search_movies = AsyncMock(
         side_effect=Exception("Network error")
     )
@@ -187,6 +229,7 @@ async def test_handle_search_exception(media_handler, make_update, make_context)
 
     assert result == ConversationHandler.END
     update.message.reply_text.assert_called_once()
+    media_handler._mock_ts.get_text.assert_any_call("SearchError")
 
 
 @pytest.mark.asyncio
@@ -262,6 +305,62 @@ async def test_handle_selection_quality_selection(
 
 
 @pytest.mark.asyncio
+async def test_handle_selection_stores_quality_message_id(
+    media_handler, make_update, make_context
+):
+    """F062: the quality keyboard's message id is stored for later checks."""
+    media_handler._mock_service.add_movie = AsyncMock(return_value={
+        "type": "quality_selection",
+        "profiles": [{"id": 1, "name": "HD-1080p"}],
+        "root_folder": "/movies",
+    })
+
+    update = make_update(callback_data="select_123")
+    update.callback_query.message.photo = None
+    update.callback_query.message.message_id = 7
+    context = make_context(user_data={
+        "search_type": "movie",
+        "search_results": [{"id": "123", "title": "Test Movie"}],
+    })
+
+    await media_handler.handle_selection(update, context)
+
+    assert context.user_data["quality_message_id"] == 7
+
+
+@pytest.mark.parametrize("callback_data", ["quality_1", "quality_cancel"])
+@pytest.mark.asyncio
+async def test_stale_quality_callback_is_ignored(
+    media_handler, make_update, make_context, callback_data
+):
+    """F062: a quality callback from an older keyboard changes and adds nothing."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    media_handler._mock_service.add_movie_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+    update = make_update(callback_data=callback_data)
+    update.callback_query.message.photo = None
+    update.callback_query.message.message_id = 99
+    context = make_context(user_data={
+        "search_type": "series",
+        "selected_media": {"id": "123", "title": "Test Series"},
+        "quality_message_id": 7,
+        "quality_data": {
+            "profiles": [{"id": 5, "name": "Sonarr HD"}],
+            "root_folder": "/tv",
+        },
+    })
+
+    result = await media_handler.handle_quality_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    assert "selected_profile_id" not in context.user_data
+    media_handler._mock_service.add_movie_with_profile.assert_not_awaited()
+    update.callback_query.message.reply_text.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_handle_selection_quality_selection_with_photo(
     media_handler, make_update, make_context
 ):
@@ -285,6 +384,184 @@ async def test_handle_selection_quality_selection_with_photo(
 
     assert result == QUALITY_SELECT
     update.callback_query.message.edit_caption.assert_called_once()
+
+
+def _config_with_defaults(**defaults):
+    """Config mock whose <service>.quality.defaultProfileId comes from defaults."""
+    data = {
+        service: {"quality": {"defaultProfileId": profile_id}}
+        for service, profile_id in defaults.items()
+    }
+    return MagicMock(get=MagicMock(side_effect=lambda k, d=None: data.get(k, d)))
+
+
+def _selection(media_handler, make_update, make_context, search_type, result,
+               title="Test"):
+    """Build update and context for handle_selection with add_fn returning result."""
+    add_fn = {"movie": "add_movie", "series": "add_series"}[search_type]
+    setattr(media_handler._mock_service, add_fn, AsyncMock(return_value=result))
+    update = make_update(callback_data="select_123")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "search_type": search_type,
+        "search_results": [{"id": "123", "title": title}],
+    })
+    return update, context
+
+
+MOVIE_PROFILES = {
+    "type": "quality_selection",
+    "profiles": [{"id": 1, "name": "HD"}, {"id": 2, "name": "4K"}],
+    "root_folder": "/movies",
+    "movie": {"tmdbId": 123, "title": "Test"},
+}
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_default_profile_skips_picker(
+    media_handler, make_update, make_context
+):
+    """A saved default profile is used and the quality picker is not shown."""
+    update, context = _selection(
+        media_handler, make_update, make_context, "movie", MOVIE_PROFILES
+    )
+
+    with patch(
+        "src.bot.handlers.media.handler.config", _config_with_defaults(radarr=2)
+    ):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_movie_with_profile.assert_awaited_once_with(
+        "123", 2, "/movies", lookup=MOVIE_PROFILES["movie"]
+    )
+    update.callback_query.message.edit_text.assert_called_once()
+    sent = update.callback_query.message.edit_text.call_args.kwargs
+    assert sent["reply_markup"] is None
+    assert "select a quality profile" not in sent["text"]
+
+
+@pytest.mark.asyncio
+@patch("src.services.rate_limit.TranslationService")
+async def test_handle_selection_default_profile_add_is_rate_limited(
+    mock_rl_ts_class, media_handler, make_update, make_context
+):
+    """F063: the default-profile path adds without a picker tap, so it is limited too."""
+    mock_rl_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    update, context = _selection(
+        media_handler, make_update, make_context, "movie", MOVIE_PROFILES
+    )
+
+    with (
+        patch("src.bot.handlers.media.handler.config", _config_with_defaults(radarr=2)),
+        patch("src.services.rate_limit.config") as limit_cfg,
+    ):
+        limit_cfg.get.return_value = {
+            "enable": True,
+            "limits": {"modify": {"maxRequests": 1, "windowSeconds": 60}},
+        }
+        await media_handler.handle_selection(update, context)
+        result = await media_handler.handle_selection(update, context)
+
+    media_handler._mock_service.add_movie_with_profile.assert_awaited_once()
+    assert result is None
+    update.callback_query.message.reply_text.assert_any_call("RateLimitExceeded")
+
+
+@pytest.mark.parametrize("config_obj", [
+    _config_with_defaults(),
+    _config_with_defaults(radarr=None),
+    MagicMock(get=MagicMock(return_value=None)),
+])
+@pytest.mark.asyncio
+async def test_handle_selection_no_default_shows_picker(
+    media_handler, make_update, make_context, config_obj
+):
+    """Without a saved default the quality picker shows as before."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    update, context = _selection(
+        media_handler, make_update, make_context, "movie", MOVIE_PROFILES
+    )
+
+    with patch("src.bot.handlers.media.handler.config", config_obj):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    media_handler._mock_service.add_movie_with_profile.assert_not_awaited()
+    update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_stale_default_shows_picker(
+    media_handler, make_update, make_context
+):
+    """A saved default that is not in the profile list falls back to the picker."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    update, context = _selection(
+        media_handler, make_update, make_context, "movie", MOVIE_PROFILES
+    )
+
+    with patch(
+        "src.bot.handlers.media.handler.config", _config_with_defaults(radarr=99)
+    ):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == QUALITY_SELECT
+    media_handler._mock_service.add_movie_with_profile.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_default_series_goes_to_season_select(
+    media_handler, make_update, make_context
+):
+    """With a default profile, a series still goes through the season picker."""
+    from src.bot.handlers.media import SEASON_SELECT
+
+    update, context = _selection(
+        media_handler, make_update, make_context, "series",
+        {
+            "type": "quality_selection",
+            "profiles": [{"id": 1, "name": "HD"}],
+            "root_folder": "/tv",
+            "seasons": [{"seasonNumber": 1}],
+        },
+    )
+
+    with patch(
+        "src.bot.handlers.media.handler.config", _config_with_defaults(sonarr=1)
+    ):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == SEASON_SELECT
+    assert context.user_data["selected_profile_id"] == 1
+    media_handler._mock_service.add_series_with_profile.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_selection_default_is_per_service(
+    media_handler, make_update, make_context
+):
+    """A radarr default does not apply when the user adds a series."""
+    from src.bot.handlers.media import QUALITY_SELECT
+
+    update, context = _selection(
+        media_handler, make_update, make_context, "series",
+        {
+            "type": "quality_selection",
+            "profiles": [{"id": 1, "name": "HD"}],
+            "root_folder": "/tv",
+            "seasons": [{"seasonNumber": 1}],
+        },
+    )
+
+    with patch(
+        "src.bot.handlers.media.handler.config", _config_with_defaults(radarr=1)
+    ):
+        result = await media_handler.handle_selection(update, context)
+
+    assert result == QUALITY_SELECT
 
 
 @pytest.mark.asyncio
@@ -331,7 +608,7 @@ async def test_handle_selection_tuple_failure(
 
 @pytest.mark.asyncio
 async def test_handle_selection_not_found(media_handler, make_update, make_context):
-    """Selection not found in results returns END."""
+    """Selection not found in results uses translated error and returns END."""
     update = make_update(callback_data="select_999")
     update.callback_query.message.photo = None
     context = make_context(user_data={
@@ -342,11 +619,12 @@ async def test_handle_selection_not_found(media_handler, make_update, make_conte
     result = await media_handler.handle_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionNotFound")
 
 
 @pytest.mark.asyncio
 async def test_handle_selection_exception(media_handler, make_update, make_context):
-    """Exception during selection returns END."""
+    """Exception during selection uses translated error and returns END."""
     media_handler._mock_service.add_movie = AsyncMock(
         side_effect=Exception("API error")
     )
@@ -361,6 +639,9 @@ async def test_handle_selection_exception(media_handler, make_update, make_conte
     result = await media_handler.handle_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call(
+        "MediaAddError", error="API error"
+    )
 
 
 @pytest.mark.asyncio
@@ -411,12 +692,30 @@ async def test_handle_selection_dispatches_by_type(
 async def test_handle_menu_callback_cancel(media_handler, make_update, make_context):
     """menu_cancel callback edits message with 'Canceled' and returns END."""
     update = make_update(callback_data="menu_cancel")
+    update.callback_query.message.photo = None
     context = make_context()
 
     result = await media_handler.handle_menu_callback(update, context)
 
     assert result == ConversationHandler.END
     update.callback_query.message.edit_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_callback_cancel_on_poster(
+    media_handler, make_update, make_context
+):
+    """menu_cancel on a poster photo edits the caption and answers the callback."""
+    update = make_update(callback_data="menu_cancel")
+    update.callback_query.message.photo = [MagicMock()]
+    context = make_context()
+
+    result = await media_handler.handle_menu_callback(update, context)
+
+    assert result == ConversationHandler.END
+    update.callback_query.answer.assert_awaited_once()
+    update.callback_query.message.edit_caption.assert_called_once()
+    update.callback_query.message.edit_text.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -431,6 +730,36 @@ async def test_handle_menu_callback_movie(media_handler, make_update, make_conte
 
     assert result == SEARCHING
     assert context.user_data["search_type"] == "movie"
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_callback_movie_answers_query(
+    media_handler, make_update, make_context
+):
+    """menu_movie stops the button spinner by answering the callback."""
+    update = make_update(callback_data="menu_movie")
+    context = make_context()
+
+    await media_handler.handle_menu_callback(update, context)
+
+    update.callback_query.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_menu_callback_refuses_unauthenticated_user(
+    media_handler, make_update, make_context
+):
+    """An old menu button cannot start a search without auth (audit item 5)."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(callback_data="menu_movie")
+    context = make_context()
+
+    result = await media_handler.handle_menu_callback(update, context)
+
+    assert result is None
+    assert "search_type" not in context.user_data
 
 
 @pytest.mark.asyncio
@@ -459,6 +788,7 @@ async def test_handle_quality_cancel(media_handler, make_update, make_context):
     update.callback_query.message.photo = None
     context = make_context()
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -484,6 +814,7 @@ async def test_handle_quality_selection_movie(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -511,6 +842,7 @@ async def test_handle_quality_selection_series_with_seasons(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == SEASON_SELECT
@@ -520,21 +852,23 @@ async def test_handle_quality_selection_series_with_seasons(
 async def test_handle_quality_selection_no_data(
     media_handler, make_update, make_context
 ):
-    """Missing quality_data returns END with error."""
+    """Missing quality_data returns END with translated error."""
     update = make_update(callback_data="quality_1")
     update.callback_query.message.photo = None
     context = make_context(user_data={"search_type": "movie"})
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionDataNotFound")
 
 
 @pytest.mark.asyncio
 async def test_handle_quality_selection_exception(
     media_handler, make_update, make_context
 ):
-    """Exception during quality selection returns END."""
+    """Exception during quality selection uses translated error and returns END."""
     media_handler._mock_service.add_movie_with_profile = AsyncMock(
         side_effect=Exception("API error")
     )
@@ -550,9 +884,11 @@ async def test_handle_quality_selection_exception(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionProcessError")
 
 
 @pytest.mark.asyncio
@@ -794,6 +1130,38 @@ async def test_handle_season_selection_individual_toggle(
 
 
 @pytest.mark.asyncio
+async def test_season_untick_after_all_seasons_monitors_only_remaining(
+    media_handler, make_update, make_context
+):
+    """F060: unticking a season after "All Seasons" leaves it unmonitored."""
+    media_handler._mock_service.add_series_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "123", "title": "Test"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/tv",
+        "selected_seasons": set(),
+        "future_mode": None,
+        "monitor_all": False,
+        "quality_data": {"seasons": [{"seasonNumber": 1}, {"seasonNumber": 2}]},
+    })
+
+    for data in ("season_all", "season_1", "season_confirm"):
+        update = make_update(callback_data=data)
+        update.callback_query.message.photo = None
+        update.callback_query.message.reply_markup = MagicMock()
+        update.callback_query.message.reply_markup.to_dict.return_value = {}
+        await media_handler.handle_season_selection(update, context)
+
+    seasons_data = media_handler._mock_service.add_series_with_profile.call_args.args[3]
+    assert seasons_data == [
+        {"seasonNumber": 1, "monitored": False},
+        {"seasonNumber": 2, "monitored": True},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_handle_season_selection_individual_deselect(
     media_handler, make_update, make_context
 ):
@@ -944,7 +1312,7 @@ async def test_handle_season_confirm_all_mode(
 async def test_handle_season_confirm_future_episodes(
     media_handler, make_update, make_context
 ):
-    """Future episodes mode adds -1 season flag."""
+    """Future episodes mode sends Sonarr's 'future' monitor option, no fake season."""
     media_handler._mock_service.add_series_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -958,16 +1326,22 @@ async def test_handle_season_confirm_future_episodes(
         "selected_seasons": set(),
         "future_mode": "future_episodes",
         "monitor_all": False,
-        "quality_data": {"seasons": [{"seasonNumber": 1}]},
+        "quality_data": {
+            "seasons": [{"seasonNumber": 1}],
+            "series": {"tvdbId": 123, "title": "Test"},
+        },
     })
 
     result = await media_handler.handle_season_confirm(update, context)
 
     assert result == ConversationHandler.END
     call_args = media_handler._mock_service.add_series_with_profile.call_args
-    seasons_data = call_args[0][3]
-    # Should have -1 season flag
-    assert any(s["seasonNumber"] == -1 for s in seasons_data)
+    assert call_args[0][3] == [{"seasonNumber": 1, "monitored": False}]
+    # The lookup result the add flow already holds goes on: no second lookup.
+    assert call_args[1] == {
+        "monitor": "future",
+        "lookup": {"tvdbId": 123, "title": "Test"},
+    }
 
 
 @pytest.mark.asyncio
@@ -1004,7 +1378,7 @@ async def test_handle_season_confirm_selected_seasons(
 async def test_handle_season_confirm_selected_with_future(
     media_handler, make_update, make_context
 ):
-    """Selected seasons + future_seasons mode."""
+    """Selected seasons + future_seasons sends only real seasons (Sonarr monitors new seasons itself)."""
     media_handler._mock_service.add_series_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -1025,8 +1399,43 @@ async def test_handle_season_confirm_selected_with_future(
 
     assert result == ConversationHandler.END
     call_args = media_handler._mock_service.add_series_with_profile.call_args
-    seasons_data = call_args[0][3]
-    assert any(s["seasonNumber"] == -1 for s in seasons_data)
+    assert call_args[0][3] == [
+        {"seasonNumber": 1, "monitored": True},
+        {"seasonNumber": 2, "monitored": False},
+    ]
+    assert call_args[1] == {"monitor": None, "lookup": None}
+
+
+@pytest.mark.asyncio
+async def test_season_confirm_answers_callback_once(
+    media_handler, make_update, make_context
+):
+    """Confirm still adds the series when Telegram rejects a second answer()."""
+    from telegram.error import BadRequest
+
+    media_handler._mock_service.add_series_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="season_confirm")
+    update.callback_query.message.photo = None
+    update.callback_query.answer = AsyncMock(
+        side_effect=[True, BadRequest("Query is too old")]
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "123", "title": "Test"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/tv",
+        "selected_seasons": {1},
+        "future_mode": None,
+        "monitor_all": False,
+        "quality_data": {"seasons": [{"seasonNumber": 1}]},
+    })
+
+    result = await media_handler.handle_season_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_series_with_profile.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1053,6 +1462,7 @@ async def test_handle_season_confirm_exception(
     result = await media_handler.handle_season_confirm(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionProcessError")
 
 
 @pytest.mark.asyncio
@@ -1103,46 +1513,7 @@ async def test_add_media_with_profile_invalid_type(media_handler):
     )
 
     assert success is False
-    assert "Invalid" in msg
-
-
-# ---------------------------------------------------------------------------
-# _send_response
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_send_response_with_photo(media_handler, make_message):
-    """_send_response uses edit_caption when message has photo."""
-    message = make_message()
-    message.photo = [MagicMock()]
-
-    await media_handler._send_response(message, "Test text")
-
-    message.edit_caption.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_send_response_without_photo(media_handler, make_message):
-    """_send_response uses edit_text when no photo."""
-    message = make_message()
-    message.photo = None
-
-    await media_handler._send_response(message, "Test text")
-
-    message.edit_text.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_send_response_fallback_on_error(media_handler, make_message):
-    """_send_response falls back to reply_text on error."""
-    message = make_message()
-    message.photo = None
-    message.edit_text = AsyncMock(side_effect=Exception("Edit failed"))
-
-    await media_handler._send_response(message, "Test text")
-
-    message.reply_text.assert_called_once()
+    media_handler._mock_ts.get_text.assert_any_call("InvalidMediaType")
 
 
 # ---------------------------------------------------------------------------
@@ -1166,7 +1537,7 @@ async def test_show_result_with_poster(media_handler, make_message):
         "genres": ["Drama", "Thriller"],
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     message.reply_photo.assert_called_once()
 
@@ -1185,7 +1556,7 @@ async def test_show_result_without_poster(media_handler, make_message):
         "genres": [],
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     message.reply_text.assert_called_once()
 
@@ -1202,7 +1573,7 @@ async def test_show_result_long_overview(media_handler, make_message):
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1222,7 +1593,7 @@ async def test_show_result_poster_send_failure(media_handler, make_message):
         "poster": "https://example.com/poster.jpg",
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     message.reply_text.assert_called_once()
 
@@ -1247,7 +1618,7 @@ async def test_show_result_error_fallback_success(media_handler, make_message):
     )
     message.delete = AsyncMock()
 
-    ret = await media_handler._show_result(message, result, 0, 1)
+    ret = await show_result(message, result, 0, 1)
 
     # The first reply_text fails (outer except catches), fallback reply_text succeeds
     assert message.reply_text.call_count == 2
@@ -1271,7 +1642,7 @@ async def test_show_result_complete_failure(media_handler, make_message):
     }
 
     # Should not raise - returns the original message
-    ret = await media_handler._show_result(message, result, 0, 1)
+    ret = await show_result(message, result, 0, 1)
     assert ret is message
 
 
@@ -1287,7 +1658,7 @@ async def test_show_result_navigation_buttons(media_handler, make_message):
     }
 
     # Middle result (index 1 of 3)
-    await media_handler._show_result(message, result, 1, 3)
+    await show_result(message, result, 1, 3)
 
     call_args = message.reply_text.call_args
     reply_markup = call_args[1]["reply_markup"]
@@ -1308,7 +1679,7 @@ async def test_show_result_first_result(media_handler, make_message):
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 0, 3)
+    await show_result(message, result, 0, 3)
 
     call_args = message.reply_text.call_args
     reply_markup = call_args[1]["reply_markup"]
@@ -1330,7 +1701,7 @@ async def test_show_result_last_result(media_handler, make_message):
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 2, 3)
+    await show_result(message, result, 2, 3)
 
     call_args = message.reply_text.call_args
     reply_markup = call_args[1]["reply_markup"]
@@ -1341,8 +1712,8 @@ async def test_show_result_last_result(media_handler, make_message):
 
 
 @pytest.mark.asyncio
-async def test_show_result_tmdb_rating(media_handler, make_message):
-    """_show_result includes TMDB rating for series."""
+async def test_show_result_series_rating(media_handler, make_message):
+    """_show_result includes the rating for series."""
     message = make_message()
     result = {
         "id": "123",
@@ -1350,54 +1721,34 @@ async def test_show_result_tmdb_rating(media_handler, make_message):
         "overview": "Overview",
         "year": 2024,
         "poster": None,
-        "ratings": {"tmdb": "8.5", "votes": 1000},
+        "ratings": {"value": "8.5", "votes": 1000},
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "TMDB" in caption
+    assert "Rating: 8.5/10 (1,000 votes)" in caption
 
 
 @pytest.mark.asyncio
-async def test_show_result_network_and_studio(media_handler, make_message):
-    """_show_result shows network and studio for TV shows."""
+async def test_show_result_shows_network_for_tv_shows(media_handler, make_message):
+    """_show_result shows the network and no studio for TV shows."""
     message = make_message()
     result = {
         "id": "123",
         "title": "Test",
         "overview": "Overview",
         "poster": None,
-        "studio": "Sony",
         "network": "HBO",
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "HBO" in caption
-
-
-@pytest.mark.asyncio
-async def test_show_result_network_same_as_studio(media_handler, make_message):
-    """_show_result shows only network when same as studio."""
-    message = make_message()
-    result = {
-        "id": "123",
-        "title": "Test",
-        "overview": "Overview",
-        "poster": None,
-        "studio": "HBO",
-        "network": "HBO",
-    }
-
-    await media_handler._show_result(message, result, 0, 1)
-
-    call_args = message.reply_text.call_args
-    caption = call_args[0][0]
-    assert "HBO" in caption
+    assert "📺 Network: HBO\n" in caption
+    assert "Studio" not in caption
 
 
 @pytest.mark.asyncio
@@ -1412,7 +1763,7 @@ async def test_show_result_many_genres(media_handler, make_message):
         "genres": ["Drama", "Thriller", "Action", "Comedy", "Horror"],
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1431,7 +1782,7 @@ async def test_show_result_imdb_na_rating(media_handler, make_message):
         "ratings": {"imdb": "N/A"},
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1450,7 +1801,7 @@ async def test_show_result_rt_na_rating(media_handler, make_message):
         "ratings": {"imdb": "8.0", "rottenTomatoes": "N/A"},
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1459,21 +1810,21 @@ async def test_show_result_rt_na_rating(media_handler, make_message):
 
 @pytest.mark.asyncio
 async def test_show_result_tmdb_na_rating(media_handler, make_message):
-    """_show_result handles N/A TMDB rating."""
+    """_show_result handles N/A series rating."""
     message = make_message()
     result = {
         "id": "123",
         "title": "Test",
         "overview": "Overview",
         "poster": None,
-        "ratings": {"tmdb": "N/A"},
+        "ratings": {"value": "N/A"},
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "TMDB" not in caption
+    assert "Rating" not in caption
 
 
 @pytest.mark.asyncio
@@ -1488,7 +1839,7 @@ async def test_show_result_runtime_na(media_handler, make_message):
         "runtime": "N/A",
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1514,7 +1865,7 @@ async def test_handle_navigation_next(media_handler, make_update, make_context):
         "current_index": 0,
     })
 
-    with patch.object(media_handler, "_show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
         result = await media_handler.handle_navigation(update, context)
 
     assert result == SELECTING
@@ -1535,7 +1886,7 @@ async def test_handle_navigation_prev(media_handler, make_update, make_context):
         "current_index": 1,
     })
 
-    with patch.object(media_handler, "_show_result", new_callable=AsyncMock):
+    with patch("src.bot.handlers.media.handler.show_result", new_callable=AsyncMock):
         result = await media_handler.handle_navigation(update, context)
 
     assert result == SELECTING
@@ -1619,6 +1970,13 @@ def test_get_handler_returns_list(media_handler):
     assert len(handlers) > 0
 
 
+def test_media_conversation_has_timeout(media_handler):
+    """F061: an abandoned search ends after 600 s and stops taking other flows' text."""
+    conversation = media_handler.get_handler()[0]
+
+    assert conversation.conversation_timeout == 600
+
+
 # ---------------------------------------------------------------------------
 # _build_result_caption
 # ---------------------------------------------------------------------------
@@ -1640,7 +1998,7 @@ async def test_build_result_caption_movie_with_year_and_ratings(
         "genres": ["Drama", "Thriller"],
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "Test Movie" in caption
     assert "2024" in caption
@@ -1651,35 +2009,21 @@ async def test_build_result_caption_movie_with_year_and_ratings(
 
 
 @pytest.mark.asyncio
-async def test_build_result_caption_series_with_tmdb(media_handler):
-    """_build_result_caption includes TMDB rating for series."""
+async def test_build_result_caption_series_with_rating(media_handler):
+    """_build_result_caption includes the rating for series."""
     result = {
         "id": "456",
         "title": "Test Series",
         "overview": "Series overview",
         "year": 2024,
-        "ratings": {"tmdb": "8.5", "votes": 1000},
+        "ratings": {"value": "8.5", "votes": 1000},
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
-    assert "TMDB" in caption
+    assert "Rating" in caption
     assert "8.5" in caption
     assert "1,000" in caption
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_with_index_total(media_handler):
-    """_build_result_caption shows counter when index/total provided."""
-    result = {
-        "id": "123",
-        "title": "Test",
-        "overview": "Overview",
-    }
-
-    caption = media_handler._build_result_caption(result, index=2, total=5)
-
-    assert "3 of 5" in caption
 
 
 @pytest.mark.asyncio
@@ -1691,7 +2035,7 @@ async def test_build_result_caption_without_index_total(media_handler):
         "overview": "Overview",
     }
 
-    caption = media_handler._build_result_caption(result)
+    caption = build_result_caption(result)
 
     assert "of" not in caption or "Result" not in caption
 
@@ -1711,10 +2055,10 @@ async def test_show_list_sends_text_message(media_handler, make_message):
     ]
 
     with patch(
-        "src.bot.handlers.media.get_search_results_list_keyboard"
+        "src.bot.handlers.media.formatters.get_search_results_list_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list(
+        await show_list(
             message, results, page=0, search_type="movie"
         )
 
@@ -1731,10 +2075,10 @@ async def test_show_list_deletes_old_message(media_handler, make_message):
     results = [{"id": "1", "title": "M", "overview": "O"}]
 
     with patch(
-        "src.bot.handlers.media.get_search_results_list_keyboard"
+        "src.bot.handlers.media.formatters.get_search_results_list_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list(
+        await show_list(
             message, results, page=0, search_type="movie"
         )
 
@@ -1760,10 +2104,10 @@ async def test_show_list_detail_sends_photo_with_poster(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.formatters.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list_detail(message, result)
+        await show_list_detail(message, result)
 
     message.reply_photo.assert_called_once()
     mock_kbd.assert_called_once_with("123")
@@ -1783,10 +2127,10 @@ async def test_show_list_detail_sends_text_without_poster(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.formatters.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list_detail(message, result)
+        await show_list_detail(message, result)
 
     message.reply_text.assert_called_once()
 
@@ -1805,10 +2149,10 @@ async def test_show_list_detail_deletes_old_message(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.formatters.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list_detail(message, result)
+        await show_list_detail(message, result)
 
     message.delete.assert_called_once()
 
@@ -1828,10 +2172,10 @@ async def test_show_list_detail_photo_failure_falls_back_to_text(
     }
 
     with patch(
-        "src.bot.handlers.media.get_list_detail_keyboard"
+        "src.bot.handlers.media.formatters.get_list_detail_keyboard"
     ) as mock_kbd:
         mock_kbd.return_value = MagicMock()
-        await media_handler._show_list_detail(message, result)
+        await show_list_detail(message, result)
 
     message.reply_text.assert_called_once()
     message.delete.assert_called_once()
@@ -1856,7 +2200,7 @@ async def test_show_result_still_shows_counter_after_refactor(
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 2, 5)
+    await show_result(message, result, 2, 5)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
@@ -1876,7 +2220,7 @@ async def test_show_result_card_view_has_viewtoggle_button(
         "poster": None,
     }
 
-    await media_handler._show_result(message, result, 0, 1)
+    await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     reply_markup = call_args[1]["reply_markup"]
@@ -1907,8 +2251,8 @@ async def test_handle_search_defaults_to_card_view(
     update = make_update(text="test movie")
     context = make_context(user_data={"search_type": "movie"})
 
-    with patch.object(
-        media_handler, "_show_result", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_result", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_search(update, context)
 
@@ -1931,8 +2275,8 @@ async def test_handle_search_uses_list_view_when_preference_set(
     update = make_update(text="test movie")
     context = make_context(user_data={"search_type": "movie"})
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_search(update, context)
 
@@ -1964,8 +2308,8 @@ async def test_handle_list_select_shows_detail(
         "search_type": "movie",
     })
 
-    with patch.object(
-        media_handler, "_show_list_detail", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list_detail", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_list_select(update, context)
 
@@ -2014,8 +2358,8 @@ async def test_handle_list_back_returns_to_list(
         "list_page": 1,
     })
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_list_back(update, context)
 
@@ -2040,8 +2384,8 @@ async def test_handle_list_back_defaults_page_zero(
         "search_type": "series",
     })
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_list_back(update, context)
 
@@ -2089,8 +2433,8 @@ async def test_handle_list_page_navigates_forward(
         "list_page": 0,
     })
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_list_page(update, context)
 
@@ -2162,8 +2506,8 @@ async def test_handle_view_toggle_card_to_list(
         "current_index": 0,
     })
 
-    with patch.object(
-        media_handler, "_show_list", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_list", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_view_toggle(update, context)
 
@@ -2192,8 +2536,8 @@ async def test_handle_view_toggle_list_to_card(
         "current_index": 1,
     })
 
-    with patch.object(
-        media_handler, "_show_result", new_callable=AsyncMock
+    with patch(
+        "src.bot.handlers.media.handler.show_result", new_callable=AsyncMock
     ) as mock_show:
         result = await media_handler.handle_view_toggle(update, context)
 
@@ -2223,81 +2567,6 @@ async def test_handle_view_toggle_no_callback_query(
 
 
 @pytest.mark.asyncio
-async def test_build_result_caption_album(media_handler):
-    """Album caption shows artist name and release date."""
-    result = {
-        "id": "album:abc-123",
-        "title": "Greatest Hits",
-        "music_type": "album",
-        "artist_name": "Test Artist",
-        "release_date": "2020-05-15T00:00:00Z",
-        "overview": "No overview available",
-    }
-
-    caption = media_handler._build_result_caption(result)
-
-    assert "Greatest Hits" in caption
-    assert "Test Artist" in caption
-    assert "2020-05-15" in caption
-    assert "💿" in caption
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_song(media_handler):
-    """Song caption shows album and artist."""
-    result = {
-        "id": "album:abc-123",
-        "title": "My Song",
-        "music_type": "song",
-        "album_title": "Greatest Hits",
-        "artist_name": "Test Artist",
-    }
-
-    caption = media_handler._build_result_caption(result)
-
-    assert "My Song" in caption
-    assert "Greatest Hits" in caption
-    assert "Test Artist" in caption
-    assert "🎵" in caption
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_album_with_overview(media_handler):
-    """Album caption includes overview when not default."""
-    result = {
-        "id": "album:abc-123",
-        "title": "Greatest Hits",
-        "music_type": "album",
-        "artist_name": "Test Artist",
-        "release_date": "2020-05-15T00:00:00Z",
-        "overview": "A compilation of the best tracks.",
-    }
-
-    caption = media_handler._build_result_caption(result)
-
-    assert "A compilation of the best tracks." in caption
-
-
-@pytest.mark.asyncio
-async def test_build_result_caption_album_truncates_long_overview(media_handler):
-    """Album caption truncates overview longer than 300 chars."""
-    long_overview = "A" * 350
-    result = {
-        "id": "album:abc-123",
-        "title": "Greatest Hits",
-        "music_type": "album",
-        "artist_name": "Test Artist",
-        "release_date": "2020-05-15T00:00:00Z",
-        "overview": long_overview,
-    }
-
-    caption = media_handler._build_result_caption(result)
-
-    assert "..." in caption
-    assert long_overview not in caption
-
-
-@pytest.mark.asyncio
 async def test_build_result_caption_album_with_index(media_handler):
     """Album caption shows result index when provided."""
     result = {
@@ -2309,7 +2578,7 @@ async def test_build_result_caption_album_with_index(media_handler):
         "overview": "No overview available",
     }
 
-    caption = media_handler._build_result_caption(result, index=2, total=5)
+    caption = build_result_caption(result, index=2, total=5)
 
     assert "Result 3 of 5" in caption
 
@@ -2325,7 +2594,7 @@ async def test_build_result_caption_song_with_index(media_handler):
         "artist_name": "Test Artist",
     }
 
-    caption = media_handler._build_result_caption(result, index=0, total=3)
+    caption = build_result_caption(result, index=0, total=3)
 
     assert "Result 1 of 3" in caption
 
@@ -2460,6 +2729,7 @@ async def test_handle_quality_selection_music_artist_shows_album_monitor(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ALBUM_SELECT
@@ -2488,6 +2758,7 @@ async def test_handle_quality_selection_music_album_adds_directly(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -2520,6 +2791,7 @@ async def test_handle_quality_selection_music_song_adds_with_album(
         },
     })
 
+    context.user_data["quality_message_id"] = update.callback_query.message.message_id
     result = await media_handler.handle_quality_selection(update, context)
 
     assert result == ConversationHandler.END
@@ -2580,6 +2852,9 @@ async def test_handle_album_monitor_mode_pick(
 
     assert result == ALBUM_SELECT
     assert len(context.user_data.get("artist_albums", [])) == 2
+    media_handler._mock_service.get_artist_albums.assert_awaited_once_with(
+        "artist-1", "Test Artist"
+    )
 
 
 @pytest.mark.asyncio
@@ -2771,6 +3046,62 @@ async def test_handle_album_confirm_passes_selected_albums(
 
 
 @pytest.mark.asyncio
+async def test_handle_album_confirm_none_ticked_passes_empty_list(
+    media_handler, make_update, make_context
+):
+    """Pick albums with none ticked monitors no albums, not every album."""
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": set(),
+        "future_albums": False,
+    })
+
+    await media_handler.handle_album_confirm(update, context)
+
+    call_kwargs = media_handler._mock_service.add_music_with_profile.call_args[1]
+    assert call_kwargs["albums_to_monitor"] == []
+
+
+@pytest.mark.asyncio
+async def test_album_confirm_answers_callback_once(
+    media_handler, make_update, make_context
+):
+    """Confirm still adds the artist when Telegram rejects a second answer()."""
+    from telegram.error import BadRequest
+
+    media_handler._mock_service.add_music_with_profile = AsyncMock(
+        return_value=(True, "Added")
+    )
+
+    update = make_update(callback_data="albumsel_confirm")
+    update.callback_query.message.photo = None
+    update.callback_query.answer = AsyncMock(
+        side_effect=[True, BadRequest("Query is too old")]
+    )
+    context = make_context(user_data={
+        "selected_media": {"id": "artist-1", "title": "Test Artist"},
+        "selected_profile_id": 1,
+        "selected_root_folder": "/music",
+        "selected_albums": {"abc-123"},
+        "future_albums": False,
+        "artist_albums": [],
+    })
+
+    result = await media_handler.handle_album_selection(update, context)
+
+    assert result == ConversationHandler.END
+    media_handler._mock_service.add_music_with_profile.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_album_confirm_passes_future_albums(
     media_handler, make_update, make_context
 ):
@@ -2800,7 +3131,7 @@ async def test_handle_album_confirm_passes_future_albums(
 async def test_handle_album_confirm_no_future_albums(
     media_handler, make_update, make_context
 ):
-    """Confirm does not pass future_albums when False."""
+    """Confirm passes future_albums=False when not enabled."""
     media_handler._mock_service.add_music_with_profile = AsyncMock(
         return_value=(True, "Added")
     )
@@ -2819,7 +3150,7 @@ async def test_handle_album_confirm_no_future_albums(
 
     assert result == ConversationHandler.END
     call_kwargs = media_handler._mock_service.add_music_with_profile.call_args[1]
-    assert "future_albums" not in call_kwargs
+    assert call_kwargs["future_albums"] is False
 
 
 @pytest.mark.asyncio
@@ -2844,6 +3175,7 @@ async def test_handle_album_confirm_exception(
     result = await media_handler.handle_album_confirm(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("SelectionProcessError")
 
 
 @pytest.mark.asyncio
@@ -2885,6 +3217,7 @@ async def test_handle_album_monitor_mode_all_exception(
     result = await media_handler.handle_album_monitor_mode(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("ArtistAddError")
 
 
 @pytest.mark.asyncio
@@ -2907,6 +3240,7 @@ async def test_handle_album_monitor_mode_pick_exception(
     result = await media_handler.handle_album_monitor_mode(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("AlbumFetchError")
 
 
 @pytest.mark.asyncio
@@ -2979,6 +3313,7 @@ async def test_handle_album_selection_monitor_all_exception(
     result = await media_handler.handle_album_selection(update, context)
 
     assert result == ConversationHandler.END
+    media_handler._mock_ts.get_text.assert_any_call("ArtistAddError")
 
 
 @pytest.mark.asyncio

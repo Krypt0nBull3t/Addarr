@@ -10,18 +10,40 @@ all required settings are present and valid.
 """
 
 import os
+from io import StringIO
+
 import yaml
 import questionary
+from ruamel.yaml import YAML
 from typing import Dict, Any, List
 from colorama import Fore
 
-from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH
+from ..definitions import CONFIG_PATH, CONFIG_EXAMPLE_PATH, CHAT_MODES
 from ..utils.backup import create_backup
+from ..utils.terminal import is_interactive
+
+
+# Round-trip loader and dumper: keeps the comments and quotes of config.yaml.
+# The loader reads YAML 1.1, as PyYAML did: `enable: no` stays False. In YAML 1.2
+# it is the string "no", which is truthy and would switch the service on. A
+# separate dumper keeps the `%YAML 1.1` header out of the saved file.
+_loader = YAML()
+_loader.version = (1, 1)
+_loader.preserve_quotes = True
+_yaml = YAML()
+_yaml.preserve_quotes = True
+_yaml.indent(mapping=2, sequence=4, offset=2)
 
 
 class ConfigurationError(Exception):
     """Base class for configuration errors"""
     pass
+
+
+_BACKUP_HINT = (
+    "Restore a copy from the backup/ folder next to config.yaml, "
+    "or run python run.py --setup."
+)
 
 
 def validate_port(port, service_name):
@@ -86,7 +108,13 @@ class Config:
             raise ConfigurationError(f"Configuration file not found: {CONFIG_PATH}")
 
         with open(CONFIG_PATH, 'r') as f:
-            return yaml.safe_load(f)
+            loaded = _loader.load(f)
+        if not isinstance(loaded, dict):
+            raise ConfigurationError(
+                f"Configuration file is empty or not a mapping: {CONFIG_PATH}. "
+                f"{_BACKUP_HINT}"
+            )
+        return loaded
 
     def _validate_config(self):
         """Validate configuration against example config"""
@@ -96,24 +124,61 @@ class Config:
         missing_keys = self._get_missing_keys(example_config, self._config)
         if missing_keys:
             print(f"\n{Fore.YELLOW}Missing configuration keys detected: {', '.join(missing_keys)}")
-            if questionary.confirm("Would you like to configure these settings now?").ask():
-                # Create backup before modifying
-                create_backup()
 
-                for key in missing_keys:
-                    self._configure_missing_key(key)
-
-                # Save updated configuration
-                with open(CONFIG_PATH, 'w') as f:
-                    yaml.dump(self._config, f, default_flow_style=False)
-
-                print(f"{Fore.GREEN}✅ Configuration updated successfully!")
+            if is_interactive():
+                if questionary.confirm(
+                    "Would you like to configure these settings now?"
+                ).ask():
+                    create_backup()
+                    for key in missing_keys:
+                        if isinstance(self._example_value(example_config, key), dict):
+                            self._apply_default_key(key, example_config)
+                        else:
+                            self._configure_missing_key(key)
+                    self._write_config()
+                    print(f"{Fore.GREEN}✅ Configuration updated successfully!")
+                else:
+                    raise ConfigurationError(
+                        f"Missing required configuration keys: "
+                        f"{', '.join(missing_keys)}"
+                    )
             else:
-                raise ConfigurationError(
-                    f"Missing required configuration keys: {', '.join(missing_keys)}"
+                # Non-interactive (e.g. Docker): apply defaults from example
+                print(
+                    f"{Fore.YELLOW}Non-interactive environment detected. "
+                    f"Applying defaults from config_example.yaml..."
+                )
+                for key in missing_keys:
+                    self._apply_default_key(key, example_config)
+                print(
+                    f"{Fore.GREEN}✅ Defaults applied. "
+                    f"Edit config.yaml to customize these settings."
                 )
 
         self._validate_values()
+
+    @staticmethod
+    def _example_value(example_config: Dict, key: str) -> Any:
+        """Return the example value for a dotted key, or None if absent."""
+        value: Any = example_config
+        for part in key.split('.'):
+            if not isinstance(value, dict):
+                return None
+            value = value.get(part)
+        return value
+
+    def _apply_default_key(self, key: str, example_config: Dict):
+        """Apply a default value from example config for a missing key."""
+        parts = key.split('.')
+        default = self._example_value(example_config, key)
+
+        # Set value in config
+        current = self._config
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+        current[parts[-1]] = default
 
     def _configure_missing_key(self, key: str):
         """Configure a missing configuration key"""
@@ -140,6 +205,12 @@ class Config:
             value = questionary.password(
                 f"Enter {parts[0].title()} token:"
             ).ask()
+        elif key == 'security.chatMode':
+            value = questionary.select(
+                "Which chats may use the bot?",
+                choices=list(CHAT_MODES),
+                default=CHAT_MODES[0],
+            ).ask()
         else:
             # Default to text input
             value = questionary.text(
@@ -161,12 +232,23 @@ class Config:
                 f"Invalid language. Must be one of: {', '.join(valid_languages)}"
             )
 
-        # Validate server addresses for enabled services
-        for service_name in ("radarr", "sonarr", "lidarr", "sabnzbd"):
-            service = self._config.get(service_name, {})
+        chat_mode = (self._config.get("security") or {}).get("chatMode")
+        if chat_mode not in CHAT_MODES:
+            raise ConfigurationError(
+                f"Invalid security.chatMode: {chat_mode!r}. "
+                f"Must be one of: {', '.join(CHAT_MODES)}"
+            )
+
+        validate_telegram_token(self._config.get("telegram") or {})
+
+        # Validate enabled services: address, API key and port
+        for service_name in ("radarr", "sonarr", "lidarr", "sabnzbd", "bazarr"):
+            service = self._config.get(service_name) or {}
             if service.get("enable"):
-                addr = service.get("server", {}).get("addr")
-                validate_server_addr(addr, service_name)
+                server = service.get("server") or {}
+                validate_server_addr(server.get("addr"), service_name)
+                validate_service_apikey(service, service_name)
+                validate_port(server.get("port"), service_name)
 
     def _get_missing_keys(self, example: Dict, config: Dict, prefix="") -> List[str]:
         """Recursively find missing configuration keys"""
@@ -176,6 +258,11 @@ class Config:
             if key not in config:
                 missing.append(full_key)
             elif isinstance(value, dict):
+                if not isinstance(config[key], dict):
+                    raise ConfigurationError(
+                        f"Section '{full_key}' is empty or not a mapping. "
+                        f"{_BACKUP_HINT}"
+                    )
                 missing.extend(
                     self._get_missing_keys(value, config[key], full_key)
                 )
@@ -197,11 +284,24 @@ class Config:
             current = current[key]
         current[keys[-1]] = value
 
+    def _write_config(self) -> None:
+        """Write the config to disk, keeping its comments.
+
+        Dump to a string first: opening the file with 'w' empties it, so a
+        failed dump after the open would leave an empty config.yaml. Then
+        write once into the same file. No os.replace: the compose file
+        bind-mounts the single file config.yaml, and a replace swaps the
+        inode and breaks that mount.
+        """
+        buffer = StringIO()
+        _yaml.dump(self._config, buffer)
+        with open(CONFIG_PATH, 'w') as f:
+            f.write(buffer.getvalue())
+
     def save(self):
         """Persist current config to disk."""
         create_backup()
-        with open(CONFIG_PATH, 'w') as f:
-            yaml.dump(self._config, f, default_flow_style=False)
+        self._write_config()
 
 
 # Create global config instance

@@ -53,8 +53,6 @@ Addarr Refresh is a modern Telegram bot that helps you manage your media collect
   <br>
   🎨 Modern UI with inline keyboards and rich media
   <br>
-  📁 Helm chart for easy deployment
-  <br>
   🐳 Docker image for easy containerization
   <br>
   🔍 Validations and error handling
@@ -72,14 +70,14 @@ Whether you're managing movies, TV shows, or music, Addarr Refresh makes it simp
 Open a terminal and run:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.sh | sudo bash
+wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 #### Windows
-Open PowerShell as Administrator and run:
+Open PowerShell and run:
 
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.ps1'))
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.ps1'))
 ```
 
 For more options, see [🛠️ Installation](#️-installation)
@@ -134,18 +132,16 @@ For more options, see [🛠️ Installation](#️-installation)
   - [🏥 Health Monitoring](#-health-monitoring)
     - [Features](#features)
     - [Health Check Details](#health-check-details)
-    - [Configuration](#configuration)
     - [Status Command](#status-command)
     - [Automatic Recovery](#automatic-recovery)
   - [🌐 Internationalization](#-internationalization)
     - [Supported Languages](#supported-languages)
     - [Adding Translations](#adding-translations)
   - [🔧 Service Management](#-service-management)
-    - [Windows Service](#windows-service)
+    - [Windows Scheduled Task](#windows-scheduled-task)
     - [Linux Systemd Service](#linux-systemd-service)
   - [☁️ Deployment Options](#️-deployment-options)
     - [Docker Deployment](#docker-deployment)
-    - [Kubernetes Deployment](#kubernetes-deployment)
   - [👨‍💻 Development](#-development)
     - [Project Structure](#project-structure)
     - [Development Setup](#development-setup)
@@ -201,9 +197,10 @@ For more options, see [🛠️ Installation](#️-installation)
 - **macOS** (10.15 Catalina or newer)
 
 ### Prerequisites
-- Python 3.9 or higher
+- Python 3.10 or higher
 - pip (Python package installer)
 - At least one of: Radarr, Sonarr, or Lidarr instance(s)
+- Sonarr v4 is required (Sonarr v3 is not supported)
 - Telegram Bot Token (from @BotFather)
 
 ### Python Installation
@@ -256,12 +253,12 @@ Install Addarr with a single command
 
 Using curl:
 ```bash
-curl -sSL https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 or Using wget:
 ```bash
-wget -qO- https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.sh | sudo bash
+wget -qO- https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.sh | bash
 ```
 
 The linux/macOS installer will:
@@ -279,7 +276,7 @@ After installation:
 
 Using PowerShell:
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/cyneric/addarr/main/scripts/install.ps1'))
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/Krypt0nBull3t/Addarr/main/scripts/install.ps1'))
 ```
 
 The windows installer will:
@@ -301,7 +298,7 @@ After installation:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Cyneric/Addarr.git
+   git clone https://github.com/Krypt0nBull3t/Addarr.git
    ```
 
 2. **Change into the Addarr directory**
@@ -328,7 +325,7 @@ After installation:
   *Requires python to be installed and available in the command line.*
 
 1. **Download the zip file**
-   Download the zip file from [here](https://github.com/Cyneric/Addarr/archive/refs/heads/main.zip)
+   Download the zip file from [here](https://github.com/Krypt0nBull3t/Addarr/archive/refs/heads/main.zip)
 
 2. **Extract the zip file**
    Extract the zip file and change into the Addarr directory
@@ -370,6 +367,18 @@ After installation:
    docker-compose up -d
    ```
 
+> **File permissions:** the container runs as the non-root user `addarr` (UID 100, GID 101 in the
+> current image; check with `docker-compose run --rm --entrypoint id addarr`).
+> It must be able to write `config.yaml` (`/auth` and settings changes save it),
+> `logs/` and `backup/`, for example with `sudo chown 100:101 config.yaml logs backup`.
+> If `logs/` is not writable, Addarr logs to the console only (`docker-compose logs`) and prints one warning.
+> User preferences (`user_preferences.json`) are kept in the named volume `addarr-data`,
+> so they survive when the container is recreated.
+
+> **Memory limit:** `docker-compose.yml` limits the container to 256M. A full library load
+> (`GET /movie`) reads the whole Radarr library into memory. A library of about 7000 movies or
+> more needs a higher limit: raise `deploy.resources.limits.memory` in `docker-compose.yml`.
+
 #### Using Docker standalone
 1. **Build the image**
    ```bash
@@ -382,6 +391,7 @@ After installation:
      --name addarr \
      -v $(pwd)/config.yaml:/app/config.yaml \
      -v $(pwd)/logs:/app/logs \
+     -v addarr-data:/app/data \
      addarr
    ```
 
@@ -402,6 +412,9 @@ After installation:
 1. Start the bot with `/start`
 2. Use `/auth` to authenticate
 3. Enter the password configured in `config.yaml`
+
+`python run.py --setup` proposes a random password. A password you type needs at least 12 characters.
+The bot saves a hash of the password next to the list of authenticated users. When you change `telegram.password`, the bot signs every user out at the next start, and each user sends `/auth` again.
 
 ### Adding Media
 1. Use the appropriate command (`/movie`, `/series`, `/music`)
@@ -461,6 +474,7 @@ This ensures you never lose your configuration and can easily revert to previous
 ```yaml
 telegram:
   token: "your-bot-token"
+  password: "your-password"  # Password for /auth
   
 language: "en-us"  # Available: en-us, de-de, etc.
 
@@ -470,7 +484,6 @@ logging:
   
 security:
   enableAdmin: false
-  password: "your-password"
 ```
 
 ### Service Configuration
@@ -501,10 +514,10 @@ lidarr:
 ```
 
 ### Resetting Configuration
-If you want to reset your configuration and start from scratch, you can use the `--reset` argument when running the setup script:
+If you want to reset your configuration and start from scratch, you can use the `--reset` argument when running `run.py`:
 
 ```bash
-python setup.py --reset
+python run.py --reset
 ```
 
 This will delete the existing `config.yaml` file and prompt you to create a new one.
@@ -530,14 +543,6 @@ The health monitoring system checks:
 - **Download Clients**
   - SABnzbd connectivity and version
   - Transmission connectivity and status
-
-### Configuration
-Health checks can be configured in `config.yaml`:
-```yaml
-monitoring:
-  interval: 15  # Check interval in minutes
-  enabled: true # Enable/disable health monitoring
-```
 
 ### Status Command
 Use the `/status` command in Telegram to get a detailed health report:
@@ -577,25 +582,15 @@ If you want to add a new language, follow these steps:
 
 ## 🔧 Service Management
 
-Addarr Refresh can be run as a Windows service or a Linux Systemd service:
+Addarr Refresh can run as a logon scheduled task on Windows or as a Linux Systemd service:
 
-### Windows Service
-1. Open PowerShell as Administrator
-2. Navigate to the scripts directory:
-   ```powershell
-   cd C:\Users\<username>\AppData\Local\Addarr\scripts
-   ```
-3. Run the service installation script:
-   ```powershell
-   .\addarr.service.ps1
-   ```
-4. Manage the service:
-   ```powershell
-   Start-Service AddarrBot
-   Stop-Service AddarrBot
-   Restart-Service AddarrBot
-   Get-Service AddarrBot
-   ```
+### Windows Scheduled Task
+The Windows installer offers a task that starts Addarr when you log on, as your normal user, after setup has written `config.yaml`. Manage it in PowerShell:
+```powershell
+Start-ScheduledTask -TaskName Addarr
+Stop-ScheduledTask -TaskName Addarr
+Get-ScheduledTask -TaskName Addarr
+```
 
 ### Linux Systemd Service
 1. Create the user service directory:
@@ -629,12 +624,12 @@ Addarr Refresh can be run as a Windows service or a Linux Systemd service:
 
 ## ☁️ Deployment Options
 
-Addarr Refresh can be deployed using Docker or Kubernetes:
+Addarr Refresh can be deployed using Docker:
 
 ### Docker Deployment
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Cyneric/Addarr.git
+   git clone https://github.com/Krypt0nBull3t/Addarr.git
    cd addarr
    ```
 
@@ -647,17 +642,6 @@ Addarr Refresh can be deployed using Docker or Kubernetes:
 3. **Start with Docker Compose**
    ```bash
    docker-compose up -d
-   ```
-
-### Kubernetes Deployment
-1. **Create a Kubernetes deployment**
-   ```bash
-   kubectl apply -f kubernetes/deployment.yaml
-   ```
-
-2. **Create a Kubernetes service**
-   ```bash
-   kubectl apply -f kubernetes/service.yaml
    ```
 
 ## 👨‍💻 Development
@@ -673,8 +657,7 @@ addarr/
 │   │   ├── radarr.py     # Radarr API client
 │   │   ├── sonarr.py     # Sonarr API client
 │   │   ├── lidarr.py     # Lidarr API client
-│   │   ├── transmission.py # Transmission API client
-│   │   └── sabnzbd.py    # SABnzbd API client
+│   │   └── transmission.py # Transmission API client
 │   ├── bot/              # Telegram bot components
 │   │   ├── __init__.py
 │   │   ├── handlers/     # Command handlers
@@ -728,18 +711,13 @@ addarr/
    venv\Scripts\activate     # Windows
    ```
 
-2. **Install development dependencies**
+2. **Install dependencies**
    ```bash
    pip install -r requirements.txt
-   pip install -r requirements-dev.txt  # Development dependencies
+   pip install -r requirements-test.txt  # Test dependencies
    ```
 
-3. **Set up pre-commit hooks**
-   ```bash
-   pre-commit install
-   ```
-
-4. **Run tests**
+3. **Run tests**
    ```bash
    pytest tests/
    ```

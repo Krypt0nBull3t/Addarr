@@ -5,8 +5,15 @@ AuthHandler manages user authentication via password. The require_auth decorator
 guards handler methods by checking AuthHandler.is_authenticated(user_id).
 """
 
+import ast
+import hashlib
+from contextlib import contextmanager
+from copy import deepcopy
+from pathlib import Path
+
 import pytest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
+from telegram.error import TelegramError
 from telegram.ext import ConversationHandler
 
 
@@ -89,6 +96,166 @@ async def test_require_auth_not_authenticated(mock_ts_class, make_update, make_c
 
 @pytest.mark.asyncio
 @patch("src.bot.handlers.auth.TranslationService")
+async def test_require_auth_message_references_auth_not_start(
+    mock_ts_class, make_update, make_context
+):
+    """NotAuthorized message directs users to /auth, not /start (#166)."""
+    mock_ts = MagicMock()
+    # Return the default text (simulates missing translation key)
+    mock_ts.get_text = MagicMock(
+        side_effect=lambda key, **kw: kw.get("default", key)
+    )
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.auth import AuthHandler, require_auth
+
+    AuthHandler._authenticated_users = set()
+
+    class DummyHandler:
+        @require_auth
+        async def guarded(self, update, context):
+            return "allowed"
+
+    handler = DummyHandler()
+    update = make_update(text="/test")
+    context = make_context()
+
+    await handler.guarded(update, context)
+
+    call_args = update.message.reply_text.call_args
+    message_text = call_args[0][0]
+    assert "/auth" in message_text
+    assert "/start" not in message_text
+
+
+# ---------------------------------------------------------------------------
+# require_auth — chat type enforcement
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _chat_mode_patches(mock_config):
+    """Shared patch context for chat mode enforcement tests."""
+    with patch("src.bot.handlers.auth.TranslationService") as mock_ts_class, \
+         patch("src.bot.handlers.auth.config", mock_config):
+        mock_ts = MagicMock()
+        mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+        mock_ts_class.return_value = mock_ts
+        yield
+
+
+class _DummyHandler:
+    """Test handler for require_auth decorator tests."""
+    from src.bot.handlers.auth import require_auth
+
+    @require_auth
+    async def guarded(self, update, context):
+        return "allowed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("chat_type", ["group", "supergroup"])
+async def test_require_auth_rejects_non_private_chat(
+    chat_type, make_update, make_context, mock_config
+):
+    """require_auth rejects group/supergroup chats when chatMode is private_only."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type=chat_type)
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result is None
+    update.message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["private", "", None, "Allow_All"])
+async def test_require_auth_rejects_group_when_chat_mode_invalid(
+    mode, make_update, make_context, mock_config
+):
+    """Any chatMode other than allow_all keeps groups out (fails closed)."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+    mock_config._set("security", {
+        "enableAdmin": False, "enableAllowlist": False, "chatMode": mode
+    })
+
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type="group")
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result is None
+    update.message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_require_auth_allows_private_chat(
+    make_update, make_context, mock_config
+):
+    """require_auth allows private chats through to the auth check."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type="private")
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result == "allowed"
+
+
+@pytest.mark.asyncio
+async def test_require_auth_allows_group_when_allow_all(
+    make_update, make_context, mock_config
+):
+    """require_auth allows group chats when chatMode is allow_all."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+    mock_config._set("security", {
+        "enableAdmin": False, "enableAllowlist": False, "chatMode": "allow_all"
+    })
+
+    handler = _DummyHandler()
+    update = make_update(text="/test", chat_type="group")
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result == "allowed"
+
+
+@pytest.mark.asyncio
+async def test_require_auth_rejects_group_via_callback(
+    make_update, make_context, mock_config
+):
+    """require_auth replies via effective_message in group callback query."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+
+    handler = _DummyHandler()
+    update = make_update(callback_data="menu_test", chat_type="group")
+    context = make_context()
+
+    with _chat_mode_patches(mock_config):
+        result = await handler.guarded(update, context)
+
+    assert result is None
+    update.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
 async def test_require_auth_no_user(mock_ts_class, make_update, make_context):
     """require_auth returns None when effective_user is None."""
     mock_ts = MagicMock()
@@ -111,54 +278,221 @@ async def test_require_auth_no_user(mock_ts_class, make_update, make_context):
     assert result is None
 
 
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_require_auth_refuses_unauthenticated_callback(
+    mock_ts_class, make_update, make_context
+):
+    """A button press from an unauthenticated user is refused (audit item 5).
+
+    update.message is None for callback queries, so the refusal must not use it.
+    """
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(callback_data="delete_confirm")
+
+    result = await _DummyHandler().guarded(update, make_context())
+
+    assert result is None
+    update.callback_query.answer.assert_awaited_once_with(
+        "NotAuthorized", show_alert=True
+    )
+
+
+# ---------------------------------------------------------------------------
+# Allowlist and admin mode (audit item 6)
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _access_patches(mock_config, **security):
+    """Patch translations and the config that the access helpers read."""
+    mock_config._set("security", {
+        "enableAdmin": False, "enableAllowlist": False,
+        "chatMode": "private_only", **security,
+    })
+    with patch("src.bot.handlers.auth.TranslationService") as mock_ts_class, \
+         patch("src.utils.helpers.config", mock_config):
+        mock_ts_class.return_value.get_text = MagicMock(
+            side_effect=lambda key, **kw: key
+        )
+        yield
+
+
+@pytest.mark.asyncio
+async def test_require_auth_refuses_user_not_on_allowlist(
+    make_update, make_context, mock_config
+):
+    """An authenticated user who is not on the allowlist is refused."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+    mock_config._set("allow_list", [111])
+
+    update = make_update(text="/movie")
+    with _access_patches(mock_config, enableAllowlist=True):
+        result = await _DummyHandler().guarded(update, make_context())
+
+    assert result is None
+    update.message.reply_text.assert_awaited_once_with("NotAllowed")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("allow_list, admins", [
+    ([12345], []),
+    ([], [12345]),  # admins are always allowed
+])
+async def test_require_auth_allows_listed_user(
+    allow_list, admins, make_update, make_context, mock_config
+):
+    """Users on the allowlist, and admins, pass the allowlist."""
+    from src.bot.handlers.auth import AuthHandler
+    AuthHandler._authenticated_users = {12345}
+    mock_config._set("allow_list", allow_list)
+    mock_config._set("admins", admins)
+
+    with _access_patches(mock_config, enableAllowlist=True):
+        result = await _DummyHandler().guarded(
+            make_update(text="/movie"), make_context()
+        )
+
+    assert result == "allowed"
+
+
+@pytest.mark.asyncio
+async def test_start_auth_refuses_user_not_on_allowlist(
+    make_update, make_context, mock_config
+):
+    """/auth does not even ask for the password when the allowlist refuses."""
+    from src.bot.handlers.auth import AuthHandler
+
+    update = make_update(text="/auth")
+    with _access_patches(mock_config, enableAllowlist=True):
+        result = await AuthHandler().start_auth(update, make_context())
+
+    assert result == ConversationHandler.END
+    update.message.reply_text.assert_awaited_once_with("NotAllowed")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enable_admin, admins, service, only_admin, allowed", [
+    (False, [], None, True, True),              # admin mode off
+    (True, [12345], None, True, True),          # admin
+    (True, [], None, True, False),              # non-admin in admin mode
+    (True, [], "transmission", False, True),    # service not onlyAdmin
+    (True, [], "transmission", True, False),    # service onlyAdmin
+    (False, [], "transmission", True, True),    # onlyAdmin needs admin mode
+])
+async def test_require_admin(
+    enable_admin, admins, service, only_admin, allowed,
+    make_update, make_context, mock_config
+):
+    """require_admin refuses non-admins only when admin mode applies."""
+    from src.bot.handlers.auth import require_admin
+    mock_config._set("admins", admins)
+    mock_config._set("transmission", {"onlyAdmin": only_admin})
+
+    class Dummy:
+        @require_admin(service)
+        async def guarded(self, update, context):
+            return "allowed"
+
+    update = make_update(callback_data="transmission_toggle_yes")
+    with _access_patches(mock_config, enableAdmin=enable_admin):
+        result = await Dummy().guarded(update, make_context())
+
+    if allowed:
+        assert result == "allowed"
+    else:
+        assert result is None
+        update.callback_query.answer.assert_awaited_once_with(
+            "NotAdmin", show_alert=True
+        )
+
+
 # ---------------------------------------------------------------------------
 # _save_authenticated_users
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
+@patch("src.bot.handlers.auth.register_commands_for_chat")
 @patch("src.bot.handlers.auth.TranslationService")
-async def test_save_authenticated_users_success(mock_ts_class):
-    """_save_authenticated_users writes users to config file."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
+async def test_authenticated_user_survives_later_config_save(
+    mock_ts_class, mock_register, make_user, make_update, make_context, mock_config
+):
+    """A later config.save() (e.g. from /settings) keeps a new user (audit item 4)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    saved = []
+    mock_config.save = lambda: saved.append(deepcopy(mock_config._config))
 
     from src.bot.handlers.auth import AuthHandler
 
-    handler = AuthHandler()
-    AuthHandler._authenticated_users = {12345, 67890}
+    with patch("src.bot.handlers.auth.config", mock_config):
+        handler = AuthHandler()
+        update = make_update(text="test-pass", user=make_user(user_id=67890))
+        await handler.check_password(update, make_context())
+        mock_config.save()  # another feature saves the config later
 
-    mock_file_read = mock_open(read_data="authenticated_users: []\n")
-    mock_file_write = mock_open()
+    assert saved[-1]["authenticated_users"] == [12345, 67890]
 
-    with patch("builtins.open", mock_file_read):
-        with patch("yaml.safe_load", return_value={"authenticated_users": []}):
-            with patch("yaml.safe_dump") as mock_dump:
-                # Re-patch open for write
-                with patch("builtins.open", mock_file_write):
-                    handler._save_authenticated_users()
 
-    # Should have been called (dump the config)
-    mock_dump.assert_called_once()
+@patch("src.bot.handlers.auth.TranslationService")
+def test_save_authenticated_users_exception(mock_ts_class, mock_config):
+    """_save_authenticated_users logs the error instead of raising."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config.save = MagicMock(side_effect=OSError("Read-only file system"))
+
+    with patch("src.bot.handlers.auth.config", mock_config), \
+         patch("src.bot.handlers.auth.logger") as mock_logger:
+        AuthHandler()._save_authenticated_users()
+
+    mock_logger.error.assert_called_once()
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_save_authenticated_users_returns_bool(mock_ts_class, mock_config):
+    """True when the config is saved, False when the save raises."""
+    from src.bot.handlers.auth import AuthHandler
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        handler = AuthHandler()
+        mock_config.save = MagicMock()
+        assert handler._save_authenticated_users() is True
+
+        mock_config.save = MagicMock(side_effect=OSError("Read-only file system"))
+        with patch("src.bot.handlers.auth.logger"):
+            assert handler._save_authenticated_users() is False
 
 
 @pytest.mark.asyncio
+@patch("src.bot.handlers.auth.register_commands_for_chat")
 @patch("src.bot.handlers.auth.TranslationService")
-async def test_save_authenticated_users_exception(mock_ts_class):
-    """_save_authenticated_users logs error on exception."""
-    mock_ts = MagicMock()
-    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
-    mock_ts_class.return_value = mock_ts
+async def test_check_password_save_failure_warns_user(
+    mock_ts_class, mock_register, make_user, make_update, make_context, mock_config
+):
+    """A failed save shows the warning, not the success text (F032)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_config.save = MagicMock(side_effect=OSError("Read-only file system"))
 
     from src.bot.handlers.auth import AuthHandler
 
-    handler = AuthHandler()
-    AuthHandler._authenticated_users = {12345}
+    with patch("src.bot.handlers.auth.config", mock_config), \
+         patch("src.bot.handlers.auth.logger") as mock_logger:
+        handler = AuthHandler()
+        update = make_update(text="test-pass", user=make_user(user_id=67890))
+        await handler.check_password(update, make_context())
 
-    with patch("builtins.open", side_effect=IOError("Permission denied")):
-        # Should not raise
-        handler._save_authenticated_users()
+    sent = [
+        call.args[0]
+        for call in update.effective_message.chat.send_message.await_args_list
+    ]
+    assert "AuthSaveFailed" in sent
+    assert "Chatid added" not in sent
+    mock_logger.error.assert_called()
+    assert 67890 in AuthHandler._authenticated_users
 
 
 # ---------------------------------------------------------------------------
@@ -232,7 +566,10 @@ async def test_start_auth_no_message(mock_ts_class, make_update, make_context):
 @pytest.mark.asyncio
 @patch("src.bot.handlers.auth.TranslationService")
 async def test_start_auth_no_user(mock_ts_class, make_update, make_context):
-    """start_auth returns END when no effective_user."""
+    """start_auth starts no conversation when there is no effective_user.
+
+    The auth rate limiter runs first and drops the update (returns None).
+    """
     mock_ts = MagicMock()
     mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
     mock_ts_class.return_value = mock_ts
@@ -246,7 +583,74 @@ async def test_start_auth_no_user(mock_ts_class, make_update, make_context):
 
     result = await handler.start_auth(update, context)
 
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# start_auth — chat type enforcement
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_start_auth_rejects_group_chat(
+    make_update, make_context, mock_config
+):
+    """start_auth rejects group chats in private_only mode and returns END."""
+    from src.bot.handlers.auth import AuthHandler
+
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
+
+        update = make_update(text="/auth", chat_type="group")
+        context = make_context()
+
+        result = await handler.start_auth(update, context)
+
     assert result == ConversationHandler.END
+    update.message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_start_auth_allows_private_chat(
+    make_update, make_context, mock_config
+):
+    """start_auth proceeds normally in private chats."""
+    from src.bot.handlers.auth import AuthHandler, PASSWORD
+
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
+
+        update = make_update(text="/auth", chat_type="private")
+        context = make_context()
+
+        result = await handler.start_auth(update, context)
+
+    assert result == PASSWORD
+
+
+@pytest.mark.asyncio
+async def test_start_auth_allows_group_when_allow_all(
+    make_update, make_context, mock_config
+):
+    """start_auth allows group chats when chatMode is allow_all."""
+    from src.bot.handlers.auth import AuthHandler, PASSWORD
+
+    mock_config._set("security", {
+        "enableAdmin": False, "enableAllowlist": False, "chatMode": "allow_all"
+    })
+
+    with _chat_mode_patches(mock_config):
+        handler = AuthHandler()
+        AuthHandler._authenticated_users = set()
+
+        update = make_update(text="/auth", chat_type="group")
+        context = make_context()
+
+        result = await handler.start_auth(update, context)
+
+    assert result == PASSWORD
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +683,83 @@ async def test_check_password_correct(mock_ts_class, make_update, make_context):
 
 
 @pytest.mark.asyncio
+@patch("src.bot.handlers.auth.get_main_menu_keyboard")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_correct_sends_main_menu(
+    mock_ts_class, mock_menu_kbd, make_update, make_context
+):
+    """After a correct password the bot sends the main menu, not the text /start (F093)."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.auth import AuthHandler
+
+    handler = AuthHandler()
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(text="test-pass")
+    context = make_context()
+    chat = update.effective_message.chat
+
+    with patch.object(handler, "_save_authenticated_users"):
+        await handler.check_password(update, context)
+
+    chat.send_message.assert_any_call(
+        "mainMenu", reply_markup=mock_menu_kbd.return_value
+    )
+    sent_texts = [c.args[0] for c in chat.send_message.call_args_list]
+    sent_texts += [c.args[1] for c in context.bot.send_message.call_args_list]
+    assert "/start" not in sent_texts
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_authenticates_when_delete_fails(
+    mock_ts_class, make_update, make_context
+):
+    """A failed delete (no rights in a group) does not skip the password check (#210)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+
+    from src.bot.handlers.auth import AuthHandler
+
+    handler = AuthHandler()
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(text="test-pass")
+    update.effective_message.delete.side_effect = TelegramError("no rights")
+
+    with patch.object(handler, "_save_authenticated_users"):
+        result = await handler.check_password(update, make_context())
+
+    assert result == ConversationHandler.END
+    assert 12345 in AuthHandler._authenticated_users
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_rejects_wrong_password_when_delete_fails(
+    mock_ts_class, make_update, make_context
+):
+    """A failed delete still ends in the wrong-password reply (#210)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+
+    from src.bot.handlers.auth import AuthHandler
+
+    handler = AuthHandler()
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(text="wrong")
+    update.effective_message.delete.side_effect = TelegramError("no rights")
+
+    result = await handler.check_password(update, make_context())
+
+    assert result == ConversationHandler.END
+    assert 12345 not in AuthHandler._authenticated_users
+    update.effective_message.chat.send_message.assert_awaited_once_with("Wrong password")
+
+
+@pytest.mark.asyncio
 @patch("src.bot.handlers.auth.TranslationService")
 async def test_check_password_wrong(mock_ts_class, make_update, make_context):
     """Wrong password replies with 'Wrong password' and returns END."""
@@ -299,6 +780,43 @@ async def test_check_password_wrong(mock_ts_class, make_update, make_context):
     assert result == ConversationHandler.END
     assert 12345 not in AuthHandler._authenticated_users
     update.effective_message.delete.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_accepts_numeric_password(
+    mock_ts_class, make_update, make_context, mock_config
+):
+    """YAML loads `password: 123456` as an int; typing 123456 works (audit item 14)."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    from src.bot.handlers.auth import AuthHandler
+    mock_config._set("authenticated_users", [])
+    mock_config._set("telegram", {"token": "t", "password": 123456})
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        handler = AuthHandler()
+    with patch.object(handler, "_save_authenticated_users"):
+        await handler.check_password(make_update(text="123456"), make_context())
+
+    assert 12345 in AuthHandler._authenticated_users
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_check_password_without_configured_password_rejects_all(
+    mock_ts_class, make_update, make_context, mock_config
+):
+    """An empty `password:` (None) never matches, not even the text 'None'."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    from src.bot.handlers.auth import AuthHandler
+    mock_config._set("authenticated_users", [])
+    mock_config._set("telegram", {"token": "t", "password": None})
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        handler = AuthHandler()
+    await handler.check_password(make_update(text="None"), make_context())
+
+    assert 12345 not in AuthHandler._authenticated_users
 
 
 # ---------------------------------------------------------------------------
@@ -346,3 +864,349 @@ def test_get_handler_returns_list(mock_ts_class):
 
     assert isinstance(handlers, list)
     assert len(handlers) > 0
+
+
+# ---------------------------------------------------------------------------
+# check_password triggers command registration
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.TranslationService")
+@patch("src.bot.handlers.auth.register_commands_for_chat")
+async def test_successful_auth_registers_commands(
+    mock_register, mock_ts_class, make_update, make_context
+):
+    """Successful auth calls register_commands_for_chat with chat_id and bot."""
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.auth import AuthHandler
+
+    handler = AuthHandler()
+    AuthHandler._authenticated_users = set()
+
+    update = make_update(text="test-pass")
+    context = make_context()
+
+    with patch.object(handler, "_save_authenticated_users"):
+        await handler.check_password(update, context)
+
+    mock_register.assert_awaited_once_with(
+        context.bot, update.effective_message.chat.id
+    )
+
+
+# ---------------------------------------------------------------------------
+# password change revokes authenticated users (#210)
+# ---------------------------------------------------------------------------
+
+
+def _stored(password):
+    """A stored authenticated_users_hash value for the password."""
+    from src.bot.handlers.auth import _password_hash
+
+    return _password_hash(password)
+
+
+def _matches(password, stored):
+    from src.bot.handlers.auth import _hash_matches
+
+    return _hash_matches(password, stored)
+
+
+@pytest.fixture
+def saved_configs(mock_config):
+    """Record a deep copy of the config on every config.save()."""
+    saved = []
+    mock_config.save = lambda: saved.append(deepcopy(mock_config._config))
+    return saved
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_clears_users_when_hash_differs(mock_ts, mock_config, saved_configs):
+    """A user list saved under another password is cleared and re-saved."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", _stored("old-pass"))
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert saved_configs[-1]["authenticated_users"] == []
+    assert _matches("test-pass", saved_configs[-1]["authenticated_users_hash"])
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_clears_users_when_hash_missing(mock_ts, mock_config, saved_configs):
+    """A list with no stored hash counts as a mismatch (one re-auth after upgrade)."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._config.pop("authenticated_users_hash", None)
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert _matches("test-pass", saved_configs[-1]["authenticated_users_hash"])
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_keeps_users_when_hash_matches(mock_ts, mock_config, saved_configs):
+    """An unchanged password keeps the list and writes nothing."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", _stored("test-pass"))
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == {12345}
+    assert saved_configs == []
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_empty_list_does_not_save(mock_ts, mock_config, saved_configs):
+    """With nobody to revoke, a changed password writes nothing."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [])
+    mock_config._set("authenticated_users_hash", _stored("old-pass"))
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert saved_configs == []
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_hashes_an_int_password_as_text(mock_ts, mock_config, saved_configs):
+    """YAML loads `password: 123456` as an int; its hash is the hash of "123456"."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("telegram", {"token": "t", "password": 123456})
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", _stored("123456"))
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == {12345}
+    assert saved_configs == []
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.register_commands_for_chat")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_save_writes_password_hash(
+    mock_ts_class, mock_register, make_user, make_update, make_context,
+    mock_config, saved_configs
+):
+    """A new login saves the user list together with the current password hash."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_config._set("authenticated_users", [])
+    mock_config._config.pop("authenticated_users_hash", None)
+
+    from src.bot.handlers.auth import AuthHandler
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        handler = AuthHandler()
+        update = make_update(text="test-pass", user=make_user(user_id=67890))
+        await handler.check_password(update, make_context())
+
+    assert saved_configs[-1]["authenticated_users"] == [67890]
+    assert _matches("test-pass", saved_configs[-1]["authenticated_users_hash"])
+
+
+# ---------------------------------------------------------------------------
+# salted PBKDF2 hash of the password (#274)
+# ---------------------------------------------------------------------------
+
+AUTH_FILE = Path(__file__).resolve().parent.parent.parent / "src" / "bot" / "handlers" / "auth.py"
+
+
+def _pbkdf2_value(password, iterations, salt=bytes(16)):
+    """Build a stored value by hand, with the stdlib call, for the given count."""
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${salt.hex()}${digest.hex()}"
+
+
+def test_real_iteration_constant_is_600000():
+    """The autouse fixture lowers the live constant, so read the source file."""
+    tree = ast.parse(AUTH_FILE.read_text(encoding="utf-8"))
+    values = [
+        ast.literal_eval(node.value)
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "PBKDF2_ITERATIONS" for t in node.targets)
+    ]
+    assert values == [600000]
+
+
+def test_password_hash_format():
+    """The stored value is pbkdf2_sha256$<iterations>$<salt hex>$<hash hex>."""
+    from src.bot.handlers.auth import PBKDF2_ITERATIONS, _password_hash
+
+    scheme, iterations, salt, digest = _password_hash("test-pass").split("$")
+
+    assert scheme == "pbkdf2_sha256"
+    assert iterations == str(PBKDF2_ITERATIONS)
+    assert len(salt) == 32 and bytes.fromhex(salt)
+    assert len(digest) == 64 and bytes.fromhex(digest)
+
+
+def test_password_hash_uses_random_salt():
+    """Two derivations of the same password give different values."""
+    from src.bot.handlers.auth import _password_hash
+
+    assert _password_hash("test-pass") != _password_hash("test-pass")
+
+
+def test_hash_matches_right_password():
+    assert _matches("test-pass", _stored("test-pass")) is True
+
+
+def test_hash_matches_wrong_password():
+    assert _matches("other-pass", _stored("test-pass")) is False
+
+
+def test_hash_matches_uses_stored_iterations():
+    """The count comes from the stored string, not from the live constant."""
+    from src.bot.handlers.auth import PBKDF2_ITERATIONS
+
+    assert PBKDF2_ITERATIONS != 7
+    assert _matches("pw", _pbkdf2_value("pw", 7)) is True
+
+
+def test_hash_matches_rejects_legacy_sha256():
+    """An old plain-SHA256 value is a mismatch even for the right password."""
+    legacy = hashlib.sha256(b"test-pass").hexdigest()
+
+    assert _matches("test-pass", legacy) is False
+
+
+def test_hash_matches_rejects_iteration_count_above_cap():
+    """A count above 10x the constant is malformed and is never derived."""
+    from src.bot.handlers import auth
+
+    too_many = 10 * auth.PBKDF2_ITERATIONS + 1
+    value = f"pbkdf2_sha256${too_many}${bytes(16).hex()}${bytes(32).hex()}"
+
+    with patch.object(auth.hashlib, "pbkdf2_hmac") as derive:
+        assert auth._hash_matches("test-pass", value) is False
+
+    derive.assert_not_called()
+
+
+def test_hash_matches_accepts_iteration_count_at_cap():
+    from src.bot.handlers import auth
+
+    at_cap = 10 * auth.PBKDF2_ITERATIONS
+
+    assert auth._hash_matches("pw", _pbkdf2_value("pw", at_cap)) is True
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        None,
+        "",
+        "pbkdf2_sha256$x$00$00",
+        "pbkdf2_sha256$0$00$00",
+        "pbkdf2_sha256$-5$00$00",
+        "pbkdf2_sha256$1000$zz$00",
+        "pbkdf2_sha256$1000$00$zz",
+        "pbkdf2_sha256$1000$00",
+        "other$1000$00$00",
+        123,
+    ],
+)
+def test_hash_matches_rejects_malformed(stored):
+    """A damaged value is a mismatch, never an exception."""
+    assert _matches("test-pass", stored) is False
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_clears_users_when_stored_hash_is_legacy_sha256(
+    mock_ts, mock_config, saved_configs
+):
+    """A plain-SHA256 value from an earlier development build clears the list."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set(
+        "authenticated_users_hash", hashlib.sha256(b"test-pass").hexdigest()
+    )
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert saved_configs[-1]["authenticated_users_hash"].startswith("pbkdf2_sha256$")
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_clears_users_when_stored_hash_is_malformed(
+    mock_ts, mock_config, saved_configs
+):
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", "pbkdf2_sha256$x$00$00")
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert _matches("test-pass", saved_configs[-1]["authenticated_users_hash"])
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_reuses_matching_stored_hash(mock_ts, mock_config, saved_configs):
+    """A matching stored value is kept: a save writes it back without deriving."""
+    from src.bot.handlers.auth import AuthHandler
+
+    stored = _stored("test-pass")
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", stored)
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        with patch("src.bot.handlers.auth._password_hash") as derive:
+            handler = AuthHandler()
+            handler._save_authenticated_users()
+
+    derive.assert_not_called()
+    assert saved_configs[-1]["authenticated_users_hash"] == stored
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.register_commands_for_chat")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_save_reuses_hash_between_logins(
+    mock_ts_class, mock_register, make_user, make_update, make_context,
+    mock_config, saved_configs
+):
+    """Two logins in one process write the same value and derive it once."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_config._set("authenticated_users", [])
+    mock_config._config.pop("authenticated_users_hash", None)
+
+    from src.bot.handlers.auth import AuthHandler, _password_hash
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        with patch(
+            "src.bot.handlers.auth._password_hash", wraps=_password_hash
+        ) as derive:
+            handler = AuthHandler()
+            for user_id in (67890, 67891):
+                update = make_update(text="test-pass", user=make_user(user_id=user_id))
+                await handler.check_password(update, make_context())
+
+    assert derive.call_count == 1
+    assert saved_configs[0]["authenticated_users_hash"] == saved_configs[-1]["authenticated_users_hash"]

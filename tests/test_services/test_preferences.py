@@ -8,10 +8,12 @@ Tests cover:
 - Missing file auto-creates empty prefs
 - Corrupt JSON file resets gracefully
 - Multi-user isolation
+- Atomic save, missing data folder, legacy root file
 """
 
 import json
 import os
+from unittest.mock import patch
 
 import pytest
 
@@ -21,11 +23,15 @@ class TestPreferencesService:
 
     @pytest.fixture(autouse=True)
     def setup_prefs_file(self, tmp_path):
-        """Use a temp file for preferences, patch PREFERENCES_PATH."""
+        """Use temp files for preferences, patch both preference paths."""
+        self.tmp_path = tmp_path
         self.prefs_path = str(tmp_path / "user_preferences.json")
+        self.legacy_path = str(tmp_path / "legacy_user_preferences.json")
 
-        from unittest.mock import patch
-        with patch("src.services.preferences.PREFERENCES_PATH", self.prefs_path):
+        with (
+            patch("src.services.preferences.PREFERENCES_PATH", self.prefs_path),
+            patch("src.services.preferences.LEGACY_PREFERENCES_PATH", self.legacy_path),
+        ):
             yield
 
     def _make_service(self):
@@ -153,3 +159,50 @@ class TestPreferencesService:
 
         # User 222 should still be default
         assert svc.get_view_mode("222") == "card"
+
+    # -- Saving --
+
+    def test_failed_save_keeps_previous_file(self):
+        """A crash while writing must not corrupt the saved preferences."""
+        svc = self._make_service()
+        svc.set_preference("12345", "theme", "dark")
+
+        def crash_mid_write(obj, f, **kwargs):
+            f.write('{"12345": {"th')
+            raise OSError("disk full")
+
+        with patch("src.services.preferences.json.dump", side_effect=crash_mid_write):
+            with pytest.raises(OSError):
+                svc.set_preference("12345", "theme", "light")
+
+        with open(self.prefs_path, "r") as f:
+            assert json.load(f)["12345"]["theme"] == "dark"
+
+    def test_save_creates_missing_data_folder(self):
+        """The data folder does not exist on a fresh non-Docker install."""
+        prefs_path = str(self.tmp_path / "data" / "user_preferences.json")
+        with patch("src.services.preferences.PREFERENCES_PATH", prefs_path):
+            svc = self._make_service()
+            svc.set_preference("12345", "theme", "dark")
+
+        with open(prefs_path, "r") as f:
+            assert json.load(f)["12345"]["theme"] == "dark"
+
+    # -- Legacy location --
+
+    def test_loads_legacy_file_when_data_file_missing(self):
+        """Installs from before data/ keep their preferences."""
+        with open(self.legacy_path, "w") as f:
+            json.dump({"12345": {"view_mode": "list"}}, f)
+
+        svc = self._make_service()
+        assert svc.get_view_mode("12345") == "list"
+
+    def test_data_file_wins_over_legacy_file(self):
+        with open(self.legacy_path, "w") as f:
+            json.dump({"12345": {"view_mode": "list"}}, f)
+        with open(self.prefs_path, "w") as f:
+            json.dump({"12345": {"view_mode": "card"}}, f)
+
+        svc = self._make_service()
+        assert svc.get_view_mode("12345") == "card"
