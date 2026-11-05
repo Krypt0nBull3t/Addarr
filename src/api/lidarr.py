@@ -206,17 +206,6 @@ class LidarrClient(BaseApiClient):
             logger.error(f"❌ Failed to get quality profiles: {str(e)}")
             return []
 
-    async def get_metadata_profiles(self) -> List[Dict]:
-        """Get available metadata profiles"""
-        try:
-            results = await self._request("metadataprofile")
-            if results:
-                return [{"id": profile["id"], "name": profile["name"]} for profile in results]
-            return []
-        except Exception as e:
-            logger.error(f"Failed to get metadata profiles: {str(e)}")
-            return []
-
     async def get_queue(self) -> List[Dict]:
         """Get the current download queue from Lidarr."""
         try:
