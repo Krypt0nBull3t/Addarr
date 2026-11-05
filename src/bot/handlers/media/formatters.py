@@ -11,6 +11,7 @@ showing search results in card/list views, and editing messages.
 from html import escape
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import TelegramError
 
 from src.utils.logger import get_logger
 from src.services.translation import TranslationService
@@ -20,6 +21,14 @@ from src.bot.keyboards import (
 )
 
 logger = get_logger("addarr.media.formatters")
+
+
+async def _delete_quietly(message) -> None:
+    """Delete a message; a Telegram refusal (no delete rights) is not an error."""
+    try:
+        await message.delete()
+    except TelegramError as e:
+        logger.warning(f"Could not delete message: {e}")
 
 
 def _build_external_links(result):
@@ -203,7 +212,7 @@ async def show_result(message, result, index: int, total: int):
                     parse_mode='HTML',
                     reply_markup=reply_markup
                 )
-                await message.delete()
+                await _delete_quietly(message)
                 return new_message
             except Exception as e:
                 logger.error(f"Error sending photo: {e}")
@@ -212,7 +221,7 @@ async def show_result(message, result, index: int, total: int):
                     parse_mode='HTML',
                     reply_markup=reply_markup
                 )
-                await message.delete()
+                await _delete_quietly(message)
                 return new_message
         else:
             new_message = await message.reply_text(
@@ -220,7 +229,7 @@ async def show_result(message, result, index: int, total: int):
                 parse_mode='HTML',
                 reply_markup=reply_markup
             )
-            await message.delete()
+            await _delete_quietly(message)
             return new_message
 
     except Exception as e:
@@ -232,7 +241,7 @@ async def show_result(message, result, index: int, total: int):
                     InlineKeyboardButton("❌ Cancel", callback_data="select_cancel")
                 ]])
             )
-            await message.delete()
+            await _delete_quietly(message)
             return new_message
         except Exception as e2:
             logger.error(f"Error in fallback message: {e2}")
@@ -256,7 +265,7 @@ async def show_list(message, results, page, search_type):
         header,
         reply_markup=reply_markup
     )
-    await message.delete()
+    await _delete_quietly(message)
     return new_message
 
 
@@ -279,7 +288,7 @@ async def show_list_detail(message, result):
                 parse_mode='HTML',
                 reply_markup=reply_markup
             )
-            await message.delete()
+            await _delete_quietly(message)
             return new_message
         except Exception as e:
             logger.error(f"Error sending photo in list detail: {e}")
@@ -288,7 +297,7 @@ async def show_list_detail(message, result):
                 parse_mode='HTML',
                 reply_markup=reply_markup
             )
-            await message.delete()
+            await _delete_quietly(message)
             return new_message
     else:
         new_message = await message.reply_text(
@@ -296,7 +305,7 @@ async def show_list_detail(message, result):
             parse_mode='HTML',
             reply_markup=reply_markup
         )
-        await message.delete()
+        await _delete_quietly(message)
         return new_message
 
 

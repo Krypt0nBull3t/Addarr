@@ -146,7 +146,7 @@ The codebase follows a three-layer architecture with strict separation:
 ### Key Patterns
 
 - **Async throughout**: All I/O uses `async/await` via `aiohttp` and `python-telegram-bot` v20+.
-- **Authentication decorator**: `@require_auth` from `src/bot/handlers/auth.py` guards handler methods. Authenticated user IDs are persisted to `config.yaml`.
+- **Authentication decorator**: `@require_auth` from `src/bot/handlers/auth.py` guards handler methods. Authenticated user IDs are persisted to `config.yaml` with `authenticated_users_hash` (sha256 of `telegram.password`); `AuthHandler.__init__` clears the list when the hash differs or is missing.
 - **Conversation state machine**: Media flow progresses through `SEARCHING → SELECTING → QUALITY_SELECT`, then `SEASON_SELECT` (TV) or `ALBUM_SELECT` (music artist), then the conversation ends (states in `src/bot/handlers/media/dispatch.py`).
 - **Keyboards**: Shared inline keyboard builders live in `src/bot/keyboards.py`; use one when it fits. Flow-specific keyboards are built in the handler, e.g. `src/bot/handlers/media/formatters.py` (result navigation), `src/bot/handlers/media/season_picker.py` (seasons) and `src/bot/handlers/delete.py`.
 - **Global config singleton**: `src/config/settings.py` exports a module-level `config` instance loaded from `config.yaml` and validated against `config_example.yaml`.

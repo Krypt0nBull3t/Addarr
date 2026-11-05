@@ -7,9 +7,12 @@ message objects and result dicts without any service dependencies.
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock
+from telegram.error import BadRequest
 
 from src.bot.handlers.media.formatters import (
     _build_external_links,
+    _delete_quietly,
+    show_list,
     build_result_caption,
     send_response,
     show_list_detail,
@@ -456,6 +459,74 @@ async def test_every_caption_send_uses_html(make_message, show, path):
     caption = call.kwargs.get("caption") or call.args[0]
     assert ESCAPED_TITLE in caption
     assert call.kwargs["parse_mode"] == "HTML"
+
+
+# ---------------------------------------------------------------------------
+# failed delete (bot has no delete rights in a group) (#210)
+# ---------------------------------------------------------------------------
+
+
+def _cannot_delete(message):
+    message.delete = AsyncMock(side_effect=BadRequest("Message can't be deleted"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("poster", [None, "https://example.com/p.jpg"])
+async def test_show_result_sends_card_once_when_delete_fails(make_message, poster):
+    """A failed delete does not trigger the error fallback card."""
+    message = make_message()
+    _cannot_delete(message)
+    new_message = MagicMock()
+    message.reply_text = AsyncMock(return_value=new_message)
+    message.reply_photo = AsyncMock(return_value=new_message)
+    result = {"id": "1", "title": "T", "overview": "O", "poster": poster}
+
+    returned = await show_result(message, result, 0, 1)
+
+    assert returned is new_message
+    sends = message.reply_text.await_count + message.reply_photo.await_count
+    assert sends == 1
+
+
+@pytest.mark.asyncio
+async def test_show_list_survives_failed_delete(make_message):
+    """show_list returns the new list message when the delete fails."""
+    message = make_message()
+    _cannot_delete(message)
+    new_message = MagicMock()
+    message.reply_text = AsyncMock(return_value=new_message)
+    results = [{"id": "1", "title": "T", "year": 2020}]
+
+    returned = await show_list(message, results, 0, "movie")
+
+    assert returned is new_message
+    message.reply_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("poster", [None, "https://example.com/p.jpg"])
+async def test_show_list_detail_survives_failed_delete(make_message, poster):
+    """show_list_detail returns the new card when the delete fails."""
+    message = make_message()
+    _cannot_delete(message)
+    new_message = MagicMock()
+    message.reply_text = AsyncMock(return_value=new_message)
+    message.reply_photo = AsyncMock(return_value=new_message)
+    result = {"id": "1", "title": "T", "overview": "O", "poster": poster}
+
+    returned = await show_list_detail(message, result)
+
+    assert returned is new_message
+
+
+@pytest.mark.asyncio
+async def test_delete_quietly_lets_other_errors_through():
+    """Only TelegramError is swallowed."""
+    message = MagicMock()
+    message.delete = AsyncMock(side_effect=RuntimeError("boom"))
+
+    with pytest.raises(RuntimeError):
+        await _delete_quietly(message)
 
 
 # ---------------------------------------------------------------------------
