@@ -248,7 +248,7 @@ if query.message.message_id != context.user_data.get("quality_message_id"):
 **Instead**, check the limit once, just before each add request:
 
 ```python
-# GOOD - outside the try, so a refusal is not swallowed
+# GOOD - just before the add request; inside the method's try is fine
 if not await enforce_rate_limit(update, "modify"):
     return None
 success, message = await self.media_service.add_series_with_profile(...)
