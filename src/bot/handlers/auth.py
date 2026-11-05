@@ -9,6 +9,7 @@ This module handles user authentication through the bot.
 
 import hashlib
 import hmac
+import secrets
 from typing import Optional
 
 from telegram import Update
@@ -115,9 +116,39 @@ def require_admin(service: Optional[str] = None):
     return decorator
 
 
+# OWASP 2023 figure for PBKDF2-HMAC-SHA256
+PBKDF2_ITERATIONS = 600000
+_HASH_SCHEME = "pbkdf2_sha256"
+
+
 def _password_hash(password: str) -> str:
-    """Return the sha256 hex digest of the password (stored beside the user list)."""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Return a salted PBKDF2 value: pbkdf2_sha256$<iterations>$<salt hex>$<hash hex>."""
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), salt, PBKDF2_ITERATIONS
+    )
+    return f"{_HASH_SCHEME}${PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
+
+
+def _hash_matches(password: str, stored: Optional[str]) -> bool:
+    """Check the password against a stored value, using its salt and iterations.
+
+    A missing, old plain-SHA256 or malformed value is a mismatch, never an error.
+    An iteration count outside 1..10x the current one counts as malformed, so a
+    damaged config.yaml cannot block startup with a huge count.
+    """
+    try:
+        scheme, iterations, salt, digest = stored.split("$")
+        count = int(iterations)
+        if scheme != _HASH_SCHEME or not 1 <= count <= 10 * PBKDF2_ITERATIONS:
+            return False
+        expected = bytes.fromhex(digest)
+        actual = hashlib.pbkdf2_hmac(
+            "sha256", password.encode(), bytes.fromhex(salt), count
+        )
+    except (ValueError, AttributeError):
+        return False
+    return hmac.compare_digest(actual, expected)
 
 
 class AuthHandler:
@@ -134,17 +165,22 @@ class AuthHandler:
         # Load authenticated users from config
         AuthHandler._authenticated_users = set(config.get("authenticated_users", []))
         # A password change revokes everyone. A list saved without a hash (before
-        # this check existed) counts as changed: its users send /auth once.
-        if (
-            AuthHandler._authenticated_users
-            and config.get("authenticated_users_hash") != _password_hash(self.password)
-        ):
-            logger.warning(
-                f"Password changed: revoking {len(AuthHandler._authenticated_users)} "
-                "authenticated user(s)"
-            )
-            AuthHandler._authenticated_users = set()
-            self._save_authenticated_users()
+        # this check existed) or with an old plain-SHA256 hash counts as changed:
+        # its users send /auth once. The derived value is kept for every later
+        # save, because one hash takes seconds on a small device and a save runs
+        # on the event loop.
+        stored = config.get("authenticated_users_hash")
+        if _hash_matches(self.password, stored):
+            self._stored_hash = stored
+        else:
+            self._stored_hash = _password_hash(self.password)
+            if AuthHandler._authenticated_users:
+                logger.warning(
+                    f"Password changed: revoking "
+                    f"{len(AuthHandler._authenticated_users)} authenticated user(s)"
+                )
+                AuthHandler._authenticated_users = set()
+                self._save_authenticated_users()
 
     @classmethod
     def is_authenticated(cls, user_id: int) -> bool:
@@ -158,9 +194,7 @@ class AuthHandler:
             config.update_nested(
                 "authenticated_users", sorted(AuthHandler._authenticated_users)
             )
-            config.update_nested(
-                "authenticated_users_hash", _password_hash(self.password)
-            )
+            config.update_nested("authenticated_users_hash", self._stored_hash)
             config.save()
             return True
         except Exception as e:

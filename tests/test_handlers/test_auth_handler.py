@@ -5,9 +5,11 @@ AuthHandler manages user authentication via password. The require_auth decorator
 guards handler methods by checking AuthHandler.is_authenticated(user_id).
 """
 
+import ast
 import hashlib
 from contextlib import contextmanager
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 from unittest.mock import patch, MagicMock
@@ -901,8 +903,17 @@ async def test_successful_auth_registers_commands(
 # ---------------------------------------------------------------------------
 
 
-def _sha256(text):
-    return hashlib.sha256(text.encode()).hexdigest()
+def _stored(password):
+    """A stored authenticated_users_hash value for the password."""
+    from src.bot.handlers.auth import _password_hash
+
+    return _password_hash(password)
+
+
+def _matches(password, stored):
+    from src.bot.handlers.auth import _hash_matches
+
+    return _hash_matches(password, stored)
 
 
 @pytest.fixture
@@ -919,14 +930,14 @@ def test_init_clears_users_when_hash_differs(mock_ts, mock_config, saved_configs
     from src.bot.handlers.auth import AuthHandler
 
     mock_config._set("authenticated_users", [12345])
-    mock_config._set("authenticated_users_hash", _sha256("old-pass"))
+    mock_config._set("authenticated_users_hash", _stored("old-pass"))
 
     with patch("src.bot.handlers.auth.config", mock_config):
         AuthHandler()
 
     assert AuthHandler._authenticated_users == set()
     assert saved_configs[-1]["authenticated_users"] == []
-    assert saved_configs[-1]["authenticated_users_hash"] == _sha256("test-pass")
+    assert _matches("test-pass", saved_configs[-1]["authenticated_users_hash"])
 
 
 @patch("src.bot.handlers.auth.TranslationService")
@@ -941,7 +952,7 @@ def test_init_clears_users_when_hash_missing(mock_ts, mock_config, saved_configs
         AuthHandler()
 
     assert AuthHandler._authenticated_users == set()
-    assert saved_configs[-1]["authenticated_users_hash"] == _sha256("test-pass")
+    assert _matches("test-pass", saved_configs[-1]["authenticated_users_hash"])
 
 
 @patch("src.bot.handlers.auth.TranslationService")
@@ -950,7 +961,7 @@ def test_init_keeps_users_when_hash_matches(mock_ts, mock_config, saved_configs)
     from src.bot.handlers.auth import AuthHandler
 
     mock_config._set("authenticated_users", [12345])
-    mock_config._set("authenticated_users_hash", _sha256("test-pass"))
+    mock_config._set("authenticated_users_hash", _stored("test-pass"))
 
     with patch("src.bot.handlers.auth.config", mock_config):
         AuthHandler()
@@ -965,7 +976,7 @@ def test_init_empty_list_does_not_save(mock_ts, mock_config, saved_configs):
     from src.bot.handlers.auth import AuthHandler
 
     mock_config._set("authenticated_users", [])
-    mock_config._set("authenticated_users_hash", _sha256("old-pass"))
+    mock_config._set("authenticated_users_hash", _stored("old-pass"))
 
     with patch("src.bot.handlers.auth.config", mock_config):
         AuthHandler()
@@ -981,7 +992,7 @@ def test_init_hashes_an_int_password_as_text(mock_ts, mock_config, saved_configs
 
     mock_config._set("telegram", {"token": "t", "password": 123456})
     mock_config._set("authenticated_users", [12345])
-    mock_config._set("authenticated_users_hash", _sha256("123456"))
+    mock_config._set("authenticated_users_hash", _stored("123456"))
 
     with patch("src.bot.handlers.auth.config", mock_config):
         AuthHandler()
@@ -1010,4 +1021,192 @@ async def test_save_writes_password_hash(
         await handler.check_password(update, make_context())
 
     assert saved_configs[-1]["authenticated_users"] == [67890]
-    assert saved_configs[-1]["authenticated_users_hash"] == _sha256("test-pass")
+    assert _matches("test-pass", saved_configs[-1]["authenticated_users_hash"])
+
+
+# ---------------------------------------------------------------------------
+# salted PBKDF2 hash of the password (#274)
+# ---------------------------------------------------------------------------
+
+AUTH_FILE = Path(__file__).resolve().parent.parent.parent / "src" / "bot" / "handlers" / "auth.py"
+
+
+def _pbkdf2_value(password, iterations, salt=bytes(16)):
+    """Build a stored value by hand, with the stdlib call, for the given count."""
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${salt.hex()}${digest.hex()}"
+
+
+def test_real_iteration_constant_is_600000():
+    """The autouse fixture lowers the live constant, so read the source file."""
+    tree = ast.parse(AUTH_FILE.read_text(encoding="utf-8"))
+    values = [
+        ast.literal_eval(node.value)
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "PBKDF2_ITERATIONS" for t in node.targets)
+    ]
+    assert values == [600000]
+
+
+def test_password_hash_format():
+    """The stored value is pbkdf2_sha256$<iterations>$<salt hex>$<hash hex>."""
+    from src.bot.handlers.auth import PBKDF2_ITERATIONS, _password_hash
+
+    scheme, iterations, salt, digest = _password_hash("test-pass").split("$")
+
+    assert scheme == "pbkdf2_sha256"
+    assert iterations == str(PBKDF2_ITERATIONS)
+    assert len(salt) == 32 and bytes.fromhex(salt)
+    assert len(digest) == 64 and bytes.fromhex(digest)
+
+
+def test_password_hash_uses_random_salt():
+    """Two derivations of the same password give different values."""
+    from src.bot.handlers.auth import _password_hash
+
+    assert _password_hash("test-pass") != _password_hash("test-pass")
+
+
+def test_hash_matches_right_password():
+    assert _matches("test-pass", _stored("test-pass")) is True
+
+
+def test_hash_matches_wrong_password():
+    assert _matches("other-pass", _stored("test-pass")) is False
+
+
+def test_hash_matches_uses_stored_iterations():
+    """The count comes from the stored string, not from the live constant."""
+    from src.bot.handlers.auth import PBKDF2_ITERATIONS
+
+    assert PBKDF2_ITERATIONS != 7
+    assert _matches("pw", _pbkdf2_value("pw", 7)) is True
+
+
+def test_hash_matches_rejects_legacy_sha256():
+    """An old plain-SHA256 value is a mismatch even for the right password."""
+    legacy = hashlib.sha256(b"test-pass").hexdigest()
+
+    assert _matches("test-pass", legacy) is False
+
+
+def test_hash_matches_rejects_iteration_count_above_cap():
+    """A count above 10x the constant is malformed and is never derived."""
+    from src.bot.handlers import auth
+
+    too_many = 10 * auth.PBKDF2_ITERATIONS + 1
+    value = f"pbkdf2_sha256${too_many}${bytes(16).hex()}${bytes(32).hex()}"
+
+    with patch.object(auth.hashlib, "pbkdf2_hmac") as derive:
+        assert auth._hash_matches("test-pass", value) is False
+
+    derive.assert_not_called()
+
+
+def test_hash_matches_accepts_iteration_count_at_cap():
+    from src.bot.handlers import auth
+
+    at_cap = 10 * auth.PBKDF2_ITERATIONS
+
+    assert auth._hash_matches("pw", _pbkdf2_value("pw", at_cap)) is True
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        None,
+        "",
+        "pbkdf2_sha256$x$00$00",
+        "pbkdf2_sha256$0$00$00",
+        "pbkdf2_sha256$-5$00$00",
+        "pbkdf2_sha256$1000$zz$00",
+        "pbkdf2_sha256$1000$00$zz",
+        "pbkdf2_sha256$1000$00",
+        "other$1000$00$00",
+        123,
+    ],
+)
+def test_hash_matches_rejects_malformed(stored):
+    """A damaged value is a mismatch, never an exception."""
+    assert _matches("test-pass", stored) is False
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_clears_users_when_stored_hash_is_legacy_sha256(
+    mock_ts, mock_config, saved_configs
+):
+    """A plain-SHA256 value from an earlier development build clears the list."""
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set(
+        "authenticated_users_hash", hashlib.sha256(b"test-pass").hexdigest()
+    )
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert saved_configs[-1]["authenticated_users_hash"].startswith("pbkdf2_sha256$")
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_clears_users_when_stored_hash_is_malformed(
+    mock_ts, mock_config, saved_configs
+):
+    from src.bot.handlers.auth import AuthHandler
+
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", "pbkdf2_sha256$x$00$00")
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        AuthHandler()
+
+    assert AuthHandler._authenticated_users == set()
+    assert _matches("test-pass", saved_configs[-1]["authenticated_users_hash"])
+
+
+@patch("src.bot.handlers.auth.TranslationService")
+def test_init_reuses_matching_stored_hash(mock_ts, mock_config, saved_configs):
+    """A matching stored value is kept: a save writes it back without deriving."""
+    from src.bot.handlers.auth import AuthHandler
+
+    stored = _stored("test-pass")
+    mock_config._set("authenticated_users", [12345])
+    mock_config._set("authenticated_users_hash", stored)
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        with patch("src.bot.handlers.auth._password_hash") as derive:
+            handler = AuthHandler()
+            handler._save_authenticated_users()
+
+    derive.assert_not_called()
+    assert saved_configs[-1]["authenticated_users_hash"] == stored
+
+
+@pytest.mark.asyncio
+@patch("src.bot.handlers.auth.register_commands_for_chat")
+@patch("src.bot.handlers.auth.TranslationService")
+async def test_save_reuses_hash_between_logins(
+    mock_ts_class, mock_register, make_user, make_update, make_context,
+    mock_config, saved_configs
+):
+    """Two logins in one process write the same value and derive it once."""
+    mock_ts_class.return_value.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_config._set("authenticated_users", [])
+    mock_config._config.pop("authenticated_users_hash", None)
+
+    from src.bot.handlers.auth import AuthHandler, _password_hash
+
+    with patch("src.bot.handlers.auth.config", mock_config):
+        with patch(
+            "src.bot.handlers.auth._password_hash", wraps=_password_hash
+        ) as derive:
+            handler = AuthHandler()
+            for user_id in (67890, 67891):
+                update = make_update(text="test-pass", user=make_user(user_id=user_id))
+                await handler.check_password(update, make_context())
+
+    assert derive.call_count == 1
+    assert saved_configs[0]["authenticated_users_hash"] == saved_configs[-1]["authenticated_users_hash"]

@@ -94,7 +94,7 @@ Tests live in `tests/` mirroring `src/` structure. Key patterns:
 - **Translation mock**: `autouse=True` fixture patches `TranslationService._load_translations` so tests don't need YAML files.
 - **Config patching gotcha**: Module-level `from src.config.settings import config` binds at import time. To override in tests, patch at the import site: `patch("src.the_module.config", mock_config)` — replacing `sys.modules` won't affect modules that already imported `config`.
 - **Real settings module**: Tests of `src/config/settings.py` use the `load_settings` fixture in `tests/test_config/conftest.py`, which runs the real module with the file reads patched. A test of a copy of the code cannot fail.
-- **Injected values**: `tests/conftest.py` sets `src.__version__` itself, so a test that imports `src` cannot fail on the real value. `tests/test_version.py` reads `src/__init__.py` with `ast`.
+- **Injected values**: `tests/conftest.py` sets `src.__version__` itself, so a test that imports `src` cannot fail on the real value. `tests/test_version.py` reads `src/__init__.py` with `ast`. The same holds for `PBKDF2_ITERATIONS`: the autouse `fast_pbkdf2` fixture sets it to 1000, so `test_real_iteration_constant_is_600000` in `tests/test_handlers/test_auth_handler.py` reads `src/bot/handlers/auth.py` with `ast`.
 
 ### Architecture Tests
 
@@ -148,7 +148,7 @@ The codebase follows a three-layer architecture with strict separation:
 ### Key Patterns
 
 - **Async throughout**: All I/O uses `async/await` via `aiohttp` and `python-telegram-bot` v20+.
-- **Authentication decorator**: `@require_auth` from `src/bot/handlers/auth.py` guards handler methods. Authenticated user IDs are persisted to `config.yaml` with `authenticated_users_hash` (sha256 of `telegram.password`); `AuthHandler.__init__` clears the list when the hash differs or is missing.
+- **Authentication decorator**: `@require_auth` from `src/bot/handlers/auth.py` guards handler methods. Authenticated user IDs are persisted to `config.yaml` with `authenticated_users_hash` (a salted PBKDF2-HMAC-SHA256 value of `telegram.password`, stored as `pbkdf2_sha256$<iterations>$<salt hex>$<hash hex>`); `AuthHandler.__init__` clears the list when the hash does not match, is missing, is malformed or is an old plain-SHA256 value, and keeps the derived value for later saves.
 - **Conversation state machine**: Media flow progresses through `SEARCHING → SELECTING → QUALITY_SELECT`, then `SEASON_SELECT` (TV) or `ALBUM_SELECT` (music artist), then the conversation ends (states in `src/bot/handlers/media/dispatch.py`).
 - **Keyboards**: Shared inline keyboard builders live in `src/bot/keyboards.py`; use one when it fits. Flow-specific keyboards are built in the handler, e.g. `src/bot/handlers/media/formatters.py` (result navigation), `src/bot/handlers/media/season_picker.py` (seasons) and `src/bot/handlers/delete.py`.
 - **Global config singleton**: `src/config/settings.py` exports a module-level `config` instance loaded from `config.yaml` and validated against `config_example.yaml`.

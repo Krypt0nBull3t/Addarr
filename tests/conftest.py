@@ -91,8 +91,12 @@ MOCK_CONFIG_DATA = {
     "logging": {"toConsole": False, "debug": False, "adminNotifyId": None},
     "admins": [], "allow_list": [], "chat_id": [],
     "authenticated_users": [12345],
-    # sha256 of the default password "test-pass", so the list survives AuthHandler()
-    "authenticated_users_hash": hashlib.sha256(b"test-pass").hexdigest(),
+    # PBKDF2 value (1000 iterations, fixed salt) of the default password "test-pass",
+    # so the list survives AuthHandler(); the check reads the count from the string
+    "authenticated_users_hash": "pbkdf2_sha256$1000$%s$%s" % (
+        bytes(16).hex(),
+        hashlib.pbkdf2_hmac("sha256", b"test-pass", bytes(16), 1000).hex(),
+    ),
     "rateLimit": {
         "enable": False,
         "limits": {
@@ -319,6 +323,15 @@ def mock_translation():
     """Mock TranslationService to return keys as text (identity function)."""
     with patch("src.services.translation.TranslationService._load_translations"):
         yield
+
+
+@pytest.fixture(autouse=True)
+def fast_pbkdf2(monkeypatch):
+    """Use a small PBKDF2 count so hashing the chat password costs nothing in tests.
+
+    tests/test_handlers/test_auth_handler.py reads the real constant from the source.
+    """
+    monkeypatch.setattr("src.bot.handlers.auth.PBKDF2_ITERATIONS", 1000)
 
 
 # ---------------------------------------------------------------------------
