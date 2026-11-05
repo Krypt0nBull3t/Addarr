@@ -77,12 +77,9 @@ Defined in `src/definitions.py`:
 | `CONFIG_PATH` | `config.yaml` |
 | `CONFIG_EXAMPLE_PATH` | `config_example.yaml` |
 | `TRANSLATIONS_PATH` | `translations/` |
-| `CHATID_PATH` | `chatid.txt` |
 | `LOG_PATH` | `logs/addarr.log` |
-| `ADMIN_PATH` | `admin.txt` |
-| `ALLOWLIST_PATH` | `allowlist.txt` |
 | `DATA_PATH` | `data/` |
 | `PREFERENCES_PATH` | `data/user_preferences.json` |
 | `LEGACY_PREFERENCES_PATH` | `user_preferences.json` (read only when the `data/` file does not exist) |
 
-Helper functions: `is_admin(user_id)`, `get_admins()` (they re-read `config.yaml` from disk). For access checks use `src/utils/helpers.py`: `is_admin(user_id)`, `is_allowed(user_id)`, `admin_only(service)`, or the `@require_admin(service)` decorator in `src/bot/handlers/auth.py`.
+`src/definitions.py` holds constants only, no functions. For access checks use `src/utils/helpers.py`: `is_admin(user_id)`, `is_allowed(user_id)`, `admin_only(service)`, or the `@require_admin(service)` decorator in `src/bot/handlers/auth.py`.

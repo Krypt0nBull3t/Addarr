@@ -6,12 +6,9 @@ Description: Project path definitions module.
 
 This module defines all the important paths used throughout the application,
 including paths for configuration files, logs, translations, and user data.
-It also defines default settings for the application configuration.
 """
 
 import os
-from pathlib import Path
-import yaml
 
 # Set Projects Root Directory
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.normpath(__file__)))
@@ -21,11 +18,8 @@ CONFIG_PATH = os.path.join(ROOT_DIR, "config.yaml")
 CONFIG_EXAMPLE_PATH = os.path.join(ROOT_DIR, "config_example.yaml")
 TRANSLATIONS_PATH = os.path.join(ROOT_DIR, "translations")
 LANG_PATH = os.path.join(ROOT_DIR, "translations/")
-CHATID_PATH = os.path.join(ROOT_DIR, "chatid.txt")
 LOG_PATH = os.path.join(ROOT_DIR, "logs", "addarr.log")
 ERROR_LOG_PATH = os.path.join(ROOT_DIR, "logs", "error.log")
-ADMIN_PATH = os.path.join(ROOT_DIR, "admin.txt")
-ALLOWLIST_PATH = os.path.join(ROOT_DIR, "allowlist.txt")
 
 # Data directory for persistent storage
 DATA_PATH = os.path.join(ROOT_DIR, "data")
@@ -37,29 +31,3 @@ LEGACY_PREFERENCES_PATH = os.path.join(ROOT_DIR, "user_preferences.json")
 
 # Valid values of security.chatMode (kept here: src/setup/ must not import settings)
 CHAT_MODES = ("private_only", "allow_all")
-
-
-def load_config():
-    config_path = Path("config.yaml")
-    if not config_path.exists():
-        raise FileNotFoundError("config.yaml not found. Please copy config_example.yaml to config.yaml and configure it.")
-
-    with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
-
-
-def get_admins():
-    """Get list of admin IDs from config"""
-    config = load_config()
-    return config.get('admins', [])
-
-
-def get_allowed_chats():
-    """Get list of allowed chat IDs from config"""
-    config = load_config()
-    return config.get('chat_id', [])
-
-
-def is_allowed_chat(chat_id: int) -> bool:
-    """Check if chat ID is allowed"""
-    return chat_id in get_allowed_chats()
