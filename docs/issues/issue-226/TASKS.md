@@ -136,7 +136,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - Deleted `show_token_help` from `src/utils/splash.py`, `TestShowTokenHelp` (5 tests) and its import
     - **Notes:** `handle_token_error` in `src/utils/error_handler.py` is a different, live function
 
-- [ ] **1.7** Delete the unread `"message"` key in `src/services/media.py`
+- [x] **1.7** Delete the unread `"message"` key in `src/services/media.py`
     - **Context:**
         - **Why:** F260: `add_movie`, `add_series` and the third add method return `"message": profile_text` and nothing reads it
         - **Architecture:** The handler builds its own text from `profiles`
@@ -148,6 +148,13 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [RED] Grep `src/` for readers of `["message"]` / `.get("message")` on these results: none
         - [GREEN] Delete the 3 keys and 3 `profile_text` blocks, fix tests that assert them
     - **Success:** `grep -n '"message": profile_text' src/services/media.py` returns nothing; `scripts/test_runner.py services --coverage` passes
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The dict keys ended in a trailing comma or a comment, so the deletion removes the key line only
+        - No test asserted `result["message"]`: the "Select quality profile" text appeared only in these three methods
+    - **Key Changes:**
+        - Deleted the three `"message": profile_text` keys and the three `profile_text` blocks in `src/services/media.py` (`add_movie`, `add_series`, `add_music`)
+    - **Notes:** the handlers build their own text from `profiles`
 
 - [ ] **1.8** Delete the dead constants in `src/bot/states.py`
     - **Context:**
