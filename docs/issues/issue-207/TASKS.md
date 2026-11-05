@@ -140,7 +140,7 @@ Branch: `fix/207-download-failures-look-like-success`.
     - **Key Changes:** `src/bot/keyboards.py`: `get_downloads_error_keyboard`. `src/bot/handlers/downloads.py`: `None` handling in `handle_downloads` and `_refresh_current_view`, edit through `edit_text_ignoring_unmodified`. Key `DownloadsFetchError` in the template and 9 locales. Added 7 tests.
     - **Notes:** The history tab is unchanged (follow-up for the PR body). The translated nl-be text uses Netherlands Dutch.
 
-- [ ] **1.8** F084: download action buttons carry their client
+- [x] **1.8** F084: download action buttons carry their client
     - **Context:**
         - **Why:** The handler picks the service from `user_data["dl_client"]`. An old Transmission Pause button, tapped after switching to SABnzbd, sends the torrent id to SABnzbd.
         - **Architecture:** In multi-client mode the keyboard builds `dl_pause_<c>_<id>`, `dl_resume_<c>_<id>`, `dl_pauseall_<c>` and `dl_resumeall_<c>`, with `<c>` = `sab` or `tx`. Single-client mode keeps the old format. The handler accepts both and falls back to `user_data` for old buttons.
@@ -153,6 +153,10 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] Handler: `dl_pause_tx_7` with `user_data` "sabnzbd" awaits Transmission `pause_item(7)` (int) and not SABnzbd. Same for `dl_pauseall_tx`. A legacy `dl_pause_7` follows `user_data`. A SABnzbd id with underscores works.
         - [GREEN] Implement.
     - **Success:** Tests fail before, pass after. Existing downloads tests still pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:** `dl_pauseall` carries the client as a suffix (`dl_pauseall_tx`), so `rpartition("_")` finds the code and the old `dl_pauseall` falls back to `user_data`. A button for another client than the open view resets `dl_tab` and `dl_page` before the refresh. The task 1.6 refresh test pinned the old multi-client data and changed to `dl_pause_sab_nzo_5`.
+    - **Key Changes:** `src/bot/keyboards.py`: `DL_CLIENT_CODES`; queue keyboard tags item and all-buttons with the client code in multi-client mode. `src/bot/handlers/downloads.py`: `CODE_TO_CLIENT`, `_service_for`, `_split_item_callback`, `_all_callback_client`, `_parse_item_id(raw, client)`, `_do_action(query, context, client, ...)`, new pause-all and resume-all patterns. Added 13 tests.
+    - **Notes:** Page, tab and refresh buttons still follow `user_data` (design decision 1).
 
 - [ ] **1.9** Integration check and preflight
     - **Context:**

@@ -952,6 +952,10 @@ def get_delete_items_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
+# Short client codes in downloads callback_data (64-byte limit)
+DL_CLIENT_CODES = {"sabnzbd": "sab", "transmission": "tx"}
+
+
 def _build_dl_client_tab_row(client: str) -> list:
     """Build client switcher row for multi-client downloads keyboards."""
     sab_mark = "\u2713 " if client == "sabnzbd" else ""
@@ -989,6 +993,11 @@ def get_downloads_queue_keyboard(
     end = start + page_size
     page_items = items[start:end]
 
+    # Multi-client mode: each action button names the client it was drawn for
+    code = DL_CLIENT_CODES.get(client or "")
+    item_tag = f"{code}_" if code else ""
+    all_tag = f"_{code}" if code else ""
+
     for item in page_items:
         nzo_id = item.get("nzo_id", "")
         title = item.get("title", "")
@@ -1007,14 +1016,14 @@ def get_downloads_queue_keyboard(
             keyboard.append([
                 InlineKeyboardButton(
                     "\u25b6\ufe0f Resume",
-                    callback_data=f"dl_resume_{nzo_id}"
+                    callback_data=f"dl_resume_{item_tag}{nzo_id}"
                 )
             ])
         else:
             keyboard.append([
                 InlineKeyboardButton(
                     "\u23f8 Pause",
-                    callback_data=f"dl_pause_{nzo_id}"
+                    callback_data=f"dl_pause_{item_tag}{nzo_id}"
                 )
             ])
 
@@ -1046,13 +1055,14 @@ def get_downloads_queue_keyboard(
     if paused:
         action_row.append(
             InlineKeyboardButton(
-                "\u25b6\ufe0f Resume All", callback_data="dl_resumeall"
+                "\u25b6\ufe0f Resume All",
+                callback_data=f"dl_resumeall{all_tag}",
             )
         )
     else:
         action_row.append(
             InlineKeyboardButton(
-                "\u23f8 Pause All", callback_data="dl_pauseall"
+                "\u23f8 Pause All", callback_data=f"dl_pauseall{all_tag}"
             )
         )
     action_row.append(

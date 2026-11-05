@@ -2252,6 +2252,66 @@ class TestClampPage:
         assert clamp_page(5, 0) == 0
 
 
+class TestDownloadsKeyboardButtonsCarryClient:
+    """Multi-client buttons name their client; single-client keep old data"""
+
+    ITEMS = [
+        {"nzo_id": "SABnzbd_nzo_abc", "title": "A", "status": "Downloading",
+         "progress": 1},
+        {"nzo_id": "SABnzbd_nzo_def", "title": "B", "status": "Paused",
+         "progress": 2},
+    ]
+
+    @staticmethod
+    def _callbacks(markup):
+        return [b.callback_data for row in markup.inline_keyboard for b in row]
+
+    def test_sabnzbd_buttons_name_sab(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(self.ITEMS, 0, client="sabnzbd")
+        )
+        assert "dl_pause_sab_SABnzbd_nzo_abc" in callbacks
+        assert "dl_resume_sab_SABnzbd_nzo_def" in callbacks
+        assert "dl_pauseall_sab" in callbacks
+
+    def test_transmission_buttons_name_tx(self):
+        items = [{"nzo_id": 7, "title": "T", "status": "Downloading",
+                  "progress": 1}]
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(
+                items, 0, paused=False, client="transmission",
+                show_history_tab=False,
+            )
+        )
+        assert "dl_pause_tx_7" in callbacks
+        assert "dl_pauseall_tx" in callbacks
+
+    def test_paused_queue_has_resume_all_with_client(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(
+                self.ITEMS, 0, paused=True, client="transmission"
+            )
+        )
+        assert "dl_resumeall_tx" in callbacks
+        assert "dl_pauseall_tx" not in callbacks
+
+    def test_single_client_keeps_old_data(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(self.ITEMS, 0)
+        )
+        assert "dl_pause_SABnzbd_nzo_abc" in callbacks
+        assert "dl_pauseall" in callbacks
+
+    def test_callback_data_fits_telegram_limit(self):
+        items = [{"nzo_id": "SABnzbd_nzo_" + "x" * 8, "title": "A",
+                  "status": "Downloading", "progress": 1}]
+        for client in ("sabnzbd", "transmission", None):
+            callbacks = self._callbacks(
+                get_downloads_queue_keyboard(items, 0, client=client)
+            )
+            assert all(len(c.encode()) <= 64 for c in callbacks)
+
+
 class TestDownloadsErrorKeyboard:
     """Error view keyboard: client switcher (multi-client only) and Refresh"""
 
