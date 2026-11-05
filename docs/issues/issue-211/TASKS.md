@@ -204,7 +204,7 @@ Run every test and every `git push` through the suite lock:
         - Tests in `tests/test_main.py`, `test_media_service.py`, `test_bazarr_service.py`.
     - **Notes:** `TransmissionService` and `SABnzbdService` need no close (per-call sessions). The services coverage run shows 100% for both changed service files.
 
-- [ ] **1.9** Whole-issue verification
+- [x] **1.9** Whole-issue verification
     - **Context:**
         - **Why:** The acceptance criteria end with `pytest`, `flake8` and `mypy src/` passing.
         - **Architecture:** `addarr-workflow` flow `preflight`, then the create-pr flow.
@@ -216,3 +216,9 @@ Run every test and every `git push` through the suite lock:
         - [GREEN] Run the full preflight; fix findings.
         - [GREEN] Run `graphify update .`.
     - **Success:** Preflight passes; every box above is ticked with completion metadata.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - Preflight on 2026-11-05: flake8 clean, mypy clean (73 files), translations valid, unit 2257 passed with 100% coverage, integration 100 passed, architecture 155 passed.
+    - **Key Changes:**
+        - None beyond tasks 1.1 to 1.8; this task only verifies.
+    - **Notes:** The CI Compatibility matrix (Python 3.10 to 3.14), pip-audit and the Docker build are not part of preflight; CI runs them. The healthcheck command was run with the host `sh`, not Alpine busybox.
