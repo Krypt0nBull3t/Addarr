@@ -494,6 +494,128 @@ class TestDownloadsPauseResume:
 # ---------------------------------------------------------------------------
 
 
+def _callbacks(markup):
+    return [b.callback_data for row in markup.inline_keyboard for b in row]
+
+
+class TestDownloadsFetchError:
+    """A failed queue fetch (None) shows an error, never DownloadsEmpty."""
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_downloads_shows_error_when_queue_is_none(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context
+    ):
+        handler, mock_sab, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class,
+            sab_enabled=True, tx_enabled=False,
+        )
+        mock_sab.get_queue_details = AsyncMock(return_value=None)
+
+        update = make_update(text="/downloads")
+        await handler.handle_downloads(update, make_context())
+
+        call = update.message.reply_text.call_args
+        assert call.args[0] == "DownloadsFetchError"
+        assert "DownloadsEmpty" not in call.args[0]
+        callbacks = _callbacks(call.kwargs["reply_markup"])
+        assert "dl_refresh" in callbacks
+        assert "dl_client_tx" not in callbacks
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_error_view_keeps_client_switcher_in_multi_client_mode(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context
+    ):
+        handler, mock_sab, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        mock_sab.get_queue_details = AsyncMock(return_value=None)
+
+        update = make_update(text="/downloads")
+        await handler.handle_downloads(update, make_context())
+
+        callbacks = _callbacks(
+            update.message.reply_text.call_args.kwargs["reply_markup"]
+        )
+        assert "dl_client_tx" in callbacks
+        assert "dl_refresh" in callbacks
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_refresh_shows_error_when_queue_is_none(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context
+    ):
+        handler, mock_sab, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        mock_sab.get_queue_details = AsyncMock(return_value=None)
+
+        update = make_update(callback_data="dl_refresh")
+        context = make_context(user_data={
+            "dl_client": "sabnzbd", "dl_tab": "queue",
+        })
+        await handler.handle_downloads_refresh(update, context)
+
+        call = update.callback_query.message.edit_text.call_args
+        assert call.args[0] == "DownloadsFetchError"
+        assert "dl_refresh" in _callbacks(call.kwargs["reply_markup"])
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_refresh_with_unchanged_error_text_does_not_raise(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context, unchanged_edit
+    ):
+        handler, mock_sab, _, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class
+        )
+        mock_sab.get_queue_details = AsyncMock(return_value=None)
+
+        update = make_update(callback_data="dl_refresh")
+        calls = unchanged_edit(update.callback_query)
+        context = make_context(user_data={
+            "dl_client": "sabnzbd", "dl_tab": "queue",
+        })
+
+        await handler.handle_downloads_refresh(update, context)
+
+        assert calls == ["answer", "edit"]
+
+    @pytest.mark.asyncio
+    @patch(PATCH_TS)
+    @patch(PATCH_TX)
+    @patch(PATCH_SAB)
+    async def test_transmission_down_shows_error(
+        self, mock_sab_class, mock_tx_class, mock_ts_class,
+        make_update, make_context
+    ):
+        handler, _, mock_tx, _ = _make_handler(
+            mock_sab_class, mock_ts_class, mock_tx_class,
+            sab_enabled=False, tx_enabled=True,
+        )
+        mock_tx.get_queue_details = AsyncMock(return_value=None)
+
+        update = make_update(text="/downloads")
+        await handler.handle_downloads(update, make_context())
+
+        assert (
+            update.message.reply_text.call_args.args[0]
+            == "DownloadsFetchError"
+        )
+
+
 class TestDownloadsNavigation:
     @pytest.mark.asyncio
     @patch(PATCH_TS)

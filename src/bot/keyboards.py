@@ -1125,6 +1125,23 @@ def get_downloads_history_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
+def get_downloads_error_keyboard(
+    client: Optional[str] = None,
+) -> InlineKeyboardMarkup:
+    """Keyboard for the downloads error view: client switcher and Refresh.
+
+    Args:
+        client: Active client name ('sabnzbd'/'transmission') or None for single-client.
+    """
+    keyboard = []
+    if client is not None:
+        keyboard.append(_build_dl_client_tab_row(client))
+    keyboard.append([
+        InlineKeyboardButton("\U0001f504 Refresh", callback_data="dl_refresh")
+    ])
+    return InlineKeyboardMarkup(keyboard)
+
+
 def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: str = "No") -> InlineKeyboardMarkup:
     """Create a Yes/No inline keyboard
 

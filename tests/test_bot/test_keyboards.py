@@ -8,6 +8,7 @@ from src.bot.keyboards import (
     DELETE_PAGE_SIZE,
     _build_pagination_row,
     clamp_page,
+    get_downloads_error_keyboard,
     get_delete_items_keyboard,
     get_downloads_history_keyboard,
     get_downloads_queue_keyboard,
@@ -2249,6 +2250,21 @@ class TestClampPage:
 
     def test_no_pages_gives_zero(self):
         assert clamp_page(5, 0) == 0
+
+
+class TestDownloadsErrorKeyboard:
+    """Error view keyboard: client switcher (multi-client only) and Refresh"""
+
+    @staticmethod
+    def _callbacks(markup):
+        return [b.callback_data for row in markup.inline_keyboard for b in row]
+
+    def test_single_client_has_only_refresh(self):
+        assert self._callbacks(get_downloads_error_keyboard()) == ["dl_refresh"]
+
+    def test_multi_client_has_switcher_and_refresh(self):
+        callbacks = self._callbacks(get_downloads_error_keyboard("sabnzbd"))
+        assert callbacks == ["dl_client_sab", "dl_client_tx", "dl_refresh"]
 
 
 class TestDownloadsKeyboardsClampPage:

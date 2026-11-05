@@ -14,10 +14,12 @@ from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
     DL_PAGE_SIZE,
     clamp_page,
+    get_downloads_error_keyboard,
     get_downloads_queue_keyboard,
     get_downloads_history_keyboard,
 )
 from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
 from src.utils.helpers import admin_only, is_admin
 
 logger = get_logger("addarr.handlers.downloads")
@@ -139,6 +141,14 @@ class DownloadsHandler:
 
         service = self._get_active_service(context)
         queue = await service.get_queue_details()
+        if queue is None:
+            await update.message.reply_text(
+                self.translation.get_text("DownloadsFetchError"),
+                reply_markup=get_downloads_error_keyboard(
+                    self._client_param(context)
+                ),
+            )
+            return
         text = self._format_queue_text(queue)
         keyboard = get_downloads_queue_keyboard(
             queue["items"],
@@ -322,17 +332,23 @@ class DownloadsHandler:
             )
         else:
             queue = await service.get_queue_details()
-            page = self._clamp_dl_page(context, page, queue["items"])
-            text = self._format_queue_text(queue)
-            keyboard = get_downloads_queue_keyboard(
-                queue["items"],
-                page=page,
-                paused=queue["paused"],
-                client=client_param,
-                show_history_tab=self._show_history_tab(context),
-            )
+            if queue is None:
+                text = self.translation.get_text("DownloadsFetchError")
+                keyboard = get_downloads_error_keyboard(client_param)
+            else:
+                page = self._clamp_dl_page(context, page, queue["items"])
+                text = self._format_queue_text(queue)
+                keyboard = get_downloads_queue_keyboard(
+                    queue["items"],
+                    page=page,
+                    paused=queue["paused"],
+                    client=client_param,
+                    show_history_tab=self._show_history_tab(context),
+                )
 
-        await query.message.edit_text(text, reply_markup=keyboard)
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
 
     def _format_queue_text(self, queue):
         """Format queue data into display text."""

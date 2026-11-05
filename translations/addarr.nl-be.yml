@@ -250,6 +250,7 @@ nl-be:
   DownloadsItemResumed: "Item hervat."
   DownloadsPauseError: "Kan item niet pauzeren."
   DownloadsResumeError: "Kan item niet hervatten."
+  DownloadsFetchError: "De downloadclient is niet bereikbaar. Controleer of hij draait en of de API-sleutel klopt."
   DownloadsNotEnabled: "Geen downloadclients ingeschakeld."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

@@ -250,6 +250,7 @@ pt-pt:
   DownloadsItemResumed: "Item retomado."
   DownloadsPauseError: "Falha ao pausar o item."
   DownloadsResumeError: "Falha ao retomar o item."
+  DownloadsFetchError: "Não foi possível contactar o cliente de transferências. Verifica se está em execução e se a chave API está correta."
   DownloadsNotEnabled: "Nenhum cliente de download está ativado."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

@@ -121,7 +121,7 @@ Branch: `fix/207-download-failures-look-like-success`.
     - **Key Changes:** `src/bot/keyboards.py`: `clamp_page`, `DL_PAGE_SIZE`; `_build_pagination_row` and both downloads keyboards clamp. `src/bot/handlers/downloads.py`: `_clamp_dl_page` is used in `_refresh_current_view` and stores the page in `user_data`. Added 6 tests.
     - **Notes:** `_build_dl_pagination_row` is unchanged (#223). Tasks 1.7 and 1.8 edit `_refresh_current_view` again.
 
-- [ ] **1.7** F081 handler: show an error, not "empty"
+- [x] **1.7** F081 handler: show an error, not "empty"
     - **Context:**
         - **Why:** The handler formats a failed fetch as an empty queue. It must show an error.
         - **Architecture:** `get_downloads_error_keyboard(client: Optional[str] = None)` in `keyboards.py`: the client switcher row (reuse `_build_dl_client_tab_row`) when `client` is not `None`, then a Refresh button (`dl_refresh`). New key `DownloadsFetchError` through the `i18n-key` skill. Without a keyboard, a user with SABnzbd down could not reach Transmission.
@@ -135,6 +135,10 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] Keyboard builder tests with and without `client`.
         - [GREEN] Implement. Add the key to the template and all 9 locale files.
     - **Success:** Tests pass. `PYTHONIOENCODING=utf-8 python run.py --validate-i18n` passes. mypy shows no new error.
+    - **Completed:** 2026-11-05
+    - **Learnings:** With a `None` queue the old handler crashed (`'NoneType' object has no attribute 'get'`), which was the red state. A repeated Refresh on a persistent error sends identical text, so the end of `_refresh_current_view` now uses `edit_text_ignoring_unmodified` (it also fixes the same crash for an unchanged normal view).
+    - **Key Changes:** `src/bot/keyboards.py`: `get_downloads_error_keyboard`. `src/bot/handlers/downloads.py`: `None` handling in `handle_downloads` and `_refresh_current_view`, edit through `edit_text_ignoring_unmodified`. Key `DownloadsFetchError` in the template and 9 locales. Added 7 tests.
+    - **Notes:** The history tab is unchanged (follow-up for the PR body). The translated nl-be text uses Netherlands Dutch.
 
 - [ ] **1.8** F084: download action buttons carry their client
     - **Context:**
