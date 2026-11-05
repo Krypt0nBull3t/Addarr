@@ -154,7 +154,7 @@ The codebase follows a three-layer architecture with strict separation:
 
 ### Configuration
 
-All configuration lives in `config.yaml` (YAML). `config_example.yaml` serves as both template and validation reference. Path constants are defined in `src/definitions.py`. On startup, `Config.__init__` validates against the example and interactively prompts for missing keys.
+All configuration lives in `config.yaml` (YAML). `config_example.yaml` serves as both template and validation reference. Path constants are defined in `src/definitions.py`. On startup, `Config.__init__` validates against the example and interactively prompts for missing keys. `Config` loads `config.yaml` with ruamel, so comments survive a save, and `Config.save()` dumps to a string before it writes the file once. `create_backup` keeps the newest 10 backups in `backup/`, mode `0o600`.
 
 ### Internationalization
 
@@ -188,16 +188,6 @@ GitHub Actions workflows in `.github/workflows/`:
 - **`docker-hub-push.yml`** — Publishes Docker image to Docker Hub.
 
 **Requirement pins:** `requirements.txt` and `requirements-test.txt` use exact `==` pins. A line may carry an `[extra]` (`python-telegram-bot[job-queue]==22.8`); the pin stays exact. Each pin must install on the lowest Python in the `ci.yml` Compatibility matrix (3.10), not only on the 3.11 that CI and Docker use. Check with `pip install --dry-run --quiet --python-version 3.10 --only-binary=:all: --target <scratch-dir> -r requirements.txt -r requirements-test.txt`. `.github/dependabot.yml` ignores bumps that need a newer Python (pytestarch 5).
-
-## Helm / Kubernetes
-
-Helm chart in `helm/` for Kubernetes deployment:
-
-```bash
-helm install addarr ./helm -f helm/values.yaml
-```
-
-Templates include ConfigMap, Deployment, and PersistentVolumeClaim. See `helm/README.md` for configuration details.
 
 ## Known Future Work
 
@@ -236,7 +226,7 @@ docker-compose up -d
 docker build -t addarr . && docker run -d -v $(pwd)/config.yaml:/app/config.yaml addarr
 ```
 
-Base image: `python:3.11-alpine3.24`. Uses host networking. Runs as the non-root user `addarr`. Persistent files to mount: `config.yaml` (writable: `/auth` and settings save it), `logs/`, `backup/`, `chatid.txt`, `admin.txt`, `allowlist.txt`. `user_preferences.json` lives in `data/`, which compose keeps in the named volume `addarr-data`. If `logs/` is not writable, the logger falls back to console-only output with one warning. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.
+Base image: `python:3.11-alpine3.24`. Uses host networking. Runs as the non-root user `addarr`. Persistent files to mount: `config.yaml` (writable: `/auth` and settings save it), `logs/`, `backup/`. `user_preferences.json` lives in `data/`, which compose keeps in the named volume `addarr-data`. If `logs/` is not writable, the logger falls back to console-only output with one warning. Images are automatically published to Docker Hub via the `docker-hub-push.yml` workflow.
 
 ## graphify
 
