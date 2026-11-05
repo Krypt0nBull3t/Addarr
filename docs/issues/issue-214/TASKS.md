@@ -105,4 +105,4 @@ Plan: `docs/issues/issue-214/plan.md`. Branch `fix/214-pin-deps-docker-publish`.
         - `.github/workflows/docker-hub-push.yml`: step `Read version` and a two-line `tags` (`:latest` and `:${{ env.VERSION }}`), as the developer approved.
         - `tests/test_docker_publish_workflow.py` (new): five tests.
         - `CLAUDE.md`: Docker section names the two tags.
-    - **Notes:** The workflow stays red until the developer adds `DOCKER_HUB_USERNAME` and `DOCKER_HUB_ACCESS_TOKEN`. The version tag is mutable: each push to `main` re-tags the same `:<version>` until `__version__` changes. The workflow itself cannot run locally; the `Read version` script is tested with `bash -e`.
+    - **Notes:** The developer added `DOCKER_HUB_USERNAME` and `DOCKER_HUB_ACCESS_TOKEN` on 2026-11-05; the first real publish test is the next push to `main`. The version tag is mutable: each push to `main` re-tags the same `:<version>` until `__version__` changes. The workflow itself cannot run locally; the `Read version` script is tested with `bash -e`.

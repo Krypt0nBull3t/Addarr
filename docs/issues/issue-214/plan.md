@@ -33,7 +33,7 @@ The issue text is partly stale. Checked on `origin/development` at `8699324`:
 - `.dockerignore` must not hide something the bot needs at runtime. Expected: `src/`, `translations/`, `run.py`, `config_example.yaml` and `requirements.txt` are not ignored. Task 3 tests it.
 - `src/__init__.py` has no parsable `__version__`. Expected: the version step fails the job; it never pushes an image tagged `:`. Task 4 tests it.
 - The version tag is mutable: every push to `main` re-tags the same `:0.9.0` until the version is bumped. Expected: say so in the PR body; no code change.
-- The Docker Hub secrets are still missing when the PR merges. Expected: the workflow still fails at login, as today. The PR body lists the two secrets as a developer action.
+- The Docker Hub secrets were missing at planning time. Update: the developer added both on 2026-11-05. Expected: the first real publish test is the next push to `main`.
 
 ## Tasks
 
@@ -135,7 +135,7 @@ The issue text is partly stale. Checked on `origin/development` at `8699324`:
 
 ## Developer actions (list in the PR body)
 
-- F150: add the repo secrets `DOCKER_HUB_USERNAME` and `DOCKER_HUB_ACCESS_TOKEN`. Until they exist, the workflow fails at login as today.
+- F150: add the repo secrets `DOCKER_HUB_USERNAME` and `DOCKER_HUB_ACCESS_TOKEN`. Done by the developer on 2026-11-05.
 - F150 (manual check): after the secrets exist, a push to `main` runs the workflow green and pushes `:latest` and `:0.9.0`.
 - F151 pin item: met by the existing exact pins. State this in the PR body.
 
