@@ -168,6 +168,46 @@ class TestGetValidServiceConfig:
         assert result["auth"]["apikey"] == "sab-key"
 
     @pytest.mark.asyncio
+    async def test_transmission_config_has_host_and_port(self):
+        """Transmission gets top-level host and port, the keys the client reads."""
+        with patch("src.setup.service_config.questionary") as mock_q, \
+             patch("src.setup.service_config.validate_service_connection",
+                   new_callable=AsyncMock, return_value=True), \
+             patch("src.setup.service_config.get_valid_port",
+                   new_callable=AsyncMock, return_value=9091):
+
+            mock_q.text.return_value = _mock_questionary_ask("tx.example")
+            mock_q.confirm.return_value = _mock_questionary_ask(False)
+
+            result = await get_valid_service_config("transmission")
+
+        assert result["host"] == "tx.example"
+        assert result["port"] == 9091
+        assert "server" not in result
+        assert "auth" not in result
+
+    @pytest.mark.asyncio
+    async def test_transmission_skip_has_host_and_port(self):
+        """The skip-after-failed-test path returns the same keys."""
+        with patch("src.setup.service_config.questionary") as mock_q, \
+             patch("src.setup.service_config.validate_service_connection",
+                   new_callable=AsyncMock, return_value=False), \
+             patch("src.setup.service_config.get_valid_port",
+                   new_callable=AsyncMock, return_value=9091):
+
+            mock_q.text.return_value = _mock_questionary_ask("tx.example")
+            confirm_mock = MagicMock()
+            # confirm calls: ssl=False, retry=False
+            confirm_mock.ask_async = AsyncMock(side_effect=[False, False])
+            mock_q.confirm.return_value = confirm_mock
+
+            result = await get_valid_service_config("transmission")
+
+        assert result["host"] == "tx.example"
+        assert result["port"] == 9091
+        assert "server" not in result
+
+    @pytest.mark.asyncio
     async def test_retry_then_skip(self):
         """Failed validation → user declines retry → returns config with defaults."""
         with patch("src.setup.service_config.questionary") as mock_q, \
@@ -254,7 +294,7 @@ class TestGetValidServiceConfig:
 
             result = await get_valid_service_config("transmission")
 
-        assert result["auth"]["apikey"] == ""
+        assert result["host"] == "localhost"
         # password should not have been called
         mock_q.password.assert_not_called()
 

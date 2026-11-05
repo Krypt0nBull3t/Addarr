@@ -5,6 +5,8 @@ Uses downloads_harness fixture which enables both Transmission and SABnzbd
 services so DownloadsHandler registers its handlers.
 """
 
+import json
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -81,3 +83,58 @@ async def test_downloads_refresh(downloads_harness):
         resp = await downloads_harness.tap_button("dl_refresh")
         assert resp is not None
         assert resp.text
+
+
+@pytest.mark.asyncio
+async def test_downloads_error_view_when_clients_fail(downloads_harness):
+    """A failed fetch shows an error with Refresh, not the empty message."""
+    with (
+        patch.object(
+            TransmissionService, "get_queue_details",
+            new_callable=AsyncMock, return_value=None,
+        ),
+        patch.object(
+            SABnzbdService, "get_queue_details",
+            new_callable=AsyncMock, return_value=None,
+        ),
+    ):
+        resp = await downloads_harness.send_command("/downloads")
+
+    assert resp is not None
+    assert "No items in the download queue" not in resp.text
+    markup = json.loads(resp.reply_markup)
+    callbacks = [
+        b["callback_data"] for row in markup["inline_keyboard"] for b in row
+    ]
+    assert "dl_refresh" in callbacks
+    assert "dl_client_tx" in callbacks
+
+
+@pytest.mark.asyncio
+async def test_stale_transmission_button_acts_on_transmission(
+    downloads_harness,
+):
+    """A Transmission Pause button works while the open view is SABnzbd."""
+    with (
+        patch.object(
+            TransmissionService, "get_queue_details",
+            new_callable=AsyncMock, return_value=DOWNLOADS_EMPTY_QUEUE,
+        ),
+        patch.object(
+            SABnzbdService, "get_queue_details",
+            new_callable=AsyncMock, return_value=DOWNLOADS_QUEUE,
+        ),
+        patch.object(
+            TransmissionService, "pause_item",
+            new_callable=AsyncMock, return_value=True,
+        ) as tx_pause,
+        patch.object(
+            SABnzbdService, "pause_item",
+            new_callable=AsyncMock, return_value=True,
+        ) as sab_pause,
+    ):
+        await downloads_harness.send_command("/downloads")  # SABnzbd view
+        await downloads_harness.tap_button("dl_pause_tx_7")
+
+    tx_pause.assert_awaited_once_with(7)
+    sab_pause.assert_not_awaited()

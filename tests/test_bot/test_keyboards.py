@@ -7,6 +7,8 @@ from telegram import InlineKeyboardMarkup
 from src.bot.keyboards import (
     DELETE_PAGE_SIZE,
     _build_pagination_row,
+    clamp_page,
+    get_downloads_error_keyboard,
     get_delete_items_keyboard,
     get_downloads_history_keyboard,
     get_downloads_queue_keyboard,
@@ -2255,6 +2257,126 @@ class TestHistoryEmptyKeyboard:
 
 def _row_callbacks(row):
     return [btn.callback_data for btn in row]
+
+
+class TestClampPage:
+    """Tests for clamp_page"""
+
+    def test_in_range_is_unchanged(self):
+        assert clamp_page(1, 3) == 1
+
+    def test_past_end_gives_last_page(self):
+        assert clamp_page(9, 3) == 2
+
+    def test_negative_gives_first_page(self):
+        assert clamp_page(-4, 3) == 0
+
+    def test_no_pages_gives_zero(self):
+        assert clamp_page(5, 0) == 0
+
+
+class TestDownloadsKeyboardButtonsCarryClient:
+    """Multi-client buttons name their client; single-client keep old data"""
+
+    ITEMS = [
+        {"nzo_id": "SABnzbd_nzo_abc", "title": "A", "status": "Downloading",
+         "progress": 1},
+        {"nzo_id": "SABnzbd_nzo_def", "title": "B", "status": "Paused",
+         "progress": 2},
+    ]
+
+    @staticmethod
+    def _callbacks(markup):
+        return [b.callback_data for row in markup.inline_keyboard for b in row]
+
+    def test_sabnzbd_buttons_name_sab(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(self.ITEMS, 0, client="sabnzbd")
+        )
+        assert "dl_pause_sab_SABnzbd_nzo_abc" in callbacks
+        assert "dl_resume_sab_SABnzbd_nzo_def" in callbacks
+        assert "dl_pauseall_sab" in callbacks
+
+    def test_transmission_buttons_name_tx(self):
+        items = [{"nzo_id": 7, "title": "T", "status": "Downloading",
+                  "progress": 1}]
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(
+                items, 0, paused=False, client="transmission",
+                show_history_tab=False,
+            )
+        )
+        assert "dl_pause_tx_7" in callbacks
+        assert "dl_pauseall_tx" in callbacks
+
+    def test_paused_queue_has_resume_all_with_client(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(
+                self.ITEMS, 0, paused=True, client="transmission"
+            )
+        )
+        assert "dl_resumeall_tx" in callbacks
+        assert "dl_pauseall_tx" not in callbacks
+
+    def test_single_client_keeps_old_data(self):
+        callbacks = self._callbacks(
+            get_downloads_queue_keyboard(self.ITEMS, 0)
+        )
+        assert "dl_pause_SABnzbd_nzo_abc" in callbacks
+        assert "dl_pauseall" in callbacks
+
+    def test_callback_data_fits_telegram_limit(self):
+        items = [{"nzo_id": "SABnzbd_nzo_" + "x" * 8, "title": "A",
+                  "status": "Downloading", "progress": 1}]
+        for client in ("sabnzbd", "transmission", None):
+            callbacks = self._callbacks(
+                get_downloads_queue_keyboard(items, 0, client=client)
+            )
+            assert all(len(c.encode()) <= 64 for c in callbacks)
+
+
+class TestDownloadsErrorKeyboard:
+    """Error view keyboard: client switcher (multi-client only) and Refresh"""
+
+    @staticmethod
+    def _callbacks(markup):
+        return [b.callback_data for row in markup.inline_keyboard for b in row]
+
+    def test_single_client_has_only_refresh(self):
+        assert self._callbacks(get_downloads_error_keyboard()) == ["dl_refresh"]
+
+    def test_multi_client_has_switcher_and_refresh(self):
+        callbacks = self._callbacks(get_downloads_error_keyboard("sabnzbd"))
+        assert callbacks == ["dl_client_sab", "dl_client_tx", "dl_refresh"]
+
+
+class TestDownloadsKeyboardsClampPage:
+    """A page past the last page shows the last page with its nav row"""
+
+    ITEMS = [
+        {"nzo_id": f"nzo_{i}", "title": f"T{i}", "status": "Queued",
+         "progress": 0, "name": f"N{i}", "size": "1 GB"}
+        for i in range(6)
+    ]
+
+    @staticmethod
+    def _buttons(result):
+        return [btn for row in result.inline_keyboard for btn in row]
+
+    def test_queue_keyboard_past_end_shows_last_page(self):
+        buttons = self._buttons(
+            get_downloads_queue_keyboard(self.ITEMS, page=9)
+        )
+        assert "2/2" in [b.text for b in buttons]
+        assert "dl_page_0" in [b.callback_data for b in buttons]
+        assert "dl_pause_nzo_5" in [b.callback_data for b in buttons]
+
+    def test_history_keyboard_past_end_shows_last_page(self):
+        buttons = self._buttons(
+            get_downloads_history_keyboard(self.ITEMS, page=9)
+        )
+        assert "2/2" in [b.text for b in buttons]
+        assert any("N5" in b.text for b in buttons)
 
 
 class TestPaginationRow:

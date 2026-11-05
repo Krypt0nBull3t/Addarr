@@ -41,6 +41,8 @@ For each changed file, check:
 * [ ] **Bot self-messages**: A bot never receives its own messages. `bot.send_message(chat_id, "/start")` opens nothing; send the menu or call the handler
 * [ ] **Repeated callback edits**: Paged, refresh or filter callbacks that can render the same text again use `edit_text_ignoring_unmodified` (`src/utils/chat.py`), or a double tap raises "Message is not modified"
 * [ ] **Error handling**: Swallowing exceptions silently, raising from `_initialize`
+* [ ] **Failure shown as data**: A failed fetch returns an empty-looking value (empty dict or list) that the caller shows as success or as "empty". Return `None` or raise, and let the handler show the error
+* [ ] **Button targets**: A button on a shared message acts on the target it was drawn for. See "Acting on an Item From user_data at Tap Time" in `addarr-handlers/references/anti-patterns.md`
 
 ## Phase 3: Verification
 

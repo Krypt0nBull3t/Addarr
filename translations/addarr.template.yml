@@ -265,6 +265,7 @@ template:
   DownloadsItemResumed: "Item resumed."
   DownloadsPauseError: "Failed to pause item."
   DownloadsResumeError: "Failed to resume item."
+  DownloadsFetchError: "Could not reach the download client. Check that it runs and that the API key is right."
   DownloadsNotEnabled: "No download clients are enabled."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"
