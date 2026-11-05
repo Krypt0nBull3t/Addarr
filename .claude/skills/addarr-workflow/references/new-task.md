@@ -56,6 +56,11 @@ git pull origin development
 git checkout -b <prefix>/<N>-<slug>
 ```
 
+Then reinstall the pinned requirements in this worktree's `.venv`, because `development` may have changed a pin or an extra since the venv was built:
+```bash
+<py> -m pip install -q -r requirements.txt -r requirements-test.txt
+```
+
 ## Step 3: Analyze Task
 
 Read the issue and its comments, with two calls:
