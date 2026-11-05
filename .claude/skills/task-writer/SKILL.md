@@ -212,7 +212,7 @@ How Bazarr was built. Its files exist now; "(new)" shows how to mark a file the 
         - **Key refs:** `src/api/base.py` (`BaseApiClient`), `src/api/radarr.py` as template
         - **Watch out:** Bazarr has no version in its path (`/api/...`): set `API_VERSION = ""` and override `_build_api_url()`. `search()` is required by `tests/test_architecture/test_conventions.py`.
     - **Scope:** Client with `search()`, `get_movies()`, `get_wanted_movies()`, `get_wanted_episodes()`
-    - **Touches:** `src/api/bazarr.py` (new), `tests/test_api/test_bazarr.py` (new), `tests/test_api/conftest.py` (`bazarr_url`, `bazarr_client`), `tests/fixtures/bazarr_data.py` (new)
+    - **Touches:** `src/api/bazarr.py` (new), `tests/test_api/test_bazarr.py` (new), `tests/test_api/conftest.py` (`bazarr_client`), `tests/fixtures/bazarr_data.py` (new)
     - **Action items:**
         - [RED] Write pytest tests for each endpoint with `aio_mock` and `bazarr_data.py` responses
         - [RED] Write pytest tests for connection errors and empty results

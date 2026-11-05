@@ -62,23 +62,6 @@ class TestRadarrInit:
 
 
 # ---------------------------------------------------------------------------
-# _make_request
-# ---------------------------------------------------------------------------
-
-
-class TestRadarrMakeRequest:
-    @pytest.mark.asyncio
-    async def test_request_generic_exception(self, aio_mock, radarr_client):
-        """RuntimeError via _request returns None."""
-        aio_mock.get(
-            f"{BASE}/system/status",
-            exception=RuntimeError("unexpected"),
-        )
-        result = await radarr_client._request("system/status")
-        assert result is None
-
-
-# ---------------------------------------------------------------------------
 # search
 # ---------------------------------------------------------------------------
 

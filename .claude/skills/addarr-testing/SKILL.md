@@ -39,7 +39,6 @@ pytest -x                                   # Stop on first failure
 |-|-|
 | `cleanup_sessions` | autouse: closes the radarr/sonarr/lidarr/bazarr client sessions after each test |
 | `aio_mock` | `aioresponses()` context manager for mocking async HTTP |
-| `radarr_url` / `sonarr_url` / `lidarr_url` / `bazarr_url` / `transmission_url` | Base URL strings |
 | `radarr_client` / `sonarr_client` / `lidarr_client` / `bazarr_client` / `transmission_client` | Real client instances (safe, because the config mock is active) |
 
 ### Service Fixtures (`tests/test_services/conftest.py`)
@@ -56,9 +55,8 @@ pytest -x                                   # Stop on first failure
 |-|-|
 | `mock_media_service` | `MagicMock` with async methods for all media operations |
 | `mock_translation_service` | `MagicMock` where `get_text` and `get_message` return the key |
-| `mock_notification_service` | `MagicMock` with async `notify_admin` |
 | `admin_mode` | Admin mode on with admin user 1, so the default test user 12345 is no admin |
-| `<name>_handler` | A handler with its services patched and user 12345 authenticated, e.g. `media_handler`, `settings_handler`, `transmission_handler` (full list in [references/fixtures.md](references/fixtures.md#handler-fixtures)) |
+| `<name>_handler` | A handler with its services patched and user 12345 authenticated, e.g. `media_handler`, `settings_handler`, `library_handler` (full list in [references/fixtures.md](references/fixtures.md#handler-fixtures)) |
 | `unchanged_edit` | Wires a query so `edit_text` raises Telegram's "Message is not modified" `BadRequest` |
 
 ### Integration Fixtures (`tests/integration/conftest.py`)
@@ -72,7 +70,7 @@ pytest -x                                   # Stop on first failure
 
 ### Sample Data (`tests/fixtures/`)
 
-`sample_data.py` constants include: `RADARR_SEARCH_RESULTS`, `RADARR_MOVIE_DETAIL`, `RADARR_ROOT_FOLDERS`, `RADARR_QUALITY_PROFILES`, `SONARR_SEARCH_RESULTS`, `SONARR_SERIES_DETAIL`, `LIDARR_SEARCH_RESULTS`, `TRANSMISSION_SESSION`, `SABNZBD_QUEUE`. `bazarr_data.py` has `BAZARR_SYSTEM_STATUS`, `BAZARR_MOVIES`, `BAZARR_MOVIES_WANTED`, `BAZARR_EPISODES_WANTED`. Full list in [references/fixtures.md](references/fixtures.md#sample-data).
+`sample_data.py` constants include: `RADARR_SEARCH_RESULTS`, `RADARR_MOVIE_DETAIL`, `RADARR_QUALITY_PROFILES`, `SONARR_SEARCH_RESULTS`, `SONARR_SERIES_DETAIL`, `LIDARR_SEARCH_RESULTS`, `TRANSMISSION_SESSION`. `bazarr_data.py` has `BAZARR_SYSTEM_STATUS`, `BAZARR_MOVIES`, `BAZARR_MOVIES_WANTED`, `BAZARR_EPISODES_WANTED`. Full list in [references/fixtures.md](references/fixtures.md#sample-data).
 
 ## Layer Quick Reference
 

@@ -5,11 +5,15 @@ Uses aioresponses for HTTP mocking. TransmissionClient reads config from
 the global config singleton (mocked via tests/conftest.py).
 """
 
+from unittest.mock import patch
+
 import aiohttp
 import pytest
+import yaml
 from yarl import URL
 
 from src.api.transmission import TransmissionClient
+from src.definitions import CONFIG_EXAMPLE_PATH
 
 
 RPC_URL = "http://localhost:9091/transmission/rpc"
@@ -25,17 +29,28 @@ class TestTransmissionInit:
     def test_init_builds_url(self, transmission_client):
         assert transmission_client.rpc_url == "http://localhost:9091/transmission/rpc"
 
+    def test_init_default_port_from_config_example(self):
+        """The config_example.yaml block has no port and no ssl: defaults apply."""
+        from tests.conftest import MockConfig
+
+        with open(CONFIG_EXAMPLE_PATH, encoding="utf-8") as f:
+            block = yaml.safe_load(f)["transmission"]
+        assert "port" not in block
+        assert "ssl" not in block
+
+        with patch("src.api.transmission.config", MockConfig({"transmission": block})):
+            client = TransmissionClient()
+
+        assert client.rpc_url == "http://localhost:9091/transmission/rpc"
+
     def test_init_ssl_url(self):
         """When ssl=True in config, URL uses https."""
         from tests.conftest import _mock_config
 
-        original = _mock_config._config["transmission"]["ssl"]
-        _mock_config._config["transmission"]["ssl"] = True
-        try:
+        with patch.dict(_mock_config._config["transmission"], {"ssl": True}):
             client = TransmissionClient()
-            assert client.rpc_url.startswith("https://")
-        finally:
-            _mock_config._config["transmission"]["ssl"] = original
+
+        assert client.rpc_url.startswith("https://")
 
     def test_init_with_auth(self):
         """When username and password are set, _auth is a Basic auth header value."""

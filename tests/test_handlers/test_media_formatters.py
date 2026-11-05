@@ -114,6 +114,21 @@ def test_build_result_caption_album():
     assert "2024-01-15" in caption
 
 
+def test_build_result_caption_album_long_overview_truncated():
+    """Album overview > 300 chars truncated to 297 + '...'."""
+    result = {
+        "title": "Test Album",
+        "music_type": "album",
+        "artist_name": "Test Artist",
+        "overview": "A" * 350,
+    }
+
+    caption = build_result_caption(result)
+
+    assert "A" * 297 + "..." in caption
+    assert "A" * 298 not in caption
+
+
 def test_build_result_caption_song():
     """Song result with album and artist."""
     result = {
