@@ -46,7 +46,7 @@ Every test and gate runs through `~/.local/share/agent-suite/with-suite-lock.sh 
         - `tests/test_handlers/test_auth_handler.py`: #210 tests use `_stored`/`_matches`; new #274 section (format, random salt, cap, malformed, legacy SHA256, reuse).
     - **Notes:** `auth.py` is at 100% in the handlers run; integration (782) and architecture (263) tests pass. No new integration test: the hash is not a user-facing flow, and `tests/integration/test_auth_flow.py` still passes.
 
-- [ ] **1.2** Update CLAUDE.md
+- [x] **1.2** Update CLAUDE.md
     - **Context:**
         - **Why:** CLAUDE.md line 151 says `authenticated_users_hash` is a sha256; docs drift tests and readers rely on it.
         - **Architecture:** Docs only.
@@ -58,3 +58,7 @@ Every test and gate runs through `~/.local/share/agent-suite/with-suite-lock.sh 
         - [GREEN] Reword: `authenticated_users_hash` is a salted PBKDF2-HMAC-SHA256 value (`pbkdf2_sha256$<iterations>$<salt>$<hash>`) of `telegram.password`; `AuthHandler.__init__` clears the list when it does not match, is missing, or is an old plain-SHA256 value.
         - [GREEN] Check `.claude/skills/` for a stale `sha256` mention of this hash.
     - **Success:** `pytest tests/test_architecture --tb=short -v` passes.
+    - **Completed:** 2026-11-05
+    - **Learnings:** Only `CLAUDE.md:151` named the old sha256 hash; no skill or ADR mentions it.
+    - **Key Changes:** `CLAUDE.md` Authentication decorator bullet describes the PBKDF2 format, the mismatch cases and the cached value.
+    - **Notes:** Architecture tests (158) pass.
