@@ -68,7 +68,7 @@ architecture tests (`test_repo_docs.py`, `test_skills.py`) are the guard: run th
         - `CLAUDE.md` (Docker section), `README.md` (permissions note) and `config-patterns.md` (constants table): dropped the names.
     - **Notes:** The F191 grep over `src/`, `docker-compose.yml`, `.dockerignore` and `CLAUDE.md` still finds `CHATID_PATH` (`src/definitions.py:24`, `src/utils/helpers.py`). Task 1.4 removes it after #226 merges. Checks: architecture 155 passed; config 126 passed and utils 229 passed, both at 100% coverage.
 
-- [ ] **1.3** Remove the Helm lines in `.github/` (developer approved, 2026-11-05)
+- [x] **1.3** Remove the Helm lines in `.github/` (developer approved, 2026-11-05)
     - **Context:**
         - **Why:** The issue's acceptance grep names both files. The developer approved editing them in this PR; the PR body must say so.
         - **Architecture:** One tree line and one exclude pattern.
@@ -81,6 +81,13 @@ architecture tests (`test_repo_docs.py`, `test_skills.py`) are the guard: run th
         - [GREEN] Delete `r'^helm/',` from `EXCLUDE_PATTERNS`
         - [GREEN] Run the architecture suite
     - **Success:** `grep -rniI helm . --exclude-dir=.git --exclude-dir=graphify-out --exclude-dir=.venv --exclude-dir=issues` finds only `transcribe.md`; the workflow YAML still parses; architecture tests pass.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - The `EXCLUDE_PATTERNS` entry only kept `helm/` out of the AI review's file list. With `helm/` gone it never matches, so removing it changes no review behavior.
+    - **Key Changes:**
+        - `.github/copilot-instructions.md`: removed the `helm/` line from the structure tree.
+        - `.github/workflows/auto-approve.yml`: removed `r'^helm/',` from `EXCLUDE_PATTERNS`.
+    - **Notes:** The developer approved both edits (relayed by the orchestrator, 2026-11-05); the PR body must say so. `auto-approve.yml` still parses with `yaml.safe_load`. Architecture suite: 155 passed.
 
 - [ ] **1.4** Delete `CHATID_PATH` (conditional: only when #226 is merged)
     - **Context:**
