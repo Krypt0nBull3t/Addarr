@@ -40,7 +40,7 @@ Plan: `docs/issues/issue-208/plan.md`. F160, F161 (repo settings) and the `v0.9.
     - **Key Changes:** `docs/issues/issue-160/plan.md`: one added line (item 5).
     - **Notes:** `.github/workflows/ci.yml` is unchanged.
 
-- [ ] **1.3** Prepare the PR body: release notes and developer actions
+- [x] **1.3** Prepare the PR body: release notes and developer actions
     - **Context:**
         - **Why:** The issue wants release notes that name the changed defaults, with no changelog file. The notes go in the GitHub Release, which the developer publishes.
         - **Architecture:** No file in the repo. The text goes in the PR body (create-pr step 7), under "Release notes for v0.9.0 (for the GitHub Release)". It has "Changed defaults" and "Upgrade notes" sections.
@@ -52,3 +52,7 @@ Plan: `docs/issues/issue-208/plan.md`. F160, F161 (repo settings) and the `v0.9.
         - [GREEN] Draft the "Release notes for v0.9.0" section: changed defaults (chatMode `private_only`, `enableAdmin` with `onlyAdmin`, `enableAllowlist`, `/auth` rate limit) and the upgrade notes (#263, #258, #254, #259, #188, #191, #252, #254/#192 tags keys, plus any found by the scan).
         - [GREEN] Add the "Developer actions" list: F160 re-enable CodeQL, F161 enable Dependabot security alerts (check `vulnerability-alerts` returns 204), F163 tag `v0.9.0` and publish the GitHub Release after the release PR merges to `main`. State F162 is done by #269 and F164 by #238.
     - **Success:** The PR body names the `private_only` chatMode default and the enforced `onlyAdmin`, lists every upgrade note, lists the developer actions, and the repo has no new changelog file.
+    - **Completed:** 2026-11-05
+    - **Learnings:** 119 merged PRs since `main`. Upgrade notes sit in the bodies of #263, #258, #254, #188, #191, #252, #192, #259 and #193. Dependabot PRs have "breaking" text that is not about Addarr.
+    - **Key Changes:** none in the repo. The PR body is drafted at create-pr time.
+    - **Notes:** `onlyAdmin` only matters when `enableAdmin` is true.
