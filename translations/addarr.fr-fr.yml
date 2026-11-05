@@ -258,6 +258,7 @@ fr-fr:
   DownloadsItemResumed: "Élément repris."
   DownloadsPauseError: "Échec de la mise en pause de l'élément."
   DownloadsResumeError: "Échec de la reprise de l'élément."
+  DownloadsFetchError: "Impossible de joindre le client de téléchargement. Vérifie qu'il fonctionne et que la clé API est correcte."
   DownloadsNotEnabled: "Aucun client de téléchargement n'est activé."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

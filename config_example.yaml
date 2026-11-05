@@ -33,6 +33,7 @@ radarr:
   adminRestrictions: false  # Only admins can search and add movies (works without enableAdmin)
 
 # Sonarr Configuration (TV Shows)
+# Sonarr v4 is required (Sonarr v3 is not supported)
 sonarr:
   enable: false  # Set to true to enable Sonarr
   server:

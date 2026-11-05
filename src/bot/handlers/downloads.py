@@ -12,6 +12,10 @@ from src.services.sabnzbd import SABnzbdService
 from src.services.transmission import TransmissionService
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
+    DL_CLIENT_CODES,
+    DL_PAGE_SIZE,
+    clamp_page,
+    get_downloads_error_keyboard,
     get_downloads_queue_keyboard,
     get_downloads_history_keyboard,
 )
@@ -20,6 +24,8 @@ from src.utils.chat import edit_text_ignoring_unmodified
 from src.utils.helpers import admin_only, is_admin
 
 logger = get_logger("addarr.handlers.downloads")
+
+CODE_TO_CLIENT = {code: name for name, code in DL_CLIENT_CODES.items()}
 
 
 class DownloadsHandler:
@@ -58,10 +64,12 @@ class DownloadsHandler:
                 pattern=r"^dl_resume_(?!all)",
             ),
             CallbackQueryHandler(
-                self.handle_downloads_pauseall, pattern=r"^dl_pauseall$"
+                self.handle_downloads_pauseall,
+                pattern=r"^dl_pauseall(_(sab|tx))?$",
             ),
             CallbackQueryHandler(
-                self.handle_downloads_resumeall, pattern=r"^dl_resumeall$"
+                self.handle_downloads_resumeall,
+                pattern=r"^dl_resumeall(_(sab|tx))?$",
             ),
             CallbackQueryHandler(
                 self.handle_downloads_refresh, pattern=r"^dl_refresh$"
@@ -81,20 +89,40 @@ class DownloadsHandler:
             return "sabnzbd"
         return "transmission"
 
-    def _get_active_service(self, context):
-        """Return the service for the current dl_client."""
-        client = context.user_data.get("dl_client", self._get_default_client())
+    def _service_for(self, client):
+        """Return the service for a client name."""
         if client == "transmission":
             return self.transmission_service
         return self.sabnzbd_service
+
+    def _get_active_service(self, context):
+        """Return the service for the current dl_client."""
+        return self._service_for(self._get_client_name(context))
 
     def _get_client_name(self, context):
         """Return the active client name string."""
         return context.user_data.get("dl_client", self._get_default_client())
 
-    def _parse_item_id(self, raw_id, context):
+    def _split_item_callback(self, data, prefix, context):
+        """Return (client, raw item id) from item callback data.
+
+        New buttons carry the client (`dl_pause_tx_7`). Old messages carry
+        only the id (`dl_pause_7`), so they follow `user_data`.
+        """
+        rest = data[len(prefix):]
+        code, sep, tail = rest.partition("_")
+        if sep and code in CODE_TO_CLIENT:
+            return CODE_TO_CLIENT[code], tail
+        return self._get_client_name(context), rest
+
+    def _all_callback_client(self, data, context):
+        """Return the client of a pause-all or resume-all callback."""
+        code = data.rpartition("_")[2]
+        return CODE_TO_CLIENT.get(code) or self._get_client_name(context)
+
+    def _parse_item_id(self, raw_id, client):
         """Parse item ID: int for Transmission, string for SABnzbd."""
-        if self._get_client_name(context) == "transmission":
+        if client == "transmission":
             try:
                 return int(raw_id)
             except (ValueError, TypeError):
@@ -138,6 +166,14 @@ class DownloadsHandler:
 
         service = self._get_active_service(context)
         queue = await service.get_queue_details()
+        if queue is None:
+            await update.message.reply_text(
+                self.translation.get_text("DownloadsFetchError"),
+                reply_markup=get_downloads_error_keyboard(
+                    self._client_param(context)
+                ),
+            )
+            return
         text = self._format_queue_text(queue)
         keyboard = get_downloads_queue_keyboard(
             queue["items"],
@@ -161,11 +197,9 @@ class DownloadsHandler:
         query = update.callback_query
         await query.answer()
 
-        new_client = query.data.replace("dl_client_", "")
-        if new_client == "sab":
-            context.user_data["dl_client"] = "sabnzbd"
-        elif new_client == "tx":
-            context.user_data["dl_client"] = "transmission"
+        new_client = CODE_TO_CLIENT.get(query.data.replace("dl_client_", ""))
+        if new_client:
+            context.user_data["dl_client"] = new_client
 
         context.user_data["dl_tab"] = "queue"
         context.user_data["dl_page"] = 0
@@ -228,10 +262,12 @@ class DownloadsHandler:
     ):
         """Handle per-item pause."""
         query = update.callback_query
-        raw_id = query.data.replace("dl_pause_", "")
-        item_id = self._parse_item_id(raw_id, context)
+        client, raw_id = self._split_item_callback(
+            query.data, "dl_pause_", context
+        )
+        item_id = self._parse_item_id(raw_id, client)
         await self._do_action(
-            query, context, "pause_item", item_id,
+            query, context, client, "pause_item", item_id,
             "DownloadsItemPaused", "DownloadsPauseError",
         )
 
@@ -241,10 +277,12 @@ class DownloadsHandler:
     ):
         """Handle per-item resume."""
         query = update.callback_query
-        raw_id = query.data.replace("dl_resume_", "")
-        item_id = self._parse_item_id(raw_id, context)
+        client, raw_id = self._split_item_callback(
+            query.data, "dl_resume_", context
+        )
+        item_id = self._parse_item_id(raw_id, client)
         await self._do_action(
-            query, context, "resume_item", item_id,
+            query, context, client, "resume_item", item_id,
             "DownloadsItemResumed", "DownloadsResumeError",
         )
 
@@ -253,8 +291,10 @@ class DownloadsHandler:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Handle pause all."""
+        query = update.callback_query
         await self._do_action(
-            update.callback_query, context, "pause_queue", None,
+            query, context, self._all_callback_client(query.data, context),
+            "pause_queue", None,
             "DownloadsPaused", "DownloadsPauseError",
         )
 
@@ -263,8 +303,10 @@ class DownloadsHandler:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Handle resume all."""
+        query = update.callback_query
         await self._do_action(
-            update.callback_query, context, "resume_queue", None,
+            query, context, self._all_callback_client(query.data, context),
+            "resume_queue", None,
             "DownloadsResumed", "DownloadsResumeError",
         )
 
@@ -273,29 +315,41 @@ class DownloadsHandler:
     # -----------------------------------------------------------------
 
     async def _do_action(
-        self, query, context, method_name, item_id,
+        self, query, context, client, method_name, item_id,
         success_key, error_key,
     ):
-        """Execute a service action and show result toast."""
-        client = self._get_client_name(context)
+        """Execute a service action on `client` and show result toast."""
         if admin_only(client) and not is_admin(query.from_user.id):
             await query.answer(
                 text=self.translation.get_text("NotAdmin"), show_alert=True,
             )
             return
-        service = self._get_active_service(context)
+        service = self._service_for(client)
         method = getattr(service, method_name)
         success = await (method(item_id) if item_id is not None else method())
         if success:
             await query.answer(
                 text=self.translation.get_text(success_key)
             )
+            if context.user_data.get("dl_client") != client:
+                # The button belongs to another client than the open view
+                context.user_data.update(
+                    dl_client=client, dl_tab="queue", dl_page=0,
+                )
             await self._refresh_current_view(query, context)
         else:
             await query.answer(
                 text=self.translation.get_text(error_key),
                 show_alert=True,
             )
+
+    @staticmethod
+    def _clamp_dl_page(context, page, items):
+        """Clamp the page to the item count and remember it."""
+        total_pages = -(-len(items) // DL_PAGE_SIZE)
+        page = clamp_page(page, total_pages)
+        context.user_data["dl_page"] = page
+        return page
 
     async def _refresh_current_view(self, query, context):
         """Re-fetch data and edit the message for the current tab/page."""
@@ -306,20 +360,26 @@ class DownloadsHandler:
 
         if tab == "history" and self._show_history_tab(context):
             history = await service.get_history()
+            page = self._clamp_dl_page(context, page, history["items"])
             text = self._format_history_text(history, page=page)
             keyboard = get_downloads_history_keyboard(
                 history["items"], page=page, client=client_param,
             )
         else:
             queue = await service.get_queue_details()
-            text = self._format_queue_text(queue)
-            keyboard = get_downloads_queue_keyboard(
-                queue["items"],
-                page=page,
-                paused=queue["paused"],
-                client=client_param,
-                show_history_tab=self._show_history_tab(context),
-            )
+            if queue is None:
+                text = self.translation.get_text("DownloadsFetchError")
+                keyboard = get_downloads_error_keyboard(client_param)
+            else:
+                page = self._clamp_dl_page(context, page, queue["items"])
+                text = self._format_queue_text(queue)
+                keyboard = get_downloads_queue_keyboard(
+                    queue["items"],
+                    page=page,
+                    paused=queue["paused"],
+                    client=client_param,
+                    show_history_tab=self._show_history_tab(context),
+                )
 
         await edit_text_ignoring_unmodified(
             query.message, text, reply_markup=keyboard
@@ -348,7 +408,7 @@ class DownloadsHandler:
 
         return "\n".join(lines)
 
-    def _format_history_text(self, history, page=0, page_size=5):
+    def _format_history_text(self, history, page=0, page_size=DL_PAGE_SIZE):
         """Format history data into display text for the given page."""
         t = self.translation.get_text
         title = t("DownloadsHistoryTitle")

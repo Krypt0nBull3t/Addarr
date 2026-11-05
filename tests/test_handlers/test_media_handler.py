@@ -414,6 +414,7 @@ MOVIE_PROFILES = {
     "type": "quality_selection",
     "profiles": [{"id": 1, "name": "HD"}, {"id": 2, "name": "4K"}],
     "root_folder": "/movies",
+    "movie": {"tmdbId": 123, "title": "Test"},
 }
 
 
@@ -433,7 +434,7 @@ async def test_handle_selection_default_profile_skips_picker(
 
     assert result == ConversationHandler.END
     media_handler._mock_service.add_movie_with_profile.assert_awaited_once_with(
-        "123", 2, "/movies"
+        "123", 2, "/movies", lookup=MOVIE_PROFILES["movie"]
     )
     update.callback_query.message.edit_text.assert_called_once()
     sent = update.callback_query.message.edit_text.call_args.kwargs
@@ -1326,7 +1327,10 @@ async def test_handle_season_confirm_future_episodes(
         "selected_seasons": set(),
         "future_mode": "future_episodes",
         "monitor_all": False,
-        "quality_data": {"seasons": [{"seasonNumber": 1}]},
+        "quality_data": {
+            "seasons": [{"seasonNumber": 1}],
+            "series": {"tvdbId": 123, "title": "Test"},
+        },
     })
 
     result = await media_handler.handle_season_confirm(update, context)
@@ -1334,7 +1338,11 @@ async def test_handle_season_confirm_future_episodes(
     assert result == ConversationHandler.END
     call_args = media_handler._mock_service.add_series_with_profile.call_args
     assert call_args[0][3] == [{"seasonNumber": 1, "monitored": False}]
-    assert call_args[1] == {"monitor": "future"}
+    # The lookup result the add flow already holds goes on: no second lookup.
+    assert call_args[1] == {
+        "monitor": "future",
+        "lookup": {"tvdbId": 123, "title": "Test"},
+    }
 
 
 @pytest.mark.asyncio
@@ -1396,7 +1404,7 @@ async def test_handle_season_confirm_selected_with_future(
         {"seasonNumber": 1, "monitored": True},
         {"seasonNumber": 2, "monitored": False},
     ]
-    assert call_args[1] == {"monitor": None}
+    assert call_args[1] == {"monitor": None, "lookup": None}
 
 
 @pytest.mark.asyncio
@@ -1744,8 +1752,8 @@ async def test_show_result_last_result(media_handler, make_message):
 
 
 @pytest.mark.asyncio
-async def test_show_result_tmdb_rating(media_handler, make_message):
-    """_show_result includes TMDB rating for series."""
+async def test_show_result_series_rating(media_handler, make_message):
+    """_show_result includes the rating for series."""
     message = make_message()
     result = {
         "id": "123",
@@ -1753,26 +1761,25 @@ async def test_show_result_tmdb_rating(media_handler, make_message):
         "overview": "Overview",
         "year": 2024,
         "poster": None,
-        "ratings": {"tmdb": "8.5", "votes": 1000},
+        "ratings": {"value": "8.5", "votes": 1000},
     }
 
     await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "TMDB" in caption
+    assert "Rating: 8.5/10 (1,000 votes)" in caption
 
 
 @pytest.mark.asyncio
-async def test_show_result_network_and_studio(media_handler, make_message):
-    """_show_result shows network and studio for TV shows."""
+async def test_show_result_shows_network_for_tv_shows(media_handler, make_message):
+    """_show_result shows the network and no studio for TV shows."""
     message = make_message()
     result = {
         "id": "123",
         "title": "Test",
         "overview": "Overview",
         "poster": None,
-        "studio": "Sony",
         "network": "HBO",
     }
 
@@ -1780,27 +1787,8 @@ async def test_show_result_network_and_studio(media_handler, make_message):
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "HBO" in caption
-
-
-@pytest.mark.asyncio
-async def test_show_result_network_same_as_studio(media_handler, make_message):
-    """_show_result shows only network when same as studio."""
-    message = make_message()
-    result = {
-        "id": "123",
-        "title": "Test",
-        "overview": "Overview",
-        "poster": None,
-        "studio": "HBO",
-        "network": "HBO",
-    }
-
-    await show_result(message, result, 0, 1)
-
-    call_args = message.reply_text.call_args
-    caption = call_args[0][0]
-    assert "HBO" in caption
+    assert "📺 Network: HBO\n" in caption
+    assert "Studio" not in caption
 
 
 @pytest.mark.asyncio
@@ -1862,21 +1850,21 @@ async def test_show_result_rt_na_rating(media_handler, make_message):
 
 @pytest.mark.asyncio
 async def test_show_result_tmdb_na_rating(media_handler, make_message):
-    """_show_result handles N/A TMDB rating."""
+    """_show_result handles N/A series rating."""
     message = make_message()
     result = {
         "id": "123",
         "title": "Test",
         "overview": "Overview",
         "poster": None,
-        "ratings": {"tmdb": "N/A"},
+        "ratings": {"value": "N/A"},
     }
 
     await show_result(message, result, 0, 1)
 
     call_args = message.reply_text.call_args
     caption = call_args[0][0]
-    assert "TMDB" not in caption
+    assert "Rating" not in caption
 
 
 @pytest.mark.asyncio
@@ -2061,19 +2049,19 @@ async def test_build_result_caption_movie_with_year_and_ratings(
 
 
 @pytest.mark.asyncio
-async def test_build_result_caption_series_with_tmdb(media_handler):
-    """_build_result_caption includes TMDB rating for series."""
+async def test_build_result_caption_series_with_rating(media_handler):
+    """_build_result_caption includes the rating for series."""
     result = {
         "id": "456",
         "title": "Test Series",
         "overview": "Series overview",
         "year": 2024,
-        "ratings": {"tmdb": "8.5", "votes": 1000},
+        "ratings": {"value": "8.5", "votes": 1000},
     }
 
     caption = build_result_caption(result)
 
-    assert "TMDB" in caption
+    assert "Rating" in caption
     assert "8.5" in caption
     assert "1,000" in caption
 

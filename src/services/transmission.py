@@ -104,18 +104,13 @@ class TransmissionService:
             return f"{minutes}m {seconds}s"
         return f"{seconds}s"
 
-    async def get_queue_details(self) -> Dict[str, Any]:
-        """Get torrent queue matching SABnzbd's return shape."""
-        empty = {
-            "paused": False,
-            "speed": "0 B/s",
-            "size_remaining": "0 MB",
-            "items_count": 0,
-            "items": [],
-        }
+    async def get_queue_details(self) -> Optional[Dict[str, Any]]:
+        """Get torrent queue matching SABnzbd's return shape.
 
+        Returns None when the fetch failed or the client is missing.
+        """
         if not self.client:
-            return empty
+            return None
 
         try:
             response = await self.client.get_torrents()
@@ -157,7 +152,7 @@ class TransmissionService:
 
         except Exception as e:
             logger.error(f"Failed to get queue details: {str(e)}")
-            return empty
+            return None
 
     async def pause_item(self, torrent_id: int) -> bool:
         """Pause a single torrent."""

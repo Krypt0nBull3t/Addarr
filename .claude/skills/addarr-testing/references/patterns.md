@@ -55,6 +55,23 @@ async def test_search_connection_error(radarr_client, aio_mock, radarr_url):
     assert results == []
 ```
 
+### Server That Answers Differently per Query
+
+A fixed reply cannot show a bug that depends on the request. SABnzbd answers `mode=version` without a key and checks the key for other modes. Use an `aioresponses` callback that behaves like the server:
+
+```python
+from aioresponses import CallbackResult
+
+def fake_sabnzbd(url, **kwargs):
+    if url.query.get("mode") == "version":
+        return CallbackResult(payload={"version": "4.3.0"})
+    if url.query.get("apikey") == "good-key":
+        return CallbackResult(payload={"queue": {}})
+    return CallbackResult(payload={"status": False, "error": "API Key Incorrect"})
+
+aio_mock.get(re.compile(r"^http://localhost:8090/api.*"), callback=fake_sabnzbd)
+```
+
 ### POST Requests (add_movie, add_series, add_artist)
 
 ```python

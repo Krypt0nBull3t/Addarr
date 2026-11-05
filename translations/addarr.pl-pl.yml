@@ -258,6 +258,7 @@ pl-pl:
   DownloadsItemResumed: "Element wznowiony."
   DownloadsPauseError: "Nie udało się wstrzymać elementu."
   DownloadsResumeError: "Nie udało się wznowić elementu."
+  DownloadsFetchError: "Nie można połączyć się z klientem pobierania. Sprawdź, czy działa i czy klucz API jest poprawny."
   DownloadsNotEnabled: "Żaden klient pobierania nie jest włączony."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

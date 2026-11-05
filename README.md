@@ -201,6 +201,7 @@ For more options, see [🛠️ Installation](#️-installation)
 - Python 3.10 or higher
 - pip (Python package installer)
 - At least one of: Radarr, Sonarr, or Lidarr instance(s)
+- Sonarr v4 is required (Sonarr v3 is not supported)
 - Telegram Bot Token (from @BotFather)
 
 ### Python Installation

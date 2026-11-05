@@ -258,6 +258,7 @@ de-de:
   DownloadsItemResumed: "Element fortgesetzt."
   DownloadsPauseError: "Fehler beim Pausieren des Elements."
   DownloadsResumeError: "Fehler beim Fortsetzen des Elements."
+  DownloadsFetchError: "Der Download-Client ist nicht erreichbar. Prüfe, ob er läuft und ob der API-Schlüssel stimmt."
   DownloadsNotEnabled: "Keine Download-Clients aktiviert."
   DownloadsClientSabnzbd: "SABnzbd"
   DownloadsClientTransmission: "Transmission"

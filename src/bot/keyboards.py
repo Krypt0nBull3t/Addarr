@@ -858,6 +858,14 @@ def _build_queue_filter_row(active_filter, translation):
     return row
 
 
+DL_PAGE_SIZE = 5
+
+
+def clamp_page(page: int, total_pages: int) -> int:
+    """Clamp a 0-indexed page into 0..total_pages-1 (0 when there are no pages)."""
+    return min(max(page, 0), max(total_pages, 1) - 1)
+
+
 def _build_dl_pagination_row(page: int, total_pages: int) -> list:
     """Build pagination nav row for downloads keyboards."""
     if total_pages <= 1:
@@ -890,7 +898,7 @@ def _build_pagination_row(prefix: str, page: int, total_pages: int) -> list:
     """
     if total_pages <= 1:
         return []
-    page = min(max(page, 0), total_pages - 1)
+    page = clamp_page(page, total_pages)
     nav_row = []
     if page > 0:
         nav_row.append(
@@ -944,6 +952,10 @@ def get_delete_items_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
+# Short client codes in downloads callback_data (64-byte limit)
+DL_CLIENT_CODES = {"sabnzbd": "sab", "transmission": "tx"}
+
+
 def _build_dl_client_tab_row(client: str) -> list:
     """Build client switcher row for multi-client downloads keyboards."""
     sab_mark = "\u2713 " if client == "sabnzbd" else ""
@@ -959,7 +971,8 @@ def _build_dl_client_tab_row(client: str) -> list:
 
 
 def get_downloads_queue_keyboard(
-    items: list, page: int, paused: bool = False, page_size: int = 5,
+    items: list, page: int, paused: bool = False,
+    page_size: int = DL_PAGE_SIZE,
     client: Optional[str] = None, show_history_tab: bool = True,
 ) -> InlineKeyboardMarkup:
     """Get keyboard for downloads queue view.
@@ -975,9 +988,15 @@ def get_downloads_queue_keyboard(
     keyboard = []
 
     total_pages = max(1, -(-len(items) // page_size))
+    page = clamp_page(page, total_pages)
     start = page * page_size
     end = start + page_size
     page_items = items[start:end]
+
+    # Multi-client mode: each action button names the client it was drawn for
+    code = DL_CLIENT_CODES.get(client or "")
+    item_tag = f"{code}_" if code else ""
+    all_tag = f"_{code}" if code else ""
 
     for item in page_items:
         nzo_id = item.get("nzo_id", "")
@@ -997,14 +1016,14 @@ def get_downloads_queue_keyboard(
             keyboard.append([
                 InlineKeyboardButton(
                     "\u25b6\ufe0f Resume",
-                    callback_data=f"dl_resume_{nzo_id}"
+                    callback_data=f"dl_resume_{item_tag}{nzo_id}"
                 )
             ])
         else:
             keyboard.append([
                 InlineKeyboardButton(
                     "\u23f8 Pause",
-                    callback_data=f"dl_pause_{nzo_id}"
+                    callback_data=f"dl_pause_{item_tag}{nzo_id}"
                 )
             ])
 
@@ -1036,13 +1055,14 @@ def get_downloads_queue_keyboard(
     if paused:
         action_row.append(
             InlineKeyboardButton(
-                "\u25b6\ufe0f Resume All", callback_data="dl_resumeall"
+                "\u25b6\ufe0f Resume All",
+                callback_data=f"dl_resumeall{all_tag}",
             )
         )
     else:
         action_row.append(
             InlineKeyboardButton(
-                "\u23f8 Pause All", callback_data="dl_pauseall"
+                "\u23f8 Pause All", callback_data=f"dl_pauseall{all_tag}"
             )
         )
     action_row.append(
@@ -1056,7 +1076,7 @@ def get_downloads_queue_keyboard(
 
 
 def get_downloads_history_keyboard(
-    items: list, page: int, page_size: int = 5,
+    items: list, page: int, page_size: int = DL_PAGE_SIZE,
     client: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
     """Get keyboard for downloads history view.
@@ -1070,6 +1090,7 @@ def get_downloads_history_keyboard(
     keyboard = []
 
     total_pages = max(1, -(-len(items) // page_size))
+    page = clamp_page(page, total_pages)
     start = page * page_size
     end = start + page_size
     page_items = items[start:end]
@@ -1123,6 +1144,23 @@ def get_back_keyboard(callback_data: str) -> InlineKeyboardMarkup:
             callback_data=callback_data,
         )
     ]])
+
+
+def get_downloads_error_keyboard(
+    client: Optional[str] = None,
+) -> InlineKeyboardMarkup:
+    """Keyboard for the downloads error view: client switcher and Refresh.
+
+    Args:
+        client: Active client name ('sabnzbd'/'transmission') or None for single-client.
+    """
+    keyboard = []
+    if client is not None:
+        keyboard.append(_build_dl_client_tab_row(client))
+    keyboard.append([
+        InlineKeyboardButton("\U0001f504 Refresh", callback_data="dl_refresh")
+    ])
+    return InlineKeyboardMarkup(keyboard)
 
 
 def get_yes_no_keyboard(callback_prefix: str, yes_text: str = "Yes", no_text: str = "No") -> InlineKeyboardMarkup:
