@@ -52,7 +52,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - Deleted `TestLoadConfig`, `TestGetAdmins`, `TestGetAllowedChats`, `TestIsAllowedChat`
     - **Notes:** `src/definitions.py` is now constants only
 
-- [ ] **1.3** Delete the dead models
+- [x] **1.3** Delete the dead models
     - **Context:**
         - **Why:** F260: `src/models/media.py` and `src/models/notification.py` are imported only by `src/models/__init__.py`
         - **Architecture:** `src/models/webhook.py` is live (`webhook.py`, `webhook_formatter.py`): the package stays
@@ -66,6 +66,16 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [GREEN] Trim `src/models/__init__.py` (docstring about webhook models, no deleted imports); fix `tests/test_models/conftest.py` if it names them
         - [GREEN] Change the `models` description (`Data models (media, notification)`) in `scripts/test_runner.py` and CLAUDE.md to webhook models
     - **Success:** `scripts/test_runner.py models --coverage` passes, flake8 and mypy clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `tests/test_models/conftest.py` loaded `media.py` and `notification.py` by file path: it needed the same trim
+        - Task 1.2 left `get_admins()` named in `.claude/skills/addarr-services/references/config-patterns.md:88`; `test_skill_names_exist[addarr-services]` caught it. Fixed in this commit. Run the architecture tests after every task that edits `src/` names
+        - `services --coverage` alone shows 99% (`src/services/rate_limit.py`): other test dirs cover it, the full suite gate is in 1.9
+    - **Key Changes:**
+        - Deleted `src/models/media.py`, `src/models/notification.py`, `tests/test_models/test_media.py`, `tests/test_models/test_notification.py`
+        - `src/models/__init__.py` has a docstring only; `tests/test_models/conftest.py` no longer loads the deleted modules
+        - `models` text in `scripts/test_runner.py` and CLAUDE.md line 77: `Data models (webhook events)`
+    - **Notes:** `src/models/webhook.py` is imported by its full path elsewhere, so the empty `__init__.py` is enough
 
 - [ ] **1.4** Delete `get_metadata_profiles` in `src/api/lidarr.py`
     - **Context:**

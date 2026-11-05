@@ -11,7 +11,7 @@ Domains:
     api         API clients (radarr, sonarr, lidarr, bazarr, transmission)
     services    Service layer (media, health, translation, notification, etc.)
     handlers    Telegram bot handlers (auth, media, start, help, etc.)
-    models      Data models (media, notification)
+    models      Data models (webhook events)
     bot         Bot structure (states, keyboards)
     utils       Utilities (chat, helpers, validation, error_handler, backup)
     config      Configuration (settings, validation)

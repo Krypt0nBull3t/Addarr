@@ -74,7 +74,7 @@ pytest -x                                   # Stop on first failure
 python scripts/test_runner.py api --coverage        # API clients
 python scripts/test_runner.py services --coverage   # Service layer
 python scripts/test_runner.py handlers --coverage   # Bot handlers
-python scripts/test_runner.py models --coverage     # Data models
+python scripts/test_runner.py models --coverage     # Data models (webhook events)
 python scripts/test_runner.py bot --coverage        # Bot structure
 python scripts/test_runner.py utils --coverage      # Utilities
 python scripts/test_runner.py config --coverage     # Configuration
