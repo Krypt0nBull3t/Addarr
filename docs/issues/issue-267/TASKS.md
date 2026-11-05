@@ -28,7 +28,7 @@ Plan: `docs/issues/issue-267/plan.md`
         - The three new tests failed for the right reasons before the files existed: `FileNotFoundError` for `AGENTS.md` and a missing `AGENTS.md` mention in the `CLAUDE.md` Agents section.
         - `AGENTS.md` paths are checked with the same `REPO_PATH` regex as `CLAUDE.md`, so only code spans with a `src/`, `tests/`, `docs/`, `.github/` or `.claude/` prefix are verified. `CLAUDE.md` itself has no such prefix, so a test asserts its name.
     - **Key Changes:**
-        - Created `AGENTS.md` (12 lines, five reviewer rules, points to `CLAUDE.md`).
+        - Created `AGENTS.md` (14 lines, five reviewer rules, points to `CLAUDE.md`).
         - `tests/test_architecture/test_repo_docs.py`: new helper `missing_paths()`, new tests `test_agents_md_paths_exist`, `test_agents_md_has_reviewer_rules`, `test_claude_md_names_agents_md`.
         - `CLAUDE.md` § Agents: one bullet for `AGENTS.md`.
     - **Notes:** The reviewer reads `AGENTS.md` from its working directory, so a worker branch gets the rules only after it merges `development`.
