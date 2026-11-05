@@ -33,54 +33,86 @@ class TestHealthServiceSingleton:
 
 
 class TestDisplayHealthStatus:
-    def test_all_healthy(self, capsys):
-        results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
-                {"name": "Sonarr", "healthy": True, "status": "Online (v3.0.0)"},
-            ],
-            "download_clients": [
-                {"name": "SABnzbd", "healthy": True, "status": "Online (v3.5.0)"},
-            ],
-        }
-        result = display_health_status(results)
+    HEALTHY = {
+        "media_services": [
+            {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
+            {"name": "Sonarr", "healthy": True, "status": "Online (v3.0.0)"},
+        ],
+        "download_clients": [
+            {"name": "SABnzbd", "healthy": True, "status": "Online (v3.5.0)"},
+        ],
+    }
+    UNHEALTHY = {
+        "media_services": [
+            {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
+            {"name": "Sonarr", "healthy": False, "status": "Error: HTTP 500"},
+        ],
+        "download_clients": [],
+    }
+
+    @staticmethod
+    def _messages(log_method):
+        return [c.args[0] for c in log_method.call_args_list]
+
+    def test_all_healthy(self):
+        with patch("src.services.health.logger") as mock_logger:
+            result = display_health_status(self.HEALTHY)
+
         assert result is True
+        assert any(
+            "All services are healthy" in m
+            for m in self._messages(mock_logger.info)
+        )
+        mock_logger.error.assert_not_called()
 
-        output = capsys.readouterr().out
-        assert "All services are healthy" in output
+    def test_some_unhealthy(self):
+        with patch("src.services.health.logger") as mock_logger:
+            result = display_health_status(self.UNHEALTHY)
 
-    def test_some_unhealthy(self, capsys):
-        results = {
-            "media_services": [
-                {"name": "Radarr", "healthy": True, "status": "Online (v4.7.0)"},
-                {"name": "Sonarr", "healthy": False, "status": "Error: HTTP 500"},
-            ],
-            "download_clients": [],
-        }
-        result = display_health_status(results)
         assert result is False
+        assert any(
+            "Some services are not responding" in m
+            for m in self._messages(mock_logger.error)
+        )
 
-        output = capsys.readouterr().out
-        assert "Some services are not responding" in output
+    def test_service_status_lines_are_logged(self):
+        with patch("src.services.health.logger") as mock_logger:
+            display_health_status(self.UNHEALTHY)
 
-    def test_no_media_services(self, capsys):
+        logged = " ".join(
+            self._messages(mock_logger.info)
+            + self._messages(mock_logger.warning)
+        )
+        assert "Radarr" in logged and "Online (v4.7.0)" in logged
+        assert "Sonarr" in logged and "Error: HTTP 500" in logged
+
+    @pytest.mark.parametrize("results", [HEALTHY, UNHEALTHY])
+    def test_health_output_goes_to_logger_not_stdout(self, results, capsys):
+        with patch("src.services.health.logger"):
+            display_health_status(results)
+
+        assert capsys.readouterr().out == ""
+
+    def test_no_media_services(self):
         results = {
             "media_services": [],
             "download_clients": [
                 {"name": "SABnzbd", "healthy": True, "status": "Online"},
             ],
         }
-        result = display_health_status(results)
+        with patch("src.services.health.logger"):
+            result = display_health_status(results)
         assert result is True
 
-    def test_no_download_clients(self, capsys):
+    def test_no_download_clients(self):
         results = {
             "media_services": [
                 {"name": "Radarr", "healthy": True, "status": "Online"},
             ],
             "download_clients": [],
         }
-        result = display_health_status(results)
+        with patch("src.services.health.logger"):
+            result = display_health_status(results)
         assert result is True
 
 

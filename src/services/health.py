@@ -34,33 +34,32 @@ def display_health_status(results: Dict[str, List[Dict]]) -> bool:
     Returns:
         bool: True if all enabled services are healthy
     """
-    print(f"\n{Fore.CYAN}{'═' * 50}")
-    print(f"{Fore.CYAN} 🏥 Starting initial service health check...")
-    print(f"{Fore.CYAN}{'═' * 50}")
+    logger.info("🏥 Starting initial service health check...")
 
     all_healthy = True
 
-    if results["media_services"]:
-        print(f"\n{Fore.YELLOW}Media Services:")
-        for service in results["media_services"]:
-            status_color = Fore.GREEN if service["healthy"] else Fore.RED
-            print(f"• {service['name']}: {status_color}{service['status']}{Style.RESET_ALL}")
-            all_healthy &= service["healthy"]
-
-    if results["download_clients"]:
-        print(f"\n{Fore.YELLOW}Download Clients:")
-        for client in results["download_clients"]:
-            status_color = Fore.GREEN if client["healthy"] else Fore.RED
-            print(f"• {client['name']}: {status_color}{client['status']}{Style.RESET_ALL}")
-            all_healthy &= client["healthy"]
-
-    print(f"\n{Fore.CYAN}{'═' * 50}")
+    for title, entries in (
+        ("Media Services", results["media_services"]),
+        ("Download Clients", results["download_clients"]),
+    ):
+        if not entries:
+            continue
+        logger.info(f"{title}:")
+        for entry in entries:
+            line = f"• {entry['name']}: {entry['status']}"
+            if entry["healthy"]:
+                logger.info(line)
+            else:
+                logger.warning(line)
+            all_healthy &= entry["healthy"]
 
     if all_healthy:
-        print(f"{Fore.GREEN}✅ All services are healthy!\n")
+        logger.info("✅ All services are healthy!")
     else:
-        print(f"{Fore.RED}❌ Some services are not responding!\n")
-        print(f"{Fore.YELLOW}Please check your configuration and ensure all services are running.\n")
+        logger.error("❌ Some services are not responding!")
+        logger.warning(
+            "Please check your configuration and ensure all services are running."
+        )
 
     return all_healthy
 

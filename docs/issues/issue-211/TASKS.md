@@ -36,7 +36,7 @@ Run every test and every `git push` through the suite lock:
         - `tests/test_main.py`: `TestMain` and `TestRunBot` `test_keyboard_interrupt_log_has_no_literal_fore`.
     - **Notes:** The f-string puts a real ANSI code in the log line, as the issue asks.
 
-- [ ] **1.2** F146: health status goes through the logger
+- [x] **1.2** F146: health status goes through the logger
     - **Context:**
         - **Why:** `display_health_status` writes to stdout with `print()`, so the lines are not in the log file.
         - **Architecture:** `logger = get_logger("addarr.health")` already exists in `src/services/health.py`.
@@ -49,6 +49,14 @@ Run every test and every `git push` through the suite lock:
         - [RED] Add `test_health_output_goes_to_logger_not_stdout` with `capsys` (`out == ""`), healthy and unhealthy.
         - [GREEN] Replace `print()` with `logger.info` / `warning` / `error`; drop colour codes; remove the `colorama` import if unused.
     - **Success:** New test fails before, passes after; `tests/test_services/test_health_service.py` green.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - `print()` only appeared in `display_health_status`; the other `Fore`/`Style` uses in `health.py` are logger lines and stay.
+        - Healthy lines log at info, unhealthy lines at warning, the summary at error (`main.py` logs its own error line after a failed check).
+    - **Key Changes:**
+        - `src/services/health.py`: `display_health_status` logs through `logger`; the two entry lists share one loop.
+        - `tests/test_services/test_health_service.py`: display tests patch `logger`; new stdout-is-empty test.
+    - **Notes:** The box-drawing header lines are gone; log lines are plain text.
 
 - [ ] **1.3** F144: disk check covers every enabled app
     - **Context:**
