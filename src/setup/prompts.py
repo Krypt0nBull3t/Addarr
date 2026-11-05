@@ -4,12 +4,37 @@ All functions are standalone async, returning values instead of mutating state.
 The wizard assigns return values to its config dict.
 """
 
+import secrets
 from typing import Dict, Any, List, Optional
 
 import questionary
 from colorama import Fore
 
 from src.definitions import CHAT_MODES
+
+MIN_PASSWORD_LENGTH = 12
+
+
+async def _prompt_chat_password() -> Optional[str]:
+    """Ask for the chat password.
+
+    The prompt is pre-filled with a random proposal; Enter accepts it. A typed
+    password shorter than MIN_PASSWORD_LENGTH is refused and asked again.
+    Returns None when the prompt is cancelled.
+    """
+    proposal = secrets.token_urlsafe(16)
+    while True:
+        password = await questionary.text(
+            "Chat password (Enter keeps the generated one, or type your own, "
+            f"at least {MIN_PASSWORD_LENGTH} characters):",
+            default=proposal,
+        ).ask_async()
+        if password is None or len(password) >= MIN_PASSWORD_LENGTH:
+            return password
+        print(
+            f"{Fore.RED}❌ The password needs at least "
+            f"{MIN_PASSWORD_LENGTH} characters."
+        )
 
 
 async def select_services() -> List[str]:
@@ -135,9 +160,7 @@ async def configure_telegram() -> Dict[str, str]:
         "token": await questionary.password(
             "Enter your Telegram bot token (from @BotFather):"
         ).ask_async(),
-        "password": await questionary.password(
-            "Enter a password for chat authentication:"
-        ).ask_async(),
+        "password": await _prompt_chat_password(),
     }
 
 
@@ -339,9 +362,7 @@ async def configure_required_value(
             ).ask_async()
             # Add password field if it doesn't exist
             if "password" not in config["telegram"]:
-                config["telegram"]["password"] = await questionary.password(
-                    "Enter a password for chat authentication:"
-                ).ask_async()
+                config["telegram"]["password"] = await _prompt_chat_password()
     elif service in ["radarr", "sonarr", "lidarr"]:
         if value == "apikey":
             if service not in config:

@@ -54,7 +54,7 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
 
 **Goal:** The wizard proposes a random password; a typed password needs 12+ characters.
 
-- [ ] **2.1** Shared password prompt in the wizard
+- [x] **2.1** Shared password prompt in the wizard
     - **Context:**
         - **Why:** Any non-empty password is accepted today, at two prompt sites.
         - **Architecture:** `_prompt_chat_password()` in `prompts.py`, used by `configure_telegram` and the telegram branch of `configure_required_value`. `src/setup/` never imports `src.config.settings` (ADR 0005).
@@ -68,6 +68,14 @@ Plan: `docs/issues/issue-210/plan.md`. Design: `docs/issues/issue-210/design.md`
         - [RED] Update the two existing tests to mock `questionary.text`
         - [GREEN] Implement the helper and use it at both sites
     - **Success:** new tests fail before and pass after; `scripts/test_runner.py setup --coverage` keeps 100%.
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - A mutation (`MIN_PASSWORD_LENGTH = 1`) turned `test_rejects_11_characters` red, so the test can fail on the rule.
+        - The existing tests mocked `questionary.password` for both prompts; the token stays a hidden prompt, only the password moved to `questionary.text`.
+    - **Key Changes:**
+        - `src/setup/prompts.py`: `MIN_PASSWORD_LENGTH = 12`, `_prompt_chat_password()`; both prompt sites use it.
+        - `tests/test_setup/test_prompts.py`: `TestPromptChatPassword` (4 tests); two existing tests now mock `questionary.text`.
+    - **Notes:** The password prompt is visible by design (the generated value must be readable). A cancelled prompt still returns `None`, as before.
 
 ### Phase 3: Revoke on password change (F091) (1 task)
 

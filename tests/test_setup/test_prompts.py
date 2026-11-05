@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.setup.prompts import (
+    _prompt_chat_password,
     select_services,
     configure_language,
     configure_telegram,
@@ -138,6 +139,57 @@ class TestConfigureLanguage:
 # ---------------------------------------------------------------------------
 
 
+class TestPromptChatPassword:
+    """Tests for _prompt_chat_password() (#210)."""
+
+    @pytest.mark.asyncio
+    async def test_proposes_token_urlsafe_value(self):
+        """The prompt is pre-filled with a secrets.token_urlsafe(16) value."""
+        with patch("src.setup.prompts.questionary") as mock_q, \
+             patch("src.setup.prompts.secrets.token_urlsafe",
+                   return_value="proposed-value-xyz") as mock_token:
+            mock_q.text.return_value = _mock_questionary_ask("proposed-value-xyz")
+
+            result = await _prompt_chat_password()
+
+        mock_token.assert_called_once_with(16)
+        assert mock_q.text.call_args.kwargs["default"] == "proposed-value-xyz"
+        assert result == "proposed-value-xyz"
+
+    @pytest.mark.asyncio
+    async def test_rejects_11_characters(self):
+        """A typed password of 11 characters is refused and asked again."""
+        ask = MagicMock()
+        ask.ask_async = AsyncMock(side_effect=["a" * 11, "b" * 12])
+        with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.text.return_value = ask
+
+            result = await _prompt_chat_password()
+
+        assert result == "b" * 12
+        assert ask.ask_async.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_accepts_12_characters(self):
+        """A typed password of exactly 12 characters is accepted."""
+        ask = _mock_questionary_ask("a" * 12)
+        with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.text.return_value = ask
+
+            result = await _prompt_chat_password()
+
+        assert result == "a" * 12
+        assert ask.ask_async.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_none_returned_as_is(self):
+        """A cancelled prompt (None) is returned, not measured."""
+        with patch("src.setup.prompts.questionary") as mock_q:
+            mock_q.text.return_value = _mock_questionary_ask(None)
+
+            assert await _prompt_chat_password() is None
+
+
 class TestConfigureTelegram:
     """Tests for configure_telegram()."""
 
@@ -145,17 +197,12 @@ class TestConfigureTelegram:
     async def test_returns_dict_with_token_and_password(self):
         """Returns dict with token and password keys."""
         with patch("src.setup.prompts.questionary") as mock_q:
-            mock_q.password.return_value = _mock_questionary_ask("my-token")
-            # password is called twice: token then password
-            password_mock = MagicMock()
-            password_mock.ask_async = AsyncMock(
-                side_effect=["bot-token-123", "chat-password"]
-            )
-            mock_q.password.return_value = password_mock
+            mock_q.password.return_value = _mock_questionary_ask("bot-token-123")
+            mock_q.text.return_value = _mock_questionary_ask("chat-password-ok")
 
             result = await configure_telegram()
 
-        assert result == {"token": "bot-token-123", "password": "chat-password"}
+        assert result == {"token": "bot-token-123", "password": "chat-password-ok"}
 
 
 # ---------------------------------------------------------------------------
@@ -433,16 +480,13 @@ class TestConfigureRequiredValue:
         """Configures telegram token and password."""
         config = {}
         with patch("src.setup.prompts.questionary") as mock_q:
-            password_mock = MagicMock()
-            password_mock.ask_async = AsyncMock(
-                side_effect=["bot-token", "chat-pass"]
-            )
-            mock_q.password.return_value = password_mock
+            mock_q.password.return_value = _mock_questionary_ask("bot-token")
+            mock_q.text.return_value = _mock_questionary_ask("chat-pass-12345")
 
             result = await configure_required_value(config, "telegram", "token")
 
         assert result["telegram"]["token"] == "bot-token"
-        assert result["telegram"]["password"] == "chat-pass"
+        assert result["telegram"]["password"] == "chat-pass-12345"
 
     @pytest.mark.asyncio
     async def test_telegram_token_existing_password(self):
