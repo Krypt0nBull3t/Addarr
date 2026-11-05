@@ -9,6 +9,6 @@ This package provides a user-friendly interface for searching, adding, and
 managing media content across multiple services.
 """
 
-__version__ = "0.8"
+__version__ = "0.9.0"
 __author__ = "Christian Blank"
 __email__ = "christian.blank@protonmail.com"
