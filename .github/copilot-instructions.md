@@ -51,7 +51,6 @@ src/
   main.py        # Bot initialization and startup
 tests/           # Mirrors src/ structure
 translations/    # addarr.<locale>.yml files
-helm/            # Kubernetes Helm chart
 ```
 
 ## Build and Test Commands
