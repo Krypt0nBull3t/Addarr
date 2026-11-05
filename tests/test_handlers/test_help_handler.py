@@ -201,3 +201,81 @@ def test_get_handler_returns_list():
 
         assert isinstance(handlers, list)
         assert len(handlers) > 0
+
+
+# ---------------------------------------------------------------------------
+# Help text against the shipped en-us file and the registered commands (F120)
+# ---------------------------------------------------------------------------
+
+ALL_SERVICES = dict(radarr=True, sonarr=True, lidarr=True,
+                    transmission=True, sabnzbd=True, bazarr=True)
+NEW_COMMANDS = ["/preferences", "/webhooks", "/upcoming", "/missing",
+                "/queue", "/history", "/downloads"]
+
+
+def _en_us_translation():
+    """A TranslationService stand-in that reads the shipped en-us file."""
+    import yaml
+    from pathlib import Path
+
+    path = Path(__file__).parents[2] / "translations" / "addarr.en-us.yml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))["en-us"]
+
+    def get_text(key, **kw):
+        value = data[key]
+        return value % kw if kw else value
+
+    mock_ts = MagicMock()
+    mock_ts.get_text = get_text
+    return MagicMock(return_value=mock_ts)
+
+
+def _real_help_text(**config_kwargs):
+    config = _make_config(**config_kwargs)
+    with patch("src.bot.handlers.help.TranslationService",
+               _en_us_translation()), \
+         patch("src.bot.handlers.help.config", config):
+        return _make_handler()._build_help_text()
+
+
+def test_help_lists_new_commands_and_no_library():
+    """Help lists the 7 commands the bot registers, and no /library."""
+    help_text = _real_help_text(**ALL_SERVICES)
+
+    for command in NEW_COMMANDS:
+        assert command in help_text
+    assert "/library" not in help_text
+
+
+def test_help_hides_arr_and_download_commands_when_off():
+    """With every service off, gated commands are absent, the rest stay."""
+    help_text = _real_help_text()
+
+    for command in ["/upcoming", "/missing", "/queue", "/history",
+                    "/downloads"]:
+        assert command not in help_text
+    assert "/preferences" in help_text
+    assert "/webhooks" in help_text
+
+
+@pytest.mark.parametrize("services", [
+    {},
+    {"radarr": True},
+    {"sonarr": True},
+    {"lidarr": True},
+    {"transmission": True},
+    {"sabnzbd": True},
+    {"bazarr": True},
+    ALL_SERVICES,
+])
+def test_help_matches_registered_commands(services):
+    """Help lists exactly the commands build_authenticated_commands registers."""
+    import re
+    from src.bot.commands import build_authenticated_commands
+
+    with patch("src.bot.commands.config", _make_config(**services)):
+        registered = {c.command for c in build_authenticated_commands()}
+
+    help_text = _real_help_text(**services)
+
+    assert set(re.findall(r"/(\w+) -", help_text)) == registered
