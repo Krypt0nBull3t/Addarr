@@ -318,6 +318,44 @@ class TestWantedMovies:
         assert "BazarrWantedEmpty" in call_text
 
 
+@pytest.mark.parametrize("method,service_method,items", [
+    ("wanted_movies", "get_wanted_movies",
+     [{"title": "Missing Movie", "missing_subtitles": [{"name": "English"}]}]),
+    ("wanted_movies", "get_wanted_movies", []),
+    ("wanted_episodes", "get_wanted_episodes",
+     [{"seriesTitle": "Test Show", "episode_number": "S01E01",
+       "episodeTitle": "Pilot", "missing_subtitles": [{"name": "English"}]}]),
+    ("wanted_episodes", "get_wanted_episodes", []),
+])
+@pytest.mark.asyncio
+@patch("src.bot.handlers.bazarr.TranslationService")
+@patch("src.bot.handlers.bazarr.BazarrService")
+async def test_wanted_lists_have_back_button(
+    mock_svc_class, mock_ts_class, make_update, make_context,
+    method, service_method, items,
+):
+    """Every wanted reply, empty or not, has a Back button to bazarr_menu."""
+    mock_svc = MagicMock()
+    setattr(mock_svc, service_method, AsyncMock(return_value=items))
+    mock_svc_class.return_value = mock_svc
+    mock_ts = MagicMock()
+    mock_ts.get_text = MagicMock(side_effect=lambda key, **kw: key)
+    mock_ts_class.return_value = mock_ts
+
+    from src.bot.handlers.bazarr import BazarrHandler
+
+    handler = BazarrHandler()
+    update = make_update(callback_data="bazarr_wanted")
+
+    await getattr(handler, method)(update, make_context())
+
+    markup = update.callback_query.edit_message_text.call_args.kwargs[
+        "reply_markup"
+    ]
+    callbacks = [b.callback_data for row in markup.inline_keyboard for b in row]
+    assert callbacks == ["bazarr_menu"]
+
+
 # ---------------------------------------------------------------------------
 # wanted_episodes
 # ---------------------------------------------------------------------------

@@ -130,12 +130,10 @@ class SystemHandler:
 
     async def _handle_refresh(self, query):
         """Re-run health checks and update the status display."""
+        await query.answer(self.translation.get_text("StatusRefreshed"))
         try:
             await health_service.run_health_checks()
             status_text = self._build_status_text()
-            await query.answer(
-                self.translation.get_text("StatusRefreshed")
-            )
             await edit_text_ignoring_unmodified(
                 query.message,
                 status_text,
@@ -148,50 +146,43 @@ class SystemHandler:
                 self.translation.get_text("StatusRefreshError"),
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer(
-                self.translation.get_text("StatusRefreshFailed")
-            )
 
     async def _handle_details(self, query):
         """Show detailed per-service health information."""
+        await query.answer()
         try:
             results = await health_service.run_health_checks()
             details_text = self._build_details_text(results)
-            await query.message.edit_text(
+            await edit_text_ignoring_unmodified(
+                query.message,
                 details_text,
                 reply_markup=get_system_keyboard(),
                 parse_mode="Markdown",
             )
-            await query.answer()
         except Exception as e:
             logger.error(f"Error getting service details: {e}")
             await query.message.edit_text(
                 self.translation.get_text("StatusDetailsError"),
                 reply_markup=get_system_keyboard(),
             )
-            await query.answer(
-                self.translation.get_text("StatusDetailsFailed")
-            )
 
     async def _handle_diskspace(self, query):
         """Show disk space information from every enabled *arr service."""
+        await query.answer()
         try:
             drives = await health_service.get_disk_space()
             text = _build_disk_space_text(drives, self.translation)
-            await query.message.edit_text(
+            await edit_text_ignoring_unmodified(
+                query.message,
                 text,
                 reply_markup=get_system_keyboard(),
                 parse_mode="Markdown",
             )
-            await query.answer()
         except Exception as e:
             logger.error(f"Error getting disk space: {e}")
             await query.message.edit_text(
                 self.translation.get_text("DiskSpaceError", default="Error retrieving disk space."),
                 reply_markup=get_system_keyboard(),
-            )
-            await query.answer(
-                self.translation.get_text("DiskSpaceFailed", default="Failed to get disk space.")
             )
 
     async def _handle_back(self, query):

@@ -11,7 +11,7 @@ from telegram import Update
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
-from src.bot.keyboards import get_main_menu_keyboard
+from src.bot.keyboards import get_back_keyboard, get_main_menu_keyboard
 from src.config.settings import config
 from src.services.translation import TranslationService
 from src import __version__
@@ -90,6 +90,7 @@ class HelpHandler:
                 help_text,
                 parse_mode='Markdown',
                 disable_web_page_preview=True,
+                reply_markup=get_back_keyboard("menu_back"),
             )
         else:
             await update.message.reply_text(

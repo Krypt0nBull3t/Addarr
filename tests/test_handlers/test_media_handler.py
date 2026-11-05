@@ -734,6 +734,19 @@ async def test_handle_menu_callback_movie(media_handler, make_update, make_conte
 
 
 @pytest.mark.asyncio
+async def test_handle_menu_callback_movie_answers_query(
+    media_handler, make_update, make_context
+):
+    """menu_movie stops the button spinner by answering the callback."""
+    update = make_update(callback_data="menu_movie")
+    context = make_context()
+
+    await media_handler.handle_menu_callback(update, context)
+
+    update.callback_query.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_handle_menu_callback_refuses_unauthenticated_user(
     media_handler, make_update, make_context
 ):

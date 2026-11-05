@@ -12,6 +12,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler
 from src.utils.logger import get_logger, log_user_interaction
 from src.services.media import MediaService
+from src.bot.keyboards import get_back_keyboard
 from src.services.translation import TranslationService
 from src.bot.handlers.auth import require_auth
 from src.services.rate_limit import rate_limit
@@ -97,7 +98,8 @@ class LibraryHandler:
             await query.message.edit_text(
                 self.translation.get_text(
                     "LibraryNotEnabled", subject=type_info["label"]
-                )
+                ),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
         except Exception:
@@ -106,7 +108,8 @@ class LibraryHandler:
                 exc_info=True,
             )
             await query.message.edit_text(
-                self.translation.get_text("LibraryError")
+                self.translation.get_text("LibraryError"),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
 
@@ -114,7 +117,8 @@ class LibraryHandler:
             await query.message.edit_text(
                 self.translation.get_text(
                     "LibraryEmpty", subject=type_info["label"]
-                )
+                ),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
 
@@ -211,8 +215,9 @@ class LibraryHandler:
                 )
             )
 
-        reply_markup = InlineKeyboardMarkup([buttons]) if buttons else None
-        return text, reply_markup
+        rows = [buttons] if buttons else []
+        rows.extend(get_back_keyboard("menu_library").inline_keyboard)
+        return text, InlineKeyboardMarkup(rows)
 
     @require_auth
     async def handle_page_navigation(self, update, context):
@@ -241,7 +246,8 @@ class LibraryHandler:
 
         if not items:
             await query.message.edit_text(
-                self.translation.get_text("LibraryExpired")
+                self.translation.get_text("LibraryExpired"),
+                reply_markup=get_back_keyboard("menu_library"),
             )
             return
 

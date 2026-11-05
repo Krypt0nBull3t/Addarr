@@ -45,7 +45,7 @@ class MissingHandler:
         """Show missing/wanted media with inline keyboard."""
         log_user_interaction(logger, update.effective_user, "/missing")
 
-        context.user_data.setdefault("missing_filter", "all")
+        context.user_data["missing_filter"] = "all"
 
         items = await self.media_service.get_missing_media()
         context.user_data["missing_items"] = items
@@ -97,18 +97,23 @@ class MissingHandler:
             items = await self.media_service.get_missing_media()
             context.user_data["missing_items"] = items
             context.user_data["missing_filter"] = "all"
-        elif filter_type == "movie":
-            context.user_data["missing_filter"] = "movie"
-        elif filter_type == "series":
-            context.user_data["missing_filter"] = "episode"
+        elif filter_type in ("movie", "series"):
+            # The cached list may be the cutoff list: fetch the missing one
+            items = await self.media_service.get_missing_media()
+            context.user_data["missing_items"] = items
+            context.user_data["missing_filter"] = (
+                "movie" if filter_type == "movie" else "episode"
+            )
 
         items = context.user_data.get("missing_items", [])
         active_filter = context.user_data.get("missing_filter", "all")
         filtered = self._apply_filter(items, active_filter)
 
         text, keyboard = self._build_response(filtered, active_filter=active_filter)
-        await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
 
     async def _handle_page(self, query, context):
         """Show a different page of cached missing items."""
@@ -179,12 +184,15 @@ class MissingHandler:
                 f"\U0001f4ed {title}\n\n"
                 f"{len(items)} wanted items"
             )
-            keyboard = get_missing_items_keyboard(items, page, active_filter)
         else:
             text = (
                 f"\U0001f4ed {self.translation.get_text('MissingTitle')}"
                 f"\n\n{self.translation.get_text('MissingEmpty')}"
             )
+        # An empty filtered view keeps the filter row, so the user can leave
+        if items or active_filter != "all":
+            keyboard = get_missing_items_keyboard(items, page, active_filter)
+        else:
             keyboard = get_missing_empty_keyboard()
         return text, keyboard
 

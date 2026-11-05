@@ -21,6 +21,7 @@ from src.config.settings import config
 from src.utils.logger import get_logger, log_user_interaction
 from src.bot.handlers.auth import require_auth
 from src.bot.keyboards import (
+    get_main_menu_keyboard,
     get_settings_keyboard,
     get_language_keyboard,
     get_quality_profile_keyboard,
@@ -34,6 +35,7 @@ from src.services.media import MediaService
 from src.services.transmission import TransmissionService
 from src.services.sabnzbd import SABnzbdService
 from src.services.translation import TranslationService
+from src.utils.chat import edit_text_ignoring_unmodified
 from src.utils.helpers import is_admin
 
 logger = get_logger("addarr.settings")
@@ -112,6 +114,10 @@ class SettingsHandler:
                         CallbackQueryHandler(
                             self.handle_quality_select,
                             pattern="^setquality_"
+                        ),
+                        CallbackQueryHandler(
+                            self.handle_service_menu,
+                            pattern="^settings_(radarr|sonarr|lidarr)$"
                         ),
                         CallbackQueryHandler(
                             self.handle_settings_from_callback,
@@ -602,7 +608,7 @@ class SettingsHandler:
                 [
                     InlineKeyboardButton(
                         f"◀️ {self.translation.get_text('Back')}",
-                        callback_data="dl_back"
+                        callback_data="dl_sabnzbd"
                     ),
                 ],
             ]
@@ -649,7 +655,9 @@ class SettingsHandler:
 
         enabled = config.get("sabnzbd", {}).get("enable", False)
         keyboard = get_sabnzbd_settings_keyboard(enabled)
-        await query.message.edit_text(text, reply_markup=keyboard)
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
         return States.SETTINGS_DOWNLOADS
 
     # -- Users flow --
@@ -717,7 +725,8 @@ class SettingsHandler:
         query = update.callback_query
         await query.answer()
         await query.message.edit_text(
-            self.translation.get_text("End", default="Done.")
+            "\U0001f3e0 Main Menu",
+            reply_markup=get_main_menu_keyboard(),
         )
         return ConversationHandler.END
 

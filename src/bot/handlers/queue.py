@@ -45,7 +45,7 @@ class QueueHandler:
         """Show download queue with inline keyboard."""
         log_user_interaction(logger, update.effective_user, "/queue")
 
-        context.user_data.setdefault("queue_filter", "all")
+        context.user_data["queue_filter"] = "all"
 
         items = await self.media_service.get_queue_media()
         context.user_data["queue_items"] = items
@@ -101,8 +101,10 @@ class QueueHandler:
         text, keyboard = self._build_response(
             filtered, active_filter=active_filter
         )
-        await query.message.edit_text(text, reply_markup=keyboard)
         await query.answer()
+        await edit_text_ignoring_unmodified(
+            query.message, text, reply_markup=keyboard
+        )
 
     async def _handle_page(self, query, context):
         """Show a different page of cached queue items."""
@@ -149,12 +151,15 @@ class QueueHandler:
                 f"\U0001f4e5 {title}\n\n"
                 f"{len(items)} queue items"
             )
-            keyboard = get_queue_items_keyboard(items, page, active_filter)
         else:
             text = (
                 f"\U0001f4e5 {self.translation.get_text('QueueTitle')}"
                 f"\n\n{self.translation.get_text('QueueEmpty')}"
             )
+        # An empty filtered view keeps the filter row, so the user can leave
+        if items or active_filter != "all":
+            keyboard = get_queue_items_keyboard(items, page, active_filter)
+        else:
             keyboard = get_queue_empty_keyboard()
         return text, keyboard
 

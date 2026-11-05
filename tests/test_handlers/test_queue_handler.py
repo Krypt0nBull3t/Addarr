@@ -322,3 +322,55 @@ def test_get_handler_returns_list(queue_handler):
     handlers = queue_handler.get_handler()
     assert isinstance(handlers, list)
     assert len(handlers) >= 2
+
+
+@pytest.mark.asyncio
+async def test_filter_unchanged_message(
+    queue_handler, make_update, make_context, unchanged_edit
+):
+    """queue_filter_movie answers first and ignores an unchanged message."""
+    update = make_update(callback_data="queue_filter_movie")
+    calls = unchanged_edit(update.callback_query)
+    context = make_context(user_data={
+        "queue_items": [SAMPLE_QUEUE_MOVIE], "queue_filter": "movie"
+    })
+
+    await queue_handler.handle_queue_action(update, context)
+
+    assert calls == ["answer", "edit"]
+
+
+@pytest.mark.asyncio
+async def test_show_queue_resets_stored_filter(
+    queue_handler, make_update, make_context
+):
+    """/queue starts at the all filter, not the one left from last time."""
+    queue_handler._mock_service.get_queue_media = AsyncMock(
+        return_value=[SAMPLE_QUEUE_MOVIE, SAMPLE_QUEUE_EPISODE]
+    )
+    update = make_update(text="/queue")
+    context = make_context(user_data={"queue_filter": "movie"})
+
+    await queue_handler.show_queue(update, context)
+
+    assert context.user_data["queue_filter"] == "all"
+    kbd_call = queue_handler._mock_items_kbd.call_args
+    assert kbd_call[0][2] == "all"
+    assert len(kbd_call[0][0]) == 2
+
+
+@pytest.mark.asyncio
+async def test_empty_filtered_view_keeps_filter_row(
+    queue_handler, make_update, make_context
+):
+    """A filter without items still shows the items keyboard (filter row)."""
+    update = make_update(callback_data="queue_filter_album")
+    context = make_context(user_data={
+        "queue_items": [SAMPLE_QUEUE_MOVIE], "queue_filter": "all"
+    })
+
+    await queue_handler.handle_queue_action(update, context)
+
+    queue_handler._mock_items_kbd.assert_called_once()
+    assert queue_handler._mock_items_kbd.call_args[0][2] == "album"
+    queue_handler._mock_empty_kbd.assert_not_called()

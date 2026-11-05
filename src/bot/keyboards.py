@@ -323,7 +323,7 @@ def get_quality_profile_keyboard(
     keyboard.append([
         InlineKeyboardButton(
             f"◀️ {translation.get_text('Back')}",
-            callback_data="settings_back"
+            callback_data=f"settings_{service}"
         )
     ])
     return InlineKeyboardMarkup(keyboard)
@@ -1133,6 +1133,17 @@ def get_downloads_history_keyboard(
     ])
 
     return InlineKeyboardMarkup(keyboard)
+
+
+def get_back_keyboard(callback_data: str) -> InlineKeyboardMarkup:
+    """Get a keyboard with one Back button that sends callback_data."""
+    translation = TranslationService()
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"\u25c0\ufe0f {translation.get_text('Back')}",
+            callback_data=callback_data,
+        )
+    ]])
 
 
 def get_downloads_error_keyboard(
