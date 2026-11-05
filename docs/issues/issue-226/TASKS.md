@@ -117,7 +117,7 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - Deleted `log_exception` from `src/utils/logger.py`, `TestLogException` (2 tests) and its import
     - **Notes:** none
 
-- [ ] **1.6** Delete `show_token_help` in `src/utils/splash.py`
+- [x] **1.6** Delete `show_token_help` in `src/utils/splash.py`
     - **Context:**
         - **Why:** F260: no caller
         - **Architecture:** none
@@ -129,6 +129,12 @@ Deletion tasks have no new behavior, so the [RED] step is the proof that nothing
         - [RED] Grep `show_token_help` in `src/`, `tests/`, `scripts/`
         - [GREEN] Delete the function, the test class and the import
     - **Success:** `scripts/test_runner.py utils --coverage` passes, flake8 clean
+    - **Completed:** 2026-11-05
+    - **Learnings:**
+        - It was the last function in `splash.py`; no import became unused
+    - **Key Changes:**
+        - Deleted `show_token_help` from `src/utils/splash.py`, `TestShowTokenHelp` (5 tests) and its import
+    - **Notes:** `handle_token_error` in `src/utils/error_handler.py` is a different, live function
 
 - [ ] **1.7** Delete the unread `"message"` key in `src/services/media.py`
     - **Context:**
