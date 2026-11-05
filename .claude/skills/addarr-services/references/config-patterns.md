@@ -77,10 +77,7 @@ Defined in `src/definitions.py`:
 | `CONFIG_PATH` | `config.yaml` |
 | `CONFIG_EXAMPLE_PATH` | `config_example.yaml` |
 | `TRANSLATIONS_PATH` | `translations/` |
-| `CHATID_PATH` | `chatid.txt` |
 | `LOG_PATH` | `logs/addarr.log` |
-| `ADMIN_PATH` | `admin.txt` |
-| `ALLOWLIST_PATH` | `allowlist.txt` |
 | `DATA_PATH` | `data/` |
 | `PREFERENCES_PATH` | `data/user_preferences.json` |
 | `LEGACY_PREFERENCES_PATH` | `user_preferences.json` (read only when the `data/` file does not exist) |
