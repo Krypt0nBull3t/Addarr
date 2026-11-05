@@ -101,7 +101,7 @@ async def handle_search(self, update, context):
     if results:
         context.user_data["results"] = results
         await update.message.reply_text("Found!")
-        return States.SELECTING
+        return SELECTING  # from src.bot.handlers.media.dispatch
     await update.message.reply_text("Nothing found.")
     return ConversationHandler.END
 ```
