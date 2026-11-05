@@ -282,7 +282,8 @@ SABNZBD_QUEUE_DETAILED = {
         "status": "Downloading",
         "paused": False,
         "speed": "5.2 MB/s",
-        "size": "1.2 GB",
+        "size": "9.9 GB",
+        "sizeleft": "1.2 GB",
         "noofslots": 3,
         "slots": [
             {
@@ -342,6 +343,26 @@ class TestGetQueueDetails:
         paused_item = result["items"][2]
         assert paused_item["status"] == "Paused"
         assert paused_item["progress"] == 12
+
+    @pytest.mark.asyncio
+    async def test_get_queue_details_size_remaining_uses_sizeleft(
+        self, sabnzbd_service
+    ):
+        queue = {
+            "queue": {
+                "paused": False,
+                "speed": "1 MB/s",
+                "size": "10 GB",
+                "sizeleft": "2.5 GB",
+                "noofslots": 0,
+                "slots": [],
+            }
+        }
+        with aioresponses() as m:
+            m.get(SABNZBD_API_PATTERN, payload=queue, status=200)
+            result = await sabnzbd_service.get_queue_details()
+
+        assert result["size_remaining"] == "2.5 GB"
 
     @pytest.mark.asyncio
     async def test_get_queue_details_empty(self, sabnzbd_service):

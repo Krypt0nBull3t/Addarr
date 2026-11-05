@@ -225,7 +225,7 @@ class SABnzbdService:
                         return {
                             'paused': bool(queue.get('paused', False)),
                             'speed': queue.get('speed', '0 KB/s'),
-                            'size_remaining': queue.get('size', '0 MB'),
+                            'size_remaining': queue.get('sizeleft', '0 MB'),
                             'items_count': int(queue.get('noofslots', 0)),
                             'items': items,
                         }

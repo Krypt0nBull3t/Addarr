@@ -14,7 +14,7 @@ Branch: `fix/207-download-failures-look-like-success`.
 - Why NOT replace `_build_dl_pagination_row`: that is #223. Only add and share `clamp_page`.
 - Tasks 1.6, 1.7 and 1.8 edit the same handler method `_refresh_current_view`. Keep this order.
 
-- [ ] **1.1** F086: SABnzbd remaining size reads `sizeleft`
+- [x] **1.1** F086: SABnzbd remaining size reads `sizeleft`
     - **Context:**
         - **Why:** `size_remaining` is read from `size` (the total), so a big download shows remaining equal to total.
         - **Architecture:** One-line fix in the service. No layer change.
@@ -26,6 +26,10 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] Write `test_get_queue_details_size_remaining_uses_sizeleft` (queue `size` "10 GB", `sizeleft` "2.5 GB", expect "2.5 GB").
         - [GREEN] Use `queue.get('sizeleft', '0 MB')`.
     - **Success:** Test fails before, passes after. flake8 and mypy clean.
+    - **Completed:** 2026-11-05
+    - **Learnings:** The shared `SABNZBD_QUEUE_DETAILED` fixture used `size` for the remaining size, so the old assertion passed for the wrong reason.
+    - **Key Changes:** `src/services/sabnzbd.py` reads `sizeleft`. Added `test_get_queue_details_size_remaining_uses_sizeleft`. The fixture now has `size` 9.9 GB and `sizeleft` 1.2 GB.
+    - **Notes:** The other SABnzbd fixtures that use `size` as remaining size are #216.
 
 - [ ] **1.2** F081 services: `get_queue_details` returns `None` on a failed fetch
     - **Context:**
