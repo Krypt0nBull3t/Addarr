@@ -67,7 +67,7 @@ Branch: `fix/207-download-failures-look-like-success`.
     - **Key Changes:** `src/setup/validators.py` sends `mode=queue` with `apikey` as a query parameter and accepts a reply with the key `queue`. Added three SABnzbd tests in `tests/test_setup/test_validators.py`.
     - **Notes:** The printed URL does not include the query, so the key is not logged.
 
-- [ ] **1.4** F082: the wizard writes `host` and `port` for Transmission
+- [x] **1.4** F082: the wizard writes `host` and `port` for Transmission
     - **Context:**
         - **Why:** The wizard writes `server.addr` and `server.port`. `TransmissionClient` reads `host` and `port`, so a remote Transmission becomes localhost:9091.
         - **Architecture:** Setup layer only.
@@ -79,6 +79,10 @@ Branch: `fix/207-download-failures-look-like-success`.
         - [RED] `test_transmission_config_has_host_and_port` (success) and `test_transmission_config_skip_has_host_and_port` (retry False). Assert `host`, `port` and no `server` key.
         - [GREEN] Implement the helper. Transmission returns `{"host": addr, "port": port}`.
     - **Success:** Tests pass. The SABnzbd and arr tests still pass unchanged.
+    - **Completed:** 2026-11-05
+    - **Learnings:** `test_transmission_no_apikey_prompt` asserted the old `auth` shape; it now asserts `host`. The wizard's `_configure_service` merges the result into the default config (`host`, `authentication`, `username`, `password`), so the other Transmission keys stay.
+    - **Key Changes:** `get_valid_service_config` returns `{"host", "port"}` for Transmission in the success and the skip case (two early returns, no helper). Added two tests.
+    - **Notes:** Plan said a helper for the four return sites. Two early returns are smaller. `ssl` is not written (config_example has no Transmission `ssl`).
 
 - [ ] **1.5** F080: handlers show an error when an action returns `False`
     - **Context:**
