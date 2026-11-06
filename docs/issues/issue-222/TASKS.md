@@ -103,7 +103,7 @@ Run every test and gate through the suite lock (`<lock>` in the addarr-workflow 
 
 **Goal:** All CI checks pass locally before the PR.
 
-- [ ] **2.1** Preflight
+- [x] **2.1** Preflight
     - **Context:**
         - **Why:** CI requires lint, mypy, i18n, the 100% coverage gate, integration and architecture tests.
         - **Architecture:** `/addarr pr` runs review, then the preflight in `references/preflight.md`.
@@ -114,3 +114,7 @@ Run every test and gate through the suite lock (`<lock>` in the addarr-workflow 
     - **Action items:**
         - [GREEN] Run the create-pr flow
     - **Success:** Every preflight step passes
+    - **Completed:** 2026-11-05
+    - **Learnings:** None recorded
+    - **Key Changes:** None (verification only; PR #257 carries tasks 1.1 to 1.4)
+    - **Notes:** PR #257 merged 2026-11-05 with every CI check green (Lint, Type Check, Validate Translations, Unit, Integration and Architecture Tests, Compatibility, Docker Build)

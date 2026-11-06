@@ -89,3 +89,4 @@
     - **Learnings:**
         - Architecture tests run cleanly alongside existing tests — no conflicts with mock config injection since they only do static file analysis
     - **Key Changes:** None (verification only)
+    - **Notes:** None recorded

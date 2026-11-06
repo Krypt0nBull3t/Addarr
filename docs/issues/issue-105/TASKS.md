@@ -27,6 +27,13 @@
         - [GREEN] Implement `get_cutoff_unmet()` in `RadarrClient`
         - [GREEN] Implement `search_command()` in `RadarrClient`
     - **Success:** `python -m pytest tests/test_api/test_radarr.py -v` all pass, `python -m flake8 src/api/radarr.py` clean
+    - **Completed:** 2026-03-03
+    - **Learnings:** None recorded
+    - **Key Changes:**
+        - Added `get_missing()`, `get_cutoff_unmet()` and `search_command()` to `RadarrClient` in `src/api/radarr.py`
+        - Added `RADARR_WANTED_MISSING`, `RADARR_WANTED_CUTOFF`, `SONARR_WANTED_MISSING` and `SONARR_WANTED_CUTOFF` to `tests/fixtures/sample_data.py`
+        - Added the Radarr tests to `tests/test_api/test_radarr.py`
+    - **Notes:** The Sonarr sample data was added in this commit (`3afa7de`), ahead of task 1.2
 
 - [x] **1.2** Add missing/cutoff/search methods to SonarrClient
     - **Context:**
@@ -45,6 +52,12 @@
         - [GREEN] Implement `get_cutoff_unmet()` in `SonarrClient`
         - [GREEN] Implement `search_command()` in `SonarrClient`
     - **Success:** `python -m pytest tests/test_api/test_sonarr.py -v` all pass, `python -m flake8 src/api/sonarr.py` clean
+    - **Completed:** 2026-03-03
+    - **Learnings:** None recorded
+    - **Key Changes:**
+        - Added `get_missing()`, `get_cutoff_unmet()` and `search_command()` to `SonarrClient` in `src/api/sonarr.py`
+        - Added the Sonarr tests to `tests/test_api/test_sonarr.py`
+    - **Notes:** None recorded
 
 ---
 
